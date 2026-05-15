@@ -1,0 +1,8 @@
+# infrastructure/docker-compose.yml
+# Skeleton placeholder. Services land in Week 1 PR-Local-Dev.
+# Currently declares only the project name. Service definitions
+# (postgres, redis, minio, authentik, directus, listmonk) are added
+# in the dedicated Local Dev Setup PR per ARCHITECTURE.md
+# §"Local development (current target)".
+
+name: aiqadam-local

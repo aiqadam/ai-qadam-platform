@@ -1,0 +1,80 @@
+# --- Dependencies ----------------------------------------------------------
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+
+# --- Build / output artifacts ---------------------------------------------
+dist/
+build/
+out/
+.turbo/
+.astro/
+.output/
+.next/
+.nest/
+*.tsbuildinfo
+
+# --- Python (apps/bot, scripts) -------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Environment / secrets ------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+
+# --- Editor / IDE ----------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS junk --------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.bak
+*.orig
+*.rej
+
+# --- Logs -----------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# --- Test / coverage ------------------------------------------------------
+coverage/
+.nyc_output/
+
+# --- Caches ---------------------------------------------------------------
+.cache/
+*.cache
+
+# --- Claude Code per-developer settings -----------------------------------
+# settings.local.json is per-developer (always gitignored).
+# settings.json is also gitignored for now since it has accumulated
+# session-specific permission entries; will be re-introduced as a
+# project-shared baseline once we curate it.
+.claude/settings.json
+.claude/settings.local.json
+
+# --- Claude Code transcripts / state --------------------------------------
+.claude/projects/
+
+# --- Coolify / VM-side files (never in repo) ------------------------------
+# (Coolify state lives at /data/coolify on the host, never here.
+# Listed for awareness if anyone ever copies one into the repo.)
+coolify.env*
+coolify-env-backup*.txt
