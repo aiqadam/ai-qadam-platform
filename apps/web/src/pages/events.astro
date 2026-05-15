@@ -1,0 +1,16 @@
+---
+import { EventsList } from '../components/EventsList';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Events · AI Qadam">
+  <main class="container py-12">
+    <h1 class="text-3xl font-bold tracking-tight">Upcoming events</h1>
+    <p class="mt-2 text-sm text-gray-500">
+      Meetups, workshops, hackathons and online sessions across the region.
+    </p>
+    <div class="mt-8">
+      <EventsList client:load />
+    </div>
+  </main>
+</Layout>

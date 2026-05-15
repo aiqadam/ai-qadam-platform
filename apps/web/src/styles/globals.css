@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+/* Bring in the canonical design-system tokens + components per CLAUDE.md
+ * (the design-system folder is the visual source of truth). Importing keeps
+ * apps/web in sync with whatever lands there, instead of forking the CSS. */
+@import "../../../../design-system/tokens.css";
+@import "../../../../design-system/components.css";
