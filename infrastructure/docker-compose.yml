@@ -1,8 +1,101 @@
 # infrastructure/docker-compose.yml
-# Skeleton placeholder. Services land in Week 1 PR-Local-Dev.
-# Currently declares only the project name. Service definitions
-# (postgres, redis, minio, authentik, directus, listmonk) are added
-# in the dedicated Local Dev Setup PR per ARCHITECTURE.md
-# §"Local development (current target)".
+#
+# Local development shared services per ARCHITECTURE.md §"Local development".
+# Apps (apps/web, apps/api, apps/bot, apps/workers) run on the host for fast
+# feedback; this compose brings up the persistent + state-bearing services
+# they connect to via 127.0.0.1.
+#
+# All ports bound to 127.0.0.1 only — local dev must never accidentally expose
+# anything to the network. Production runs on Coolify on the platform host;
+# this file does not apply there.
+#
+# Usage from this directory:
+#   cp .env.example .env       # one-time
+#   docker compose up -d
+#   docker compose ps
+#   docker compose logs -f postgres
+#   docker compose down        # stop, keep data
+#   docker compose down -v     # stop + delete all data (destructive!)
+#
+# Services:
+#   postgres   — PostgreSQL 16 + pgvector  : 127.0.0.1:5432
+#   redis      — Redis 7                   : 127.0.0.1:6379
+#   minio      — S3-compatible storage     : 127.0.0.1:9000 (API), 127.0.0.1:9001 (console)
+#
+# Authentik, Directus, Listmonk follow in dedicated PRs as the auth, CMS, and
+# email-list features come online. When Authentik lands it will need port 9000;
+# at that point MinIO API moves to 9100 and we update ARCHITECTURE.md.
 
 name: aiqadam-local
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aiqadam-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/01-create-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aiqadam-redis
+    restart: unless-stopped
+    command:
+      - "redis-server"
+      - "--save"
+      - "60"
+      - "1"
+      - "--maxmemory"
+      - "256mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: aiqadam-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "127.0.0.1:${MINIO_API_HOST_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redis-data:
+  minio-data:
+
+networks:
+  default:
+    name: aiqadam-local
+    driver: bridge

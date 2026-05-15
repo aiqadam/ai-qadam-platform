@@ -74,11 +74,29 @@ design-system/          Canonical static HTML/CSS visual reference (tokens + com
 
 `apps/` and `packages/` are scaffolded but empty — the first product PRs (Phase 1 Week 1) populate them. The intended local-dev pattern:
 
-- `infrastructure/docker-compose.yml` brings up shared services (Postgres, Redis, MinIO, Authentik, Directus, Listmonk) on `localhost`
+- `infrastructure/docker-compose.yml` brings up state-bearing shared services on `localhost`
 - Apps run directly on the host for fast feedback (HMR, native debuggers)
-- A single `pnpm dev` at the repo root starts everything via Turborepo
+- A single `pnpm dev` at the repo root starts everything via Turborepo (once apps land)
 
-Detailed setup arrives with the **PR-Local-Dev** PR.
+### Bring up shared services
+
+Currently included: **PostgreSQL 16 + pgvector**, **Redis 7**, **MinIO**. Authentik, Directus, Listmonk join as those features land.
+
+```bash
+cd infrastructure
+cp .env.example .env       # edit if you have local services on the same ports
+docker compose up -d
+docker compose ps
+```
+
+Default host ports: Postgres `5432`, Redis `6379`, MinIO API `9000`, MinIO console `http://localhost:9001`. Override any of these via `*_HOST_PORT` env vars in your `.env` if you have a conflicting local service.
+
+The Postgres container creates four databases on first boot (`platform`, `directus`, `authentik`, `listmonk`) per [ARCHITECTURE.md §"Data ownership"](.claude/ARCHITECTURE.md), and installs `pgvector` on `platform`.
+
+```bash
+docker compose down        # stop, keep data volumes
+docker compose down -v     # stop + delete all data (destructive!)
+```
 
 ## Production deployment
 
