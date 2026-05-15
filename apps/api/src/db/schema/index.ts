@@ -8,3 +8,4 @@
 
 export * from './tenants';
 export * from '../../modules/users/schema';
+export * from '../../modules/auth/refresh-token.schema';

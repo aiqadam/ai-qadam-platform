@@ -15,6 +15,13 @@
       "when": 1778839234785,
       "tag": "0001_quick_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778840499757,
+      "tag": "0002_purple_butterfly",
+      "breakpoints": true
     }
   ]
 }

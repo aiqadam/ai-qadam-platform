@@ -9,12 +9,18 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 60_000,
     globalSetup: ['./test/setup-pg.ts'],
+    // Spec files write to the SAME Postgres container — parallel files race
+    // each other's `beforeEach` cleanup (one suite deletes rows the other
+    // is mid-test on). At Phase-1 scale (a few seconds total), serial files
+    // is faster than building per-file schema isolation.
+    fileParallelism: false,
     // The singleton `db` in src/db/index.ts validates DATABASE_URL at module
     // load. Tests construct their OWN Drizzle client from inject('TEST_DATABASE_URL')
     // and never use the singleton — this dummy just lets the import succeed.
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: 'postgresql://placeholder:placeholder@127.0.0.1:1/placeholder',
+      JWT_SIGNING_SECRET: 'test-jwt-signing-secret-at-least-32-chars-long-pad-pad',
     },
     coverage: {
       provider: 'v8',
