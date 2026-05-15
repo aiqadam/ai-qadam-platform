@@ -1,7 +1,22 @@
 @import "tailwindcss";
 
-/* Bring in the canonical design-system tokens + components per CLAUDE.md
- * (the design-system folder is the visual source of truth). Importing keeps
- * apps/web in sync with whatever lands there, instead of forking the CSS. */
+/* Canonical design-system per CLAUDE.md. Three layers, all consumed via
+ * @import so apps/web stays in sync when design-system/ updates:
+ *   tokens.css     — color palette (OKLCH), typography, spacing, radii
+ *   components.css — primitives (button, badge, card, avatar, input, etc.)
+ *   portal.css     — domain compositions (event-card, podium, scanner,
+ *                    timeline, hero, doc-shell, etc.)
+ * Brand teal is `--primary` (set in tokens.css). Dark mode is the default
+ * — Layout.astro renders <html data-theme="dark">. */
 @import "../../../../design-system/tokens.css";
 @import "../../../../design-system/components.css";
+@import "../../../../design-system/portal.css";
+
+/* Token-driven body. Tailwind's preflight applies first; this overrides
+ * the body bg/color so they follow the active theme. */
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
