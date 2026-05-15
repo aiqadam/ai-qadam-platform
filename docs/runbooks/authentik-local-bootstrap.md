@@ -68,10 +68,9 @@ In the admin UI:
    - Client Secret: leave the auto-generated value (you'll copy both in a moment)
    - Redirect URIs / Origins (one per line):
      ```
-     http://localhost:4321/auth/callback
-     http://localhost:3000/v1/auth/callback
+     http://localhost:4321/api/v1/auth/callback
      ```
-     — `4321` is the Astro dev server (web), `3000` is the NestJS dev server (api).
+     The web's Vite dev proxy (`apps/web/astro.config.mjs`) forwards `/api/*` to the NestJS dev server on `:3000`. Registering only the `:4321` URL keeps the `__Host-` refresh cookie same-origin (browser sends it on every XHR with `credentials: 'include'`). Production mirrors this via Caddy/Coolify on `aiqadam.org`.
    - Signing Key: `authentik Self-signed Certificate` (default).
    - Subject mode: `Based on the User's hashed ID` — stable, opaque per-user identifier for our `User.authentikSubject` column (see PR #7).
 4. Click **Finish**.

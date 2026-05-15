@@ -1,0 +1,16 @@
+---
+// Always-visible top nav. Auth state is determined client-side per ADR-0016
+// — see AuthGate.tsx. The "Sign in" / "Sign out" affordances live on /me
+// rather than here, since the nav is rendered server-side and would need
+// client-side hydration just to flip between the two.
+---
+
+<nav class="border-b border-gray-200 bg-white">
+  <div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-3">
+    <a href="/" class="text-sm font-semibold text-gray-900">AI Qadam</a>
+    <div class="space-x-4 text-sm text-gray-600">
+      <a href="/" class="hover:text-gray-900">Home</a>
+      <a href="/me" class="hover:text-gray-900">Account</a>
+    </div>
+  </div>
+</nav>
