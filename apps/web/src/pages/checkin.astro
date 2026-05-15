@@ -1,0 +1,13 @@
+---
+import { CheckinForm } from '../components/CheckinForm';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Check in · AI Qadam">
+  <main class="container py-12">
+    <h1 class="text-3xl font-bold tracking-tight">Event check-in</h1>
+    <div class="mt-8">
+      <CheckinForm client:load />
+    </div>
+  </main>
+</Layout>

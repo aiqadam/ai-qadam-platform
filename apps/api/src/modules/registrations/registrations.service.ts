@@ -15,6 +15,35 @@ interface MineEntry {
   };
 }
 
+export interface CheckinResult {
+  registration: Registration;
+  event: {
+    id: string;
+    title: string;
+    startsAt: Date;
+    endsAt: Date;
+    location: string | null;
+  };
+  // True if THIS call flipped status to 'attended'; false if the row was
+  // already 'attended'. Lets the controller distinguish first scan from
+  // a duplicate scan in its response.
+  alreadyCheckedIn: boolean;
+}
+
+export class CheckinNotFoundError extends Error {
+  constructor() {
+    super('check-in code not recognized');
+    this.name = 'CheckinNotFoundError';
+  }
+}
+
+export class CheckinIneligibleError extends Error {
+  constructor(reason: string) {
+    super(`registration is not eligible for check-in: ${reason}`);
+    this.name = 'CheckinIneligibleError';
+  }
+}
+
 interface CancelResult {
   cancelled: Registration | null;
   // Set when this cancel freed a registered seat AND someone on the waitlist
@@ -129,6 +158,40 @@ export class RegistrationsService {
     }));
   }
 
+  // QR check-in. Trust model: physical possession of the QR proves
+  // attendance — anyone with the code can flip status to 'attended'. Hardening
+  // (organizer-only check-in) lands in a follow-up. Idempotent: scanning the
+  // same code twice returns alreadyCheckedIn=true; status stays 'attended'.
+  // Throws CheckinNotFoundError on unknown code, CheckinIneligibleError on
+  // cancelled rows.
+  async checkin(checkinCode: string): Promise<CheckinResult> {
+    const rows = await this.db
+      .select({ registration: registrations, event: events })
+      .from(registrations)
+      .innerJoin(events, eq(events.id, registrations.eventId))
+      .where(eq(registrations.checkinCode, checkinCode))
+      .limit(1);
+    const row = rows[0];
+    if (!row) throw new CheckinNotFoundError();
+
+    if (row.registration.status === 'cancelled') {
+      throw new CheckinIneligibleError('cancelled');
+    }
+    if (row.registration.status === 'attended') {
+      return makeCheckinResult(row.registration, row.event, true);
+    }
+
+    const now = new Date();
+    const [updated] = await this.db
+      .update(registrations)
+      .set({ status: 'attended', checkedInAt: now, updatedAt: now })
+      .where(eq(registrations.id, row.registration.id))
+      .returning();
+    if (!updated) throw new Error('checkin update returned no row');
+
+    return makeCheckinResult(updated, row.event, false);
+  }
+
   // For badging the events list: which of these event IDs am I actively
   // associated with, and in what status? Returns a Map of eventId → status.
   // Empty input → empty map (no DB hit).
@@ -173,6 +236,24 @@ export class RegistrationsService {
     }
     return row;
   }
+}
+
+function makeCheckinResult(
+  registration: Registration,
+  event: Event,
+  alreadyCheckedIn: boolean,
+): CheckinResult {
+  return {
+    registration,
+    event: {
+      id: event.id,
+      title: event.title,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      location: event.location,
+    },
+    alreadyCheckedIn,
+  };
 }
 
 async function capacityAwareStatus(

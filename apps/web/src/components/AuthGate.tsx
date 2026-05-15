@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from 'react';
+import { MyRegistrations } from './MyRegistrations';
 
 // Minimal client-side auth island. On mount: POST /api/v1/auth/refresh with
 // the __Host- cookie (same-origin via Vite proxy in dev / Caddy in prod), get
@@ -13,7 +14,10 @@ interface Me {
   authentikSubject: string;
 }
 
-type State = { status: 'loading' } | { status: 'authed'; me: Me } | { status: 'anon' };
+type State =
+  | { status: 'loading' }
+  | { status: 'authed'; me: Me; accessToken: string }
+  | { status: 'anon' };
 
 async function loadSession(): Promise<State> {
   const refreshRes = await fetch('/api/v1/auth/refresh', {
@@ -28,7 +32,7 @@ async function loadSession(): Promise<State> {
   });
   if (!meRes.ok) return { status: 'anon' };
   const me = (await meRes.json()) as Me;
-  return { status: 'authed', me };
+  return { status: 'authed', me, accessToken };
 }
 
 function signOut(): void {
@@ -69,18 +73,24 @@ export function AuthGate(): ReactElement {
     );
   }
   return (
-    <div className="space-y-3">
-      <p className="text-gray-700">
-        Signed in as <strong>{state.me.email}</strong>
-      </p>
-      <p className="text-xs text-gray-500">User id: {state.me.id}</p>
-      <button
-        type="button"
-        onClick={signOut}
-        className="inline-block rounded border border-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-100"
-      >
-        Sign out
-      </button>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <p className="text-gray-700">
+          Signed in as <strong>{state.me.email}</strong>
+        </p>
+        <p className="text-xs text-gray-500">User id: {state.me.id}</p>
+        <button
+          type="button"
+          onClick={signOut}
+          className="inline-block rounded border border-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-100"
+        >
+          Sign out
+        </button>
+      </div>
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight mb-4">Your registrations</h2>
+        <MyRegistrations accessToken={state.accessToken} />
+      </div>
     </div>
   );
 }

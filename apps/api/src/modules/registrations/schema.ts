@@ -24,7 +24,12 @@ export const registrations = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     status: registrationStatus('status').notNull().default('registered'),
+    // Unique unguessable code printed on the user's QR. Knowing it is proof
+    // of physical possession of the ticket — see PR #16 docs for the trust
+    // model. Generated server-side at insert time; never re-rolled.
+    checkinCode: uuid('checkin_code').notNull().defaultRandom().unique(),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    checkedInAt: timestamp('checked_in_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

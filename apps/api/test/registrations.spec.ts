@@ -1,11 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { NotFoundException } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { afterAll, beforeEach, describe, expect, inject, it } from 'vitest';
 import { countries } from '../src/db/schema/tenants';
 import { events } from '../src/modules/events/schema';
-import { RegistrationsService } from '../src/modules/registrations/registrations.service';
+import {
+  CheckinIneligibleError,
+  CheckinNotFoundError,
+  RegistrationsService,
+} from '../src/modules/registrations/registrations.service';
 import { registrations } from '../src/modules/registrations/schema';
 import { users } from '../src/modules/users/schema';
 
@@ -231,6 +236,67 @@ describe('RegistrationsService.listMine', () => {
     const mine = await service.listMine({ userId: me, countryCode: 'uz' });
     const ids = mine.map((m) => m.event.id).sort();
     expect(ids).toEqual([fullEvent, openEvent].sort());
+  });
+});
+
+describe('RegistrationsService.checkin', () => {
+  beforeEach(resetTables);
+
+  it('flips status to attended on first scan + sets checkedInAt', async () => {
+    const userId = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz' });
+    const reg = await service.register({ userId, eventId, countryCode: 'uz' });
+
+    const result = await service.checkin(reg.checkinCode);
+
+    expect(result.alreadyCheckedIn).toBe(false);
+    expect(result.registration.status).toBe('attended');
+    expect(result.registration.checkedInAt).toBeInstanceOf(Date);
+    expect(result.event.id).toBe(eventId);
+  });
+
+  it('returns alreadyCheckedIn=true on second scan, no row mutation', async () => {
+    const userId = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz' });
+    const reg = await service.register({ userId, eventId, countryCode: 'uz' });
+
+    const first = await service.checkin(reg.checkinCode);
+    // Sleep so updatedAt would change if we wrote — proves we didn't.
+    await new Promise((r) => setTimeout(r, 10));
+    const second = await service.checkin(reg.checkinCode);
+
+    expect(second.alreadyCheckedIn).toBe(true);
+    expect(second.registration.checkedInAt?.getTime()).toBe(
+      first.registration.checkedInAt?.getTime(),
+    );
+  });
+
+  it('throws CheckinNotFoundError on an unknown code', async () => {
+    await expect(service.checkin(randomUUID())).rejects.toBeInstanceOf(CheckinNotFoundError);
+  });
+
+  it('throws CheckinIneligibleError when the registration was cancelled', async () => {
+    const userId = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz' });
+    const reg = await service.register({ userId, eventId, countryCode: 'uz' });
+    await service.cancel({ userId, eventId, countryCode: 'uz' });
+
+    await expect(service.checkin(reg.checkinCode)).rejects.toBeInstanceOf(CheckinIneligibleError);
+  });
+
+  it('checks in a waitlisted user too (the QR is the auth)', async () => {
+    const u1 = await makeUser();
+    const u2 = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz', capacity: 1 });
+    await service.register({ userId: u1, eventId, countryCode: 'uz' });
+    const waitlistedReg = await service.register({ userId: u2, eventId, countryCode: 'uz' });
+
+    const result = await service.checkin(waitlistedReg.checkinCode);
+
+    expect(result.registration.status).toBe('attended');
+    // Sanity: the OTHER row should still be 'registered'.
+    const others = await db.select().from(registrations).where(eq(registrations.userId, u1));
+    expect(others[0]?.status).toBe('registered');
   });
 });
 

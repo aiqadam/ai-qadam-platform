@@ -38,6 +38,8 @@ interface MineResponse {
   registrations: Array<{
     id: string;
     status: Status;
+    checkinCode: string;
+    checkedInAt: string | null;
     event: {
       id: string;
       title: string;
@@ -167,6 +169,8 @@ export class RegistrationsController {
       registrations: entries.map((e) => ({
         id: e.registration.id,
         status: e.registration.status,
+        checkinCode: e.registration.checkinCode,
+        checkedInAt: e.registration.checkedInAt?.toISOString() ?? null,
         event: {
           id: e.event.id,
           title: e.event.title,
