@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
-import { events } from '../events/schema';
+import { events, type Event } from '../events/schema';
 import { type Registration, registrations } from './schema';
 
 interface MineEntry {
@@ -15,56 +15,85 @@ interface MineEntry {
   };
 }
 
+interface CancelResult {
+  cancelled: Registration | null;
+  // Set when this cancel freed a registered seat AND someone on the waitlist
+  // got promoted. Controller uses this to fire the promotion email.
+  promoted: { registration: Registration; userId: string } | null;
+}
+
 @Injectable()
 export class RegistrationsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  // Idempotent register. Re-registering after a cancel flips the row back to
-  // 'registered' and clears cancelledAt. Re-registering while already
-  // registered is a no-op (returns the existing row).
+  // Idempotent register. Capacity-aware:
+  //   - event.capacity is null → always 'registered'
+  //   - registered count < capacity → 'registered'
+  //   - else → 'waitlisted'
+  // If a row already exists in registered/waitlisted, return as-is.
+  // If existing row was 'cancelled', re-evaluate capacity and reactivate.
   async register(input: {
     userId: string;
     eventId: string;
     countryCode: string;
   }): Promise<Registration> {
-    await this.assertEventVisible(input.eventId, input.countryCode);
+    const event = await this.requireVisibleEvent(input.eventId, input.countryCode);
 
-    const now = new Date();
-    const [row] = await this.db
-      .insert(registrations)
-      .values({ userId: input.userId, eventId: input.eventId, status: 'registered' })
-      .onConflictDoUpdate({
-        target: [registrations.eventId, registrations.userId],
-        set: { status: 'registered', cancelledAt: null, updatedAt: now },
-      })
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(registrations)
+        .where(
+          and(eq(registrations.eventId, input.eventId), eq(registrations.userId, input.userId)),
+        )
+        .limit(1);
 
-    if (!row) throw new Error('registrations upsert returned no row');
-    return row;
+      if (existing && (existing.status === 'registered' || existing.status === 'waitlisted')) {
+        return existing;
+      }
+
+      const status = await capacityAwareStatus(tx, event);
+      const now = new Date();
+      const [row] = await tx
+        .insert(registrations)
+        .values({ userId: input.userId, eventId: input.eventId, status })
+        .onConflictDoUpdate({
+          target: [registrations.eventId, registrations.userId],
+          set: { status, cancelledAt: null, updatedAt: now },
+        })
+        .returning();
+
+      if (!row) throw new Error('registrations upsert returned no row');
+      return row;
+    });
   }
 
-  // Cancel a registration. No-op if no row exists or already cancelled —
-  // returns the row anyway for the caller to inspect. Throws NotFound if the
-  // event isn't visible to this tenant (defense in depth against probing).
+  // Cancel + auto-promote oldest waitlisted (FIFO by createdAt) when a
+  // registered seat is vacated. All in one transaction so concurrent cancels
+  // don't double-promote or skip a slot.
   async cancel(input: {
     userId: string;
     eventId: string;
     countryCode: string;
-  }): Promise<Registration | undefined> {
-    await this.assertEventVisible(input.eventId, input.countryCode);
+  }): Promise<CancelResult> {
+    const event = await this.requireVisibleEvent(input.eventId, input.countryCode);
 
-    const now = new Date();
-    const [row] = await this.db
-      .update(registrations)
-      .set({ status: 'cancelled', cancelledAt: now, updatedAt: now })
-      .where(and(eq(registrations.eventId, input.eventId), eq(registrations.userId, input.userId)))
-      .returning();
-    return row;
+    return this.db.transaction(async (tx) => {
+      const existing = await findExistingRegistration(tx, input.eventId, input.userId);
+      if (!existing || existing.status === 'cancelled' || existing.status === 'attended') {
+        return { cancelled: existing ?? null, promoted: null };
+      }
+
+      const cancelled = await markCancelled(tx, existing.id);
+      const shouldPromote = existing.status === 'registered' && event.capacity !== null;
+      const promoted = shouldPromote ? await promoteOldestWaitlisted(tx, input.eventId) : null;
+      return { cancelled, promoted };
+    });
   }
 
   // The caller's active registrations + just-enough event info to render a
   // "your upcoming events" card. Joins on events; only returns events that
-  // still belong to the current tenant (defense against tenant migration).
+  // still belong to the current tenant. Active = registered OR waitlisted.
   async listMine(input: { userId: string; countryCode: string }): Promise<MineEntry[]> {
     const rows = await this.db
       .select({
@@ -83,7 +112,7 @@ export class RegistrationsService {
       .where(
         and(
           eq(registrations.userId, input.userId),
-          eq(registrations.status, 'registered'),
+          inArray(registrations.status, ['registered', 'waitlisted']),
           eq(events.countryCode, input.countryCode),
         ),
       );
@@ -100,29 +129,36 @@ export class RegistrationsService {
     }));
   }
 
-  // For badging the events list: which of these event IDs am I registered
-  // for? Returns the subset. Empty input → empty output (no DB hit).
-  async findActiveForUserAndEvents(input: {
+  // For badging the events list: which of these event IDs am I actively
+  // associated with, and in what status? Returns a Map of eventId → status.
+  // Empty input → empty map (no DB hit).
+  async findActiveStatusesForUserAndEvents(input: {
     userId: string;
     eventIds: string[];
-  }): Promise<string[]> {
-    if (input.eventIds.length === 0) return [];
+  }): Promise<Map<string, 'registered' | 'waitlisted'>> {
+    if (input.eventIds.length === 0) return new Map();
     const rows = await this.db
-      .select({ eventId: registrations.eventId })
+      .select({ eventId: registrations.eventId, status: registrations.status })
       .from(registrations)
       .where(
         and(
           eq(registrations.userId, input.userId),
-          eq(registrations.status, 'registered'),
+          inArray(registrations.status, ['registered', 'waitlisted']),
           inArray(registrations.eventId, input.eventIds),
         ),
       );
-    return rows.map((r) => r.eventId);
+    const out = new Map<string, 'registered' | 'waitlisted'>();
+    for (const row of rows) {
+      if (row.status === 'registered' || row.status === 'waitlisted') {
+        out.set(row.eventId, row.status);
+      }
+    }
+    return out;
   }
 
-  private async assertEventVisible(eventId: string, countryCode: string): Promise<void> {
+  private async requireVisibleEvent(eventId: string, countryCode: string): Promise<Event> {
     const [row] = await this.db
-      .select({ id: events.id })
+      .select()
       .from(events)
       .where(
         and(
@@ -135,5 +171,63 @@ export class RegistrationsService {
     if (!row) {
       throw new NotFoundException(`event ${eventId} not found`);
     }
+    return row;
   }
+}
+
+async function capacityAwareStatus(
+  tx: Pick<Db, 'select'>,
+  event: Event,
+): Promise<'registered' | 'waitlisted'> {
+  if (event.capacity === null) return 'registered';
+  const [counts] = await tx
+    .select({ registeredCount: sql<number>`count(*)::int` })
+    .from(registrations)
+    .where(and(eq(registrations.eventId, event.id), eq(registrations.status, 'registered')));
+  const used = counts?.registeredCount ?? 0;
+  return used >= event.capacity ? 'waitlisted' : 'registered';
+}
+
+async function findExistingRegistration(
+  tx: Pick<Db, 'select'>,
+  eventId: string,
+  userId: string,
+): Promise<Registration | undefined> {
+  const [row] = await tx
+    .select()
+    .from(registrations)
+    .where(and(eq(registrations.eventId, eventId), eq(registrations.userId, userId)))
+    .limit(1);
+  return row;
+}
+
+async function markCancelled(tx: Pick<Db, 'update'>, id: string): Promise<Registration> {
+  const now = new Date();
+  const [row] = await tx
+    .update(registrations)
+    .set({ status: 'cancelled', cancelledAt: now, updatedAt: now })
+    .where(eq(registrations.id, id))
+    .returning();
+  if (!row) throw new Error('registrations cancel returned no row');
+  return row;
+}
+
+async function promoteOldestWaitlisted(
+  tx: Pick<Db, 'select' | 'update'>,
+  eventId: string,
+): Promise<{ registration: Registration; userId: string } | null> {
+  const [oldest] = await tx
+    .select()
+    .from(registrations)
+    .where(and(eq(registrations.eventId, eventId), eq(registrations.status, 'waitlisted')))
+    .orderBy(asc(registrations.createdAt))
+    .limit(1);
+  if (!oldest) return null;
+  const [promoted] = await tx
+    .update(registrations)
+    .set({ status: 'registered', updatedAt: new Date() })
+    .where(eq(registrations.id, oldest.id))
+    .returning();
+  if (!promoted) throw new Error('promotion update returned no row');
+  return { registration: promoted, userId: promoted.userId };
 }

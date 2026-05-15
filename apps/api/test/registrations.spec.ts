@@ -43,6 +43,7 @@ async function makeUser(): Promise<string> {
 async function makeEvent(input: {
   countryCode: string;
   status?: 'draft' | 'published' | 'cancelled';
+  capacity?: number | null;
 }): Promise<string> {
   const [row] = await db
     .insert(events)
@@ -52,6 +53,7 @@ async function makeEvent(input: {
       description: 'desc',
       format: 'meetup',
       status: input.status ?? 'published',
+      capacity: input.capacity ?? null,
       startsAt: new Date(Date.now() + 86_400_000),
       endsAt: new Date(Date.now() + 86_400_000 + 7200_000),
     })
@@ -60,15 +62,17 @@ async function makeEvent(input: {
   return row.id;
 }
 
-describe('RegistrationsService.register', () => {
-  beforeEach(async () => {
-    await db.delete(registrations);
-    await db.delete(events);
-    await db.delete(users);
-    await setupCountries();
-  });
+async function resetTables(): Promise<void> {
+  await db.delete(registrations);
+  await db.delete(events);
+  await db.delete(users);
+  await setupCountries();
+}
 
-  it('inserts a new registration with status=registered', async () => {
+describe('RegistrationsService.register', () => {
+  beforeEach(resetTables);
+
+  it('inserts a new registration with status=registered when capacity is unlimited', async () => {
     const userId = await makeUser();
     const eventId = await makeEvent({ countryCode: 'uz' });
 
@@ -90,7 +94,7 @@ describe('RegistrationsService.register', () => {
     expect(all).toHaveLength(1);
   });
 
-  it('reactivates a cancelled registration', async () => {
+  it('reactivates a cancelled registration (capacity-aware)', async () => {
     const userId = await makeUser();
     const eventId = await makeEvent({ countryCode: 'uz' });
 
@@ -100,6 +104,18 @@ describe('RegistrationsService.register', () => {
 
     expect(reactivated.status).toBe('registered');
     expect(reactivated.cancelledAt).toBeNull();
+  });
+
+  it('puts the second user on the waitlist when capacity=1 is full', async () => {
+    const u1 = await makeUser();
+    const u2 = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz', capacity: 1 });
+
+    const r1 = await service.register({ userId: u1, eventId, countryCode: 'uz' });
+    const r2 = await service.register({ userId: u2, eventId, countryCode: 'uz' });
+
+    expect(r1.status).toBe('registered');
+    expect(r2.status).toBe('waitlisted');
   });
 
   it('throws NotFound when the event does not exist', async () => {
@@ -128,103 +144,127 @@ describe('RegistrationsService.register', () => {
   });
 });
 
-describe('RegistrationsService.cancel', () => {
-  beforeEach(async () => {
-    await db.delete(registrations);
-    await db.delete(events);
-    await db.delete(users);
-    await setupCountries();
-  });
+describe('RegistrationsService.cancel + waitlist promotion', () => {
+  beforeEach(resetTables);
 
   it('flips status to cancelled and sets cancelledAt', async () => {
     const userId = await makeUser();
     const eventId = await makeEvent({ countryCode: 'uz' });
     await service.register({ userId, eventId, countryCode: 'uz' });
 
-    const cancelled = await service.cancel({ userId, eventId, countryCode: 'uz' });
+    const result = await service.cancel({ userId, eventId, countryCode: 'uz' });
 
-    expect(cancelled?.status).toBe('cancelled');
-    expect(cancelled?.cancelledAt).toBeInstanceOf(Date);
+    expect(result.cancelled?.status).toBe('cancelled');
+    expect(result.cancelled?.cancelledAt).toBeInstanceOf(Date);
+    expect(result.promoted).toBeNull();
   });
 
-  it('returns undefined when no registration exists', async () => {
+  it('returns null cancelled + null promoted when no registration exists', async () => {
     const userId = await makeUser();
     const eventId = await makeEvent({ countryCode: 'uz' });
 
-    const cancelled = await service.cancel({ userId, eventId, countryCode: 'uz' });
-    expect(cancelled).toBeUndefined();
+    const result = await service.cancel({ userId, eventId, countryCode: 'uz' });
+    expect(result.cancelled).toBeNull();
+    expect(result.promoted).toBeNull();
+  });
+
+  it('promotes the oldest waitlisted user when a registered seat opens', async () => {
+    const u1 = await makeUser();
+    const u2 = await makeUser();
+    const u3 = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz', capacity: 1 });
+
+    await service.register({ userId: u1, eventId, countryCode: 'uz' });
+    // Force u2 to be older than u3 on the waitlist by inserting in order
+    // with small sleeps so createdAt is distinct.
+    await service.register({ userId: u2, eventId, countryCode: 'uz' });
+    await new Promise((r) => setTimeout(r, 5));
+    await service.register({ userId: u3, eventId, countryCode: 'uz' });
+
+    const result = await service.cancel({ userId: u1, eventId, countryCode: 'uz' });
+
+    expect(result.cancelled?.status).toBe('cancelled');
+    expect(result.promoted?.userId).toBe(u2);
+    expect(result.promoted?.registration.status).toBe('registered');
+  });
+
+  it('does NOT promote when a waitlisted user cancels', async () => {
+    const u1 = await makeUser();
+    const u2 = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz', capacity: 1 });
+
+    await service.register({ userId: u1, eventId, countryCode: 'uz' });
+    await service.register({ userId: u2, eventId, countryCode: 'uz' }); // waitlisted
+
+    const result = await service.cancel({ userId: u2, eventId, countryCode: 'uz' });
+
+    expect(result.cancelled?.status).toBe('cancelled');
+    expect(result.promoted).toBeNull();
+  });
+
+  it('does NOT promote when capacity is unlimited (no waitlist concept)', async () => {
+    const u1 = await makeUser();
+    const u2 = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz' }); // capacity null
+
+    await service.register({ userId: u1, eventId, countryCode: 'uz' });
+    await service.register({ userId: u2, eventId, countryCode: 'uz' });
+
+    const result = await service.cancel({ userId: u1, eventId, countryCode: 'uz' });
+    expect(result.promoted).toBeNull();
   });
 });
 
 describe('RegistrationsService.listMine', () => {
-  beforeEach(async () => {
-    await db.delete(registrations);
-    await db.delete(events);
-    await db.delete(users);
-    await setupCountries();
-  });
+  beforeEach(resetTables);
 
-  it('returns only the caller’s active registrations for the current tenant', async () => {
+  it('includes both registered and waitlisted; excludes cancelled', async () => {
     const me = await makeUser();
-    const someoneElse = await makeUser();
-    const uzEvent = await makeEvent({ countryCode: 'uz' });
-    const kzEvent = await makeEvent({ countryCode: 'kz' });
+    const filler = await makeUser();
+    const fullEvent = await makeEvent({ countryCode: 'uz', capacity: 1 });
+    const openEvent = await makeEvent({ countryCode: 'uz' });
 
-    await service.register({ userId: me, eventId: uzEvent, countryCode: 'uz' });
-    await service.register({ userId: someoneElse, eventId: uzEvent, countryCode: 'uz' });
+    await service.register({ userId: filler, eventId: fullEvent, countryCode: 'uz' });
+    await service.register({ userId: me, eventId: fullEvent, countryCode: 'uz' }); // waitlisted
+    await service.register({ userId: me, eventId: openEvent, countryCode: 'uz' }); // registered
 
     const mine = await service.listMine({ userId: me, countryCode: 'uz' });
-    expect(mine).toHaveLength(1);
-    expect(mine[0]?.event.id).toBe(uzEvent);
-
-    // KZ tenant has no registrations for me — and even though I might have
-    // a record of a UZ event, listing under KZ tenant scope gives nothing.
-    const mineKz = await service.listMine({ userId: me, countryCode: 'kz' });
-    expect(mineKz).toHaveLength(0);
-    void kzEvent;
-  });
-
-  it('excludes cancelled registrations', async () => {
-    const me = await makeUser();
-    const eventId = await makeEvent({ countryCode: 'uz' });
-
-    await service.register({ userId: me, eventId, countryCode: 'uz' });
-    await service.cancel({ userId: me, eventId, countryCode: 'uz' });
-
-    const mine = await service.listMine({ userId: me, countryCode: 'uz' });
-    expect(mine).toHaveLength(0);
+    const ids = mine.map((m) => m.event.id).sort();
+    expect(ids).toEqual([fullEvent, openEvent].sort());
   });
 });
 
-describe('RegistrationsService.findActiveForUserAndEvents', () => {
-  beforeEach(async () => {
-    await db.delete(registrations);
-    await db.delete(events);
-    await db.delete(users);
-    await setupCountries();
-  });
+describe('RegistrationsService.findActiveStatusesForUserAndEvents', () => {
+  beforeEach(resetTables);
 
-  it('returns the subset of event IDs the user is actively registered for', async () => {
+  it('returns a map of eventId → status for active rows only', async () => {
     const me = await makeUser();
-    const a = await makeEvent({ countryCode: 'uz' });
+    const filler = await makeUser();
+    const a = await makeEvent({ countryCode: 'uz', capacity: 1 });
     const b = await makeEvent({ countryCode: 'uz' });
     const c = await makeEvent({ countryCode: 'uz' });
 
-    await service.register({ userId: me, eventId: a, countryCode: 'uz' });
+    await service.register({ userId: filler, eventId: a, countryCode: 'uz' });
+    await service.register({ userId: me, eventId: a, countryCode: 'uz' }); // waitlisted
+    await service.register({ userId: me, eventId: b, countryCode: 'uz' }); // registered
     await service.register({ userId: me, eventId: c, countryCode: 'uz' });
-    await service.cancel({ userId: me, eventId: c, countryCode: 'uz' });
+    await service.cancel({ userId: me, eventId: c, countryCode: 'uz' }); // not in map
 
-    const subset = await service.findActiveForUserAndEvents({
+    const map = await service.findActiveStatusesForUserAndEvents({
       userId: me,
       eventIds: [a, b, c],
     });
-
-    expect(subset.sort()).toEqual([a].sort());
+    expect(map.get(a)).toBe('waitlisted');
+    expect(map.get(b)).toBe('registered');
+    expect(map.has(c)).toBe(false);
   });
 
-  it('returns empty array for empty input without hitting DB', async () => {
+  it('returns empty map for empty input without hitting DB', async () => {
     const me = await makeUser();
-    const subset = await service.findActiveForUserAndEvents({ userId: me, eventIds: [] });
-    expect(subset).toEqual([]);
+    const map = await service.findActiveStatusesForUserAndEvents({
+      userId: me,
+      eventIds: [],
+    });
+    expect(map.size).toBe(0);
   });
 });

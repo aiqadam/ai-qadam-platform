@@ -1,23 +1,35 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, gt } from 'drizzle-orm';
+import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
+import { registrations } from '../registrations/schema';
 import { events, type Event } from './schema';
+
+export interface EventWithCount extends Event {
+  registeredCount: number;
+}
 
 @Injectable()
 export class EventsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  // The public events list: only published, only future (endsAt > now), only
-  // for the requested tenant, ordered by startsAt ascending. PR #13 will add
-  // pagination + filters (format, has-capacity, etc.) when we have enough
-  // data to need them.
-  async listUpcoming(countryCode: string): Promise<Event[]> {
+  // Public list: only published, only future, only the requested tenant,
+  // ordered by startsAt asc. Each row carries a `registeredCount` derived
+  // by left-joining registrations with status='registered' and counting.
+  // Single SQL — N+1-free.
+  async listUpcoming(countryCode: string): Promise<EventWithCount[]> {
     if (countryCode.length !== 2) {
       throw new Error('countryCode must be a 2-char ISO code');
     }
-    return this.db
-      .select()
+    const rows = await this.db
+      .select({
+        event: events,
+        registeredCount: sql<number>`count(${registrations.id})::int`,
+      })
       .from(events)
+      .leftJoin(
+        registrations,
+        and(eq(registrations.eventId, events.id), eq(registrations.status, 'registered')),
+      )
       .where(
         and(
           eq(events.countryCode, countryCode),
@@ -25,12 +37,12 @@ export class EventsService {
           gt(events.endsAt, new Date()),
         ),
       )
+      .groupBy(events.id)
       .orderBy(asc(events.startsAt));
+
+    return rows.map((r) => ({ ...r.event, registeredCount: r.registeredCount }));
   }
 
-  // Tenant-scoped lookup. Returns undefined if not found OR if the event
-  // belongs to a different tenant — same observable behavior either way so
-  // callers can't probe for cross-tenant existence.
   async findByIdForTenant(input: { id: string; countryCode: string }): Promise<Event | undefined> {
     const [row] = await this.db
       .select()

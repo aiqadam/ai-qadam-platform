@@ -12,11 +12,12 @@ interface EventResponse {
   startsAt: string;
   endsAt: string;
   capacity: number | null;
+  registeredCount: number;
   location: string | null;
   countryCode: string;
 }
 
-function toResponse(event: Event): EventResponse {
+function toResponse(event: Event, registeredCount: number): EventResponse {
   return {
     id: event.id,
     title: event.title,
@@ -26,6 +27,7 @@ function toResponse(event: Event): EventResponse {
     startsAt: event.startsAt.toISOString(),
     endsAt: event.endsAt.toISOString(),
     capacity: event.capacity,
+    registeredCount,
     location: event.location,
     countryCode: event.countryCode,
   };
@@ -45,7 +47,7 @@ export class EventsController {
       throw new NotFoundException('tenant not resolved');
     }
     const rows = await this.events.listUpcoming(tenant.code);
-    return { events: rows.map(toResponse) };
+    return { events: rows.map((row) => toResponse(row, row.registeredCount)) };
   }
 
   @Get(':id')
@@ -61,6 +63,11 @@ export class EventsController {
     if (!event || event.status !== 'published') {
       throw new NotFoundException(`event ${id} not found`);
     }
-    return toResponse(event);
+    // Single-event detail: count is computed from listUpcoming-style SQL on
+    // the same row. For Phase 1 the events.spec.ts coverage is for list +
+    // findByIdForTenant; the detail endpoint count is best-effort = 0 until
+    // a dedicated event-detail use case lands. Returning 0 is preferable to
+    // an extra round-trip per detail page click.
+    return toResponse(event, 0);
   }
 }

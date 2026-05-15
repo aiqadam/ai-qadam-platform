@@ -9,13 +9,16 @@ interface ApiEvent {
   startsAt: string;
   endsAt: string;
   capacity: number | null;
+  registeredCount: number;
   location: string | null;
   countryCode: string;
 }
 
+type ActiveStatus = 'registered' | 'waitlisted';
+
 type AuthState =
   | { kind: 'anon' }
-  | { kind: 'authed'; accessToken: string; registeredIds: Set<string> };
+  | { kind: 'authed'; accessToken: string; statuses: Map<string, ActiveStatus> };
 
 type State =
   | { status: 'loading' }
@@ -44,13 +47,24 @@ async function fetchAccessToken(): Promise<string | null> {
   return body.accessToken;
 }
 
-async function fetchMyRegistrations(accessToken: string): Promise<Set<string>> {
+async function fetchMyStatuses(accessToken: string): Promise<Map<string, ActiveStatus>> {
   const res = await fetch('/api/v1/registrations/mine', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok) return new Set();
-  const body = (await res.json()) as { registrations: Array<{ event: { id: string } }> };
-  return new Set(body.registrations.map((r) => r.event.id));
+  if (!res.ok) return new Map();
+  const body = (await res.json()) as {
+    registrations: Array<{
+      status: ActiveStatus | 'cancelled' | 'attended';
+      event: { id: string };
+    }>;
+  };
+  const out = new Map<string, ActiveStatus>();
+  for (const r of body.registrations) {
+    if (r.status === 'registered' || r.status === 'waitlisted') {
+      out.set(r.event.id, r.status);
+    }
+  }
+  return out;
 }
 
 async function loadInitialState(): Promise<State> {
@@ -59,16 +73,21 @@ async function loadInitialState(): Promise<State> {
   if (!accessToken) {
     return { status: 'loaded', events, auth: { kind: 'anon' } };
   }
-  const registeredIds = await fetchMyRegistrations(accessToken);
-  return { status: 'loaded', events, auth: { kind: 'authed', accessToken, registeredIds } };
+  const statuses = await fetchMyStatuses(accessToken);
+  return { status: 'loaded', events, auth: { kind: 'authed', accessToken, statuses } };
 }
 
-async function postRegister(eventId: string, accessToken: string): Promise<void> {
+async function postRegister(eventId: string, accessToken: string): Promise<ActiveStatus> {
   const res = await fetch(`/api/v1/events/${eventId}/register`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error(`register failed: HTTP ${res.status}`);
+  const body = (await res.json()) as { status: ActiveStatus | 'cancelled' | 'attended' };
+  if (body.status !== 'registered' && body.status !== 'waitlisted') {
+    throw new Error(`unexpected status from register: ${body.status}`);
+  }
+  return body.status;
 }
 
 async function deleteRegister(eventId: string, accessToken: string): Promise<void> {
@@ -97,50 +116,106 @@ function formatTimeRange(startIso: string, endIso: string): string {
   return `${start.toLocaleDateString()} – ${end.toLocaleDateString()}`;
 }
 
+function isFull(event: ApiEvent): boolean {
+  return event.capacity !== null && event.registeredCount >= event.capacity;
+}
+
 interface RegisterButtonProps {
-  eventId: string;
+  event: ApiEvent;
   auth: AuthState;
   onRegister: (eventId: string) => Promise<void>;
   onCancel: (eventId: string) => Promise<void>;
 }
 
-function RegisterButton({
-  eventId,
-  auth,
-  onRegister,
-  onCancel,
-}: RegisterButtonProps): ReactElement {
-  const [busy, setBusy] = useState(false);
+interface ButtonSpec {
+  label: string;
+  onClick: () => Promise<void>;
+  className: string;
+}
 
+function buttonSpecFor(
+  event: ApiEvent,
+  auth: AuthState,
+  onRegister: (eventId: string) => Promise<void>,
+  onCancel: (eventId: string) => Promise<void>,
+): ButtonSpec | { kind: 'link'; label: string } {
   if (auth.kind === 'anon') {
+    return {
+      kind: 'link',
+      label: isFull(event) ? 'Sign in to join waitlist' : 'Sign in to register',
+    };
+  }
+  const myStatus = auth.statuses.get(event.id);
+  if (myStatus === 'registered') {
+    return {
+      label: 'Cancel registration',
+      onClick: () => onCancel(event.id),
+      className: 'btn btn-outline btn-sm',
+    };
+  }
+  if (myStatus === 'waitlisted') {
+    return {
+      label: 'Leave waitlist',
+      onClick: () => onCancel(event.id),
+      className: 'btn btn-outline btn-sm',
+    };
+  }
+  return {
+    label: isFull(event) ? 'Join waitlist' : 'Register',
+    onClick: () => onRegister(event.id),
+    className: 'btn btn-primary btn-sm',
+  };
+}
+
+function RegisterButton({ event, auth, onRegister, onCancel }: RegisterButtonProps): ReactElement {
+  const [busy, setBusy] = useState(false);
+  const spec = buttonSpecFor(event, auth, onRegister, onCancel);
+
+  if ('kind' in spec) {
     return (
       <a href="/api/v1/auth/login" className="btn btn-outline btn-sm">
-        Sign in to register
+        {spec.label}
       </a>
     );
   }
-  const isRegistered = auth.registeredIds.has(eventId);
   return (
     <button
       type="button"
       disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          if (isRegistered) {
-            await onCancel(eventId);
-          } else {
-            await onRegister(eventId);
-          }
-        } finally {
-          setBusy(false);
-        }
-      }}
-      className={isRegistered ? 'btn btn-outline btn-sm' : 'btn btn-primary btn-sm'}
+      onClick={() => runWith(setBusy, spec.onClick)}
+      className={spec.className}
     >
-      {busy ? '…' : isRegistered ? 'Cancel registration' : 'Register'}
+      {busy ? '…' : spec.label}
     </button>
   );
+}
+
+async function runWith(setBusy: (b: boolean) => void, fn: () => Promise<unknown>): Promise<void> {
+  setBusy(true);
+  try {
+    await fn();
+  } finally {
+    setBusy(false);
+  }
+}
+
+function CapacityLabel({ event }: { event: ApiEvent }): ReactElement | null {
+  if (event.capacity === null) return null;
+  const remaining = Math.max(event.capacity - event.registeredCount, 0);
+  if (remaining === 0) {
+    return <span className="badge">Full · waitlist open</span>;
+  }
+  return (
+    <span>
+      · {event.registeredCount} / {event.capacity} registered
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: ActiveStatus | undefined }): ReactElement | null {
+  if (status === 'registered') return <span className="badge badge-success">You're in</span>;
+  if (status === 'waitlisted') return <span className="badge">On waitlist</span>;
+  return null;
 }
 
 export function EventsList(): ReactElement {
@@ -167,22 +242,29 @@ export function EventsList(): ReactElement {
 
   const handleRegister = async (eventId: string): Promise<void> => {
     if (state.status !== 'loaded' || state.auth.kind !== 'authed') return;
-    await postRegister(eventId, state.auth.accessToken);
-    setState({
-      ...state,
-      auth: {
-        ...state.auth,
-        registeredIds: new Set([...state.auth.registeredIds, eventId]),
-      },
-    });
+    const newStatus = await postRegister(eventId, state.auth.accessToken);
+    const nextStatuses = new Map(state.auth.statuses);
+    nextStatuses.set(eventId, newStatus);
+    const nextEvents = state.events.map((e) =>
+      e.id === eventId && newStatus === 'registered'
+        ? { ...e, registeredCount: e.registeredCount + 1 }
+        : e,
+    );
+    setState({ ...state, events: nextEvents, auth: { ...state.auth, statuses: nextStatuses } });
   };
 
   const handleCancel = async (eventId: string): Promise<void> => {
     if (state.status !== 'loaded' || state.auth.kind !== 'authed') return;
+    const wasRegistered = state.auth.statuses.get(eventId) === 'registered';
     await deleteRegister(eventId, state.auth.accessToken);
-    const next = new Set(state.auth.registeredIds);
-    next.delete(eventId);
-    setState({ ...state, auth: { ...state.auth, registeredIds: next } });
+    const nextStatuses = new Map(state.auth.statuses);
+    nextStatuses.delete(eventId);
+    const nextEvents = state.events.map((e) =>
+      e.id === eventId && wasRegistered
+        ? { ...e, registeredCount: Math.max(e.registeredCount - 1, 0) }
+        : e,
+    );
+    setState({ ...state, events: nextEvents, auth: { ...state.auth, statuses: nextStatuses } });
   };
 
   if (state.status === 'loading') {
@@ -208,6 +290,8 @@ export function EventsList(): ReactElement {
     <ul className="space-y-4 list-none p-0">
       {state.events.map((event) => {
         const plate = formatDatePlate(event.startsAt);
+        const myStatus =
+          state.auth.kind === 'authed' ? state.auth.statuses.get(event.id) : undefined;
         return (
           <li key={event.id} className="event-card">
             <div className="date-plate">
@@ -222,15 +306,16 @@ export function EventsList(): ReactElement {
               <div className="event-meta">
                 <span>{formatTimeRange(event.startsAt, event.endsAt)}</span>
                 {event.location && <span>· {event.location}</span>}
-                {event.capacity !== null && <span>· {event.capacity} seats</span>}
+                <CapacityLabel event={event} />
               </div>
               <div className="event-bottom">
                 <RegisterButton
-                  eventId={event.id}
+                  event={event}
                   auth={state.auth}
                   onRegister={handleRegister}
                   onCancel={handleCancel}
                 />
+                <StatusBadge status={myStatus} />
               </div>
             </div>
           </li>

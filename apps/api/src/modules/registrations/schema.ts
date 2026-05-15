@@ -8,6 +8,7 @@ import { users } from '../users/schema';
 
 export const registrationStatus = pgEnum('registration_status', [
   'registered',
+  'waitlisted',
   'cancelled',
   'attended',
 ]);

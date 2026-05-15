@@ -18,13 +18,17 @@ import { AuthGuard } from '../auth/auth.guard';
 import { EmailService } from '../email/email.service';
 import { registrationCancelled } from '../email/templates/registration-cancelled';
 import { registrationConfirmed } from '../email/templates/registration-confirmed';
+import { registrationPromoted } from '../email/templates/registration-promoted';
 import { EventsService } from '../events/events.service';
+import { UsersService } from '../users/users.service';
 import { RegistrationsService } from './registrations.service';
+
+type Status = 'registered' | 'waitlisted' | 'cancelled' | 'attended';
 
 interface RegistrationResponse {
   id: string;
   eventId: string;
-  status: 'registered' | 'cancelled' | 'attended';
+  status: Status;
   createdAt: string;
   updatedAt: string;
   cancelledAt: string | null;
@@ -33,7 +37,7 @@ interface RegistrationResponse {
 interface MineResponse {
   registrations: Array<{
     id: string;
-    status: 'registered' | 'cancelled' | 'attended';
+    status: Status;
     event: {
       id: string;
       title: string;
@@ -50,6 +54,7 @@ export class RegistrationsController {
   constructor(
     private readonly registrations: RegistrationsService,
     private readonly events: EventsService,
+    private readonly users: UsersService,
     private readonly email: EmailService,
   ) {}
 
@@ -100,14 +105,15 @@ export class RegistrationsController {
     const tenantCode = requireTenant(req);
     const recipientEmail = requireEmail(req);
 
-    const cancelled = await this.registrations.cancel({
+    const result = await this.registrations.cancel({
       userId,
       eventId,
       countryCode: tenantCode,
     });
-    // Only fire the cancel email if there was actually a row to cancel —
-    // if the user double-clicked Cancel, no point spamming a second email.
-    if (cancelled) {
+
+    if (result.cancelled?.cancelledAt) {
+      // Only fire the cancel email when this call actually flipped a row —
+      // re-cancel of an already-cancelled row gets no email (avoids spam).
       void this.events.findByIdForTenant({ id: eventId, countryCode: tenantCode }).then((event) => {
         if (!event) return;
         return this.email.send(
@@ -119,6 +125,37 @@ export class RegistrationsController {
         );
       });
     }
+
+    if (result.promoted) {
+      // Someone got off the waitlist — tell them.
+      void this.firePromotionEmail({
+        promotedUserId: result.promoted.userId,
+        eventId,
+        countryCode: tenantCode,
+      });
+    }
+  }
+
+  private async firePromotionEmail(input: {
+    promotedUserId: string;
+    eventId: string;
+    countryCode: string;
+  }): Promise<void> {
+    const [promotedUser, event] = await Promise.all([
+      this.users.findById(input.promotedUserId),
+      this.events.findByIdForTenant({ id: input.eventId, countryCode: input.countryCode }),
+    ]);
+    if (!promotedUser || !event) return;
+    await this.email.send(
+      registrationPromoted({
+        recipientEmail: promotedUser.email,
+        ...(promotedUser.displayName ? { recipientName: promotedUser.displayName } : {}),
+        eventTitle: event.title,
+        eventStartsAt: event.startsAt,
+        eventLocation: event.location,
+        webBaseUrl: env.WEB_BASE_URL,
+      }),
+    );
   }
 
   @Get('registrations/mine')
