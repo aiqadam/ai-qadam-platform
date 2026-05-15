@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "home": "Home",
+    "events": "Events",
+    "speakers": "Speakers",
+    "community": "Community",
+    "blog": "Blog",
+    "leaderboard": "Leaderboard",
+    "account": "Account"
+  },
+  "actions": {
+    "sign_in": "Sign in",
+    "sign_out": "Sign out",
+    "register": "Register",
+    "cancel": "Cancel",
+    "join_waitlist": "Join waitlist",
+    "leave_waitlist": "Leave waitlist"
+  },
+  "states": {
+    "loading": "Loading…",
+    "no_events_title": "No upcoming events",
+    "no_events_desc": "Check back soon — new events are added every week.",
+    "youre_in": "You're in",
+    "on_waitlist": "On waitlist",
+    "checked_in": "Checked in"
+  },
+  "locale": {
+    "label": "Language",
+    "en": "English",
+    "ru": "Русский"
+  }
+}

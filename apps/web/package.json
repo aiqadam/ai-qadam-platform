@@ -16,6 +16,7 @@
     "@astrojs/react": "^4.2.0",
     "@tailwindcss/vite": "^4.0.0",
     "astro": "^5.0.0",
+    "i18next": "^24.0.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
