@@ -18,7 +18,10 @@ COPY packages/biome-config/package.json packages/biome-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
 # Full workspace install (no --filter). The filter form caused binaries
 # like astro/nest to be unfindable in BuildKit. See apps/api/Dockerfile.
-RUN pnpm install --frozen-lockfile
+# --prod=false: force devDeps install regardless of NODE_ENV (Coolify
+# injects runtime env as build ARGs; NODE_ENV=production would otherwise
+# skip astro/@astrojs/* devDeps).
+RUN pnpm install --frozen-lockfile --prod=false
 
 COPY tsconfig.json ./
 COPY packages packages

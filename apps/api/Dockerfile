@@ -25,22 +25,20 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/biome-config/package.json packages/biome-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-RUN pnpm install --frozen-lockfile
+# --prod=false guarantees devDependencies (including @nestjs/cli which
+# provides the `nest` binary) are installed, regardless of any NODE_ENV
+# the build environment injects. Coolify's BuildKit deploy passes the
+# runtime envs as ARGs, including NODE_ENV=production, which would
+# otherwise make pnpm skip devDeps and break the nest build below.
+RUN pnpm install --frozen-lockfile --prod=false
 
 # Now copy the rest of the source the API needs to compile.
 COPY tsconfig.json ./
 COPY packages packages
 COPY apps/api apps/api
 
-# DEBUG: see what's actually in apps/api before the build runs.
-RUN echo "=== ls apps/api ===" && ls -la apps/api && \
-    echo "=== ls apps/api/node_modules ===" && (ls apps/api/node_modules | head -20 2>&1 || echo "NO node_modules") && \
-    echo "=== ls apps/api/node_modules/.bin ===" && (ls apps/api/node_modules/.bin 2>&1 | head -20 || echo "NO .bin") && \
-    echo "=== which nest ===" && (which nest || echo "no nest in PATH") && \
-    echo "=== root node_modules/.bin ===" && (ls node_modules/.bin 2>&1 | head -20)
-
 # Build NestJS → apps/api/dist
-RUN cd apps/api && pnpm exec nest build
+RUN pnpm --filter @aiqadam/api build
 
 # Produce a self-contained prod-only deploy at /out.
 RUN pnpm --filter @aiqadam/api deploy --prod /out
