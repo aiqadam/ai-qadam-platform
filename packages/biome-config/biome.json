@@ -19,6 +19,9 @@
       "arrowParentheses": "always",
       "bracketSpacing": true,
       "bracketSameLine": false
+    },
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
     }
   },
   "json": {
@@ -39,7 +42,8 @@
         "useConst": "error",
         "useTemplate": "error",
         "noNonNullAssertion": "error",
-        "noParameterAssign": "error"
+        "noParameterAssign": "error",
+        "useImportType": "off"
       },
       "suspicious": {
         "noExplicitAny": "error",

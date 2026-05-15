@@ -1,9 +1,9 @@
 // Drizzle schema barrel.
 //
-// Per ARCHITECTURE.md §"Module boundaries" rule 4: each module exports its
-// own schema under apps/api/src/modules/<name>/schema.ts; this barrel
-// re-exports them so drizzle-kit can pick them up via a single entry point
-// (configured in drizzle.config.ts).
-//
-// Empty for now — schemas land as feature modules come online.
-export {};
+// Per ARCHITECTURE.md §"Module boundaries" rule 4: each module owns its
+// schema file under src/modules/<name>/schema.ts (or, for cross-cutting
+// concerns like tenants, here under src/db/schema/). All schemas re-export
+// here so drizzle-kit picks them up via a single entry point (configured
+// in drizzle.config.ts).
+
+export * from './tenants';
