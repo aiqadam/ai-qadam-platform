@@ -15,8 +15,10 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/biome-config/package.json packages/biome-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --filter @aiqadam/web...
+# No cache mount on the install — the cache mount makes pnpm create symlinks
+# into a path that disappears after the RUN, leaving binaries like `astro`
+# unfindable in later layers. See apps/api/Dockerfile for the longer note.
+RUN pnpm install --frozen-lockfile --filter @aiqadam/web...
 
 COPY tsconfig.json ./
 COPY packages packages
