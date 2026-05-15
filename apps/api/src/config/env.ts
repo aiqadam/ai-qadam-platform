@@ -14,6 +14,18 @@ const envSchema = z.object({
   // generated locally and never reused across environments. The 32-char
   // minimum keeps brute-force impractical for HS256 over the 10-min TTL.
   JWT_SIGNING_SECRET: z.string().min(32),
+
+  // Authentik OIDC application discovery URL — see
+  // docs/runbooks/authentik-local-bootstrap.md for the values to use locally.
+  OIDC_ISSUER_URL: z.string().url(),
+  OIDC_CLIENT_ID: z.string().min(1),
+  OIDC_CLIENT_SECRET: z.string().min(1),
+  // Where Authentik should send the user back after login. Must EXACTLY match
+  // a redirect URI registered on the Authentik application.
+  OIDC_REDIRECT_URI: z.string().url(),
+  // Where the API redirects the browser after a successful callback. Usually
+  // the web app's root.
+  WEB_BASE_URL: z.string().url(),
 });
 
 const parsed = envSchema.safeParse(process.env);

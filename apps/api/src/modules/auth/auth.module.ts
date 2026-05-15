@@ -1,0 +1,24 @@
+import { Module } from '@nestjs/common';
+import { DB, db } from '../../db';
+import { UsersModule } from '../users/users.module';
+import { AuthController } from './auth.controller';
+import { AuthGuard } from './auth.guard';
+import { AuthService } from './auth.service';
+import { JwtService } from './jwt.service';
+import { oidcClientProvider } from './oidc-client.provider';
+import { RefreshTokenService } from './refresh-token.service';
+
+@Module({
+  imports: [UsersModule],
+  controllers: [AuthController],
+  providers: [
+    { provide: DB, useValue: db },
+    AuthService,
+    JwtService,
+    RefreshTokenService,
+    AuthGuard,
+    oidcClientProvider,
+  ],
+  exports: [JwtService, AuthGuard],
+})
+export class AuthModule {}

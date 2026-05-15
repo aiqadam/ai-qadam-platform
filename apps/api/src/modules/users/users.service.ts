@@ -54,4 +54,9 @@ export class UsersService {
       .limit(1);
     return row;
   }
+
+  async findById(id: string): Promise<User | undefined> {
+    const [row] = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return row;
+  }
 }

@@ -21,6 +21,11 @@ export default defineConfig({
       NODE_ENV: 'test',
       DATABASE_URL: 'postgresql://placeholder:placeholder@127.0.0.1:1/placeholder',
       JWT_SIGNING_SECRET: 'test-jwt-signing-secret-at-least-32-chars-long-pad-pad',
+      OIDC_ISSUER_URL: 'http://placeholder.invalid/oidc/',
+      OIDC_CLIENT_ID: 'placeholder-client-id',
+      OIDC_CLIENT_SECRET: 'placeholder-client-secret',
+      OIDC_REDIRECT_URI: 'http://placeholder.invalid/v1/auth/callback',
+      WEB_BASE_URL: 'http://placeholder.invalid',
     },
     coverage: {
       provider: 'v8',
