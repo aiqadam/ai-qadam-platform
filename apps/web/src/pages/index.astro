@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { geoTargetSubdomain, isApexHost } from '../lib/geo';
+import { geoTargetSubdomain, hostnameFromHeaders, isApexHost } from '../lib/geo';
 import { getLocale, makeT } from '../lib/i18n';
 
 // SSR so the apex (aiqadam.org / www.aiqadam.org) can geo-redirect using
@@ -16,7 +16,7 @@ export const prerender = false;
 
 const url = new URL(Astro.request.url);
 
-if (isApexHost(url.hostname)) {
+if (isApexHost(hostnameFromHeaders(Astro.request.headers))) {
   return Astro.redirect(
     `https://${geoTargetSubdomain(Astro.request.headers)}.aiqadam.org${url.pathname}${url.search}`,
     302,
