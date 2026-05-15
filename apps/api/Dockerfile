@@ -14,17 +14,18 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 # Husky still installs git hooks normally on dev machines because there
 # the full workspace install includes it.
 
-# Copy lock + manifests first so the install layer is cacheable when only
-# source changes. (Earlier we used a `--mount=type=cache` for the pnpm store
-# but that broke the build: pnpm's content-addressable store creates
-# symlinks from apps/api/node_modules into the store; when the cache mount
-# unmounts at the end of the RUN, the symlinks dangle and downstream layers
-# can't find binaries like `nest`.)
+# Install the full workspace, not a filtered subset. The filter
+# `--filter @aiqadam/api...` looked correct on paper but in practice
+# (verified via Coolify's BuildKit build) it left the nest binary
+# unreachable from `pnpm --filter @aiqadam/api build`. The full install
+# adds a few seconds + a few MB to the builder stage; the runtime stage
+# uses `pnpm deploy --prod` so the final image is unaffected.
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
 COPY packages/biome-config/package.json packages/biome-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-RUN pnpm install --frozen-lockfile --filter @aiqadam/api...
+RUN pnpm install --frozen-lockfile
 
 # Now copy the rest of the source the API needs to compile.
 COPY tsconfig.json ./

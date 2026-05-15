@@ -12,13 +12,13 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 # install no-op the husky step (it's only available on dev machines).
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/biome-config/package.json packages/biome-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-# No cache mount on the install — the cache mount makes pnpm create symlinks
-# into a path that disappears after the RUN, leaving binaries like `astro`
-# unfindable in later layers. See apps/api/Dockerfile for the longer note.
-RUN pnpm install --frozen-lockfile --filter @aiqadam/web...
+# Full workspace install (no --filter). The filter form caused binaries
+# like astro/nest to be unfindable in BuildKit. See apps/api/Dockerfile.
+RUN pnpm install --frozen-lockfile
 
 COPY tsconfig.json ./
 COPY packages packages
