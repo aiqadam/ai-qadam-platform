@@ -16,7 +16,8 @@
       ".output/**",
       "coverage/**",
       "pnpm-lock.yaml",
-      "design-system/**"
+      "design-system/**",
+      "**/*.astro"
     ]
   }
 }

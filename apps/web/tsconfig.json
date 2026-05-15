@@ -1,0 +1,12 @@
+{
+  "extends": "@aiqadam/tsconfig/astro.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src/**/*", "astro.config.mjs", ".astro/types.d.ts"],
+  "exclude": ["node_modules", "dist", ".astro"]
+}
