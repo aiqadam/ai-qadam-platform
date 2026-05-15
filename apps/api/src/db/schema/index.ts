@@ -10,3 +10,4 @@ export * from './tenants';
 export * from '../../modules/users/schema';
 export * from '../../modules/auth/refresh-token.schema';
 export * from '../../modules/events/schema';
+export * from '../../modules/registrations/schema';

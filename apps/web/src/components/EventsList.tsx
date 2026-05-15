@@ -13,19 +13,14 @@ interface ApiEvent {
   countryCode: string;
 }
 
+type AuthState =
+  | { kind: 'anon' }
+  | { kind: 'authed'; accessToken: string; registeredIds: Set<string> };
+
 type State =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'loaded'; events: ApiEvent[] };
-
-async function loadEvents(): Promise<ApiEvent[]> {
-  const res = await fetch('/api/v1/events');
-  if (!res.ok) {
-    throw new Error(`events fetch failed: HTTP ${res.status}`);
-  }
-  const body = (await res.json()) as { events: ApiEvent[] };
-  return body.events;
-}
+  | { status: 'loaded'; events: ApiEvent[]; auth: AuthState };
 
 const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
   meetup: 'Meetup',
@@ -34,6 +29,55 @@ const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
   conference: 'Conference',
   online: 'Online',
 };
+
+async function fetchEvents(): Promise<ApiEvent[]> {
+  const res = await fetch('/api/v1/events');
+  if (!res.ok) throw new Error(`events fetch failed: HTTP ${res.status}`);
+  const body = (await res.json()) as { events: ApiEvent[] };
+  return body.events;
+}
+
+async function fetchAccessToken(): Promise<string | null> {
+  const res = await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { accessToken: string };
+  return body.accessToken;
+}
+
+async function fetchMyRegistrations(accessToken: string): Promise<Set<string>> {
+  const res = await fetch('/api/v1/registrations/mine', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return new Set();
+  const body = (await res.json()) as { registrations: Array<{ event: { id: string } }> };
+  return new Set(body.registrations.map((r) => r.event.id));
+}
+
+async function loadInitialState(): Promise<State> {
+  const events = await fetchEvents();
+  const accessToken = await fetchAccessToken();
+  if (!accessToken) {
+    return { status: 'loaded', events, auth: { kind: 'anon' } };
+  }
+  const registeredIds = await fetchMyRegistrations(accessToken);
+  return { status: 'loaded', events, auth: { kind: 'authed', accessToken, registeredIds } };
+}
+
+async function postRegister(eventId: string, accessToken: string): Promise<void> {
+  const res = await fetch(`/api/v1/events/${eventId}/register`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`register failed: HTTP ${res.status}`);
+}
+
+async function deleteRegister(eventId: string, accessToken: string): Promise<void> {
+  const res = await fetch(`/api/v1/events/${eventId}/register`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok && res.status !== 204) throw new Error(`cancel failed: HTTP ${res.status}`);
+}
 
 function formatDatePlate(iso: string): { month: string; day: string; weekday: string } {
   const d = new Date(iso);
@@ -53,14 +97,60 @@ function formatTimeRange(startIso: string, endIso: string): string {
   return `${start.toLocaleDateString()} – ${end.toLocaleDateString()}`;
 }
 
+interface RegisterButtonProps {
+  eventId: string;
+  auth: AuthState;
+  onRegister: (eventId: string) => Promise<void>;
+  onCancel: (eventId: string) => Promise<void>;
+}
+
+function RegisterButton({
+  eventId,
+  auth,
+  onRegister,
+  onCancel,
+}: RegisterButtonProps): ReactElement {
+  const [busy, setBusy] = useState(false);
+
+  if (auth.kind === 'anon') {
+    return (
+      <a href="/api/v1/auth/login" className="btn btn-outline btn-sm">
+        Sign in to register
+      </a>
+    );
+  }
+  const isRegistered = auth.registeredIds.has(eventId);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          if (isRegistered) {
+            await onCancel(eventId);
+          } else {
+            await onRegister(eventId);
+          }
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className={isRegistered ? 'btn btn-outline btn-sm' : 'btn btn-primary btn-sm'}
+    >
+      {busy ? '…' : isRegistered ? 'Cancel registration' : 'Register'}
+    </button>
+  );
+}
+
 export function EventsList(): ReactElement {
   const [state, setState] = useState<State>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
-    loadEvents()
-      .then((events) => {
-        if (!cancelled) setState({ status: 'loaded', events });
+    loadInitialState()
+      .then((next) => {
+        if (!cancelled) setState(next);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -74,6 +164,26 @@ export function EventsList(): ReactElement {
       cancelled = true;
     };
   }, []);
+
+  const handleRegister = async (eventId: string): Promise<void> => {
+    if (state.status !== 'loaded' || state.auth.kind !== 'authed') return;
+    await postRegister(eventId, state.auth.accessToken);
+    setState({
+      ...state,
+      auth: {
+        ...state.auth,
+        registeredIds: new Set([...state.auth.registeredIds, eventId]),
+      },
+    });
+  };
+
+  const handleCancel = async (eventId: string): Promise<void> => {
+    if (state.status !== 'loaded' || state.auth.kind !== 'authed') return;
+    await deleteRegister(eventId, state.auth.accessToken);
+    const next = new Set(state.auth.registeredIds);
+    next.delete(eventId);
+    setState({ ...state, auth: { ...state.auth, registeredIds: next } });
+  };
 
   if (state.status === 'loading') {
     return <p className="text-gray-500">Loading events…</p>;
@@ -113,6 +223,14 @@ export function EventsList(): ReactElement {
                 <span>{formatTimeRange(event.startsAt, event.endsAt)}</span>
                 {event.location && <span>· {event.location}</span>}
                 {event.capacity !== null && <span>· {event.capacity} seats</span>}
+              </div>
+              <div className="event-bottom">
+                <RegisterButton
+                  eventId={event.id}
+                  auth={state.auth}
+                  onRegister={handleRegister}
+                  onCancel={handleCancel}
+                />
               </div>
             </div>
           </li>
