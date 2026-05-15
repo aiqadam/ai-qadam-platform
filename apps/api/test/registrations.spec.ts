@@ -6,6 +6,8 @@ import postgres from 'postgres';
 import { afterAll, beforeEach, describe, expect, inject, it } from 'vitest';
 import { countries } from '../src/db/schema/tenants';
 import { events } from '../src/modules/events/schema';
+import { PointsService } from '../src/modules/points/points.service';
+import { pointAwards } from '../src/modules/points/schema';
 import {
   CheckinIneligibleError,
   CheckinNotFoundError,
@@ -17,7 +19,8 @@ import { users } from '../src/modules/users/schema';
 const url = inject('TEST_DATABASE_URL');
 const client = postgres(url, { max: 2 });
 const db = drizzle(client);
-const service = new RegistrationsService(db);
+const points = new PointsService(db);
+const service = new RegistrationsService(db, points);
 
 afterAll(async () => {
   await client.end();
@@ -68,6 +71,7 @@ async function makeEvent(input: {
 }
 
 async function resetTables(): Promise<void> {
+  await db.delete(pointAwards);
   await db.delete(registrations);
   await db.delete(events);
   await db.delete(users);
@@ -282,6 +286,19 @@ describe('RegistrationsService.checkin', () => {
     await service.cancel({ userId, eventId, countryCode: 'uz' });
 
     await expect(service.checkin(reg.checkinCode)).rejects.toBeInstanceOf(CheckinIneligibleError);
+  });
+
+  it('awards points on first check-in (idempotent — second scan adds no new award)', async () => {
+    const userId = await makeUser();
+    const eventId = await makeEvent({ countryCode: 'uz' });
+    const reg = await service.register({ userId, eventId, countryCode: 'uz' });
+
+    await service.checkin(reg.checkinCode);
+    await service.checkin(reg.checkinCode); // re-scan
+
+    const awards = await db.select().from(pointAwards);
+    expect(awards).toHaveLength(1);
+    expect(awards[0]?.userId).toBe(userId);
   });
 
   it('checks in a waitlisted user too (the QR is the auth)', async () => {

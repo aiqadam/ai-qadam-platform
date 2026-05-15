@@ -1,0 +1,16 @@
+---
+import { Leaderboard } from '../components/Leaderboard';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Leaderboard · AI Qadam">
+  <main class="container py-12">
+    <h1 class="text-3xl font-bold tracking-tight">Leaderboard</h1>
+    <p class="mt-2 text-sm text-gray-500">
+      Top community members by points earned from event attendance.
+    </p>
+    <div class="mt-8">
+      <Leaderboard client:load />
+    </div>
+  </main>
+</Layout>

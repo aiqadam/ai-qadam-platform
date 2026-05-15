@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
 import { events, type Event } from '../events/schema';
+import { PointsService } from '../points/points.service';
 import { type Registration, registrations } from './schema';
 
 interface MineEntry {
@@ -53,7 +54,10 @@ interface CancelResult {
 
 @Injectable()
 export class RegistrationsService {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly points: PointsService,
+  ) {}
 
   // Idempotent register. Capacity-aware:
   //   - event.capacity is null → always 'registered'
@@ -188,6 +192,16 @@ export class RegistrationsService {
       .where(eq(registrations.id, row.registration.id))
       .returning();
     if (!updated) throw new Error('checkin update returned no row');
+
+    // Award points for the attended event. Idempotent in PointsService via
+    // (user_id, source, source_ref) unique constraint, so a stray double-call
+    // is harmless. Fire after the row update so a points-side error doesn't
+    // roll back the check-in.
+    await this.points.awardForAttended({
+      userId: updated.userId,
+      registrationId: updated.id,
+      countryCode: row.event.countryCode,
+    });
 
     return makeCheckinResult(updated, row.event, false);
   }
