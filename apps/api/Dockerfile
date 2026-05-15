@@ -8,6 +8,12 @@ WORKDIR /repo
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
+# Disable husky during the in-container install. Husky is the root
+# package.json's `prepare` script for git hooks on dev machines — irrelevant
+# (and not installed) inside a builder image, where it would fail with
+# "sh: husky: not found".
+ENV HUSKY=0
+
 # Cache pnpm store to speed rebuilds. Copying lock + manifests first lets
 # Docker layer-cache the install when only source changes.
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./

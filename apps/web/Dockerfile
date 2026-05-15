@@ -8,6 +8,10 @@ WORKDIR /repo
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
+# Disable husky during the in-container install (see apps/api/Dockerfile for
+# the why — same root-package `prepare` script).
+ENV HUSKY=0
+
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/biome-config/package.json packages/biome-config/package.json
