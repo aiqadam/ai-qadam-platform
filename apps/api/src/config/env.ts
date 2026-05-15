@@ -34,6 +34,17 @@ const envSchema = z.object({
   // Where the API redirects the browser after a successful callback. Usually
   // the web app's root.
   WEB_BASE_URL: z.string().url(),
+
+  // Email (Resend, ADR-0009). When SEND_EMAILS=false the EmailService logs
+  // and returns — no API call. RESEND_API_KEY may be empty in dev; the
+  // service degrades gracefully (warns + skips). EMAIL_FROM must be a verified
+  // sender on the Resend account.
+  SEND_EMAILS: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('AI Qadam <admin@aiqadam.org>'),
 });
 
 const parsed = envSchema.safeParse(process.env);
