@@ -8,11 +8,13 @@ WORKDIR /repo
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
-# Disable husky during the in-container install. Husky is the root
-# package.json's `prepare` script for git hooks on dev machines — irrelevant
-# (and not installed) inside a builder image, where it would fail with
-# "sh: husky: not found".
-ENV HUSKY=0
+# --ignore-scripts on the install below skips lifecycle scripts (preinstall /
+# install / postinstall / prepare) on every package. The root package's
+# `prepare` script invokes husky, which isn't installed in the filtered
+# install — without --ignore-scripts the build dies with "sh: husky: not
+# found". HUSKY=0 doesn't help since husky's env-check runs INSIDE the husky
+# binary, which doesn't exist here. We don't need any package's lifecycle
+# scripts at install time; we run `nest build` explicitly below.
 
 # Cache pnpm store to speed rebuilds. Copying lock + manifests first lets
 # Docker layer-cache the install when only source changes.
@@ -21,7 +23,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY packages/biome-config/package.json packages/biome-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --filter @aiqadam/api...
+    pnpm install --frozen-lockfile --filter @aiqadam/api... --ignore-scripts
 
 # Now copy the rest of the source the API needs to compile.
 COPY tsconfig.json ./

@@ -8,16 +8,15 @@ WORKDIR /repo
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
-# Disable husky during the in-container install (see apps/api/Dockerfile for
-# the why — same root-package `prepare` script).
-ENV HUSKY=0
+# --ignore-scripts on the install below skips lifecycle scripts. See
+# apps/api/Dockerfile for the husky-specific why.
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/biome-config/package.json packages/biome-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --filter @aiqadam/web...
+    pnpm install --frozen-lockfile --filter @aiqadam/web... --ignore-scripts
 
 COPY tsconfig.json ./
 COPY packages packages
