@@ -6,7 +6,15 @@
     "community": "Community",
     "blog": "Blog",
     "leaderboard": "Leaderboard",
-    "account": "Account"
+    "account": "Account",
+    "sign_in": "Sign in"
+  },
+  "country": {
+    "label": "Country",
+    "uz": "Uzbekistan",
+    "kz": "Kazakhstan",
+    "tj": "Tajikistan",
+    "global": "Global"
   },
   "actions": {
     "sign_in": "Sign in",
@@ -28,5 +36,15 @@
     "label": "Language",
     "en": "English",
     "ru": "Русский"
+  },
+  "global": {
+    "title": "AI Qadam",
+    "tagline": "A community of AI engineers across Central Asia",
+    "subtitle": "Pick your country to continue",
+    "uz_desc": "Tashkent, Samarkand — meetups, workshops, hackathons",
+    "kz_desc": "Almaty, Astana — meetups and engineering talks",
+    "tj_desc": "Dushanbe — meetups and engineering talks",
+    "browse": "Browse",
+    "note": "We're a community-owned, open-source platform. Pick the country closest to you — you can switch any time from the nav."
   }
 }

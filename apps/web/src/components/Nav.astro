@@ -1,31 +1,67 @@
 ---
-// Always-visible top nav. Auth state is determined client-side per ADR-0016
-// — see AuthGate.tsx. The "Sign in" / "Sign out" affordances live on /me
-// rather than here, since the nav is rendered server-side and would need
-// client-side hydration just to flip between the two.
+// Always-visible top nav per design screen s1-1 (`.app-nav`). Three clusters:
+//   - Brand mark + wordmark
+//   - Center nav links (Events / Speakers / Community / Blog)
+//   - Right cluster: country switcher + locale switcher + Sign in
 //
-// PR A1 (country homepage) will replace this with the designed `.app-nav`
-// from portal-reference.html s1-1. F3 adds i18n primitives + a tiny locale
-// switcher; A1 inherits both into the proper design.
+// Country detection happens client-side from `window.location.hostname` so
+// this component stays prerender-safe (no per-request data needed). Locale
+// resolution still uses the cookie + Accept-Language header per F3 — for
+// SSR pages it's per-request, for prerendered ones it falls back to default.
 
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, getLocale, makeT } from '../lib/i18n';
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
+
+const COUNTRY_CODES = ['uz', 'kz', 'tj', 'global'] as const;
+const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
+  uz: '🇺🇿',
+  kz: '🇰🇿',
+  tj: '🇹🇯',
+  global: '🌐',
+};
 ---
 
-<nav style="border-bottom: 1px solid var(--border); background: var(--background);">
-  <div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-3">
-    <a href="/" style="font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--foreground);">AI Qadam</a>
-    <div class="flex items-center gap-4 text-sm" style="color: var(--muted-foreground);">
-      <a href="/" style="color: inherit;">{t('nav.home')}</a>
-      <a href="/events" style="color: inherit;">{t('nav.events')}</a>
-      <a href="/leaderboard" style="color: inherit;">{t('nav.leaderboard')}</a>
-      <a href="/me" style="color: inherit;">{t('nav.account')}</a>
+<header
+  style="position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); background: color-mix(in oklch, var(--background) 85%, transparent); border-bottom: 1px solid var(--border);"
+>
+  <div
+    style="max-width: 1180px; margin: 0 auto; padding: 0 32px; display: flex; align-items: center; height: 56px; gap: 16px;"
+  >
+    <a
+      href="/"
+      style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit;"
+    >
+      <img src="/brand/aiqadam-mark.png" alt="" style="width: 24px; height: 24px; object-fit: contain;" />
+      <span style="font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.01em;">
+        AI <span style="color: var(--primary);">Qadam</span>
+      </span>
+    </a>
+
+    <nav
+      style="display: flex; align-items: center; gap: 4px; margin-left: 16px; flex: 1;"
+    >
+      <a href="/events" class="app-nav-link">{t('nav.events')}</a>
+      <a href="/leaderboard" class="app-nav-link">{t('nav.leaderboard')}</a>
+      <a href="/me" class="app-nav-link">{t('nav.account')}</a>
+    </nav>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <select
+        id="country-switcher"
+        aria-label={t('country.label')}
+        style="background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: var(--font-mono);"
+      >
+        {COUNTRY_CODES.map((code) => (
+          <option value={code}>{COUNTRY_FLAGS[code]} {t(`country.${code}`)}</option>
+        ))}
+      </select>
+
       <select
         id="locale-switcher"
         aria-label={t('locale.label')}
-        style="background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; font-family: var(--font-mono);"
+        style="background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: var(--font-mono);"
       >
         {SUPPORTED_LOCALES.map((code) => (
           <option value={code} selected={code === locale}>{t(`locale.${code}`)}</option>
@@ -33,14 +69,52 @@ const t = makeT(locale);
       </select>
     </div>
   </div>
-</nav>
+</header>
 
-<script define:vars={{ cookieName: LOCALE_COOKIE }}>
-  const sel = document.getElementById('locale-switcher');
-  if (sel) {
-    sel.addEventListener('change', (e) => {
+<style>
+  .app-nav-link {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    border-radius: 6px;
+  }
+  .app-nav-link:hover {
+    color: var(--foreground);
+    background: color-mix(in oklch, var(--muted) 60%, transparent);
+  }
+</style>
+
+<script is:inline define:vars={{ cookieName: LOCALE_COOKIE, countryCodes: COUNTRY_CODES }}>
+  // Country switcher: detect current country from hostname, navigate to
+  // sibling subdomain on change. In production hostnames look like
+  // <code>.aiqadam.org or aiqadam.org (apex). Local dev (localhost,
+  // 127.0.0.1) is no-op — there's no DNS for subdomains.
+  const cs = document.getElementById('country-switcher');
+  if (cs) {
+    const hostname = window.location.hostname.toLowerCase();
+    const firstLabel = hostname.split('.')[0] ?? '';
+    const current = countryCodes.includes(firstLabel) ? firstLabel : 'uz';
+    for (const opt of cs.options) {
+      opt.selected = opt.value === current;
+    }
+    cs.addEventListener('change', (e) => {
+      const code = e.target.value;
+      if (hostname.endsWith('aiqadam.org')) {
+        window.location.href = `https://${code}.aiqadam.org${window.location.pathname}${window.location.search}`;
+      }
+    });
+  }
+
+  // Locale switcher: write cookie, full reload so SSR pages re-render in
+  // the new language and prerendered pages pick it up on next nav.
+  const ls = document.getElementById('locale-switcher');
+  if (ls) {
+    ls.addEventListener('change', (e) => {
       const next = e.target.value;
-      // path=/, 1 year, lax (server-side reads it on next nav).
       document.cookie = `${cookieName}=${next}; path=/; max-age=31536000; samesite=lax`;
       window.location.reload();
     });

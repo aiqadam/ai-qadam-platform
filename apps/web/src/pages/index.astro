@@ -1,13 +1,42 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { geoTargetSubdomain, isApexHost } from '../lib/geo';
+import { getLocale, makeT } from '../lib/i18n';
+
+// SSR so the apex (aiqadam.org / www.aiqadam.org) can geo-redirect using
+// Cloudflare's CF-IPCountry header, which only arrives at origin when the
+// DNS A record is proxied (orange cloud). On country subdomains
+// (uz/kz/tj.aiqadam.org) this renders the country homepage placeholder —
+// PR A1b replaces that with the designed s1-1 hero + upcoming grid.
+//
+// If CF-IPCountry is missing (e.g. proxy is off or visitor came directly
+// to origin IP), we fall through to global.aiqadam.org. That is the safe
+// default: showing a country picker beats picking a wrong country.
+export const prerender = false;
+
+const url = new URL(Astro.request.url);
+
+if (isApexHost(url.hostname)) {
+  return Astro.redirect(
+    `https://${geoTargetSubdomain(Astro.request.headers)}.aiqadam.org${url.pathname}${url.search}`,
+    302,
+  );
+}
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
 ---
 
 <Layout title="AI Qadam">
-  <main class="mx-auto max-w-3xl px-6 py-16">
-    <h1 class="text-4xl font-bold tracking-tight">AI Qadam</h1>
-    <p class="mt-3 text-lg text-gray-600">
-      Multi-tenant community platform for AI engineers across Central Asia.
+  <main style="max-width: 1180px; margin: 0 auto; padding: 64px 32px;">
+    <h1 style="font-family: var(--font-display); font-weight: 600; font-size: 48px; letter-spacing: -0.025em; margin: 0 0 12px;">
+      AI <span style="color: var(--primary);">Qadam</span>
+    </h1>
+    <p style="font-size: 16px; color: var(--muted-foreground); margin: 0 0 8px;">
+      {t('global.tagline')}
     </p>
-    <p class="mt-2 text-sm text-gray-500">Phase 1 in progress &mdash; content arrives soon.</p>
+    <p style="font-size: 13px; color: var(--muted-foreground); font-family: var(--font-mono); margin: 0;">
+      Country homepage — content arrives in PR A1b.
+    </p>
   </main>
 </Layout>
