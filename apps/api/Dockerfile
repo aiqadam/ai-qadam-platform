@@ -32,8 +32,15 @@ COPY tsconfig.json ./
 COPY packages packages
 COPY apps/api apps/api
 
+# DEBUG: see what's actually in apps/api before the build runs.
+RUN echo "=== ls apps/api ===" && ls -la apps/api && \
+    echo "=== ls apps/api/node_modules ===" && (ls apps/api/node_modules | head -20 2>&1 || echo "NO node_modules") && \
+    echo "=== ls apps/api/node_modules/.bin ===" && (ls apps/api/node_modules/.bin 2>&1 | head -20 || echo "NO .bin") && \
+    echo "=== which nest ===" && (which nest || echo "no nest in PATH") && \
+    echo "=== root node_modules/.bin ===" && (ls node_modules/.bin 2>&1 | head -20)
+
 # Build NestJS → apps/api/dist
-RUN pnpm --filter @aiqadam/api build
+RUN cd apps/api && pnpm exec nest build
 
 # Produce a self-contained prod-only deploy at /out.
 RUN pnpm --filter @aiqadam/api deploy --prod /out
