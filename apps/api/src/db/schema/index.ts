@@ -7,3 +7,4 @@
 // in drizzle.config.ts).
 
 export * from './tenants';
+export * from '../../modules/users/schema';

@@ -17,7 +17,8 @@
       "coverage/**",
       "pnpm-lock.yaml",
       "design-system/**",
-      "**/*.astro"
+      "**/*.astro",
+      "**/db/migrations/**"
     ]
   }
 }

@@ -14,3 +14,9 @@ const queryClient = postgres(env.DATABASE_URL, {
 
 export const db = drizzle(queryClient);
 export type Db = typeof db;
+
+// NestJS DI token for the Drizzle client. Modules that write to the DB take
+// a `Db` via constructor injection (provided as `db` in production, swappable
+// for a Testcontainers-backed instance in tests). Read-only services that
+// load a cache once at boot may import `db` directly (see TenantsService).
+export const DB = Symbol('DB');
