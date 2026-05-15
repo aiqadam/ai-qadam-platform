@@ -50,6 +50,12 @@ export class AuthService {
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
+      // Force re-authentication every time. prompt=login is the OIDC-standard
+      // hint; max_age=0 is the harder mandate (auth_time must be ≤0 seconds
+      // ago = always re-auth). Authentik historically honors max_age more
+      // reliably than prompt for this purpose.
+      prompt: 'login',
+      max_age: 0,
     });
 
     const flowToken = await new SignJWT({ state, codeVerifier } satisfies FlowClaims)
@@ -110,6 +116,15 @@ export class AuthService {
   // successful callback. The web reads its refresh cookie on first render
   // and calls /v1/auth/refresh to mint the access token (per ADR-0016).
   postCallbackRedirectUrl(): string {
+    return env.WEB_BASE_URL;
+  }
+
+  // Where /logout sends the browser after revoking our session. We deliberately
+  // skip Authentik's end_session_endpoint — its built-in invalidation flows
+  // all show a consent page, which is clunky UX. Instead we rely on
+  // prompt=login (in startAuthorization above) to force re-auth on the next
+  // /login, regardless of Authentik's IdP-level session.
+  postLogoutRedirectUrl(): string {
     return env.WEB_BASE_URL;
   }
 

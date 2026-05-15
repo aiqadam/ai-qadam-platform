@@ -1,4 +1,12 @@
+import { config as loadDotenv } from 'dotenv';
 import { z } from 'zod';
+
+// Load .env files before reading process.env. NestJS doesn't auto-load .env
+// (we deliberately don't use @nestjs/config) — this single dotenv call gives
+// us .env-file support in dev without pulling in NestJS's heavier ConfigModule.
+// In CI / Coolify the env is set by the runtime, so .env is absent and dotenv
+// silently no-ops.
+loadDotenv();
 
 // Boundary validation per CLAUDE.md §6 + STANDARDS.md Part III: every
 // input from outside the system gets a Zod schema. Process env counts.

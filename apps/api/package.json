@@ -23,6 +23,7 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
     "drizzle-orm": "^0.36.4",
     "jose": "^5.9.6",
     "openid-client": "^5.7.1",

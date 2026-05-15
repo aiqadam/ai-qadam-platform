@@ -31,9 +31,10 @@ async function loadSession(): Promise<State> {
   return { status: 'authed', me };
 }
 
-async function signOut(): Promise<void> {
-  await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
-  window.location.reload();
+function signOut(): void {
+  // Top-level navigation: API revokes our session, then 302s to Authentik's
+  // end_session_endpoint, which 302s back to WEB_BASE_URL.
+  window.location.href = '/api/v1/auth/logout';
 }
 
 export function AuthGate(): ReactElement {

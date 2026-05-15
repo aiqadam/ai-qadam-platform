@@ -16,10 +16,12 @@ import { AuthService } from './auth.service';
 import { RefreshTokenService } from './refresh-token.service';
 
 // Per ADR-0016: __Host- prefix enforces Secure + no Domain attribute + path=/.
+// The path=/ is mandatory (browsers silently drop __Host- cookies whose path
+// is anything else). HttpOnly keeps JS from reading them; the API only ever
+// inspects them at /v1/auth/* anyway.
 const REFRESH_COOKIE = '__Host-aiqadam-refresh';
-const REFRESH_COOKIE_PATH = '/v1/auth';
 const FLOW_COOKIE = '__Host-aiqadam-oauth-flow';
-const FLOW_COOKIE_PATH = '/v1/auth';
+const COOKIE_PATH = '/';
 
 interface RefreshResponse {
   accessToken: string;
@@ -49,7 +51,7 @@ export class AuthController {
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
-      path: FLOW_COOKIE_PATH,
+      path: COOKIE_PATH,
       maxAge: flowExpiresIn * 1000,
     });
     res.redirect(authorizeUrl);
@@ -79,12 +81,12 @@ export class AuthController {
       email: user.email,
     });
 
-    res.clearCookie(FLOW_COOKIE, { path: FLOW_COOKIE_PATH });
+    res.clearCookie(FLOW_COOKIE, { path: COOKIE_PATH });
     res.cookie(REFRESH_COOKIE, session.refreshToken, {
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
-      path: REFRESH_COOKIE_PATH,
+      path: COOKIE_PATH,
       expires: session.refreshExpiresAt,
     });
     res.redirect(this.auth.postCallbackRedirectUrl());
@@ -120,17 +122,18 @@ export class AuthController {
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
-      path: REFRESH_COOKIE_PATH,
+      path: COOKIE_PATH,
       expires: session.refreshExpiresAt,
     });
     return { accessToken: session.accessToken, expiresIn: 600 };
   }
 
-  // Single-device logout: revoke this token's family + clear cookie.
-  // RP-initiated logout (ending Authentik's own session) is a follow-up.
-  @Post('logout')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
+  // Logout = top-level browser navigation (GET, not fetch). We revoke our
+  // session + clear our cookie, then 302 to Authentik's end_session_endpoint
+  // so Authentik clears its session too. Authentik then 302s back to
+  // WEB_BASE_URL (must be registered as a redirect URI on the provider).
+  @Get('logout')
+  async logout(@Req() req: Request, @Res({ passthrough: false }) res: Response): Promise<void> {
     const token = req.cookies?.[REFRESH_COOKIE];
     if (typeof token === 'string' && token.length > 0) {
       try {
@@ -140,7 +143,8 @@ export class AuthController {
         // Token already invalid — clearing the cookie is still the right move.
       }
     }
-    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    res.clearCookie(REFRESH_COOKIE, { path: COOKIE_PATH });
+    res.redirect(this.auth.postLogoutRedirectUrl());
   }
 
   @Get('me')
