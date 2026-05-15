@@ -1,0 +1,7 @@
+{
+  "name": "@aiqadam/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared TypeScript configurations for AI Qadam workspaces. Per STANDARDS.md Part II.",
+  "files": ["base.json", "node.json", "astro.json"]
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Astro — extends base with DOM lib + JSX for React islands.",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "jsx": "preserve",
+    "jsxImportSource": "react",
+    "types": ["astro/client"]
+  }
+}

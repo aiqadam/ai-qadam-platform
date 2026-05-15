@@ -1,0 +1,22 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "extends": ["./packages/biome-config/biome.json"],
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      ".astro/**",
+      ".turbo/**",
+      ".output/**",
+      "coverage/**",
+      "pnpm-lock.yaml",
+      "design-system/**"
+    ]
+  }
+}
