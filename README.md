@@ -80,18 +80,20 @@ design-system/          Canonical static HTML/CSS visual reference (tokens + com
 
 ### Bring up shared services
 
-Currently included: **PostgreSQL 16 + pgvector**, **Redis 7**, **MinIO**. Authentik, Directus, Listmonk join as those features land.
+Currently included: **PostgreSQL 16 + pgvector**, **Redis 7**, **MinIO**, **Authentik** (server + worker). Directus and Listmonk join as those features land.
 
 ```bash
 cd infrastructure
-cp .env.example .env       # edit if you have local services on the same ports
+cp .env.example .env       # then fill in AUTHENTIK_SECRET_KEY + AUTHENTIK_BOOTSTRAP_PASSWORD
 docker compose up -d
 docker compose ps
 ```
 
-Default host ports: Postgres `5432`, Redis `6379`, MinIO API `9000`, MinIO console `http://localhost:9001`. Override any of these via `*_HOST_PORT` env vars in your `.env` if you have a conflicting local service.
+Default host ports: Postgres `5432`, Redis `6379`, MinIO API `9100`, MinIO console `http://localhost:9001`, Authentik `http://localhost:9000`. Override any of these via `*_HOST_PORT` env vars in your `.env` if you have a conflicting local service.
 
 The Postgres container creates four databases on first boot (`platform`, `directus`, `authentik`, `listmonk`) per [ARCHITECTURE.md §"Data ownership"](.claude/ARCHITECTURE.md), and installs `pgvector` on `platform`.
+
+First-time Authentik setup (create OIDC application, configure redirect URIs, generate client secret) follows [docs/runbooks/authentik-local-bootstrap.md](docs/runbooks/authentik-local-bootstrap.md).
 
 ```bash
 docker compose down        # stop, keep data volumes

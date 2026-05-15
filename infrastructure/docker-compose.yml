@@ -18,13 +18,17 @@
 #   docker compose down -v     # stop + delete all data (destructive!)
 #
 # Services:
-#   postgres   — PostgreSQL 16 + pgvector  : 127.0.0.1:5432
-#   redis      — Redis 7                   : 127.0.0.1:6379
-#   minio      — S3-compatible storage     : 127.0.0.1:9000 (API), 127.0.0.1:9001 (console)
+#   postgres            — PostgreSQL 16 + pgvector  : 127.0.0.1:5432
+#   redis               — Redis 7                   : 127.0.0.1:6379
+#   minio               — S3-compatible storage     : 127.0.0.1:9100 (API), 127.0.0.1:9001 (console)
+#   authentik-server    — OIDC identity provider    : 127.0.0.1:9000 (HTTP)
+#   authentik-worker    — Authentik background jobs : (no exposed ports)
 #
-# Authentik, Directus, Listmonk follow in dedicated PRs as the auth, CMS, and
-# email-list features come online. When Authentik lands it will need port 9000;
-# at that point MinIO API moves to 9100 and we update ARCHITECTURE.md.
+# Directus and Listmonk follow in dedicated PRs as those features come online.
+#
+# Note: MinIO API moved from 9000 → 9100 when Authentik landed (Authentik's HTTP
+# port is hard-coded to 9000 in many places in its image). See
+# docs/runbooks/authentik-local-bootstrap.md.
 
 name: aiqadam-local
 
@@ -80,7 +84,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
-      - "127.0.0.1:${MINIO_API_HOST_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_API_HOST_PORT:-9100}:9000"
       - "127.0.0.1:${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
@@ -90,10 +94,78 @@ services:
       timeout: 5s
       retries: 5
 
+  # Authentik = our OIDC identity provider (ARCHITECTURE.md §"Authentication").
+  # Server + worker share one image; the server handles HTTP, the worker runs
+  # background jobs (token cleanup, scheduled tasks, email send). Both connect
+  # to the shared Postgres `authentik` DB created by scripts/postgres-init.sql
+  # and to the shared Redis. First-login + OIDC app setup procedure lives in
+  # docs/runbooks/authentik-local-bootstrap.md.
+  #
+  # Pinned to 2024.12.3 (latest stable as of 2026-05-15). Authentik moves fast
+  # and minor versions occasionally introduce breaking schema changes — bump
+  # this in a dedicated PR after reading the release notes.
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.12.3
+    container_name: aiqadam-authentik-server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?set AUTHENTIK_SECRET_KEY in infrastructure/.env}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-postgres}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-admin@aiqadam.org}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:?set AUTHENTIK_BOOTSTRAP_PASSWORD in infrastructure/.env}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    ports:
+      - "127.0.0.1:${AUTHENTIK_HOST_PORT:-9000}:9000"
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "ak", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.12.3
+    container_name: aiqadam-authentik-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?set AUTHENTIK_SECRET_KEY in infrastructure/.env}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-postgres}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
   redis-data:
   minio-data:
+  authentik-media:
+  authentik-templates:
 
 networks:
   default:
