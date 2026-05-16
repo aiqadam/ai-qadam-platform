@@ -72,6 +72,35 @@ export async function fetchLeaderboard(req: Request, limit = 20): Promise<Leader
   }
 }
 
+export interface PublicProfile {
+  handle: string;
+  displayName: string | null;
+  attendedCount: number;
+  registeredCount: number;
+  totalPoints: number;
+}
+
+export async function fetchProfile(req: Request, handle: string): Promise<PublicProfile | null> {
+  const host = req.headers.get('host') ?? '';
+  try {
+    const res = await fetch(`${BASE}/v1/users/${encodeURIComponent(handle)}/profile`, {
+      headers: host ? { host } : {},
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      console.error(`[api] /v1/users/${handle}/profile failed: HTTP ${res.status}`);
+      return null;
+    }
+    return (await res.json()) as PublicProfile;
+  } catch (err) {
+    console.error(
+      `[api] /v1/users/${handle}/profile threw:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
 export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
   const host = req.headers.get('host') ?? '';
   try {

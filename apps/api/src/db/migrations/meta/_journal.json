@@ -57,6 +57,13 @@
       "when": 1778853221714,
       "tag": "0007_calm_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778937938137,
+      "tag": "0008_opposite_violations",
+      "breakpoints": true
     }
   ]
 }

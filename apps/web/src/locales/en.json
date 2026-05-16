@@ -47,6 +47,12 @@
     "browse": "Browse",
     "note": "We're a community-owned, open-source platform. Pick the country closest to you — you can switch any time from the nav."
   },
+  "profile": {
+    "attended": "Attended",
+    "registered": "Upcoming",
+    "points": "Points",
+    "scope_note": "Counts reflect activity in this country only."
+  },
   "leaderboard": {
     "title": "Leaderboard",
     "subtitle": "Top community members by points earned at events",

@@ -1,0 +1,112 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { fetchProfile } from '../../lib/api';
+import { getLocale, makeT } from '../../lib/i18n';
+
+// Public profile page per design screen s3-1.
+//
+// v1: header (avatar + name + handle) + stat cards (attended / registered /
+// points). Tenant-scoped — counts reflect activity in the requesting
+// country (uz.aiqadam.org/u/binali shows UZ activity only).
+//
+// Deferred (need data not in schema yet):
+// - Bio / location / company
+// - Badges row
+// - 52-week heatmap of attended events
+// - Recent activity feed
+export const prerender = false;
+
+const { handle } = Astro.params as { handle: string };
+const profile = await fetchProfile(Astro.request, handle);
+
+if (!profile) {
+  return Astro.redirect('/leaderboard', 302);
+}
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+function avatarSeed(name: string): string {
+  const parts = name.split(/[\s._]+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? name[0] ?? '?';
+  const b = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+  return `${a}${b}`.toUpperCase();
+}
+
+const displayName = profile.displayName ?? profile.handle;
+const seed = avatarSeed(displayName);
+---
+
+<Layout title={`@${profile.handle} · AI Qadam`} description={`Public profile for ${displayName}.`}>
+  <main style="max-width: 880px; margin: 0 auto; padding: 40px 32px; display: flex; flex-direction: column; gap: 32px;">
+    <header style="display: flex; align-items: center; gap: 24px;">
+      <div
+        class="avatar avatar-xl"
+        style="background: color-mix(in oklch, var(--primary) 25%, var(--muted)); width: 96px; height: 96px; font-size: 28px;"
+      >
+        {seed}
+      </div>
+      <div>
+        <h1
+          style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin: 0;"
+        >
+          {displayName}
+        </h1>
+        <p
+          style="font-family: var(--font-mono); font-size: 13px; color: var(--muted-foreground); margin: 4px 0 0;"
+        >
+          @{profile.handle}
+        </p>
+      </div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+      <div
+        style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);"
+      >
+        <p
+          style="font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 4px;"
+        >
+          {t('profile.attended')}
+        </p>
+        <p
+          style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin: 0;"
+        >
+          {profile.attendedCount}
+        </p>
+      </div>
+      <div
+        style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);"
+      >
+        <p
+          style="font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 4px;"
+        >
+          {t('profile.registered')}
+        </p>
+        <p
+          style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin: 0;"
+        >
+          {profile.registeredCount}
+        </p>
+      </div>
+      <div
+        style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);"
+      >
+        <p
+          style="font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 4px;"
+        >
+          {t('profile.points')}
+        </p>
+        <p
+          style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin: 0; color: var(--primary);"
+        >
+          {profile.totalPoints.toLocaleString('en-US')}
+        </p>
+      </div>
+    </div>
+
+    <p style="font-size: 12px; color: var(--muted-foreground); font-family: var(--font-mono); margin: 0;">
+      {t('profile.scope_note')}
+    </p>
+  </main>
+</Layout>

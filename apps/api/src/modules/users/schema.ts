@@ -9,11 +9,16 @@ import { pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 // non-auth code (event registrations, notifications) doesn't need to hit
 // Authentik for every read.
 
+// `handle` is the public profile slug (lowercase alphanumerics + underscore,
+// up to 64 chars). Nullable for safety with existing rows; migration 0008
+// backfills from the email prefix. New users get a derived handle from
+// users.service.ensureHandle on first /auth/me.
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   authentikSubject: varchar('authentik_subject', { length: 255 }).notNull().unique(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   displayName: varchar('display_name', { length: 255 }),
+  handle: varchar('handle', { length: 64 }).unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }).notNull().defaultNow(),
