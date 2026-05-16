@@ -146,3 +146,120 @@ describe('EventsService.findByIdForTenant', () => {
     expect(found).toBeUndefined();
   });
 });
+
+describe('EventsService.createForTenant', () => {
+  beforeEach(async () => {
+    await db.delete(events);
+    await ensureCountries();
+  });
+
+  it('inserts a new event for the requested tenant', async () => {
+    const created = await service.createForTenant({
+      ...baseEvent,
+      countryCode: 'uz',
+      title: 'Created',
+      status: 'draft',
+    });
+    expect(created.title).toBe('Created');
+    expect(created.countryCode).toBe('uz');
+    expect(created.status).toBe('draft');
+  });
+});
+
+describe('EventsService.updateForTenant', () => {
+  beforeEach(async () => {
+    await db.delete(events);
+    await ensureCountries();
+  });
+
+  it('updates fields for an event in the matching tenant', async () => {
+    const created = await service.createForTenant({
+      ...baseEvent,
+      countryCode: 'uz',
+      title: 'Old',
+      status: 'draft',
+    });
+    const updated = await service.updateForTenant({
+      id: created.id,
+      countryCode: 'uz',
+      patch: { title: 'New', status: 'published' },
+    });
+    expect(updated?.title).toBe('New');
+    expect(updated?.status).toBe('published');
+  });
+
+  it('returns undefined when event belongs to another tenant', async () => {
+    const created = await service.createForTenant({
+      ...baseEvent,
+      countryCode: 'kz',
+      title: 'KZ Only',
+    });
+    const result = await service.updateForTenant({
+      id: created.id,
+      countryCode: 'uz',
+      patch: { title: 'Hijacked' },
+    });
+    expect(result).toBeUndefined();
+  });
+
+  it('allows raising capacity', async () => {
+    const created = await service.createForTenant({
+      ...baseEvent,
+      countryCode: 'uz',
+      capacity: 10,
+    });
+    const updated = await service.updateForTenant({
+      id: created.id,
+      countryCode: 'uz',
+      patch: { capacity: 50 },
+    });
+    expect(updated?.capacity).toBe(50);
+  });
+});
+
+describe('EventsService.deleteForTenant', () => {
+  beforeEach(async () => {
+    await db.delete(events);
+    await ensureCountries();
+  });
+
+  it('deletes the event and returns true', async () => {
+    const created = await service.createForTenant({ ...baseEvent, countryCode: 'uz' });
+    const ok = await service.deleteForTenant({ id: created.id, countryCode: 'uz' });
+    expect(ok).toBe(true);
+    const stillThere = await service.findByIdForTenant({ id: created.id, countryCode: 'uz' });
+    expect(stillThere).toBeUndefined();
+  });
+
+  it('returns false for a foreign tenant', async () => {
+    const created = await service.createForTenant({ ...baseEvent, countryCode: 'kz' });
+    const ok = await service.deleteForTenant({ id: created.id, countryCode: 'uz' });
+    expect(ok).toBe(false);
+  });
+});
+
+describe('EventsService.listAllForTenant', () => {
+  beforeEach(async () => {
+    await db.delete(events);
+    await ensureCountries();
+  });
+
+  it('includes drafts and cancelled, only for the requested tenant', async () => {
+    await service.createForTenant({
+      ...baseEvent,
+      countryCode: 'uz',
+      title: 'Pub',
+      status: 'published',
+    });
+    await service.createForTenant({
+      ...baseEvent,
+      countryCode: 'uz',
+      title: 'Draft',
+      status: 'draft',
+    });
+    await service.createForTenant({ ...baseEvent, countryCode: 'kz', title: 'Other' });
+
+    const list = await service.listAllForTenant('uz');
+    expect(list.map((e) => e.title).sort()).toEqual(['Draft', 'Pub']);
+  });
+});
