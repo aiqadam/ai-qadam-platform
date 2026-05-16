@@ -1,0 +1,114 @@
+---
+import { RegistrationSidebar } from '../../components/RegistrationSidebar';
+import Layout from '../../layouts/Layout.astro';
+import { fetchEvent } from '../../lib/api';
+import { getLocale, makeT } from '../../lib/i18n';
+
+// Event detail page per design screen s1-3 (desktop) / s1-4 (mobile).
+//
+// For A3 v1: hero strip, two-column body with main (date / location
+// meta + about) and sticky right registration sidebar. Speakers,
+// agenda, location map deferred until those data models exist
+// (speakers table is not in Phase 1 schema). 404 if event is missing.
+export const prerender = false;
+
+const { id } = Astro.params as { id: string };
+const event = await fetchEvent(Astro.request, id);
+
+if (!event) {
+  return Astro.redirect('/events', 302);
+}
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const FORMAT_LABEL: Record<string, string> = {
+  meetup: 'MEETUP',
+  workshop: 'WORKSHOP',
+  hackathon: 'HACKATHON',
+  conference: 'CONFERENCE',
+  online: 'ONLINE',
+};
+
+const fullDate = new Date(event.startsAt).toLocaleDateString('en-US', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+const startTime = new Date(event.startsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+const endTime = new Date(event.endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+---
+
+<Layout title={`${event.title} · AI Qadam`} description={event.description}>
+  <main>
+    <div style="border-bottom: 1px solid var(--border);">
+      <div style="max-width: 1180px; margin: 0 auto; padding: 16px 32px;">
+        <a
+          href="/events"
+          style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); text-decoration: none;"
+        >
+          ← {t('event_detail.back')}
+        </a>
+      </div>
+    </div>
+
+    <div
+      style="position: relative; height: 280px; overflow: hidden; border-bottom: 1px solid var(--border); background: radial-gradient(ellipse at top right, color-mix(in oklch, var(--primary) 50%, var(--background)) 0%, color-mix(in oklch, var(--primary) 10%, var(--background)) 60%, var(--background) 100%);"
+    >
+      <div style="position: absolute; top: 20px; left: 40px; display: flex; gap: 8px;">
+        <span class="badge mono" style="background: color-mix(in oklch, var(--background) 70%, transparent); backdrop-filter: blur(4px);">
+          {FORMAT_LABEL[event.format] ?? event.format.toUpperCase()}
+        </span>
+      </div>
+      <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; max-width: 1100px; margin: 0 auto;">
+        <h1
+          style="font-family: var(--font-display); font-weight: 600; font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; margin: 0; max-width: 760px;"
+        >
+          {event.title}
+        </h1>
+      </div>
+    </div>
+
+    <div
+      style="max-width: 1180px; margin: 0 auto; padding: 32px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px;"
+    >
+      <div>
+        <div
+          style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px;"
+        >
+          <div>
+            <p
+              class="section-eyebrow"
+              style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+            >
+              {t('event_detail.date')}
+            </p>
+            <p style="font-size: 14px; margin: 0;">{fullDate}</p>
+            <p style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 2px 0 0;">
+              {startTime} — {endTime}
+            </p>
+          </div>
+          <div>
+            <p
+              class="section-eyebrow"
+              style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+            >
+              {t('event_detail.location')}
+            </p>
+            <p style="font-size: 14px; margin: 0;">{event.location ?? t('home.location_tba')}</p>
+          </div>
+        </div>
+
+        <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+          {t('event_detail.about')}
+        </h2>
+        <p style="font-size: 15px; line-height: 1.65; color: var(--muted-foreground); margin: 0 0 12px; white-space: pre-line;">
+          {event.description}
+        </p>
+      </div>
+
+      <RegistrationSidebar event={event} client:load />
+    </div>
+  </main>
+</Layout>

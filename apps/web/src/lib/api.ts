@@ -45,3 +45,21 @@ export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
     return [];
   }
 }
+
+export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
+  const host = req.headers.get('host') ?? '';
+  try {
+    const res = await fetch(`${BASE}/v1/events/${id}`, {
+      headers: host ? { host } : {},
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      console.error(`[api] /v1/events/${id} failed: HTTP ${res.status}`);
+      return null;
+    }
+    return (await res.json()) as ApiEvent;
+  } catch (err) {
+    console.error(`[api] /v1/events/${id} threw:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
