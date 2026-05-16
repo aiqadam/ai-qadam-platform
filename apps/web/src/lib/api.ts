@@ -46,6 +46,32 @@ export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
   }
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  email: string;
+  displayName: string | null;
+  totalPoints: number;
+}
+
+export async function fetchLeaderboard(req: Request, limit = 20): Promise<LeaderboardEntry[]> {
+  const host = req.headers.get('host') ?? '';
+  try {
+    const res = await fetch(`${BASE}/v1/leaderboard?limit=${limit}`, {
+      headers: host ? { host } : {},
+    });
+    if (!res.ok) {
+      console.error(`[api] /v1/leaderboard failed: HTTP ${res.status}`);
+      return [];
+    }
+    const body = (await res.json()) as { entries: LeaderboardEntry[] };
+    return body.entries;
+  } catch (err) {
+    console.error('[api] /v1/leaderboard threw:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
   const host = req.headers.get('host') ?? '';
   try {

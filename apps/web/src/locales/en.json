@@ -47,6 +47,16 @@
     "browse": "Browse",
     "note": "We're a community-owned, open-source platform. Pick the country closest to you — you can switch any time from the nav."
   },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "subtitle": "Top community members by points earned at events",
+    "col_member": "Member",
+    "col_country": "Country · city",
+    "col_points": "Points",
+    "col_streak": "Streak",
+    "empty_title": "No points awarded yet",
+    "empty_desc": "Attend an event to start earning points."
+  },
   "event_detail": {
     "back": "All events",
     "date": "Date",

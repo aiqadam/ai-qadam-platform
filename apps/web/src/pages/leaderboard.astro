@@ -1,16 +1,135 @@
 ---
-import { Leaderboard } from '../components/Leaderboard';
 import Layout from '../layouts/Layout.astro';
+import { fetchLeaderboard, type LeaderboardEntry } from '../lib/api';
+import { getLocale, makeT } from '../lib/i18n';
+
+// Leaderboard per design screen s3-4: top-3 podium + Strava-style table.
+//
+// SSR — no client island needed for v1. Filter tabs (all time / this
+// year / quarter) and "your row" highlighting are deferred until we
+// have time-window aggregations + an SSR-aware identity. Country,
+// streak, and rank-change columns render as "—" until those data
+// points exist server-side.
+export const prerender = false;
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+const entries = await fetchLeaderboard(Astro.request, 20);
+
+const podium = entries.slice(0, 3);
+const tableRows = entries.slice(3);
+
+function displayNameFor(e: LeaderboardEntry): string {
+  if (e.displayName) return e.displayName;
+  return e.email.split('@')[0] ?? e.email;
+}
+
+function avatarSeed(e: LeaderboardEntry): string {
+  const n = displayNameFor(e);
+  const parts = n.split(/[\s.]+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? n[0] ?? '?';
+  const b = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+  return `${a}${b}`.toUpperCase();
+}
+
+function rankLabel(rank: number, kind: 'gold' | 'silver' | 'bronze'): string {
+  return `${String(rank).padStart(2, '0')} · ${kind.toUpperCase()}`;
+}
+
+const PODIUM_ORDER: Array<{ idx: number; kind: 'gold' | 'silver' | 'bronze' }> = [
+  { idx: 1, kind: 'silver' },
+  { idx: 0, kind: 'gold' },
+  { idx: 2, kind: 'bronze' },
+];
 ---
 
-<Layout title="Leaderboard · AI Qadam">
-  <main class="container py-12">
-    <h1 class="text-3xl font-bold tracking-tight">Leaderboard</h1>
-    <p class="mt-2 text-sm text-gray-500">
-      Top community members by points earned from event attendance.
-    </p>
-    <div class="mt-8">
-      <Leaderboard client:load />
+<Layout title={`${t('leaderboard.title')} · AI Qadam`}>
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 48px;">
+    <div style="margin-bottom: 24px;">
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 4px;"
+      >
+        {t('leaderboard.title')}
+      </h1>
+      <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+        {t('leaderboard.subtitle')}
+      </p>
     </div>
+
+    {entries.length === 0 ? (
+      <div
+        style="padding: 64px 24px; border: 1px dashed var(--border); border-radius: 12px; text-align: center;"
+      >
+        <h3 style="font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0 0 8px;">
+          {t('leaderboard.empty_title')}
+        </h3>
+        <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+          {t('leaderboard.empty_desc')}
+        </p>
+      </div>
+    ) : (
+      <>
+        {podium.length > 0 && (
+          <div class="podium">
+            {PODIUM_ORDER.filter((p) => podium[p.idx] != null).map((p) => {
+              const e = podium[p.idx];
+              if (!e) return null;
+              return (
+                <article class={`podium-card ${p.kind}`}>
+                  <span class="rank-num">{rankLabel(e.rank, p.kind)}</span>
+                  <div
+                    class="avatar avatar-xl pavatar"
+                    style={`background: color-mix(in oklch, ${
+                      p.kind === 'gold' ? 'var(--primary)' : 'oklch(0.7 0.18 50)'
+                    } 25%, var(--muted));`}
+                  >
+                    {avatarSeed(e)}
+                  </div>
+                  <div class="pname">{displayNameFor(e)}</div>
+                  <div class="phandle">—</div>
+                  <div class="ppoints" style={p.kind === 'gold' ? 'color: var(--badge-gold);' : ''}>
+                    {e.totalPoints.toLocaleString('en-US')}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {tableRows.length > 0 && (
+          <div class="leaderboard" style="margin-top: 24px;">
+            <div class="lb-head">
+              <span style="text-align: right;">#</span>
+              <span>{t('leaderboard.col_member')}</span>
+              <span>{t('leaderboard.col_country')}</span>
+              <span style="text-align: right;">{t('leaderboard.col_points')}</span>
+              <span style="text-align: right;">{t('leaderboard.col_streak')}</span>
+              <span style="text-align: right;">±</span>
+            </div>
+            {tableRows.map((e) => (
+              <div class="lb-row">
+                <span class="lb-rank">{String(e.rank).padStart(2, '0')}</span>
+                <div class="lb-user">
+                  <div
+                    class="avatar avatar-md"
+                    style="background: color-mix(in oklch, oklch(0.7 0.18 200) 25%, var(--muted));"
+                  >
+                    {avatarSeed(e)}
+                  </div>
+                  <div>
+                    <div class="name">{displayNameFor(e)}</div>
+                    <div class="handle">—</div>
+                  </div>
+                </div>
+                <span class="lb-country" style="color: var(--muted-foreground);">—</span>
+                <span class="lb-points">{e.totalPoints.toLocaleString('en-US')}</span>
+                <span class="lb-streak" style="color: var(--muted-foreground);">—</span>
+                <span class="lb-change flat">—</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    )}
   </main>
 </Layout>
