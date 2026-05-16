@@ -46,5 +46,24 @@
     "tj_desc": "Dushanbe — meetups and engineering talks",
     "browse": "Browse",
     "note": "We're a community-owned, open-source platform. Pick the country closest to you — you can switch any time from the nav."
+  },
+  "home": {
+    "next_event_in_one": "Next event · in {{count}} day",
+    "next_event_in_other": "Next event · in {{count}} days",
+    "next_event_in_zero": "Next event · today",
+    "location_tba": "Location TBA",
+    "going_count_one": "{{count}} going",
+    "going_count_other": "{{count}} going",
+    "spots_count": "{{used}} / {{total}} spots",
+    "view_details": "View details",
+    "upcoming": "Upcoming",
+    "view_all": "View all",
+    "partners": "Trusted by",
+    "tg_title": "Join us on Telegram",
+    "tg_desc": "Event reminders, async paper / tool discussion, job posts from members. No spam.",
+    "tg_cta": "Open channel",
+    "partner_title": "Become a partner",
+    "partner_desc": "We host meetups across Central Asia. If you can offer a space, a coffee budget, or amplification, talk to us.",
+    "partner_cta": "Get in touch"
   }
 }

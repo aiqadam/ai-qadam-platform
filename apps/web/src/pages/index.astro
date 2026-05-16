@@ -1,17 +1,21 @@
 ---
+import HomeHero from '../components/HomeHero.astro';
+import UpcomingEventsGrid from '../components/UpcomingEventsGrid.astro';
 import Layout from '../layouts/Layout.astro';
+import { fetchUpcomingEvents } from '../lib/api';
 import { geoTargetSubdomain, hostnameFromHeaders, isApexHost } from '../lib/geo';
 import { getLocale, makeT } from '../lib/i18n';
 
-// SSR so the apex (aiqadam.org / www.aiqadam.org) can geo-redirect using
-// Cloudflare's CF-IPCountry header, which only arrives at origin when the
-// DNS A record is proxied (orange cloud). On country subdomains
-// (uz/kz/tj.aiqadam.org) this renders the country homepage placeholder —
-// PR A1b replaces that with the designed s1-1 hero + upcoming grid.
+// Country homepage per design screen s1-1.
 //
-// If CF-IPCountry is missing (e.g. proxy is off or visitor came directly
-// to origin IP), we fall through to global.aiqadam.org. That is the safe
-// default: showing a country picker beats picking a wrong country.
+// Apex (aiqadam.org) redirects via Cloudflare's CF-IPCountry to a country
+// subdomain — see lib/geo.ts. On a country sub (uz/kz/tj.aiqadam.org) we
+// render the homepage: hero anchored on the next upcoming event, 3-event
+// upcoming grid, partners row, join-the-community CTA.
+//
+// Event data comes from the API server-side — fetchUpcomingEvents forwards
+// the Host header so tenant resolution returns the right country. Empty
+// array on fetch failure → empty state shows; never blocks the page.
 export const prerender = false;
 
 const url = new URL(Astro.request.url);
@@ -25,18 +29,79 @@ if (isApexHost(hostnameFromHeaders(Astro.request.headers))) {
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
+const events = await fetchUpcomingEvents(Astro.request);
+const hero = events[0] ?? null;
+const grid = events.slice(1, 4);
+
+const PARTNERS = ['HYPERAPP', 'IMPACT.T', 'EPAM', 'YANDEX CLOUD', 'UZUM LAB', 'ALEM AI'];
 ---
 
 <Layout title="AI Qadam">
-  <main style="max-width: 1180px; margin: 0 auto; padding: 64px 32px;">
-    <h1 style="font-family: var(--font-display); font-weight: 600; font-size: 48px; letter-spacing: -0.025em; margin: 0 0 12px;">
-      AI <span style="color: var(--primary);">Qadam</span>
-    </h1>
-    <p style="font-size: 16px; color: var(--muted-foreground); margin: 0 0 8px;">
-      {t('global.tagline')}
-    </p>
-    <p style="font-size: 13px; color: var(--muted-foreground); font-family: var(--font-mono); margin: 0;">
-      Country homepage — content arrives in PR A1b.
-    </p>
+  <main style="max-width: 1180px; margin: 0 auto;">
+    <HomeHero event={hero} locale={locale} />
+    <UpcomingEventsGrid events={grid} locale={locale} />
+
+    <section style="padding: 48px; border-top: 1px solid var(--border);">
+      <p
+        class="section-eyebrow"
+        style="margin-bottom: 16px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+      >
+        {t('home.partners')}
+      </p>
+      <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;">
+        {PARTNERS.map((name) => (
+          <div
+            style="height: 56px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em;"
+          >
+            {name}
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section style="padding: 48px; border-top: 1px solid var(--border);">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <article
+          style="padding: 24px; border: 1px solid color-mix(in oklch, #229ED9 50%, var(--border)); border-radius: 12px; background: var(--card); display: flex; flex-direction: column; gap: 14px;"
+        >
+          <div>
+            <h4 style="font-family: var(--font-display); font-weight: 600; font-size: 17px; margin: 0 0 4px;">
+              {t('home.tg_title')}
+            </h4>
+            <p style="font-size: 13px; color: var(--muted-foreground); margin: 0;">
+              {t('home.tg_desc')}
+            </p>
+          </div>
+          <a
+            class="btn btn-outline"
+            href="https://t.me/aiqadam"
+            target="_blank"
+            rel="noopener"
+            style="align-self: flex-start; text-decoration: none;"
+          >
+            {t('home.tg_cta')} →
+          </a>
+        </article>
+        <article
+          style="padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); display: flex; flex-direction: column; gap: 14px;"
+        >
+          <div>
+            <h4 style="font-family: var(--font-display); font-weight: 600; font-size: 17px; margin: 0 0 4px;">
+              {t('home.partner_title')}
+            </h4>
+            <p style="font-size: 13px; color: var(--muted-foreground); margin: 0;">
+              {t('home.partner_desc')}
+            </p>
+          </div>
+          <a
+            class="btn btn-outline"
+            href="mailto:partners@aiqadam.org"
+            style="align-self: flex-start; text-decoration: none;"
+          >
+            {t('home.partner_cta')} →
+          </a>
+        </article>
+      </div>
+    </section>
   </main>
 </Layout>

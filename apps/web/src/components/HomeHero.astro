@@ -1,0 +1,77 @@
+---
+import type { ApiEvent } from '../lib/api';
+import { makeT, type Locale } from '../lib/i18n';
+
+interface Props {
+  event: ApiEvent | null;
+  locale: Locale;
+}
+
+const { event, locale } = Astro.props;
+const t = makeT(locale);
+
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (24 * 3600 * 1000)));
+}
+
+function shortDate(iso: string): { day: string; time: string } {
+  const d = new Date(iso);
+  const day = d
+    .toLocaleDateString('en-US', { day: '2-digit', month: 'short' })
+    .toUpperCase();
+  const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return { day, time };
+}
+
+const date = event ? shortDate(event.startsAt) : null;
+const inDays = event ? daysUntil(event.startsAt) : 0;
+---
+
+{event ? (
+  <section class="home-hero">
+    <div>
+      <p class="eyebrow">{t('home.next_event_in', { count: inDays })}</p>
+      <h1>{event.title}</h1>
+      <p class="sub">{event.description}</p>
+      <div class="meta">
+        {event.location ?? t('home.location_tba')}
+      </div>
+      <div class="going">
+        <span>{t('home.going_count', { count: event.registeredCount })}</span>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary btn-lg" href={`/events/${event.id}`}>
+          {t('actions.register')}
+        </a>
+        <a class="btn btn-ghost btn-lg" href={`/events/${event.id}`}>
+          {t('home.view_details')}
+        </a>
+      </div>
+    </div>
+    <div class="hero-cover">
+      <svg class="glyph" viewBox="0 0 200 250" fill="none" stroke="currentColor" stroke-width="2" preserveAspectRatio="xMidYMid meet">
+        <circle cx="80" cy="40" r="10" fill="currentColor" />
+        <circle cx="105" cy="35" r="7" fill="currentColor" />
+        <circle cx="125" cy="38" r="6" fill="currentColor" />
+        <circle cx="142" cy="44" r="5" fill="currentColor" />
+        <circle cx="155" cy="52" r="4" fill="currentColor" />
+        <path d="M70 70 Q60 130, 80 180 Q100 220, 130 200 Q160 180, 155 130 Q150 80, 110 70 Z" />
+      </svg>
+      <div class="date-overlay">
+        <span class="day">{date?.day}</span><span class="time">· {date?.time}</span>
+      </div>
+    </div>
+  </section>
+) : (
+  <section
+    style="padding: 80px 48px; text-align: center; border-bottom: 1px solid var(--border);"
+  >
+    <h1 style="font-family: var(--font-display); font-weight: 600; font-size: 36px; letter-spacing: -0.02em; margin: 0 0 12px;">
+      {t('states.no_events_title')}
+    </h1>
+    <p style="font-size: 15px; color: var(--muted-foreground); margin: 0; max-width: 480px; margin-left: auto; margin-right: auto;">
+      {t('states.no_events_desc')}
+    </p>
+  </section>
+)}

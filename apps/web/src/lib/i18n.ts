@@ -55,9 +55,10 @@ export function getLocale(astro: AstroLike): Locale {
 }
 
 // Translation helper bound to a locale. Use as `const t = makeT(locale);`
-// then `t('nav.events')`. Missing keys return the key itself rather than
-// silently rendering empty — easier to spot drift in the UI.
-export function makeT(locale: Locale): (key: string) => string {
+// then `t('nav.events')` or `t('home.going_count', { count: 47 })` for
+// interpolation/pluralisation. Missing keys return the key itself rather
+// than silently rendering empty — easier to spot drift in the UI.
+export function makeT(locale: Locale): (key: string, params?: Record<string, unknown>) => string {
   ensureInit();
-  return (key: string) => i18next.t(key, { lng: locale }) as string;
+  return (key, params) => i18next.t(key, { lng: locale, ...params }) as string;
 }
