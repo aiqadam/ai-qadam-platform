@@ -1,4 +1,14 @@
-import { pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+
+// Role ladder. Member is the default for every authed user. Organizer can
+// run events. Country admin manages a single country tenant. Super admin
+// has cross-country access. Used by AdminGuard via @Roles() decorator.
+export const userRole = pgEnum('user_role', [
+  'member',
+  'organizer',
+  'country_admin',
+  'super_admin',
+]);
 
 // Per ARCHITECTURE.md §"Module boundaries" rule 4: each module owns its
 // schema next to the module code. Re-exported via src/db/schema/index.ts.
@@ -19,6 +29,7 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   displayName: varchar('display_name', { length: 255 }),
   handle: varchar('handle', { length: 64 }).unique(),
+  role: userRole('role').notNull().default('member'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }).notNull().defaultNow(),

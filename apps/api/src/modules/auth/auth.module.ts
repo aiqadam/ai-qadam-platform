@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DB, db } from '../../db';
 import { UsersModule } from '../users/users.module';
+import { AdminGuard } from './admin.guard';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
@@ -17,8 +18,9 @@ import { RefreshTokenService } from './refresh-token.service';
     JwtService,
     RefreshTokenService,
     AuthGuard,
+    AdminGuard,
     oidcClientProvider,
   ],
-  exports: [JwtService, AuthGuard],
+  exports: [JwtService, AuthGuard, AdminGuard],
 })
 export class AuthModule {}
