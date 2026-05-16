@@ -1,0 +1,79 @@
+---
+import type { ApiEvent } from '../lib/api';
+import { makeT, type Locale } from '../lib/i18n';
+
+interface Props {
+  events: ApiEvent[];
+  locale: Locale;
+}
+
+const { events, locale } = Astro.props;
+const t = makeT(locale);
+
+function platePieces(iso: string): { month: string; day: string; weekday: string } {
+  const d = new Date(iso);
+  return {
+    month: d.toLocaleDateString('en-US', { month: 'short' }),
+    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
+    weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
+  };
+}
+
+const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
+  meetup: 'MEETUP',
+  workshop: 'WORKSHOP',
+  hackathon: 'HACKATHON',
+  conference: 'CONFERENCE',
+  online: 'ONLINE',
+};
+---
+
+{events.length === 0 ? (
+  <div
+    style="padding: 64px 24px; border: 1px dashed var(--border); border-radius: 12px; text-align: center;"
+  >
+    <h3 style="font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0 0 8px;">
+      {t('states.no_events_title')}
+    </h3>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+      {t('states.no_events_desc')}
+    </p>
+  </div>
+) : (
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+    {events.map((ev) => {
+      const plate = platePieces(ev.startsAt);
+      return (
+        <a
+          href={`/events/${ev.id}`}
+          class="event-card compact"
+          style="text-decoration: none; color: inherit;"
+        >
+          <div class="date-plate">
+            <span class="month">{plate.month}</span>
+            <span class="day">{plate.day}</span>
+            <span class="weekday">{plate.weekday}</span>
+          </div>
+          <div class="event-body">
+            <div class="event-top">
+              <span class="codechip" style="font-size: 9px; padding: 1px 5px;">
+                {FORMAT_LABEL[ev.format]}
+              </span>
+            </div>
+            <h4 class="event-title">{ev.title}</h4>
+            <p class="event-desc">{ev.description}</p>
+            <div class="event-bottom">
+              <div class="event-speakers">
+                <span>
+                  {ev.capacity != null
+                    ? t('home.spots_count', { used: ev.registeredCount, total: ev.capacity })
+                    : t('home.going_count', { count: ev.registeredCount })}
+                </span>
+              </div>
+            </div>
+          </div>
+        </a>
+      );
+    })}
+  </div>
+)}

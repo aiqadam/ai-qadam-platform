@@ -47,6 +47,17 @@
     "browse": "Открыть",
     "note": "Мы — открытая community-owned платформа. Выберите ближайшую страну — переключиться можно в любой момент через навигацию."
   },
+  "events_index": {
+    "title": "События",
+    "subtitle_one": "{{count}} предстоящее событие",
+    "subtitle_few": "{{count}} предстоящих события",
+    "subtitle_many": "{{count}} предстоящих событий",
+    "subtitle_zero": "Пока ничего не запланировано",
+    "tab_upcoming": "Скоро",
+    "tab_past": "Прошедшие",
+    "view_timeline": "Лента",
+    "view_grid": "Сетка"
+  },
   "home": {
     "next_event_in_one": "Следующее событие · через {{count}} день",
     "next_event_in_few": "Следующее событие · через {{count}} дня",

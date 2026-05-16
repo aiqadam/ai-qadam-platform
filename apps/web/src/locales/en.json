@@ -47,6 +47,16 @@
     "browse": "Browse",
     "note": "We're a community-owned, open-source platform. Pick the country closest to you — you can switch any time from the nav."
   },
+  "events_index": {
+    "title": "Events",
+    "subtitle_one": "{{count}} upcoming event",
+    "subtitle_other": "{{count}} upcoming events",
+    "subtitle_zero": "Nothing on the calendar — yet",
+    "tab_upcoming": "Upcoming",
+    "tab_past": "Past",
+    "view_timeline": "Timeline",
+    "view_grid": "Grid"
+  },
   "home": {
     "next_event_in_one": "Next event · in {{count}} day",
     "next_event_in_other": "Next event · in {{count}} days",

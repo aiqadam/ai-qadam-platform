@@ -1,0 +1,109 @@
+---
+import type { ApiEvent } from '../lib/api';
+import { makeT, type Locale } from '../lib/i18n';
+
+interface Props {
+  events: ApiEvent[];
+  locale: Locale;
+}
+
+const { events, locale } = Astro.props;
+const t = makeT(locale);
+
+// Group events by "Month YYYY" preserving chronological order. We rely
+// on the API returning events sorted by startsAt ascending; a single
+// pass produces the labelled groups.
+interface Group {
+  label: string;
+  year: number;
+  events: ApiEvent[];
+}
+
+function groupByMonth(list: ApiEvent[]): Group[] {
+  const groups: Group[] = [];
+  for (const ev of list) {
+    const d = new Date(ev.startsAt);
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const year = d.getFullYear();
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) {
+      last.events.push(ev);
+    } else {
+      groups.push({ label, year, events: [ev] });
+    }
+  }
+  return groups;
+}
+
+const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
+  meetup: 'MEETUP',
+  workshop: 'WORKSHOP',
+  hackathon: 'HACKATHON',
+  conference: 'CONFERENCE',
+  online: 'ONLINE',
+};
+
+function plateBits(iso: string): { d: string; m: string } {
+  const date = new Date(iso);
+  return {
+    d: date.toLocaleDateString('en-US', { day: '2-digit' }),
+    m: date.toLocaleDateString('en-US', { month: 'short' }),
+  };
+}
+
+const groups = groupByMonth(events);
+const years = Array.from(new Set(groups.map((g) => g.year)));
+---
+
+{events.length === 0 ? (
+  <div
+    style="padding: 64px 24px; border: 1px dashed var(--border); border-radius: 12px; text-align: center;"
+  >
+    <h3 style="font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0 0 8px;">
+      {t('states.no_events_title')}
+    </h3>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+      {t('states.no_events_desc')}
+    </p>
+  </div>
+) : (
+  years.map((year) => (
+    <>
+      <div class="section-eyebrow-line"><span>{year}</span><span class="line"></span></div>
+      <div class="timeline">
+        {groups
+          .filter((g) => g.year === year)
+          .map((g) => (
+            <>
+              <p class="tl-month">{g.label}</p>
+              {g.events.map((ev) => {
+                const plate = plateBits(ev.startsAt);
+                return (
+                  <a
+                    href={`/events/${ev.id}`}
+                    class="tl-item upcoming"
+                    style="text-decoration: none; color: inherit;"
+                  >
+                    <div class="tl-date"><span class="d">{plate.d}</span><span class="m">{plate.m}</span></div>
+                    <div class="tl-body">
+                      <h4 class="tl-title">{ev.title}</h4>
+                      <div class="tl-meta">
+                        <span class="badge mono" style="font-size: 9px;">{FORMAT_LABEL[ev.format]}</span>
+                        {ev.location && <span>{ev.location}</span>}
+                        <span class="sep">·</span>
+                        <span>
+                          {ev.capacity != null
+                            ? t('home.spots_count', { used: ev.registeredCount, total: ev.capacity })
+                            : t('home.going_count', { count: ev.registeredCount })}
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </>
+          ))}
+      </div>
+    </>
+  ))
+)}

@@ -1,16 +1,91 @@
 ---
-import { EventsList } from '../components/EventsList';
+import EventsGrid from '../components/EventsGrid.astro';
+import EventsTimeline from '../components/EventsTimeline.astro';
 import Layout from '../layouts/Layout.astro';
+import { fetchUpcomingEvents } from '../lib/api';
+import { getLocale, makeT } from '../lib/i18n';
+
+// Events index per design screen s1-2. Two views toggled via ?view=:
+//   - timeline (default): events grouped by month with .tl-item dots
+//   - grid: 3-col grid of .event-card
+//
+// Past events tab is shown but disabled — the API only returns upcoming
+// today. A2.5 extends events.controller with ?include=past|all and
+// flips this on.
+export const prerender = false;
+
+const url = new URL(Astro.request.url);
+const view = url.searchParams.get('view') === 'grid' ? 'grid' : 'timeline';
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+const events = await fetchUpcomingEvents(Astro.request);
+
+function toggleHref(target: 'timeline' | 'grid'): string {
+  const next = new URLSearchParams(url.searchParams);
+  next.set('view', target);
+  return `?${next.toString()}`;
+}
+
+const tabBase =
+  'display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.04em; text-decoration: none; cursor: pointer; border: 0; background: transparent;';
+const tabActive = `${tabBase} background: var(--muted); color: var(--foreground);`;
+const tabInactive = `${tabBase} color: var(--muted-foreground);`;
 ---
 
-<Layout title="Events · AI Qadam">
-  <main class="container py-12">
-    <h1 class="text-3xl font-bold tracking-tight">Upcoming events</h1>
-    <p class="mt-2 text-sm text-gray-500">
-      Meetups, workshops, hackathons and online sessions across the region.
-    </p>
-    <div class="mt-8">
-      <EventsList client:load />
+<Layout title={`${t('nav.events')} · AI Qadam`}>
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 48px;">
+    <div style="margin-bottom: 28px;">
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 36px; letter-spacing: -0.025em; margin: 0 0 6px;"
+      >
+        {t('events_index.title')}
+      </h1>
+      <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+        {t('events_index.subtitle', { count: events.length })}
+      </p>
     </div>
+
+    <div
+      style="display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px;"
+    >
+      <div style="display: inline-flex; gap: 4px;">
+        <span style={tabActive}>
+          {t('events_index.tab_upcoming')}
+          <span class="count" style="font-family: var(--font-mono); font-size: 10px; opacity: 0.7;">{events.length}</span>
+        </span>
+        <span style={`${tabInactive} opacity: 0.5; cursor: not-allowed;`}>
+          {t('events_index.tab_past')}
+          <span class="count" style="font-family: var(--font-mono); font-size: 10px; opacity: 0.7;">—</span>
+        </span>
+      </div>
+
+      <div
+        style="margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; padding: 2px;"
+      >
+        <a
+          href={toggleHref('timeline')}
+          style={view === 'timeline'
+            ? 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: var(--muted); color: var(--foreground); font-size: 12px; text-decoration: none;'
+            : 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; color: var(--muted-foreground); font-size: 12px; text-decoration: none;'}
+        >
+          {t('events_index.view_timeline')}
+        </a>
+        <a
+          href={toggleHref('grid')}
+          style={view === 'grid'
+            ? 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: var(--muted); color: var(--foreground); font-size: 12px; text-decoration: none;'
+            : 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; color: var(--muted-foreground); font-size: 12px; text-decoration: none;'}
+        >
+          {t('events_index.view_grid')}
+        </a>
+      </div>
+    </div>
+
+    {view === 'timeline' ? (
+      <EventsTimeline events={events} locale={locale} />
+    ) : (
+      <EventsGrid events={events} locale={locale} />
+    )}
   </main>
 </Layout>
