@@ -1,0 +1,25 @@
+---
+import { AdminRegistrationsTable } from '../../../../components/AdminRegistrationsTable';
+import Layout from '../../../../layouts/Layout.astro';
+
+export const prerender = false;
+
+const { id } = Astro.params as { id: string };
+---
+
+<Layout title="Admin · Registrations · AI Qadam">
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 48px;">
+    <a
+      href={`/admin/events/${id}`}
+      style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); text-decoration: none; margin-bottom: 16px;"
+    >
+      ← Back to event
+    </a>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 24px;"
+    >
+      Registrations
+    </h1>
+    <AdminRegistrationsTable eventId={id} client:load />
+  </main>
+</Layout>

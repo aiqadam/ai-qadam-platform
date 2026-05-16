@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
 import { events, type Event } from '../events/schema';
 import { PointsService } from '../points/points.service';
+import { users } from '../users/schema';
 import { type Registration, registrations } from './schema';
 
 interface MineEntry {
@@ -250,6 +251,50 @@ export class RegistrationsService {
     }
     return row;
   }
+
+  // Admin: list every registration for an event (any status). Tenant-scoped
+  // — verifies the event lives in the requested country before returning.
+  async listForEventAdmin(input: {
+    eventId: string;
+    countryCode: string;
+  }): Promise<AdminRegistrationRow[] | null> {
+    const [event] = await this.db
+      .select({ id: events.id })
+      .from(events)
+      .where(and(eq(events.id, input.eventId), eq(events.countryCode, input.countryCode)))
+      .limit(1);
+    if (!event) return null;
+
+    const rows = await this.db
+      .select({
+        registration: registrations,
+        user: {
+          id: users.id,
+          email: users.email,
+          displayName: users.displayName,
+          handle: users.handle,
+        },
+      })
+      .from(registrations)
+      .innerJoin(users, eq(users.id, registrations.userId))
+      .where(eq(registrations.eventId, input.eventId))
+      .orderBy(asc(registrations.createdAt));
+
+    return rows.map((r) => ({
+      registration: r.registration,
+      user: r.user,
+    }));
+  }
+}
+
+export interface AdminRegistrationRow {
+  registration: Registration;
+  user: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    handle: string | null;
+  };
 }
 
 function makeCheckinResult(
