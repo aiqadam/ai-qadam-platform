@@ -1,18 +1,20 @@
 import { Module } from '@nestjs/common';
 import { DB, db } from '../../db';
 import { AuthModule } from '../auth/auth.module';
-import { EmailModule } from '../email/email.module';
-import { EventsModule } from '../events/events.module';
-import { PointsModule } from '../points/points.module';
-import { UsersModule } from '../users/users.module';
+import { DirectusModule } from '../directus/directus.module';
 import { CheckinController } from './checkin.controller';
+import { RegistrationsDirectusService } from './registrations-directus.service';
 import { RegistrationsController } from './registrations.controller';
-import { RegistrationsService } from './registrations.service';
+
+// Sprint 4.5/2: registrations + check-in now backed by Directus
+// (RegistrationsDirectusService). The Drizzle-backed RegistrationsService
+// + its supporting service modules (EventsModule, EmailModule, PointsModule,
+// UsersModule) were retired here — capacity/promotion/checkin/email all
+// happen as Directus flows now.
 
 @Module({
-  imports: [AuthModule, EventsModule, EmailModule, UsersModule, PointsModule],
-  providers: [{ provide: DB, useValue: db }, RegistrationsService],
+  imports: [AuthModule, DirectusModule],
+  providers: [{ provide: DB, useValue: db }, RegistrationsDirectusService],
   controllers: [RegistrationsController, CheckinController],
-  exports: [RegistrationsService],
 })
 export class RegistrationsModule {}

@@ -11,8 +11,8 @@ import {
 import {
   CheckinIneligibleError,
   CheckinNotFoundError,
-  RegistrationsService,
-} from './registrations.service';
+  RegistrationsDirectusService,
+} from './registrations-directus.service';
 
 interface CheckinResponse {
   status: 'ok';
@@ -27,30 +27,23 @@ interface CheckinResponse {
   };
 }
 
-// Open by design — see PR #16 trust model. The unguessable UUID + physical
-// possession of the QR is the auth. Hardening to organizer-only check-in is
-// a follow-up after the org-membership feature lands.
+// Open by design — the unguessable UUID + physical possession of the QR
+// is the auth. Sprint 4.5/2: routes to Directus; the points-on-checkin
+// flow auto-creates the ledger row.
 @Controller('v1/checkin')
 export class CheckinController {
-  constructor(private readonly registrations: RegistrationsService) {}
+  constructor(private readonly registrations: RegistrationsDirectusService) {}
 
   @Post(':code')
   @HttpCode(HttpStatus.OK)
   async checkin(@Param('code', new ParseUUIDPipe()) code: string): Promise<CheckinResponse> {
     try {
       const result = await this.registrations.checkin(code);
-      const checkedInAt = result.registration.checkedInAt ?? new Date();
       return {
         status: 'ok',
         alreadyCheckedIn: result.alreadyCheckedIn,
-        checkedInAt: checkedInAt.toISOString(),
-        event: {
-          id: result.event.id,
-          title: result.event.title,
-          startsAt: result.event.startsAt.toISOString(),
-          endsAt: result.event.endsAt.toISOString(),
-          location: result.event.location,
-        },
+        checkedInAt: result.registration.checkedInAt ?? new Date().toISOString(),
+        event: result.event,
       };
     } catch (err) {
       if (err instanceof CheckinNotFoundError) {
