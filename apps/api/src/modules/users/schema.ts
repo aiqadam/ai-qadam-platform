@@ -30,6 +30,11 @@ export const users = pgTable('users', {
   displayName: varchar('display_name', { length: 255 }),
   handle: varchar('handle', { length: 64 }).unique(),
   role: userRole('role').notNull().default('member'),
+  // Mirror of the user's directus_users.id, populated by
+  // DirectusUsersBridge on first OIDC sign-in (Sprint 4.5). Lets proxy
+  // endpoints reach Directus rows without re-querying by email each call.
+  // Nullable so existing rows backfill on next sign-in.
+  directusUserId: uuid('directus_user_id').unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }).notNull().defaultNow(),

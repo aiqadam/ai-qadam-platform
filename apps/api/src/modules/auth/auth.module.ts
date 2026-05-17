@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DB, db } from '../../db';
+import { DirectusModule } from '../directus/directus.module';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
@@ -10,7 +11,7 @@ import { oidcClientProvider } from './oidc-client.provider';
 import { RefreshTokenService } from './refresh-token.service';
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, DirectusModule],
   controllers: [AuthController],
   providers: [
     { provide: DB, useValue: db },

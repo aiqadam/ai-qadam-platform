@@ -27,6 +27,8 @@ export default defineConfig({
       OIDC_REDIRECT_URI: 'http://placeholder.invalid/v1/auth/callback',
       WEB_BASE_URL: 'http://placeholder.invalid',
       INTERNAL_API_TOKEN: 'test-internal-api-token-at-least-32-chars-long-pad-pad',
+      DIRECTUS_URL: 'http://placeholder.invalid',
+      DIRECTUS_TOKEN: 'test-directus-token-placeholder',
     },
     coverage: {
       provider: 'v8',

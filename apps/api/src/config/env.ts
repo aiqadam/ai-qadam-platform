@@ -51,6 +51,14 @@ const envSchema = z.object({
   // the API's env AND in Directus' env (allowed in FLOWS_ENV_ALLOW_LIST so
   // flow `request` ops can read it as {{ $env.INTERNAL_API_TOKEN }}).
   INTERNAL_API_TOKEN: z.string().min(32),
+
+  // Outbound calls to Directus (Sprint 4.5: API proxies member-side
+  // registration / check-in / leaderboard endpoints to Directus). Static
+  // admin token from a `directus_users.token` row provisioned in Sprint 1.
+  // Tenant scoping happens via `country` filter on each query, not via Host
+  // header — Directus doesn't speak our tenant model.
+  DIRECTUS_URL: z.string().url().default('https://cms.aiqadam.org'),
+  DIRECTUS_TOKEN: z.string().min(16),
 });
 
 const parsed = envSchema.safeParse(process.env);
