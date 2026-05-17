@@ -22,6 +22,12 @@
 #                            oldest 'waitlisted' for that event and
 #                            promotes it to 'registered'. No-op if there
 #                            is no waitlist.
+#
+#   reg-checkin-points     — action hook on registrations.items.update
+#                            when status flips to 'attended', creates a
+#                            point_awards row (user + event country + 10
+#                            points). Dedupes against existing award for
+#                            the same (user, event) pair.
 
 set -euo pipefail
 
@@ -46,6 +52,14 @@ OP_LOAD_REG="11111111-c3c2-4002-8002-000000000011"
 OP_FIND_WAITLIST="11111111-c3c2-4002-8002-000000000012"
 OP_PICK_TARGET="11111111-c3c2-4002-8002-000000000013"
 OP_PROMOTE="11111111-c3c2-4002-8002-000000000014"
+
+FLOW_REG_CHECKIN="11111111-c3c3-4003-8003-000000000001"
+OP_CHECKIN_GATE="11111111-c3c3-4003-8003-000000000010"
+OP_CHECKIN_LOAD_REG="11111111-c3c3-4003-8003-000000000011"
+OP_CHECKIN_LOAD_EVENT="11111111-c3c3-4003-8003-000000000012"
+OP_CHECKIN_DEDUPE="11111111-c3c3-4003-8003-000000000013"
+OP_CHECKIN_GUARD="11111111-c3c3-4003-8003-000000000014"
+OP_CHECKIN_AWARD="11111111-c3c3-4003-8003-000000000015"
 
 api() {
   local method="$1"
@@ -391,7 +405,178 @@ upsert "op promo_gate" "operations" "${OP_PROMO_GATE}" "$(cat <<JSON
 JSON
 )"
 
+# ──────────── reg-checkin-points flow ───────────────────────────────────
+#
+# Chain (action hook on registrations.items.update):
+#   trigger
+#     → checkin_gate    (exec: short-circuit unless payload.status === 'attended')
+#     → checkin_load_reg (read the just-updated reg → get user + event)
+#     → checkin_load_event (read event → get country)
+#     → checkin_dedupe  (count existing point_awards for this user+event)
+#     → checkin_guard   (exec: throw if count > 0; emit award fields otherwise)
+#     → checkin_award   (item-create on point_awards)
+#
+# Dedupe matters because action hooks fire on every PATCH; calling
+# /items/registrations/<id> with {status:'attended'} more than once
+# would otherwise create duplicate point_awards.
+
+echo
+echo "[flow: reg-checkin-points]"
+
+upsert "flow reg-checkin-points" "flows" "${FLOW_REG_CHECKIN}" "$(cat <<JSON
+{
+  "name": "Check-in awards points",
+  "icon": "stars",
+  "color": "#2dd4bf",
+  "description": "On registrations.items.update (action) where status=attended, create one point_awards row (idempotent on user+event).",
+  "status": "active",
+  "trigger": "event",
+  "accountability": "all",
+  "options": {
+    "type": "action",
+    "scope": ["items.update"],
+    "collections": ["registrations"]
+  },
+  "operation": "${OP_CHECKIN_GATE}"
+}
+JSON
+)"
+
+# Op 6 (terminal): create the point_award. Fields come from checkin_guard.
+upsert "op checkin_award" "operations" "${OP_CHECKIN_AWARD}" "$(cat <<JSON
+{
+  "name": "Award points",
+  "key": "checkin_award",
+  "type": "item-create",
+  "position_x": 109,
+  "position_y": 1,
+  "options": {
+    "collection": "point_awards",
+    "payload": {
+      "user": "{{ \$last.user }}",
+      "country": "{{ \$last.country }}",
+      "source": "event_attended",
+      "source_ref": "{{ \$last.source_ref }}",
+      "points": 10
+    },
+    "emitEvents": false
+  },
+  "flow": "${FLOW_REG_CHECKIN}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 5: guard. If a previous point_award exists for this (user, event)
+# pair, throw to short-circuit. Otherwise emit the award fields.
+upsert "op checkin_guard" "operations" "${OP_CHECKIN_GUARD}" "$(cat <<JSON
+{
+  "name": "Idempotency guard",
+  "key": "checkin_guard",
+  "type": "exec",
+  "position_x": 91,
+  "position_y": 1,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const dedupe = data.checkin_dedupe;\n  const row = Array.isArray(dedupe) ? dedupe[0] : dedupe;\n  const existing = Number((row && row.count && row.count.id) ?? (row && row.count) ?? 0);\n  if (existing > 0) {\n    throw new Error('already-awarded');\n  }\n  const reg = data.checkin_load_reg || {};\n  const event = data.checkin_load_event || {};\n  if (!reg.user || !reg.event) {\n    throw new Error('missing-reg-fields');\n  }\n  return {\n    user: reg.user,\n    source_ref: reg.event,\n    country: event.country || 'uz'\n  };\n}"
+  },
+  "flow": "${FLOW_REG_CHECKIN}",
+  "resolve": "${OP_CHECKIN_AWARD}",
+  "reject": null
+}
+JSON
+)"
+
+# Op 4: count existing point_awards for (user, event) — idempotency.
+upsert "op checkin_dedupe" "operations" "${OP_CHECKIN_DEDUPE}" "$(cat <<JSON
+{
+  "name": "Dedupe count",
+  "key": "checkin_dedupe",
+  "type": "item-read",
+  "position_x": 73,
+  "position_y": 1,
+  "options": {
+    "collection": "point_awards",
+    "query": {
+      "filter": {
+        "user": { "_eq": "{{ checkin_load_reg.user }}" },
+        "source_ref": { "_eq": "{{ checkin_load_reg.event }}" },
+        "source": { "_eq": "event_attended" }
+      },
+      "aggregate": { "count": ["id"] }
+    }
+  },
+  "flow": "${FLOW_REG_CHECKIN}",
+  "resolve": "${OP_CHECKIN_GUARD}",
+  "reject": null
+}
+JSON
+)"
+
+# Op 3: load the event for its country (used as point_awards.country).
+upsert "op checkin_load_event" "operations" "${OP_CHECKIN_LOAD_EVENT}" "$(cat <<JSON
+{
+  "name": "Load event",
+  "key": "checkin_load_event",
+  "type": "item-read",
+  "position_x": 55,
+  "position_y": 1,
+  "options": {
+    "collection": "events",
+    "key": "{{ \$last.event }}",
+    "query": {
+      "fields": ["id", "country"]
+    }
+  },
+  "flow": "${FLOW_REG_CHECKIN}",
+  "resolve": "${OP_CHECKIN_DEDUPE}",
+  "reject": null
+}
+JSON
+)"
+
+# Op 2: load the registration to get user + event ids.
+upsert "op checkin_load_reg" "operations" "${OP_CHECKIN_LOAD_REG}" "$(cat <<JSON
+{
+  "name": "Load updated reg",
+  "key": "checkin_load_reg",
+  "type": "item-read",
+  "position_x": 37,
+  "position_y": 1,
+  "options": {
+    "collection": "registrations",
+    "key": "{{ \$trigger.keys[0] }}",
+    "query": {
+      "fields": ["id", "event", "user", "status"]
+    }
+  },
+  "flow": "${FLOW_REG_CHECKIN}",
+  "resolve": "${OP_CHECKIN_LOAD_EVENT}",
+  "reject": null
+}
+JSON
+)"
+
+# Op 1: gate. Short-circuit unless the update flipped status to 'attended'.
+upsert "op checkin_gate" "operations" "${OP_CHECKIN_GATE}" "$(cat <<JSON
+{
+  "name": "Attended gate",
+  "key": "checkin_gate",
+  "type": "exec",
+  "position_x": 19,
+  "position_y": 1,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const payload = (data['\$trigger'] && data['\$trigger'].payload) || {};\n  if (payload.status !== 'attended') {\n    throw new Error('not-a-checkin');\n  }\n  return { ok: true };\n}"
+  },
+  "flow": "${FLOW_REG_CHECKIN}",
+  "resolve": "${OP_CHECKIN_LOAD_REG}",
+  "reject": null
+}
+JSON
+)"
+
 echo
 echo "Done."
 echo "  capacity flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CAPACITY}"
 echo "  promotion flow:  ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_PROMOTION}"
+echo "  check-in flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CHECKIN}"

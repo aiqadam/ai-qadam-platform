@@ -45,6 +45,12 @@ const envSchema = z.object({
     .transform((v) => v === 'true' || v === '1'),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('AI Qadam <admin@aiqadam.org>'),
+
+  // Shared secret for /v1/internal/* endpoints. Directus flows pass this in
+  // the X-Internal-Auth header when calling our API. Must be set in both
+  // the API's env AND in Directus' env (allowed in FLOWS_ENV_ALLOW_LIST so
+  // flow `request` ops can read it as {{ $env.INTERNAL_API_TOKEN }}).
+  INTERNAL_API_TOKEN: z.string().min(32),
 });
 
 const parsed = envSchema.safeParse(process.env);
