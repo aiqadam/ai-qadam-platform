@@ -1,25 +1,24 @@
 import { defineMiddleware } from 'astro:middleware';
 
-// Astro middleware. Runs for every SSR-rendered request (in `output: 'static'`
-// mode, prerendered pages bypass this). Used today only to redirect the
-// admin.aiqadam.org subdomain at every path to a country subdomain's /admin
-// space — see RBAC roadmap note below.
+// Astro middleware. Runs for every SSR request.
 //
-// Future (per user direction): when country_admin RBAC ships, this should
-// pick the destination country based on the signed-in user's assigned
-// countries (single-country admin → that country; super_admin → cookie
-// preference). For launch, everyone routes to uz.aiqadam.org/admin.
+// Sprint 4 C4.1 of the Directus-centric migration: every operator path
+// (admin.aiqadam.org/* OR <country>.aiqadam.org/admin/*) is redirected
+// to the Directus admin at cms.aiqadam.org/admin. Authentik OIDC there
+// gates access; per-collection permissions enforce country scoping.
+//
+// The custom /admin/* Astro pages + apps/api/src/modules/admin/* are
+// scheduled for full removal in C4.2 (this PR keeps them on disk so a
+// rollback is one middleware-line revert).
 
 const ADMIN_HOST = 'admin.aiqadam.org';
-const DEFAULT_ADMIN_TARGET = 'uz.aiqadam.org';
+const CMS_ADMIN_URL = 'https://cms.aiqadam.org/admin';
 
 export const onRequest = defineMiddleware(({ url, request }, next) => {
   const host = request.headers.get('host')?.split(':')[0]?.toLowerCase() ?? '';
-  if (host !== ADMIN_HOST) return next();
+  const isAdminHost = host === ADMIN_HOST;
+  const isAdminPath = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
+  if (!isAdminHost && !isAdminPath) return next();
 
-  // Already starts with /admin — preserve verbatim; otherwise prefix.
-  const path = url.pathname.startsWith('/admin') ? url.pathname : `/admin${url.pathname}`;
-  const normalisedPath = path === '/admin/' ? '/admin' : path;
-  const target = `https://${DEFAULT_ADMIN_TARGET}${normalisedPath}${url.search}`;
-  return new Response(null, { status: 302, headers: { location: target } });
+  return new Response(null, { status: 302, headers: { location: CMS_ADMIN_URL } });
 });
