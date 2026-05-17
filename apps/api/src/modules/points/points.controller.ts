@@ -8,7 +8,7 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { PointsService } from './points.service';
+import { PointsDirectusService } from './points-directus.service';
 
 interface LeaderboardResponse {
   countryCode: string;
@@ -23,7 +23,7 @@ interface LeaderboardResponse {
 
 @Controller('v1/leaderboard')
 export class PointsController {
-  constructor(private readonly points: PointsService) {}
+  constructor(private readonly points: PointsDirectusService) {}
 
   @Get()
   async leaderboard(
