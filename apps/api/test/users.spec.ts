@@ -1,13 +1,23 @@
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { afterAll, beforeEach, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, inject, it, vi } from 'vitest';
+import type { DirectusClient } from '../src/modules/directus/directus.client';
 import { users } from '../src/modules/users/schema';
 import { UsersService } from '../src/modules/users/users.service';
 
 const url = inject('TEST_DATABASE_URL');
 const client = postgres(url, { max: 2 });
 const db = drizzle(client);
-const service = new UsersService(db);
+// Only getPublicProfile touches Directus — the rest of the suite never
+// reaches into directus, so a never-call stub is fine.
+const fakeDirectus = {
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
+} as unknown as DirectusClient;
+const service = new UsersService(db, fakeDirectus);
 
 afterAll(async () => {
   await client.end();
@@ -174,5 +184,84 @@ describe('UsersService.upsertByAuthentikSubject (handle derivation)', () => {
       email: 'kate-rebrand@example.com',
     });
     expect(second.handle).toBe('kate');
+  });
+});
+
+describe('UsersService.getPublicProfile', () => {
+  beforeEach(async () => {
+    await db.delete(users);
+    (fakeDirectus.get as ReturnType<typeof vi.fn>).mockReset();
+  });
+
+  it('returns undefined when no user matches the handle', async () => {
+    const profile = await service.getPublicProfile('nobody', 'uz');
+    expect(profile).toBeUndefined();
+    expect(fakeDirectus.get).not.toHaveBeenCalled();
+  });
+
+  it('returns zero counts when the user is not yet bridge-linked (directus_user_id is null)', async () => {
+    await service.upsertByAuthentikSubject({
+      authentikSubject: 'sub-profile-unlinked',
+      email: 'unlinked@example.com',
+    });
+    const profile = await service.getPublicProfile('unlinked', 'uz');
+    expect(profile).toMatchObject({
+      attendedCount: 0,
+      registeredCount: 0,
+      totalPoints: 0,
+    });
+    expect(fakeDirectus.get).not.toHaveBeenCalled();
+  });
+
+  it('hits Directus three times (attended, registered, points sum) when bridge-linked', async () => {
+    const user = await service.upsertByAuthentikSubject({
+      authentikSubject: 'sub-profile-linked',
+      email: 'linked@example.com',
+    });
+    await db
+      .update(users)
+      .set({ directusUserId: '11111111-1111-4000-8000-000000000099' })
+      .where(eq(users.id, user.id));
+
+    (fakeDirectus.get as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ data: [{ count: { id: '3' } }] })
+      .mockResolvedValueOnce({ data: [{ count: { id: '5' } }] })
+      .mockResolvedValueOnce({ data: [{ sum: { points: '42' } }] });
+
+    const profile = await service.getPublicProfile('linked', 'uz');
+    expect(profile).toMatchObject({
+      attendedCount: 3,
+      registeredCount: 5,
+      totalPoints: 42,
+    });
+    expect(fakeDirectus.get).toHaveBeenCalledTimes(3);
+    // sanity: tenant + status filters applied to the registrations queries
+    const calls = (fakeDirectus.get as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => c[0] as string,
+    );
+    expect(calls[0]).toContain('filter%5Bstatus%5D%5B_eq%5D=attended');
+    expect(calls[0]).toContain('filter%5Bevent%5D%5Bcountry%5D%5B_eq%5D=uz');
+    expect(calls[1]).toContain('filter%5Bstatus%5D%5B_eq%5D=registered');
+    expect(calls[2]).toContain('aggregate%5Bsum%5D=points');
+  });
+
+  it('gracefully degrades to zero counts on Directus failure (page still renders)', async () => {
+    const user = await service.upsertByAuthentikSubject({
+      authentikSubject: 'sub-profile-degrade',
+      email: 'degrade@example.com',
+    });
+    await db
+      .update(users)
+      .set({ directusUserId: '22222222-2222-4000-8000-000000000098' })
+      .where(eq(users.id, user.id));
+
+    (fakeDirectus.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('ECONNREFUSED'));
+
+    const profile = await service.getPublicProfile('degrade', 'uz');
+    expect(profile).toMatchObject({
+      attendedCount: 0,
+      registeredCount: 0,
+      totalPoints: 0,
+    });
   });
 });

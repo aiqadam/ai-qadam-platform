@@ -9,6 +9,7 @@
 export * from './tenants';
 export * from '../../modules/users/schema';
 export * from '../../modules/auth/refresh-token.schema';
-export * from '../../modules/events/schema';
-export * from '../../modules/registrations/schema';
-export * from '../../modules/points/schema';
+
+// Sprint 4.5/4: events, registrations, point_awards moved out — those
+// collections now live in Directus, with API endpoints proxying via
+// DirectusClient. The DROP migration is 0011_*.sql.

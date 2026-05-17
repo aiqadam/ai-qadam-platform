@@ -1,9 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { desc, eq } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
-import { events } from '../events/schema';
-import { pointAwards } from '../points/schema';
-import { registrations } from '../registrations/schema';
+import { DirectusClient } from '../directus/directus.client';
 import { type User, users } from './schema';
 
 interface UpsertInput {
@@ -30,7 +28,12 @@ function deriveHandle(email: string): string {
 
 @Injectable()
 export class UsersService {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly directus: DirectusClient,
+  ) {}
 
   async upsertByAuthentikSubject(input: UpsertInput): Promise<User> {
     if (input.authentikSubject.length === 0) {
@@ -108,40 +111,52 @@ export class UsersService {
     const user = await this.findByHandle(handle);
     if (!user) return undefined;
 
-    // Three small aggregate queries — tenant-scoped by countryCode so a
-    // profile rendered on uz.aiqadam.org only counts UZ activity.
-    const [attended] = await this.db
-      .select({ n: count() })
-      .from(registrations)
-      .innerJoin(events, eq(events.id, registrations.eventId))
-      .where(
-        and(
-          eq(registrations.userId, user.id),
-          eq(registrations.status, 'attended'),
-          eq(events.countryCode, countryCode),
-        ),
-      );
-    const [registered] = await this.db
-      .select({ n: count() })
-      .from(registrations)
-      .innerJoin(events, eq(events.id, registrations.eventId))
-      .where(
-        and(
-          eq(registrations.userId, user.id),
-          eq(registrations.status, 'registered'),
-          eq(events.countryCode, countryCode),
-        ),
-      );
-    const [pts] = await this.db
-      .select({ total: sql<number>`coalesce(sum(${pointAwards.points}), 0)::int` })
-      .from(pointAwards)
-      .where(and(eq(pointAwards.userId, user.id), eq(pointAwards.countryCode, countryCode)));
+    // Sprint 4.5/4: aggregates moved to Directus. If the user hasn't yet
+    // backfilled their directus_user_id (signed in pre-S4.5/1), counts
+    // come back as zero — acceptable degraded state until they next sign in.
+    if (!user.directusUserId) {
+      return { user, attendedCount: 0, registeredCount: 0, totalPoints: 0 };
+    }
+    const dxUser = user.directusUserId;
 
-    return {
-      user,
-      attendedCount: attended?.n ?? 0,
-      registeredCount: registered?.n ?? 0,
-      totalPoints: pts?.total ?? 0,
-    };
+    try {
+      const regsParams = (status: 'attended' | 'registered') => {
+        const p = new URLSearchParams({
+          'aggregate[count]': 'id',
+          'filter[user][_eq]': dxUser,
+          'filter[status][_eq]': status,
+          'filter[event][country][_eq]': countryCode,
+        });
+        return p.toString();
+      };
+      const ptsParams = new URLSearchParams({
+        'aggregate[sum]': 'points',
+        'filter[user][_eq]': dxUser,
+        'filter[country][_eq]': countryCode,
+      });
+
+      const [attendedRes, registeredRes, ptsRes] = await Promise.all([
+        this.directus.get<{ data: Array<{ count: { id: string } }> }>(
+          `/items/registrations?${regsParams('attended')}`,
+        ),
+        this.directus.get<{ data: Array<{ count: { id: string } }> }>(
+          `/items/registrations?${regsParams('registered')}`,
+        ),
+        this.directus.get<{ data: Array<{ sum: { points: string | null } }> }>(
+          `/items/point_awards?${ptsParams.toString()}`,
+        ),
+      ]);
+
+      return {
+        user,
+        attendedCount: Number(attendedRes.data[0]?.count?.id ?? 0),
+        registeredCount: Number(registeredRes.data[0]?.count?.id ?? 0),
+        totalPoints: Number(ptsRes.data[0]?.sum?.points ?? 0),
+      };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`[users] getPublicProfile aggregates failed for ${handle}: ${reason}`);
+      return { user, attendedCount: 0, registeredCount: 0, totalPoints: 0 };
+    }
   }
 }
