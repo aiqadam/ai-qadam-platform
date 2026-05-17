@@ -68,7 +68,29 @@ describe('InternalController.sendEmail', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('dispatches a registration-waitlisted email via EmailService', async () => {
+    (fakeEmail.send as ReturnType<typeof vi.fn>).mockClear();
+    const result = await controller.sendEmail({
+      template: 'registration-waitlisted',
+      to: 'wait@example.com',
+      data: {
+        recipientName: 'Wait',
+        eventTitle: 'Full Event',
+        eventStartsAt: '2026-06-01T18:00:00Z',
+        eventLocation: 'Tashkent',
+      },
+    });
+    expect(result).toEqual({ accepted: true });
+    expect(fakeEmail.send).toHaveBeenCalledTimes(1);
+    const sent = (fakeEmail.send as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(sent).toMatchObject({
+      to: 'wait@example.com',
+      subject: expect.stringContaining('Waitlisted'),
+    });
+  });
+
   it('dispatches a registration-confirmed email via EmailService', async () => {
+    (fakeEmail.send as ReturnType<typeof vi.fn>).mockClear();
     const result = await controller.sendEmail({
       template: 'registration-confirmed',
       to: 'alice@example.com',

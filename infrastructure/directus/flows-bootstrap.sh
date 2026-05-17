@@ -58,6 +58,8 @@ OP_DECIDE_STATUS="11111111-c3c1-4001-8001-000000000012"
 OP_PATCH_STATUS="11111111-c3c1-4001-8001-000000000013"
 OP_CAPACITY_USER_LOOKUP="11111111-c3c1-4001-8001-000000000014"
 OP_CAPACITY_EMAIL_CONFIRMED="11111111-c3c1-4001-8001-000000000015"
+OP_CAPACITY_USER_LOOKUP_WL="11111111-c3c1-4001-8001-000000000016"
+OP_CAPACITY_EMAIL_WAITLISTED="11111111-c3c1-4001-8001-000000000017"
 
 FLOW_REG_PROMOTION="11111111-c3c2-4002-8002-000000000001"
 OP_PROMO_GATE="11111111-c3c2-4002-8002-000000000010"
@@ -174,10 +176,58 @@ JSON
 # then decide_status → patch_status, then count_registered → decide_status,
 # then event_lookup → count_registered.
 
-# Op 4 (terminal): patch the new row to waitlisted IF decide_status said
-# so. When decide_status returned null, this op short-circuits (the
-# update payload has no fields → Directus rejects with empty body,
-# which is fine: the row stays at default 'registered').
+# Op 4b (terminal of overflow email branch): POST /v1/internal/email
+# with the waitlisted template.
+upsert "op capacity_email_waitlisted" "operations" "${OP_CAPACITY_EMAIL_WAITLISTED}" "$(cat <<JSON
+{
+  "name": "Email registration-waitlisted",
+  "key": "capacity_email_waitlisted",
+  "type": "request",
+  "position_x": 109,
+  "position_y": 1,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/email",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"template\": \"registration-waitlisted\", \"to\": \"{{ capacity_user_lookup_wl.email }}\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup_wl.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }"
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 4a: look up the just-waitlisted user's email. Separate from
+# capacity_user_lookup so each branch keys its data independently
+# (Directus references by operation key, not aliased per branch).
+upsert "op capacity_user_lookup_wl" "operations" "${OP_CAPACITY_USER_LOOKUP_WL}" "$(cat <<JSON
+{
+  "name": "Lookup waitlisted user",
+  "key": "capacity_user_lookup_wl",
+  "type": "item-read",
+  "position_x": 91,
+  "position_y": 1,
+  "options": {
+    "collection": "directus_users",
+    "key": "{{ \$trigger.payload.user }}",
+    "query": {
+      "fields": ["email", "first_name"]
+    }
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": "${OP_CAPACITY_EMAIL_WAITLISTED}",
+  "reject": null
+}
+JSON
+)"
+
+# Op 4: patch the new row to waitlisted (decide_status resolves here
+# only when current > capacity). On resolve, chain into the waitlist
+# user lookup + email.
 upsert "op patch_status" "operations" "${OP_PATCH_STATUS}" "$(cat <<JSON
 {
   "name": "Patch status if needed",
@@ -194,7 +244,7 @@ upsert "op patch_status" "operations" "${OP_PATCH_STATUS}" "$(cat <<JSON
     "emitEvents": false
   },
   "flow": "${FLOW_REG_CAPACITY}",
-  "resolve": null,
+  "resolve": "${OP_CAPACITY_USER_LOOKUP_WL}",
   "reject": null
 }
 JSON

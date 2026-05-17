@@ -13,11 +13,13 @@ import { EmailService } from '../email/email.service';
 import { registrationCancelled } from '../email/templates/registration-cancelled';
 import { registrationConfirmed } from '../email/templates/registration-confirmed';
 import { registrationPromoted } from '../email/templates/registration-promoted';
+import { registrationWaitlisted } from '../email/templates/registration-waitlisted';
 import { InternalAuthGuard } from './internal-auth.guard';
 
 const TEMPLATE_NAMES = [
   'registration-confirmed',
   'registration-promoted',
+  'registration-waitlisted',
   'registration-cancelled',
 ] as const;
 
@@ -61,7 +63,9 @@ export class InternalController {
         ? registrationConfirmed(base)
         : template === 'registration-promoted'
           ? registrationPromoted(base)
-          : registrationCancelled(base);
+          : template === 'registration-waitlisted'
+            ? registrationWaitlisted(base)
+            : registrationCancelled(base);
 
     await this.emails.send(message);
     return { accepted: true };
