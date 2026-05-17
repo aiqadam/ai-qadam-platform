@@ -89,6 +89,36 @@ export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
   }
 }
 
+interface CmsPartnerRow {
+  name: string;
+  url: string | null;
+  country: string;
+}
+
+export interface CmsPartner {
+  name: string;
+  url: string | null;
+}
+
+// Partners for the country derived from Host header, sorted by `sort`.
+// Empty array on failure so the page never blocks on the CMS.
+export async function fetchPartners(req: Request): Promise<CmsPartner[]> {
+  const country = countryFromHost(req.headers.get('host'));
+  try {
+    const params = new URLSearchParams({
+      'filter[country][_eq]': country,
+      sort: 'sort',
+      limit: '24',
+      fields: 'name,url,country',
+    });
+    const body = await get<{ data: CmsPartnerRow[] }>(`/items/partners?${params.toString()}`);
+    return body.data.map((row) => ({ name: row.name, url: row.url }));
+  } catch (err) {
+    console.error('[cms] fetchPartners failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 // Single event for /events/[id]. Returns null on miss / 403 / wrong country.
 export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
   const country = countryFromHost(req.headers.get('host'));

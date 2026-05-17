@@ -2,7 +2,7 @@
 import HomeHero from '../components/HomeHero.astro';
 import UpcomingEventsGrid from '../components/UpcomingEventsGrid.astro';
 import Layout from '../layouts/Layout.astro';
-import { fetchUpcomingEvents } from '../lib/cms';
+import { fetchPartners, fetchUpcomingEvents } from '../lib/cms';
 import { geoTargetSubdomain, hostnameFromHeaders, isApexHost } from '../lib/geo';
 import { getLocale, makeT } from '../lib/i18n';
 
@@ -29,11 +29,12 @@ if (isApexHost(hostnameFromHeaders(Astro.request.headers))) {
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
-const events = await fetchUpcomingEvents(Astro.request);
+const [events, partners] = await Promise.all([
+  fetchUpcomingEvents(Astro.request),
+  fetchPartners(Astro.request),
+]);
 const hero = events[0] ?? null;
 const grid = events.slice(1, 4);
-
-const PARTNERS = ['HYPERAPP', 'IMPACT.T', 'EPAM', 'YANDEX CLOUD', 'UZUM LAB', 'ALEM AI'];
 ---
 
 <Layout title="AI Qadam">
@@ -41,23 +42,36 @@ const PARTNERS = ['HYPERAPP', 'IMPACT.T', 'EPAM', 'YANDEX CLOUD', 'UZUM LAB', 'A
     <HomeHero event={hero} locale={locale} />
     <UpcomingEventsGrid events={grid} locale={locale} />
 
-    <section style="padding: 48px; border-top: 1px solid var(--border);">
-      <p
-        class="section-eyebrow"
-        style="margin-bottom: 16px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
-      >
-        {t('home.partners')}
-      </p>
-      <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;">
-        {PARTNERS.map((name) => (
-          <div
-            style="height: 56px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em;"
-          >
-            {name}
-          </div>
-        ))}
-      </div>
-    </section>
+    {partners.length > 0 && (
+      <section style="padding: 48px; border-top: 1px solid var(--border);">
+        <p
+          class="section-eyebrow"
+          style="margin-bottom: 16px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+        >
+          {t('home.partners')}
+        </p>
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;">
+          {partners.map((p) => (
+            p.url ? (
+              <a
+                href={p.url}
+                target="_blank"
+                rel="noopener"
+                style="height: 56px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-decoration: none;"
+              >
+                {p.name}
+              </a>
+            ) : (
+              <div
+                style="height: 56px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em;"
+              >
+                {p.name}
+              </div>
+            )
+          ))}
+        </div>
+      </section>
+    )}
 
     <section style="padding: 48px; border-top: 1px solid var(--border);">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
