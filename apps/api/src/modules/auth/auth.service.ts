@@ -1,62 +1,152 @@
-import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import type { Client } from 'openid-client';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { type JWTPayload, SignJWT, jwtVerify } from 'jose';
+import { type Client, generators } from 'openid-client';
+import { env } from '../../config/env';
 import { JwtService } from './jwt.service';
 import { OIDC_CLIENT } from './oidc-client.provider';
 import { RefreshTokenService } from './refresh-token.service';
 
-// Wrapped auth (no visible Authentik UI). Pattern:
-//   1. Our web shows the AI Qadam sign-in form.
-//   2. Form posts to /v1/auth/sign-in with email + password.
-//   3. Controller calls AuthService.signInWithPassword → ROPC grant against
-//      Authentik's token endpoint. Authentik validates the password, returns
-//      an id_token. We extract the identity, upsert the user, mint our own
-//      access + refresh session, and the browser never sees Authentik.
+// OIDC Authorization Code + PKCE through Authentik. The full design is in
+// docs/auth-architecture.md — read that first if you're new to this code.
 //
-// ROPC must be enabled on the Authentik OAuth2 provider (see /v3/providers/
-// oauth2 PATCH with client_type: 'public' and grant_types containing
-// 'password'). Documented in docs/runbooks/authentik-ropc.md.
+// One-line summary: GET /v1/auth/login sets a 60-second flow cookie that
+// carries state + PKCE verifier + the post-callback `next` URL, then 302s
+// the browser to Authentik. Authentik authenticates the user and 302s back
+// to /v1/auth/callback with `?code=&state=`. We verify the flow cookie,
+// exchange the code with Authentik's token endpoint (PKCE), upsert the
+// user, mint OUR session (access JWT + opaque refresh row), set the
+// refresh cookie on .aiqadam.org, redirect to the original `next`.
 
-interface IdentityClaims {
-  sub: string;
-  email: string;
-  displayName: string | undefined;
+const FLOW_COOKIE_TTL_SECONDS = 60;
+const FLOW_ISSUER = 'aiqadam-api-oauth-flow';
+const FLOW_AUDIENCE = 'aiqadam-api-callback';
+const FLOW_SCOPES = 'openid email profile';
+
+interface FlowClaims extends JWTPayload {
+  state: string;
+  codeVerifier: string;
+  next: string;
+}
+
+interface AuthorizationStart {
+  authorizeUrl: string;
+  flowToken: string;
+  flowExpiresIn: number;
 }
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
+  private readonly flowSecret: Uint8Array;
 
   constructor(
     @Inject(OIDC_CLIENT) private readonly oidc: Client,
     private readonly jwtService: JwtService,
     private readonly refreshTokens: RefreshTokenService,
-  ) {}
+  ) {
+    this.flowSecret = new TextEncoder().encode(env.JWT_SIGNING_SECRET);
+  }
 
-  // ROPC: exchange username+password for an id_token via Authentik's token
-  // endpoint. Authentik enforces password policy + MFA + rate-limits on its
-  // side. We just translate the result into our own session.
-  async signInWithPassword(input: { email: string; password: string }): Promise<IdentityClaims> {
-    if (!input.email || !input.password) {
-      throw new UnauthorizedException('email and password required');
+  // Step 1: build the Authentik authorize URL + signed flow cookie. The
+  // `next` parameter is carried in the cookie (NOT the OAuth state) so
+  // Authentik never sees app-internal paths.
+  async startAuthorization(input: { next: string }): Promise<AuthorizationStart> {
+    const state = generators.state();
+    const codeVerifier = generators.codeVerifier();
+    const codeChallenge = generators.codeChallenge(codeVerifier);
+
+    const authorizeUrl = this.oidc.authorizationUrl({
+      scope: FLOW_SCOPES,
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      // Force re-authentication every time. prompt=login is the OIDC
+      // standard hint; max_age=0 is the harder mandate (auth_time must
+      // be <= 0 seconds ago = always re-auth). Authentik honors max_age
+      // more reliably than prompt for this purpose. Trade-off: we lose
+      // silent SSO across other Authentik-protected apps — acceptable
+      // for now since AI Qadam is the only such app.
+      prompt: 'login',
+      max_age: 0,
+    });
+
+    const flowToken = await new SignJWT({
+      state,
+      codeVerifier,
+      next: input.next,
+    } satisfies FlowClaims)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(`${FLOW_COOKIE_TTL_SECONDS}s`)
+      .setIssuer(FLOW_ISSUER)
+      .setAudience(FLOW_AUDIENCE)
+      .sign(this.flowSecret);
+
+    return { authorizeUrl, flowToken, flowExpiresIn: FLOW_COOKIE_TTL_SECONDS };
+  }
+
+  // Step 2: read the flow cookie, validate state, exchange the code for
+  // an id_token. Returns the identity claims + the `next` URL the caller
+  // should redirect to.
+  async completeAuthorization(input: {
+    flowToken: string | undefined;
+    callbackParams: Record<string, string | undefined>;
+  }): Promise<{
+    sub: string;
+    email: string;
+    displayName: string | undefined;
+    next: string;
+  }> {
+    if (!input.flowToken) {
+      throw new UnauthorizedException('missing oauth flow cookie');
     }
+    const flowClaims = await this.verifyFlowToken(input.flowToken);
+    const tokenSet = await this.exchangeCode(input.callbackParams, flowClaims);
+    const identity = extractIdentityClaims(tokenSet.claims());
+    return { ...identity, next: flowClaims.next };
+  }
+
+  private async verifyFlowToken(flowToken: string): Promise<FlowClaims> {
     try {
-      const tokenSet = await this.oidc.grant({
-        grant_type: 'password',
-        username: input.email,
-        password: input.password,
-        scope: 'openid email profile',
+      const { payload } = await jwtVerify(flowToken, this.flowSecret, {
+        issuer: FLOW_ISSUER,
+        audience: FLOW_AUDIENCE,
       });
-      return extractIdentityClaims(tokenSet.claims());
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : 'unknown';
-      this.logger.warn(`sign-in failed for ${input.email}: ${reason}`);
-      throw new UnauthorizedException('invalid email or password');
+      return payload as FlowClaims;
+    } catch {
+      throw new UnauthorizedException('invalid or expired oauth flow cookie');
     }
   }
 
-  // Mint our session pair. Refresh row goes to Postgres; access JWT carries
-  // a unique jti so sign-out can deny-list it immediately even though it
-  // hasn't expired.
+  private async exchangeCode(
+    callbackParams: Record<string, string | undefined>,
+    flowClaims: FlowClaims,
+  ): Promise<Awaited<ReturnType<Client['callback']>>> {
+    const params = this.oidc.callbackParams(`?${stringifyParams(callbackParams)}`);
+    try {
+      return await this.oidc.callback(env.OIDC_REDIRECT_URI, params, {
+        state: flowClaims.state,
+        code_verifier: flowClaims.codeVerifier,
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      throw new UnauthorizedException(`oidc callback failed: ${reason}`);
+    }
+  }
+
+  // Where /sign-out sends the browser. We don't hit Authentik's
+  // end_session_endpoint — its built-in invalidation flow shows a consent
+  // page (clunky UX). To kill the IdP session, hit
+  // OIDC_END_SESSION_URL with the id_token_hint; for our needs the local
+  // session kill + JWT deny-list + refresh revoke is enough.
+  postLogoutRedirectUrl(next: string | undefined): string {
+    return next?.startsWith('/') && !next.startsWith('//')
+      ? `${env.WEB_BASE_URL}${next}`
+      : env.WEB_BASE_URL;
+  }
+
+  // Mint OUR session: short-lived access JWT (with jti for deny-list) +
+  // 14-day refresh row. Called from /callback (new family) and /refresh
+  // (existing family).
   async mintSession(input: {
     userId: string;
     authentikSubject: string;
@@ -81,16 +171,24 @@ export class AuthService {
   }
 }
 
+function stringifyParams(input: Record<string, string | undefined>): string {
+  const clean: Record<string, string> = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (typeof v === 'string') clean[k] = v;
+  }
+  return new URLSearchParams(clean).toString();
+}
+
 function extractIdentityClaims(claims: {
   sub?: unknown;
   email?: unknown;
   name?: unknown;
-}): IdentityClaims {
+}): { sub: string; email: string; displayName: string | undefined } {
   if (typeof claims.sub !== 'string' || claims.sub.length === 0) {
-    throw new UnauthorizedException('id_token missing sub claim');
+    throw new UnauthorizedException('oidc id_token missing sub claim');
   }
   if (typeof claims.email !== 'string' || claims.email.length === 0) {
-    throw new UnauthorizedException('id_token missing email claim');
+    throw new UnauthorizedException('oidc id_token missing email claim');
   }
   return {
     sub: claims.sub,

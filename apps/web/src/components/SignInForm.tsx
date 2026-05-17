@@ -1,133 +1,43 @@
-import { type FormEvent, type ReactElement, useState } from 'react';
+import type { ReactElement } from 'react';
 
-// AI Qadam sign-in form. POSTs email + password to /v1/auth/sign-in.
-// On success the API sets the cross-subdomain refresh cookie and
-// returns the user + access token; we then redirect to the `next`
-// URL (validated server-side to be same-origin) or `/` by default.
+// AI Qadam sign-in / sign-up entry point. We don't take credentials here;
+// the OIDC redirect flow takes the user to auth.aiqadam.org (branded as
+// AI Qadam) where Authentik handles password + future MFA. See
+// docs/auth-architecture.md.
 //
-// The access token isn't persisted client-side here — the page that
-// follows calls /v1/auth/refresh on first render and mints a fresh
-// access token from the cookie.
-
-interface SignInResponse {
-  user: { id: string; email: string; displayName: string | null };
-  accessToken: string;
-  expiresIn: number;
-}
+// `next` is the path to land on after sign-in; sanitised both on the
+// page that mounts this component AND server-side in /v1/auth/login.
 
 interface Props {
   next: string;
 }
 
 export function SignInForm({ next }: Props): ReactElement {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(ev: FormEvent): Promise<void> {
-    ev.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/v1/auth/sign-in', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
-          setError('Wrong email or password. Try again.');
-        } else if (res.status === 400) {
-          setError('Email and password are required.');
-        } else {
-          setError(`Sign-in failed (HTTP ${res.status}).`);
-        }
-        return;
-      }
-      const body = (await res.json()) as SignInResponse;
-      // Sanity: refuse to redirect off-origin even if `next` is tampered
-      // client-side. Same-origin paths only.
-      const target = next.startsWith('/') && !next.startsWith('//') ? next : '/';
-      window.location.href = target;
-      // body.accessToken is unused on this page — next page's island calls
-      // /auth/refresh which mints a fresh one from the cookie.
-      void body;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'sign-in failed');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/';
+  const loginHref = `/api/v1/auth/login?next=${encodeURIComponent(safeNext)}`;
 
   return (
-    <form
-      onSubmit={(e) => void handleSubmit(e)}
-      style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
-    >
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={eyebrow}>Email</span>
-        <input
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={input}
-        />
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={eyebrow}>Password</span>
-        <input
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={input}
-        />
-      </label>
-      {error && (
-        <div
-          style={{
-            padding: '10px 12px',
-            border: '1px solid color-mix(in oklch, oklch(0.6 0.18 25) 50%, var(--border))',
-            background: 'color-mix(in oklch, oklch(0.6 0.18 25) 8%, transparent)',
-            borderRadius: 8,
-            fontSize: 13,
-            color: 'oklch(0.6 0.18 25)',
-          }}
-        >
-          {error}
-        </div>
-      )}
-      <button
-        type="submit"
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <a
         className="btn btn-primary btn-lg"
-        disabled={submitting}
-        style={{ marginTop: 6 }}
+        href={loginHref}
+        style={{ textDecoration: 'none', textAlign: 'center' }}
       >
-        {submitting ? 'Signing in…' : 'Sign in'}
-      </button>
-    </form>
+        Continue to sign in
+      </a>
+      <p
+        style={{
+          fontSize: 11,
+          color: 'var(--muted-foreground)',
+          fontFamily: 'var(--font-mono)',
+          letterSpacing: '0.04em',
+          margin: '8px 0 0',
+          textAlign: 'center',
+        }}
+      >
+        Sign-in happens on <strong style={{ color: 'var(--foreground)' }}>auth.aiqadam.org</strong>—
+        our isolated, hardened auth subdomain. Sign up is on the same page.
+      </p>
+    </div>
   );
 }
-
-const eyebrow: React.CSSProperties = {
-  fontFamily: 'var(--font-mono)',
-  fontSize: 10,
-  color: 'var(--muted-foreground)',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-};
-
-const input: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  background: 'var(--card)',
-  color: 'var(--foreground)',
-  fontSize: 15,
-};

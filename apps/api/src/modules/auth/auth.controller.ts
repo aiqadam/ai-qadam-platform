@@ -1,11 +1,10 @@
 import {
-  BadRequestException,
-  Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -20,15 +19,20 @@ import { JtiRevocationService } from './jti-revocation.service';
 import { JwtService } from './jwt.service';
 import { RefreshTokenService } from './refresh-token.service';
 
-// Cross-subdomain cookies: scoped to .aiqadam.org so a session set on
-// uz.aiqadam.org is also seen by kz / tj / admin / global. We deliberately
-// drop the __Host- prefix from Phase 1 — it's incompatible with the
-// Domain attribute, and we need Domain for multi-tenant UX. HttpOnly +
-// Secure + SameSite=Lax preserve the rest of the original guarantees.
+// COOKIES — see docs/auth-architecture.md §"Cookies"
 //
-// Legacy __Host-* cookies (Phase 1) are still read on /sign-out so people
-// with an old session can cleanly log out; otherwise the old refresh would
-// rot in their browser.
+// REFRESH_COOKIE — opaque refresh token. Domain=.aiqadam.org so a sign-in
+// on uz.aiqadam.org is also live on kz/tj/admin/global. We dropped the
+// Phase 1 __Host- prefix because it's mutually exclusive with the Domain
+// attribute. HttpOnly + Secure + SameSite=Lax preserve the rest of the
+// guarantees. SameSite=Lax keeps the cookie attached to top-level
+// navigations (the OIDC callback) but not to cross-site iframes.
+//
+// FLOW_COOKIE — short-lived signed JWT holding the OAuth state + PKCE
+// verifier + the post-login `next` URL. 60 second TTL — only has to
+// survive the round-trip to Authentik. Same Domain so the callback can
+// read it even if Authentik redirects to a sibling subdomain (it won't,
+// but we don't want to take a dependency on that).
 
 const COOKIE_DOMAIN = env.NODE_ENV === 'production' ? '.aiqadam.org' : undefined;
 const COOKIE_BASE: CookieOptions = {
@@ -39,19 +43,9 @@ const COOKIE_BASE: CookieOptions = {
   ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
 };
 const REFRESH_COOKIE = 'aiqadam-refresh';
+const FLOW_COOKIE = 'aiqadam-oauth-flow';
 const LEGACY_REFRESH_COOKIE = '__Host-aiqadam-refresh';
 const LEGACY_FLOW_COOKIE = '__Host-aiqadam-oauth-flow';
-
-interface SignInBody {
-  email?: string;
-  password?: string;
-}
-
-interface SignInResponse {
-  user: { id: string; email: string; displayName: string | null };
-  accessToken: string;
-  expiresIn: number;
-}
 
 interface RefreshResponse {
   accessToken: string;
@@ -74,27 +68,41 @@ export class AuthController {
     private readonly revocations: JtiRevocationService,
   ) {}
 
-  // POST /v1/auth/sign-in — body { email, password }. Wraps Authentik's
-  // ROPC grant so the user never sees an Authentik UI. On success: sets
-  // the refresh cookie (.aiqadam.org domain), returns the access token
-  // + user identity to the form.
-  @Post('sign-in')
-  @HttpCode(HttpStatus.OK)
-  async signIn(
-    @Body() body: SignInBody,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<SignInResponse> {
-    const email = body.email?.trim().toLowerCase();
-    const password = body.password;
-    if (!email || !password) {
-      throw new BadRequestException('email and password are required');
-    }
-    const claims = await this.auth.signInWithPassword({ email, password });
+  // GET /v1/auth/login?next=/somewhere — top-level browser navigation, NOT
+  // an XHR. Sets a 60s flow cookie carrying state + PKCE verifier + the
+  // sanitised next path, then 302s to Authentik's authorize endpoint.
+  @Get('login')
+  async login(
+    @Query('next') nextRaw: string | undefined,
+    @Res({ passthrough: false }) res: Response,
+  ): Promise<void> {
+    const next = sanitiseNext(nextRaw);
+    const { authorizeUrl, flowToken, flowExpiresIn } = await this.auth.startAuthorization({ next });
+    res.cookie(FLOW_COOKIE, flowToken, {
+      ...COOKIE_BASE,
+      maxAge: flowExpiresIn * 1000,
+    });
+    res.redirect(authorizeUrl);
+  }
+
+  // GET /v1/auth/callback?code=&state= — Authentik 302s the browser here
+  // after the user signs in / signs up. We verify the flow cookie, swap
+  // the code for an id_token, upsert the user, mint our session, set the
+  // refresh cookie, and 302 the browser to `next`.
+  @Get('callback')
+  async callback(@Req() req: Request, @Res({ passthrough: false }) res: Response): Promise<void> {
+    const flowToken =
+      (req.cookies?.[FLOW_COOKIE] as string | undefined) ??
+      (req.cookies?.[LEGACY_FLOW_COOKIE] as string | undefined);
+    const { sub, email, displayName, next } = await this.auth.completeAuthorization({
+      flowToken,
+      callbackParams: req.query as Record<string, string | undefined>,
+    });
 
     const user = await this.users.upsertByAuthentikSubject({
-      authentikSubject: claims.sub,
-      email: claims.email,
-      ...(claims.displayName !== undefined ? { displayName: claims.displayName } : {}),
+      authentikSubject: sub,
+      email,
+      ...(displayName !== undefined ? { displayName } : {}),
     });
 
     const session = await this.auth.mintSession({
@@ -103,32 +111,33 @@ export class AuthController {
       email: user.email,
     });
 
-    setRefreshCookie(res, session.refreshToken, session.refreshExpiresAt);
-    return {
-      user: { id: user.id, email: user.email, displayName: user.displayName },
-      accessToken: session.accessToken,
-      expiresIn: JwtService.ACCESS_TTL_SECONDS,
-    };
+    res.clearCookie(FLOW_COOKIE, COOKIE_BASE);
+    res.clearCookie(LEGACY_FLOW_COOKIE, { path: '/' });
+    res.cookie(REFRESH_COOKIE, session.refreshToken, {
+      ...COOKIE_BASE,
+      expires: session.refreshExpiresAt,
+    });
+    res.redirect(this.auth.postLogoutRedirectUrl(next));
   }
 
-  // POST /v1/auth/sign-out — revokes the refresh row, deny-lists the
-  // current access JWT (if Authorization header present) for its remaining
-  // lifetime, clears both new + legacy cookies across the apex domain.
+  // POST /v1/auth/sign-out — XHR from the app. Revokes the refresh row
+  // (replay-detected => whole family killed), deny-lists the access JWT's
+  // jti in Redis for its remaining lifetime, clears both new + legacy
+  // cookies on .aiqadam.org and on the current host.
   @Post('sign-out')
   @HttpCode(HttpStatus.NO_CONTENT)
   async signOut(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
-    // Revoke refresh row (best-effort).
-    const refreshToken = req.cookies?.[REFRESH_COOKIE] ?? req.cookies?.[LEGACY_REFRESH_COOKIE];
+    const refreshToken =
+      (req.cookies?.[REFRESH_COOKIE] as string | undefined) ??
+      (req.cookies?.[LEGACY_REFRESH_COOKIE] as string | undefined);
     if (typeof refreshToken === 'string' && refreshToken.length > 0) {
       try {
         const { familyId } = await this.refreshTokens.consume(refreshToken);
         await this.refreshTokens.revokeFamily(familyId);
       } catch {
-        // Already invalid — clearing the cookie is still the right move.
+        // already invalid — clearing the cookie is still the right move
       }
     }
-
-    // Deny-list the access JWT so the rest of its life can't be used.
     const bearer = extractBearer(req);
     if (bearer) {
       try {
@@ -137,22 +146,24 @@ export class AuthController {
         const ttl = Math.max(1, exp - Math.floor(Date.now() / 1000));
         await this.revocations.revoke(claims.jti, ttl);
       } catch {
-        // Token invalid or already revoked — no-op.
+        // token invalid or already revoked — no-op
       }
     }
-
     clearRefreshCookies(res);
   }
 
-  // POST /v1/auth/refresh — rotates the refresh cookie + returns a new
-  // access token. Same shape as Phase 1.
+  // POST /v1/auth/refresh — XHR. Rotates the refresh cookie + returns a
+  // fresh access token. Replay-detection in the refresh service kills the
+  // entire family if a previously-consumed token shows up.
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RefreshResponse> {
-    const token = req.cookies?.[REFRESH_COOKIE] ?? req.cookies?.[LEGACY_REFRESH_COOKIE];
+    const token =
+      (req.cookies?.[REFRESH_COOKIE] as string | undefined) ??
+      (req.cookies?.[LEGACY_REFRESH_COOKIE] as string | undefined);
     if (!token) {
       throw new UnauthorizedException('missing refresh cookie');
     }
@@ -161,15 +172,16 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException('user no longer exists');
     }
-
     const session = await this.auth.mintSession({
       userId: user.id,
       authentikSubject: user.authentikSubject,
       email: user.email,
       familyId: consumed.familyId,
     });
-
-    setRefreshCookie(res, session.refreshToken, session.refreshExpiresAt);
+    res.cookie(REFRESH_COOKIE, session.refreshToken, {
+      ...COOKIE_BASE,
+      expires: session.refreshExpiresAt,
+    });
     return { accessToken: session.accessToken, expiresIn: JwtService.ACCESS_TTL_SECONDS };
   }
 
@@ -187,14 +199,17 @@ export class AuthController {
   }
 }
 
-function setRefreshCookie(res: Response, token: string, expires: Date): void {
-  res.cookie(REFRESH_COOKIE, token, { ...COOKIE_BASE, expires });
+// `next` must be a same-origin relative path (begins with / but not //)
+// — refuse anything else to prevent open-redirect via /login?next=…
+function sanitiseNext(raw: string | undefined): string {
+  if (!raw) return '/';
+  if (!raw.startsWith('/')) return '/';
+  if (raw.startsWith('//')) return '/';
+  return raw;
 }
 
 function clearRefreshCookies(res: Response): void {
-  // Clear the new domain-scoped cookie.
   res.clearCookie(REFRESH_COOKIE, COOKIE_BASE);
-  // Clear legacy Phase 1 host-only cookies on whichever subdomain we're on.
   res.clearCookie(LEGACY_REFRESH_COOKIE, { path: '/' });
   res.clearCookie(LEGACY_FLOW_COOKIE, { path: '/' });
 }
