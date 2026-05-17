@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
 import { events } from '../events/schema';
 import { pointAwards } from '../points/schema';
@@ -78,6 +78,22 @@ export class UsersService {
 
   async findById(id: string): Promise<User | undefined> {
     const [row] = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return row;
+  }
+
+  async listAll(): Promise<User[]> {
+    return this.db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async updateRole(input: {
+    userId: string;
+    role: 'member' | 'organizer' | 'country_admin' | 'super_admin';
+  }): Promise<User | undefined> {
+    const [row] = await this.db
+      .update(users)
+      .set({ role: input.role, updatedAt: new Date() })
+      .where(eq(users.id, input.userId))
+      .returning();
     return row;
   }
 

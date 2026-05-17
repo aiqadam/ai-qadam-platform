@@ -1,0 +1,20 @@
+---
+import { AdminUsersTable } from '../../../components/AdminUsersTable';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Admin · Users · AI Qadam">
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 48px;">
+    <header style="margin-bottom: 24px;">
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 4px;"
+      >
+        Users
+      </h1>
+      <p style="font-size: 13px; color: var(--muted-foreground); margin: 0;">
+        Role assignments for all signed-in members. Super-admin only.
+      </p>
+    </header>
+    <AdminUsersTable client:load />
+  </main>
+</Layout>
