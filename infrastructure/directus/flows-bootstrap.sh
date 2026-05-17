@@ -28,6 +28,17 @@
 #                            point_awards row (user + event country + 10
 #                            points). Dedupes against existing award for
 #                            the same (user, event) pair.
+#
+# Email side-effects (added in C3.5):
+#   - reg-capacity-decision  branches on decide_status: reject (within
+#                            capacity → user stays registered) → POST
+#                            /v1/internal/email with template=registration-
+#                            confirmed. Resolve branch (overflow → patched
+#                            to waitlisted) sends no email yet — no
+#                            waitlist template exists.
+#   - reg-waitlist-promotion after `promote`, looks up the promoted user's
+#                            email + event details → POST /v1/internal/email
+#                            with template=registration-promoted.
 
 set -euo pipefail
 
@@ -45,6 +56,8 @@ OP_EVENT_LOOKUP="11111111-c3c1-4001-8001-000000000010"
 OP_COUNT_REG="11111111-c3c1-4001-8001-000000000011"
 OP_DECIDE_STATUS="11111111-c3c1-4001-8001-000000000012"
 OP_PATCH_STATUS="11111111-c3c1-4001-8001-000000000013"
+OP_CAPACITY_USER_LOOKUP="11111111-c3c1-4001-8001-000000000014"
+OP_CAPACITY_EMAIL_CONFIRMED="11111111-c3c1-4001-8001-000000000015"
 
 FLOW_REG_PROMOTION="11111111-c3c2-4002-8002-000000000001"
 OP_PROMO_GATE="11111111-c3c2-4002-8002-000000000010"
@@ -52,6 +65,9 @@ OP_LOAD_REG="11111111-c3c2-4002-8002-000000000011"
 OP_FIND_WAITLIST="11111111-c3c2-4002-8002-000000000012"
 OP_PICK_TARGET="11111111-c3c2-4002-8002-000000000013"
 OP_PROMOTE="11111111-c3c2-4002-8002-000000000014"
+OP_PROMO_LOAD_EVENT="11111111-c3c2-4002-8002-000000000015"
+OP_PROMO_USER_LOOKUP="11111111-c3c2-4002-8002-000000000016"
+OP_PROMO_EMAIL_PROMOTED="11111111-c3c2-4002-8002-000000000017"
 
 FLOW_REG_CHECKIN="11111111-c3c3-4003-8003-000000000001"
 OP_CHECKIN_GATE="11111111-c3c3-4003-8003-000000000010"
@@ -188,6 +204,52 @@ JSON
 # truthy object → next op runs (patch_status). Returns null → resolve
 # chain still progresses but item-update gets called anyway, so we use
 # `reject` instead to short-circuit when no demotion is needed.
+# Op 5 (terminal of reject/email branch): POST /v1/internal/email.
+upsert "op capacity_email_confirmed" "operations" "${OP_CAPACITY_EMAIL_CONFIRMED}" "$(cat <<JSON
+{
+  "name": "Email registration-confirmed",
+  "key": "capacity_email_confirmed",
+  "type": "request",
+  "position_x": 73,
+  "position_y": 17,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/email",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"template\": \"registration-confirmed\", \"to\": \"{{ capacity_user_lookup.email }}\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }"
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 4: look up the registering user's email (used by capacity_email_confirmed).
+upsert "op capacity_user_lookup" "operations" "${OP_CAPACITY_USER_LOOKUP}" "$(cat <<JSON
+{
+  "name": "Lookup registering user",
+  "key": "capacity_user_lookup",
+  "type": "item-read",
+  "position_x": 55,
+  "position_y": 17,
+  "options": {
+    "collection": "directus_users",
+    "key": "{{ \$trigger.payload.user }}",
+    "query": {
+      "fields": ["email", "first_name"]
+    }
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": "${OP_CAPACITY_EMAIL_CONFIRMED}",
+  "reject": null
+}
+JSON
+)"
+
 upsert "op decide_status" "operations" "${OP_DECIDE_STATUS}" "$(cat <<JSON
 {
   "name": "Decide status",
@@ -200,7 +262,7 @@ upsert "op decide_status" "operations" "${OP_DECIDE_STATUS}" "$(cat <<JSON
   },
   "flow": "${FLOW_REG_CAPACITY}",
   "resolve": "${OP_PATCH_STATUS}",
-  "reject": null
+  "reject": "${OP_CAPACITY_USER_LOOKUP}"
 }
 JSON
 )"
@@ -233,7 +295,7 @@ upsert "op count_registered" "operations" "${OP_COUNT_REG}" "$(cat <<JSON
 JSON
 )"
 
-# Op 1: read the target event for its capacity.
+# Op 1: read the target event for capacity + email fields.
 upsert "op event_lookup" "operations" "${OP_EVENT_LOOKUP}" "$(cat <<JSON
 {
   "name": "Lookup event",
@@ -245,7 +307,7 @@ upsert "op event_lookup" "operations" "${OP_EVENT_LOOKUP}" "$(cat <<JSON
     "collection": "events",
     "key": "{{ \$trigger.payload.event }}",
     "query": {
-      "fields": ["id", "capacity", "title"]
+      "fields": ["id", "capacity", "title", "starts_at", "location"]
     }
   },
   "flow": "${FLOW_REG_CAPACITY}",
@@ -254,6 +316,7 @@ upsert "op event_lookup" "operations" "${OP_EVENT_LOOKUP}" "$(cat <<JSON
 }
 JSON
 )"
+
 
 # ──────────── reg-waitlist-promotion flow ───────────────────────────────
 #
@@ -291,8 +354,78 @@ upsert "flow reg-waitlist-promotion" "flows" "${FLOW_REG_PROMOTION}" "$(cat <<JS
 JSON
 )"
 
-# Op 5 (terminal): promote the target to registered. emitEvents:false so
-# we don't recursively retrigger anything.
+# Op 8 (terminal of promotion email path): POST /v1/internal/email.
+upsert "op promo_email_promoted" "operations" "${OP_PROMO_EMAIL_PROMOTED}" "$(cat <<JSON
+{
+  "name": "Email registration-promoted",
+  "key": "promo_email_promoted",
+  "type": "request",
+  "position_x": 163,
+  "position_y": 1,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/email",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"template\": \"registration-promoted\", \"to\": \"{{ promo_user_lookup.email }}\", \"data\": { \"recipientName\": \"{{ promo_user_lookup.first_name }}\", \"eventTitle\": \"{{ promo_load_event.title }}\", \"eventStartsAt\": \"{{ promo_load_event.starts_at }}\", \"eventLocation\": \"{{ promo_load_event.location }}\" } }"
+  },
+  "flow": "${FLOW_REG_PROMOTION}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 7: look up the promoted user's email + name.
+# pick_target's output is { id: <reg uuid> }; find_waitlist row 0 carries
+# the user uuid — reach for it directly.
+upsert "op promo_user_lookup" "operations" "${OP_PROMO_USER_LOOKUP}" "$(cat <<JSON
+{
+  "name": "Lookup promoted user",
+  "key": "promo_user_lookup",
+  "type": "item-read",
+  "position_x": 145,
+  "position_y": 1,
+  "options": {
+    "collection": "directus_users",
+    "key": "{{ find_waitlist[0].user }}",
+    "query": {
+      "fields": ["email", "first_name"]
+    }
+  },
+  "flow": "${FLOW_REG_PROMOTION}",
+  "resolve": "${OP_PROMO_EMAIL_PROMOTED}",
+  "reject": null
+}
+JSON
+)"
+
+# Op 6: load the event for the email template (title, starts_at, location).
+upsert "op promo_load_event" "operations" "${OP_PROMO_LOAD_EVENT}" "$(cat <<JSON
+{
+  "name": "Load event for email",
+  "key": "promo_load_event",
+  "type": "item-read",
+  "position_x": 127,
+  "position_y": 1,
+  "options": {
+    "collection": "events",
+    "key": "{{ load_reg.event }}",
+    "query": {
+      "fields": ["id", "title", "starts_at", "location"]
+    }
+  },
+  "flow": "${FLOW_REG_PROMOTION}",
+  "resolve": "${OP_PROMO_USER_LOOKUP}",
+  "reject": null
+}
+JSON
+)"
+
+# Op 5: promote the target to registered. emitEvents:false so we don't
+# recursively retrigger anything. Resolve → load event → user → email.
 upsert "op promote" "operations" "${OP_PROMOTE}" "$(cat <<JSON
 {
   "name": "Promote target",
@@ -309,7 +442,7 @@ upsert "op promote" "operations" "${OP_PROMOTE}" "$(cat <<JSON
     "emitEvents": false
   },
   "flow": "${FLOW_REG_PROMOTION}",
-  "resolve": null,
+  "resolve": "${OP_PROMO_LOAD_EVENT}",
   "reject": null
 }
 JSON
