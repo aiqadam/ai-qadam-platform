@@ -1,6 +1,9 @@
 ---
 import { AdminEventsTable } from '../../../components/AdminEventsTable';
 import Layout from '../../../layouts/Layout.astro';
+
+// SSR so the admin-subdomain redirect middleware runs.
+export const prerender = false;
 ---
 
 <Layout title="Admin · Events · AI Qadam">

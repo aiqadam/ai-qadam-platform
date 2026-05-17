@@ -1,6 +1,9 @@
 ---
 import { CheckinScanner } from '../../components/CheckinScanner';
 import Layout from '../../layouts/Layout.astro';
+
+// SSR so the admin-subdomain redirect middleware runs.
+export const prerender = false;
 ---
 
 <Layout title="Admin · Check-in scanner · AI Qadam">

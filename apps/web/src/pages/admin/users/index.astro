@@ -1,6 +1,9 @@
 ---
 import { AdminUsersTable } from '../../../components/AdminUsersTable';
 import Layout from '../../../layouts/Layout.astro';
+
+// SSR so the admin-subdomain redirect middleware runs.
+export const prerender = false;
 ---
 
 <Layout title="Admin · Users · AI Qadam">

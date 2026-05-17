@@ -1,6 +1,10 @@
 ---
 import { AdminDashboard } from '../../components/AdminDashboard';
 import Layout from '../../layouts/Layout.astro';
+
+// SSR so the admin-subdomain middleware runs and redirects
+// admin.aiqadam.org/admin -> uz.aiqadam.org/admin per current RBAC.
+export const prerender = false;
 ---
 
 <Layout title="Admin · AI Qadam">
