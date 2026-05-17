@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import './modules/tenants/tenant.types';
 import { HealthController } from './health/health.controller';
-import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EventsModule } from './modules/events/events.module';
 import { InternalModule } from './modules/internal/internal.module';
@@ -18,7 +17,6 @@ import { UsersModule } from './modules/users/users.module';
     EventsModule,
     RegistrationsModule,
     PointsModule,
-    AdminModule,
     InternalModule,
   ],
   controllers: [HealthController],
