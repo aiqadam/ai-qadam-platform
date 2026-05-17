@@ -71,8 +71,32 @@ async function bootstrap(): Promise<State> {
   };
 }
 
-function signOut(): void {
-  window.location.href = '/api/v1/auth/logout';
+async function signOut(): Promise<void> {
+  // Pull a fresh access token so the API can deny-list THIS jti
+  // immediately (sign-out reads Authorization: Bearer to know what to
+  // revoke). Then POST /sign-out, then land on the confirmation page.
+  let bearer = '';
+  try {
+    const refresh = await fetch('/api/v1/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (refresh.ok) {
+      bearer = ((await refresh.json()) as { accessToken: string }).accessToken;
+    }
+  } catch {
+    // refresh failed — fine, /sign-out still clears the refresh cookie.
+  }
+  await fetch('/api/v1/auth/sign-out', {
+    method: 'POST',
+    credentials: 'include',
+    headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
+  }).catch(() => undefined);
+  window.location.href = '/auth/signed-out';
+}
+
+function nextHere(): string {
+  return `${window.location.pathname}${window.location.search}`;
 }
 
 const dateFmt = new Intl.DateTimeFormat('en-US', {
@@ -276,7 +300,7 @@ function AnonView(): ReactElement {
       </p>
       <a
         className="btn btn-primary btn-lg"
-        href="/api/v1/auth/login"
+        href={`/auth/sign-in?next=${encodeURIComponent(nextHere())}`}
         style={{ textDecoration: 'none' }}
       >
         Sign in with Authentik
@@ -333,7 +357,7 @@ function Dashboard({ session }: DashboardProps): ReactElement {
             {session.me.email}
           </p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={signOut}>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void signOut()}>
           Sign out
         </button>
       </header>

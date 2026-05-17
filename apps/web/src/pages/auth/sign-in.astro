@@ -1,0 +1,42 @@
+---
+import { SignInForm } from '../../components/SignInForm';
+import Layout from '../../layouts/Layout.astro';
+
+// AI Qadam sign-in. SSR so we can validate ?next= server-side and
+// hand it to the form island as a safe relative path. Off-origin
+// values get reduced to '/'.
+export const prerender = false;
+
+const url = new URL(Astro.request.url);
+const rawNext = url.searchParams.get('next') ?? '/';
+const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+---
+
+<Layout title="Sign in · AI Qadam">
+  <main
+    style="max-width: 420px; margin: 0 auto; padding: 80px 24px; display: flex; flex-direction: column; gap: 32px;"
+  >
+    <div style="text-align: center;">
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 36px; letter-spacing: -0.025em; margin: 0 0 6px;"
+      >
+        AI <span style="color: var(--primary);">Qadam</span>
+      </h1>
+      <p
+        style="font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase; margin: 0;"
+      >
+        Sign in
+      </p>
+    </div>
+
+    <div
+      style="padding: 28px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);"
+    >
+      <SignInForm next={next} client:load />
+    </div>
+
+    <p style="font-size: 12px; color: var(--muted-foreground); text-align: center; margin: 0;">
+      New here? Sign-in creates your account on first login.
+    </p>
+  </main>
+</Layout>

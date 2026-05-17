@@ -189,7 +189,7 @@ function CTA({
     return (
       <a
         className="btn btn-primary btn-lg"
-        href={`/api/v1/auth/login?next=${encodeURIComponent(`/events/${eventId}`)}`}
+        href={`/auth/sign-in?next=${encodeURIComponent(`/events/${eventId}`)}`}
         style={{ textDecoration: 'none', textAlign: 'center' }}
       >
         {isFull ? 'Sign in to join waitlist' : 'Sign in to register'}

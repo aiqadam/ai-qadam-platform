@@ -105,7 +105,7 @@ function AnonView(): ReactElement {
       </h2>
       <a
         className="btn btn-primary btn-lg"
-        href="/api/v1/auth/login"
+        href={`/auth/sign-in?next=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`}
         style={{ textDecoration: 'none' }}
       >
         Sign in
