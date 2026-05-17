@@ -1,8 +1,14 @@
 import { SignJWT } from 'jose';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { JtiRevocationService } from '../src/modules/auth/jti-revocation.service';
 import { AccessTokenInvalidError, JwtService } from '../src/modules/auth/jwt.service';
 
-const service = new JwtService();
+const fakeRevocations = {
+  isRevoked: vi.fn(async () => false),
+  revoke: vi.fn(async () => undefined),
+} as unknown as JtiRevocationService;
+
+const service = new JwtService(fakeRevocations);
 
 const sampleClaims = {
   sub: 'b3e88a4c-ff9e-4b9b-9d1c-6c61d49d7e21',

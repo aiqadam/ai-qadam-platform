@@ -1,11 +1,17 @@
 import { UnauthorizedException } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AuthGuard } from '../src/modules/auth/auth.guard';
+import type { JtiRevocationService } from '../src/modules/auth/jti-revocation.service';
 import { JwtService } from '../src/modules/auth/jwt.service';
 
-const jwtService = new JwtService();
+const fakeRevocations = {
+  isRevoked: vi.fn(async () => false),
+  revoke: vi.fn(async () => undefined),
+} as unknown as JtiRevocationService;
+
+const jwtService = new JwtService(fakeRevocations);
 const guard = new AuthGuard(jwtService);
 
 const reqWithAuth = (header: string | undefined): Request =>

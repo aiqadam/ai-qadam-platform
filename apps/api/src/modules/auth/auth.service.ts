@@ -1,135 +1,62 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { type JWTPayload, SignJWT, jwtVerify } from 'jose';
-import { type Client, generators } from 'openid-client';
-import { env } from '../../config/env';
+import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import type { Client } from 'openid-client';
 import { JwtService } from './jwt.service';
 import { OIDC_CLIENT } from './oidc-client.provider';
 import { RefreshTokenService } from './refresh-token.service';
 
-// State + PKCE verifier are signed into a short-lived cookie (60s TTL) so the
-// callback can verify the redirect actually originated from a flow we started.
-// Same secret as the access-token JWT — separate keying isn't worth the env
-// surface in Phase 1.
-const FLOW_COOKIE_TTL_SECONDS = 60;
-const FLOW_ISSUER = 'aiqadam-api-oauth-flow';
-const FLOW_AUDIENCE = 'aiqadam-api-callback';
-const FLOW_SCOPES = 'openid email profile';
+// Wrapped auth (no visible Authentik UI). Pattern:
+//   1. Our web shows the AI Qadam sign-in form.
+//   2. Form posts to /v1/auth/sign-in with email + password.
+//   3. Controller calls AuthService.signInWithPassword → ROPC grant against
+//      Authentik's token endpoint. Authentik validates the password, returns
+//      an id_token. We extract the identity, upsert the user, mint our own
+//      access + refresh session, and the browser never sees Authentik.
+//
+// ROPC must be enabled on the Authentik OAuth2 provider (see /v3/providers/
+// oauth2 PATCH with client_type: 'public' and grant_types containing
+// 'password'). Documented in docs/runbooks/authentik-ropc.md.
 
-interface FlowClaims extends JWTPayload {
-  state: string;
-  codeVerifier: string;
-}
-
-interface AuthorizationStart {
-  authorizeUrl: string;
-  flowToken: string;
-  flowExpiresIn: number;
+interface IdentityClaims {
+  sub: string;
+  email: string;
+  displayName: string | undefined;
 }
 
 @Injectable()
 export class AuthService {
-  private readonly flowSecret: Uint8Array;
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     @Inject(OIDC_CLIENT) private readonly oidc: Client,
     private readonly jwtService: JwtService,
     private readonly refreshTokens: RefreshTokenService,
-  ) {
-    this.flowSecret = new TextEncoder().encode(env.JWT_SIGNING_SECRET);
-  }
+  ) {}
 
-  // Step 1 of login: build the Authentik authorize URL and a signed cookie
-  // value that carries state + PKCE verifier across the redirect.
-  async startAuthorization(): Promise<AuthorizationStart> {
-    const state = generators.state();
-    const codeVerifier = generators.codeVerifier();
-    const codeChallenge = generators.codeChallenge(codeVerifier);
-
-    const authorizeUrl = this.oidc.authorizationUrl({
-      scope: FLOW_SCOPES,
-      state,
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
-      // Force re-authentication every time. prompt=login is the OIDC-standard
-      // hint; max_age=0 is the harder mandate (auth_time must be ≤0 seconds
-      // ago = always re-auth). Authentik historically honors max_age more
-      // reliably than prompt for this purpose.
-      prompt: 'login',
-      max_age: 0,
-    });
-
-    const flowToken = await new SignJWT({ state, codeVerifier } satisfies FlowClaims)
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime(`${FLOW_COOKIE_TTL_SECONDS}s`)
-      .setIssuer(FLOW_ISSUER)
-      .setAudience(FLOW_AUDIENCE)
-      .sign(this.flowSecret);
-
-    return { authorizeUrl, flowToken, flowExpiresIn: FLOW_COOKIE_TTL_SECONDS };
-  }
-
-  // Step 2 of login: read the flow cookie, validate state, exchange code.
-  // Returns the OIDC claims so the controller can upsert the user + mint
-  // its own session tokens.
-  async completeAuthorization(input: {
-    flowToken: string | undefined;
-    callbackParams: Record<string, string | undefined>;
-  }): Promise<{ sub: string; email: string; displayName: string | undefined }> {
-    if (!input.flowToken) {
-      throw new UnauthorizedException('missing oauth flow cookie');
+  // ROPC: exchange username+password for an id_token via Authentik's token
+  // endpoint. Authentik enforces password policy + MFA + rate-limits on its
+  // side. We just translate the result into our own session.
+  async signInWithPassword(input: { email: string; password: string }): Promise<IdentityClaims> {
+    if (!input.email || !input.password) {
+      throw new UnauthorizedException('email and password required');
     }
-    const flowClaims = await this.verifyFlowToken(input.flowToken);
-    const tokenSet = await this.exchangeCode(input.callbackParams, flowClaims);
-    return extractIdentityClaims(tokenSet.claims());
-  }
-
-  private async verifyFlowToken(flowToken: string): Promise<FlowClaims> {
     try {
-      const { payload } = await jwtVerify(flowToken, this.flowSecret, {
-        issuer: FLOW_ISSUER,
-        audience: FLOW_AUDIENCE,
+      const tokenSet = await this.oidc.grant({
+        grant_type: 'password',
+        username: input.email,
+        password: input.password,
+        scope: 'openid email profile',
       });
-      return payload as FlowClaims;
-    } catch {
-      throw new UnauthorizedException('invalid or expired oauth flow cookie');
-    }
-  }
-
-  private async exchangeCode(
-    callbackParams: Record<string, string | undefined>,
-    flowClaims: FlowClaims,
-  ): Promise<Awaited<ReturnType<Client['callback']>>> {
-    const params = this.oidc.callbackParams(`?${stringifyParams(callbackParams)}`);
-    try {
-      return await this.oidc.callback(env.OIDC_REDIRECT_URI, params, {
-        state: flowClaims.state,
-        code_verifier: flowClaims.codeVerifier,
-      });
+      return extractIdentityClaims(tokenSet.claims());
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown';
-      throw new UnauthorizedException(`oidc callback failed: ${reason}`);
+      this.logger.warn(`sign-in failed for ${input.email}: ${reason}`);
+      throw new UnauthorizedException('invalid email or password');
     }
   }
 
-  // The web base + landing path the API redirects the browser to after a
-  // successful callback. The web reads its refresh cookie on first render
-  // and calls /v1/auth/refresh to mint the access token (per ADR-0016).
-  postCallbackRedirectUrl(): string {
-    return env.WEB_BASE_URL;
-  }
-
-  // Where /logout sends the browser after revoking our session. We deliberately
-  // skip Authentik's end_session_endpoint — its built-in invalidation flows
-  // all show a consent page, which is clunky UX. Instead we rely on
-  // prompt=login (in startAuthorization above) to force re-auth on the next
-  // /login, regardless of Authentik's IdP-level session.
-  postLogoutRedirectUrl(): string {
-    return env.WEB_BASE_URL;
-  }
-
-  // Mint the user-facing token pair: short-lived access JWT + opaque refresh
-  // token. Called from /callback (new family) and /refresh (existing family).
+  // Mint our session pair. Refresh row goes to Postgres; access JWT carries
+  // a unique jti so sign-out can deny-list it immediately even though it
+  // hasn't expired.
   async mintSession(input: {
     userId: string;
     authentikSubject: string;
@@ -154,26 +81,16 @@ export class AuthService {
   }
 }
 
-function stringifyParams(input: Record<string, string | undefined>): string {
-  const clean: Record<string, string> = {};
-  for (const [k, v] of Object.entries(input)) {
-    if (typeof v === 'string') {
-      clean[k] = v;
-    }
-  }
-  return new URLSearchParams(clean).toString();
-}
-
 function extractIdentityClaims(claims: {
   sub?: unknown;
   email?: unknown;
   name?: unknown;
-}): { sub: string; email: string; displayName: string | undefined } {
+}): IdentityClaims {
   if (typeof claims.sub !== 'string' || claims.sub.length === 0) {
-    throw new UnauthorizedException('oidc id_token missing sub claim');
+    throw new UnauthorizedException('id_token missing sub claim');
   }
   if (typeof claims.email !== 'string' || claims.email.length === 0) {
-    throw new UnauthorizedException('oidc id_token missing email claim');
+    throw new UnauthorizedException('id_token missing email claim');
   }
   return {
     sub: claims.sub,

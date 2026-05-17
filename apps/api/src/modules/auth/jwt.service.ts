@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { type JWTPayload, SignJWT, jwtVerify } from 'jose';
 import { env } from '../../config/env';
+import { JtiRevocationService } from './jti-revocation.service';
 
-// 10 min — matches ADR-0016 §"Access token TTL".
-const ACCESS_TOKEN_TTL_SECONDS = 10 * 60;
+// 15 min — short-lived access token. Refresh cookie covers long sessions.
+const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 const ISSUER = 'aiqadam-api';
 const AUDIENCE = 'aiqadam-web';
 
@@ -13,7 +15,7 @@ interface AccessTokenClaims {
   email: string;
 }
 
-export type VerifiedClaims = JWTPayload & AccessTokenClaims;
+export type VerifiedClaims = JWTPayload & AccessTokenClaims & { jti: string };
 
 export class AccessTokenInvalidError extends Error {
   constructor(reason: string) {
@@ -25,8 +27,9 @@ export class AccessTokenInvalidError extends Error {
 @Injectable()
 export class JwtService {
   private readonly secret: Uint8Array;
+  static readonly ACCESS_TTL_SECONDS = ACCESS_TOKEN_TTL_SECONDS;
 
-  constructor() {
+  constructor(private readonly revocations: JtiRevocationService) {
     if (env.JWT_SIGNING_SECRET.length < 32) {
       throw new Error('JWT_SIGNING_SECRET must be >=32 chars');
     }
@@ -37,6 +40,7 @@ export class JwtService {
     return new SignJWT({ ...claims })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
+      .setJti(randomUUID())
       .setExpirationTime(`${ACCESS_TOKEN_TTL_SECONDS}s`)
       .setIssuer(ISSUER)
       .setAudience(AUDIENCE)
@@ -44,15 +48,23 @@ export class JwtService {
   }
 
   async verify(token: string): Promise<VerifiedClaims> {
+    let payload: JWTPayload;
     try {
-      const { payload } = await jwtVerify(token, this.secret, {
+      const result = await jwtVerify(token, this.secret, {
         issuer: ISSUER,
         audience: AUDIENCE,
       });
-      return payload as VerifiedClaims;
+      payload = result.payload;
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown';
       throw new AccessTokenInvalidError(reason);
     }
+    if (typeof payload.jti !== 'string' || payload.jti.length === 0) {
+      throw new AccessTokenInvalidError('missing jti');
+    }
+    if (await this.revocations.isRevoked(payload.jti)) {
+      throw new AccessTokenInvalidError('revoked');
+    }
+    return payload as VerifiedClaims;
   }
 }
