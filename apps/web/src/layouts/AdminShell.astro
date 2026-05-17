@@ -13,11 +13,16 @@ interface Props {
 
 const { title, active } = Astro.props;
 
-const items: Array<{ slug: Props['active']; label: string; href: string }> = [
+const items: Array<{
+  slug: Props['active'];
+  label: string;
+  href: string;
+  mobileOnly?: boolean;
+}> = [
   { slug: 'dashboard', label: 'Dashboard', href: '/admin' },
   { slug: 'events', label: 'Events', href: '/admin/events' },
   { slug: 'users', label: 'Users', href: '/admin/users' },
-  { slug: 'checkin', label: 'Check-in scanner', href: '/admin/checkin' },
+  { slug: 'checkin', label: 'Check-in scanner', href: '/admin/checkin', mobileOnly: true },
 ];
 ---
 
@@ -40,7 +45,11 @@ const items: Array<{ slug: Props['active']; label: string; href: string }> = [
             ? `${baseStyle} background: var(--card); color: var(--foreground); border: 1px solid var(--border);`
             : `${baseStyle} color: var(--muted-foreground); border: 1px solid transparent;`;
           return (
-            <a href={item.href} style={style}>
+            <a
+              href={item.href}
+              data-mobile-only={item.mobileOnly ? '' : undefined}
+              style={style}
+            >
               {item.label}
             </a>
           );
@@ -59,3 +68,15 @@ const items: Array<{ slug: Props['active']; label: string; href: string }> = [
     </main>
   </div>
 </Layout>
+
+<style>
+  /* Hide mobile-only admin items on viewports >= 900px. The check-in
+     scanner needs a rear-facing camera; desktops don't have one in any
+     useful sense. Still reachable by typing /admin/checkin so a tablet/
+     phone session can be tested from a developer machine. */
+  @media (min-width: 900px) {
+    aside a[data-mobile-only] {
+      display: none;
+    }
+  }
+</style>
