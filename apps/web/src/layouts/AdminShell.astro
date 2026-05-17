@@ -1,0 +1,61 @@
+---
+// AdminShell — wraps every /admin/* page with a sidebar of admin
+// sections. Visual chrome only; AdminGuard at the API level still
+// enforces who can see the data. See docs/auth-architecture.md for
+// the auth model.
+
+import Layout from './Layout.astro';
+
+interface Props {
+  title: string;
+  active: 'dashboard' | 'events' | 'users' | 'checkin';
+}
+
+const { title, active } = Astro.props;
+
+const items: Array<{ slug: Props['active']; label: string; href: string }> = [
+  { slug: 'dashboard', label: 'Dashboard', href: '/admin' },
+  { slug: 'events', label: 'Events', href: '/admin/events' },
+  { slug: 'users', label: 'Users', href: '/admin/users' },
+  { slug: 'checkin', label: 'Check-in scanner', href: '/admin/checkin' },
+];
+---
+
+<Layout title={title}>
+  <div style="display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 56px);">
+    <aside
+      style="border-right: 1px solid var(--border); padding: 28px 16px; background: color-mix(in oklch, var(--muted) 25%, var(--background));"
+    >
+      <p
+        style="font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 12px 8px;"
+      >
+        Admin
+      </p>
+      <nav style="display: flex; flex-direction: column; gap: 2px;">
+        {items.map((item) => {
+          const isActive = item.slug === active;
+          const baseStyle =
+            'display: block; padding: 8px 10px; border-radius: 6px; font-size: 13px; text-decoration: none;';
+          const style = isActive
+            ? `${baseStyle} background: var(--card); color: var(--foreground); border: 1px solid var(--border);`
+            : `${baseStyle} color: var(--muted-foreground); border: 1px solid transparent;`;
+          return (
+            <a href={item.href} style={style}>
+              {item.label}
+            </a>
+          );
+        })}
+      </nav>
+      <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;" />
+      <a
+        href="/me"
+        style="display: block; padding: 8px 10px; font-size: 12px; color: var(--muted-foreground); text-decoration: none;"
+      >
+        ← Back to app
+      </a>
+    </aside>
+    <main style="padding: 40px 48px;">
+      <slot />
+    </main>
+  </div>
+</Layout>

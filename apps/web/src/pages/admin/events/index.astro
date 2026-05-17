@@ -1,34 +1,27 @@
 ---
 import { AdminEventsTable } from '../../../components/AdminEventsTable';
-import Layout from '../../../layouts/Layout.astro';
+import AdminShell from '../../../layouts/AdminShell.astro';
 
-// SSR so the admin-subdomain redirect middleware runs.
 export const prerender = false;
 ---
 
-<Layout title="Admin · Events · AI Qadam">
-  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 48px;">
-    <header
-      style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px;"
-    >
-      <div>
-        <h1
-          style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 4px;"
-        >
-          Events
-        </h1>
-        <p style="font-size: 13px; color: var(--muted-foreground); margin: 0;">
-          All events for this country — drafts, published, cancelled.
-        </p>
-      </div>
-      <a
-        href="/admin/events/new"
-        class="btn btn-primary"
-        style="text-decoration: none;"
+<AdminShell title="Admin · Events · AI Qadam" active="events">
+  <header
+    style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px;"
+  >
+    <div>
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 4px;"
       >
-        + New event
-      </a>
-    </header>
-    <AdminEventsTable client:load />
-  </main>
-</Layout>
+        Events
+      </h1>
+      <p style="font-size: 13px; color: var(--muted-foreground); margin: 0;">
+        All events for this country — drafts, published, cancelled.
+      </p>
+    </div>
+    <a href="/admin/events/new" class="btn btn-primary" style="text-decoration: none;">
+      + New event
+    </a>
+  </header>
+  <AdminEventsTable client:load />
+</AdminShell>

@@ -1,6 +1,6 @@
 ---
 import { AdminEventEditor } from '../../../components/AdminEventEditor';
-import Layout from '../../../layouts/Layout.astro';
+import AdminShell from '../../../layouts/AdminShell.astro';
 
 export const prerender = false;
 
@@ -8,19 +8,20 @@ const { id } = Astro.params as { id: string };
 const isCreate = id === 'new';
 ---
 
-<Layout title={`Admin · ${isCreate ? 'New event' : 'Edit event'} · AI Qadam`}>
-  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 48px;">
-    <a
-      href="/admin/events"
-      style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); text-decoration: none; margin-bottom: 16px;"
-    >
-      ← Back to events
-    </a>
-    <h1
-      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 24px;"
-    >
-      {isCreate ? 'New event' : 'Edit event'}
-    </h1>
-    <AdminEventEditor id={id} client:load />
-  </main>
-</Layout>
+<AdminShell
+  title={`Admin · ${isCreate ? 'New event' : 'Edit event'} · AI Qadam`}
+  active="events"
+>
+  <a
+    href="/admin/events"
+    style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); text-decoration: none; margin-bottom: 16px;"
+  >
+    ← Back to events
+  </a>
+  <h1
+    style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 24px;"
+  >
+    {isCreate ? 'New event' : 'Edit event'}
+  </h1>
+  <AdminEventEditor id={id} client:load />
+</AdminShell>
