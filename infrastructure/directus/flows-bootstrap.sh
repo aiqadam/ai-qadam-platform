@@ -40,11 +40,17 @@
 #                            email + event details → POST /v1/internal/email
 #                            with template=registration-promoted.
 #
-# CRM mirror (added in C5.3):
+# CRM mirror (added in C5.3 + C5.4):
 #   crm-contact-sync       — action hook on directus_users.items.create
 #                            AND directus_users.items.update → POST to
 #                            /v1/internal/crm/sync-contact (API upserts the
 #                            matching Twenty Person by email).
+#   crm-activity-on-create — action hook on registrations.items.create →
+#                            load user + event → POST to
+#                            /v1/internal/crm/log-activity with kind=registered.
+#   crm-activity-on-update — action hook on registrations.items.update →
+#                            map status flip (cancelled/attended/registered)
+#                            to activity kind → POST to log-activity.
 
 set -euo pipefail
 
@@ -83,6 +89,21 @@ OP_CHECKIN_GATE="11111111-c3c3-4003-8003-000000000010"
 FLOW_CRM_CONTACT_SYNC="11111111-c5c3-5003-9003-000000000001"
 OP_CRM_LOAD_USER="11111111-c5c3-5003-9003-000000000010"
 OP_CRM_SYNC_REQUEST="11111111-c5c3-5003-9003-000000000011"
+
+FLOW_CRM_ACTIVITY_CREATE="11111111-c5c4-5004-9004-000000000001"
+OP_CRMAC_LOAD_REG="11111111-c5c4-5004-9004-000000000010"
+OP_CRMAC_LOAD_USER="11111111-c5c4-5004-9004-000000000011"
+OP_CRMAC_LOAD_EVENT="11111111-c5c4-5004-9004-000000000012"
+OP_CRMAC_DECIDE_KIND="11111111-c5c4-5004-9004-000000000013"
+OP_CRMAC_LOG_REQUEST="11111111-c5c4-5004-9004-000000000014"
+
+FLOW_CRM_ACTIVITY_UPDATE="11111111-c5c4-5004-9004-000000000020"
+OP_CRMAU_GATE="11111111-c5c4-5004-9004-000000000021"
+OP_CRMAU_LOAD_REG="11111111-c5c4-5004-9004-000000000022"
+OP_CRMAU_LOAD_USER="11111111-c5c4-5004-9004-000000000023"
+OP_CRMAU_LOAD_EVENT="11111111-c5c4-5004-9004-000000000024"
+OP_CRMAU_DECIDE_KIND="11111111-c5c4-5004-9004-000000000025"
+OP_CRMAU_LOG_REQUEST="11111111-c5c4-5004-9004-000000000026"
 OP_CHECKIN_LOAD_REG="11111111-c3c3-4003-8003-000000000011"
 OP_CHECKIN_LOAD_EVENT="11111111-c3c3-4003-8003-000000000012"
 OP_CHECKIN_DEDUPE="11111111-c3c3-4003-8003-000000000013"
@@ -853,9 +874,290 @@ upsert "op crm_load_user" "operations" "${OP_CRM_LOAD_USER}" "$(cat <<JSON
 JSON
 )"
 
+# ──────────── crm-activity-on-create (Sprint 5 C5.4) ────────────────────
+#
+# Action hook on registrations.items.create. Reads the new reg, loads
+# the user (for email) + event (for title), decides kind=registered or
+# waitlisted from the just-patched status, POSTs to log-activity.
+
+echo
+echo "[flow: crm-activity-on-create]"
+
+upsert "flow crm-activity-on-create" "flows" "${FLOW_CRM_ACTIVITY_CREATE}" "$(cat <<JSON
+{
+  "name": "CRM: log activity on registration create",
+  "icon": "history_edu",
+  "color": "#2dd4bf",
+  "description": "On registrations.items.create, append a Note to the matching Twenty Person.",
+  "status": "active",
+  "trigger": "event",
+  "accountability": "all",
+  "options": {
+    "type": "action",
+    "scope": ["items.create"],
+    "collections": ["registrations"]
+  },
+  "operation": "${OP_CRMAC_LOAD_REG}"
+}
+JSON
+)"
+
+upsert "op crmac_log_request" "operations" "${OP_CRMAC_LOG_REQUEST}" "$(cat <<JSON
+{
+  "name": "POST /v1/internal/crm/log-activity",
+  "key": "crmac_log_request",
+  "type": "request",
+  "position_x": 91,
+  "position_y": 1,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/crm/log-activity",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"email\": \"{{ crmac_load_user.email }}\", \"kind\": \"{{ \$last.kind }}\", \"eventTitle\": \"{{ crmac_load_event.title }}\", \"eventId\": \"{{ crmac_load_event.id }}\" }"
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_CREATE}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmac_decide_kind" "operations" "${OP_CRMAC_DECIDE_KIND}" "$(cat <<JSON
+{
+  "name": "Decide kind (registered vs waitlisted)",
+  "key": "crmac_decide_kind",
+  "type": "exec",
+  "position_x": 73,
+  "position_y": 1,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const reg = data.crmac_load_reg || {};\n  const kind = reg.status === 'waitlisted' ? 'waitlisted' : 'registered';\n  return { kind };\n}"
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_CREATE}",
+  "resolve": "${OP_CRMAC_LOG_REQUEST}",
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmac_load_event" "operations" "${OP_CRMAC_LOAD_EVENT}" "$(cat <<JSON
+{
+  "name": "Load event",
+  "key": "crmac_load_event",
+  "type": "item-read",
+  "position_x": 55,
+  "position_y": 1,
+  "options": {
+    "collection": "events",
+    "key": "{{ crmac_load_reg.event }}",
+    "query": {
+      "fields": ["id", "title"]
+    }
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_CREATE}",
+  "resolve": "${OP_CRMAC_DECIDE_KIND}",
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmac_load_user" "operations" "${OP_CRMAC_LOAD_USER}" "$(cat <<JSON
+{
+  "name": "Load user (for email)",
+  "key": "crmac_load_user",
+  "type": "item-read",
+  "position_x": 37,
+  "position_y": 1,
+  "options": {
+    "collection": "directus_users",
+    "key": "{{ crmac_load_reg.user }}",
+    "query": {
+      "fields": ["id", "email"]
+    }
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_CREATE}",
+  "resolve": "${OP_CRMAC_LOAD_EVENT}",
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmac_load_reg" "operations" "${OP_CRMAC_LOAD_REG}" "$(cat <<JSON
+{
+  "name": "Load registration",
+  "key": "crmac_load_reg",
+  "type": "item-read",
+  "position_x": 19,
+  "position_y": 1,
+  "options": {
+    "collection": "registrations",
+    "key": "{{ \$trigger.key }}",
+    "query": {
+      "fields": ["id", "user", "event", "status"]
+    }
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_CREATE}",
+  "resolve": "${OP_CRMAC_LOAD_USER}",
+  "reject": null
+}
+JSON
+)"
+
+# ──────────── crm-activity-on-update (Sprint 5 C5.4) ────────────────────
+#
+# Action hook on registrations.items.update. Only fires when status flips
+# to cancelled / attended / registered (promotion). Maps to kind for the
+# Twenty activity note.
+
+echo
+echo "[flow: crm-activity-on-update]"
+
+upsert "flow crm-activity-on-update" "flows" "${FLOW_CRM_ACTIVITY_UPDATE}" "$(cat <<JSON
+{
+  "name": "CRM: log activity on registration update",
+  "icon": "history_edu",
+  "color": "#2dd4bf",
+  "description": "On registrations.items.update (status flip), append a Note to the matching Twenty Person.",
+  "status": "active",
+  "trigger": "event",
+  "accountability": "all",
+  "options": {
+    "type": "action",
+    "scope": ["items.update"],
+    "collections": ["registrations"]
+  },
+  "operation": "${OP_CRMAU_GATE}"
+}
+JSON
+)"
+
+upsert "op crmau_log_request" "operations" "${OP_CRMAU_LOG_REQUEST}" "$(cat <<JSON
+{
+  "name": "POST /v1/internal/crm/log-activity",
+  "key": "crmau_log_request",
+  "type": "request",
+  "position_x": 109,
+  "position_y": 1,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/crm/log-activity",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"email\": \"{{ crmau_load_user.email }}\", \"kind\": \"{{ \$last.kind }}\", \"eventTitle\": \"{{ crmau_load_event.title }}\", \"eventId\": \"{{ crmau_load_event.id }}\" }"
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_UPDATE}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmau_decide_kind" "operations" "${OP_CRMAU_DECIDE_KIND}" "$(cat <<JSON
+{
+  "name": "Decide kind from update payload",
+  "key": "crmau_decide_kind",
+  "type": "exec",
+  "position_x": 91,
+  "position_y": 1,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const payload = (data['\$trigger'] && data['\$trigger'].payload) || {};\n  // Map status flip to activity kind. The reg-waitlist-promotion flow\n  // (C3.2) emits a status='registered' patch via emitEvents:false so\n  // we never see promotions here from that path — only direct PATCHes\n  // by an organizer would flip back to registered. We still log it as\n  // 'promoted' for clarity in the CRM timeline.\n  switch (payload.status) {\n    case 'cancelled': return { kind: 'cancelled' };\n    case 'attended':  return { kind: 'attended' };\n    case 'registered': return { kind: 'promoted' };\n    default: throw new Error('not-a-status-flip');\n  }\n}"
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_UPDATE}",
+  "resolve": "${OP_CRMAU_LOG_REQUEST}",
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmau_load_event" "operations" "${OP_CRMAU_LOAD_EVENT}" "$(cat <<JSON
+{
+  "name": "Load event",
+  "key": "crmau_load_event",
+  "type": "item-read",
+  "position_x": 73,
+  "position_y": 1,
+  "options": {
+    "collection": "events",
+    "key": "{{ crmau_load_reg.event }}",
+    "query": {
+      "fields": ["id", "title"]
+    }
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_UPDATE}",
+  "resolve": "${OP_CRMAU_DECIDE_KIND}",
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmau_load_user" "operations" "${OP_CRMAU_LOAD_USER}" "$(cat <<JSON
+{
+  "name": "Load user (for email)",
+  "key": "crmau_load_user",
+  "type": "item-read",
+  "position_x": 55,
+  "position_y": 1,
+  "options": {
+    "collection": "directus_users",
+    "key": "{{ crmau_load_reg.user }}",
+    "query": {
+      "fields": ["id", "email"]
+    }
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_UPDATE}",
+  "resolve": "${OP_CRMAU_LOAD_EVENT}",
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmau_load_reg" "operations" "${OP_CRMAU_LOAD_REG}" "$(cat <<JSON
+{
+  "name": "Load registration",
+  "key": "crmau_load_reg",
+  "type": "item-read",
+  "position_x": 37,
+  "position_y": 1,
+  "options": {
+    "collection": "registrations",
+    "key": "{{ \$trigger.keys[0] }}",
+    "query": {
+      "fields": ["id", "user", "event", "status"]
+    }
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_UPDATE}",
+  "resolve": "${OP_CRMAU_LOAD_USER}",
+  "reject": null
+}
+JSON
+)"
+
+upsert "op crmau_gate" "operations" "${OP_CRMAU_GATE}" "$(cat <<JSON
+{
+  "name": "Gate (only status flips)",
+  "key": "crmau_gate",
+  "type": "exec",
+  "position_x": 19,
+  "position_y": 1,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const payload = (data['\$trigger'] && data['\$trigger'].payload) || {};\n  if (!payload.status) {\n    throw new Error('not-a-status-update');\n  }\n  return { ok: true };\n}"
+  },
+  "flow": "${FLOW_CRM_ACTIVITY_UPDATE}",
+  "resolve": "${OP_CRMAU_LOAD_REG}",
+  "reject": null
+}
+JSON
+)"
+
 echo
 echo "Done."
-echo "  capacity flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CAPACITY}"
-echo "  promotion flow:  ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_PROMOTION}"
-echo "  check-in flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CHECKIN}"
-echo "  crm sync flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_CRM_CONTACT_SYNC}"
+echo "  capacity flow:        ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CAPACITY}"
+echo "  promotion flow:       ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_PROMOTION}"
+echo "  check-in flow:        ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CHECKIN}"
+echo "  crm sync flow:        ${DIRECTUS_URL}/admin/settings/flows/${FLOW_CRM_CONTACT_SYNC}"
+echo "  crm activity-create:  ${DIRECTUS_URL}/admin/settings/flows/${FLOW_CRM_ACTIVITY_CREATE}"
+echo "  crm activity-update:  ${DIRECTUS_URL}/admin/settings/flows/${FLOW_CRM_ACTIVITY_UPDATE}"

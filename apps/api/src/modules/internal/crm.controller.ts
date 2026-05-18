@@ -31,6 +31,26 @@ type SyncContactResponse = {
   action: 'created' | 'updated' | 'unchanged';
 };
 
+// Activity kinds we record in Twenty's timeline. Each maps to a Note
+// title prefix; the body carries event details.
+const ACTIVITY_KINDS = ['registered', 'waitlisted', 'cancelled', 'attended', 'promoted'] as const;
+type ActivityKind = (typeof ACTIVITY_KINDS)[number];
+
+const logActivitySchema = z.object({
+  email: z.string().email(),
+  kind: z.enum(ACTIVITY_KINDS),
+  eventTitle: z.string().min(1),
+  eventId: z.string().uuid(),
+  occurredAt: z.string().datetime().optional(),
+});
+
+type LogActivityResponse = {
+  noteId: string;
+  noteTargetId: string;
+  action: 'created' | 'skipped';
+  reason?: string;
+};
+
 interface TwentyPerson {
   id: string;
   name: { firstName: string; lastName: string };
@@ -83,6 +103,67 @@ export class CrmController {
     }>(`/rest/people?filter=${encodeURIComponent(filter)}&limit=1`);
     return res.data.people[0];
   }
+
+  // Sprint 5 C5.4 — Directus flows on registrations.items.create/update
+  // call this endpoint to append a Note to the matching Twenty Person.
+  // Skipped (not 4xx) if the Person doesn't exist yet — happens when a
+  // registration fires before C5.3's sync flow has caught up, or for
+  // legacy data. Caller sees action='skipped' + reason.
+  @Post('log-activity')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async logActivity(@Body() body: unknown): Promise<LogActivityResponse> {
+    const parsed = logActivitySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const { email, kind, eventTitle, eventId, occurredAt } = parsed.data;
+
+    const person = await this.findPersonByEmail(email);
+    if (!person) {
+      return {
+        noteId: '',
+        noteTargetId: '',
+        action: 'skipped',
+        reason: `no Twenty Person for ${email}`,
+      };
+    }
+
+    const note = buildActivityNote({ kind, eventTitle, eventId, occurredAt });
+    const noteRes = await this.twenty.post<{ data: { createNote: { id: string } } }>(
+      '/rest/notes',
+      note,
+    );
+    const noteId = noteRes.data.createNote.id;
+    const targetRes = await this.twenty.post<{ data: { createNoteTarget: { id: string } } }>(
+      '/rest/noteTargets',
+      { noteId, personId: person.id },
+    );
+    return {
+      noteId,
+      noteTargetId: targetRes.data.createNoteTarget.id,
+      action: 'created',
+    };
+  }
+}
+
+const KIND_TITLE: Record<ActivityKind, string> = {
+  registered: 'Registered for',
+  waitlisted: 'Waitlisted for',
+  cancelled: 'Cancelled',
+  attended: 'Attended',
+  promoted: 'Promoted off waitlist:',
+};
+
+function buildActivityNote(input: {
+  kind: ActivityKind;
+  eventTitle: string;
+  eventId: string;
+  occurredAt?: string | undefined;
+}): { title: string; body: string } {
+  const title = `${KIND_TITLE[input.kind]} ${input.eventTitle}`.trim();
+  const when = input.occurredAt ?? new Date().toISOString();
+  const body = `Event: ${input.eventTitle}\nEvent ID: ${input.eventId}\nOccurred: ${when}`;
+  return { title, body };
 }
 
 function buildPersonPayload(input: {

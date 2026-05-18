@@ -116,6 +116,88 @@ describe('CrmController.syncContact — creates new Person', () => {
   });
 });
 
+describe('CrmController.logActivity', () => {
+  const NOTE = 'note-aaaa-aaaa-4000-8000-000000000001';
+  const TARGET = 'targ-aaaa-aaaa-4000-8000-000000000002';
+  const EVENT = 'cccccccc-cccc-4000-8000-000000000003';
+
+  it('rejects payload with bad kind', async () => {
+    await expect(
+      ctrl.logActivity({
+        email: 'a@b.com',
+        kind: 'invented',
+        eventTitle: 'X',
+        eventId: EVENT,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns skipped + reason when no Twenty Person matches the email', async () => {
+    fake.get.mockResolvedValueOnce({ data: { people: [] } });
+    const res = await ctrl.logActivity({
+      email: 'ghost@example.com',
+      kind: 'registered',
+      eventTitle: 'AI Drinks UZ',
+      eventId: EVENT,
+    });
+    expect(res.action).toBe('skipped');
+    expect(res.reason).toContain('ghost@example.com');
+    expect(fake.post).not.toHaveBeenCalled();
+  });
+
+  it('creates a Note + NoteTarget when the Person exists', async () => {
+    fake.get.mockResolvedValueOnce({ data: { people: [person({ email: 'a@b.com' })] } });
+    fake.post
+      .mockResolvedValueOnce({ data: { createNote: { id: NOTE } } })
+      .mockResolvedValueOnce({ data: { createNoteTarget: { id: TARGET } } });
+
+    const res = await ctrl.logActivity({
+      email: 'a@b.com',
+      kind: 'attended',
+      eventTitle: 'AI Drinks UZ',
+      eventId: EVENT,
+      occurredAt: '2026-06-01T18:30:00Z',
+    });
+
+    expect(res).toEqual({ noteId: NOTE, noteTargetId: TARGET, action: 'created' });
+    expect(fake.post).toHaveBeenCalledTimes(2);
+    const noteBody = fake.post.mock.calls[0]?.[1] as { title: string; body: string };
+    expect(noteBody.title).toBe('Attended AI Drinks UZ');
+    expect(noteBody.body).toContain('AI Drinks UZ');
+    expect(noteBody.body).toContain(EVENT);
+    expect(noteBody.body).toContain('2026-06-01T18:30:00Z');
+    const targetBody = fake.post.mock.calls[1]?.[1] as { noteId: string; personId: string };
+    expect(targetBody).toEqual({ noteId: NOTE, personId: PERSON });
+  });
+
+  it('renders all five kinds with the right title prefix', async () => {
+    const kinds = ['registered', 'waitlisted', 'cancelled', 'attended', 'promoted'] as const;
+    const expected = {
+      registered: 'Registered for AI Drinks UZ',
+      waitlisted: 'Waitlisted for AI Drinks UZ',
+      cancelled: 'Cancelled AI Drinks UZ',
+      attended: 'Attended AI Drinks UZ',
+      promoted: 'Promoted off waitlist: AI Drinks UZ',
+    };
+    for (const kind of kinds) {
+      fake.get.mockReset();
+      fake.post.mockReset();
+      fake.get.mockResolvedValueOnce({ data: { people: [person({ email: 'a@b.com' })] } });
+      fake.post
+        .mockResolvedValueOnce({ data: { createNote: { id: NOTE } } })
+        .mockResolvedValueOnce({ data: { createNoteTarget: { id: TARGET } } });
+      await ctrl.logActivity({
+        email: 'a@b.com',
+        kind,
+        eventTitle: 'AI Drinks UZ',
+        eventId: EVENT,
+      });
+      const title = (fake.post.mock.calls[0]?.[1] as { title: string }).title;
+      expect(title).toBe(expected[kind]);
+    }
+  });
+});
+
 describe('CrmController.syncContact — updates existing Person', () => {
   it('PATCHes when names differ', async () => {
     fake.get.mockResolvedValueOnce({
