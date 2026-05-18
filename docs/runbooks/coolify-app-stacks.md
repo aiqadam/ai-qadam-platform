@@ -290,7 +290,8 @@ After that PATCH + force-redeploy, Traefik labels are generated against the `ser
 **First-time bootstrap** (one-shot, manual):
 1. Open `https://crm.aiqadam.org/` → Twenty's "Welcome" wizard.
 2. Create workspace named `AI Qadam`.
-3. Create admin user with email `admin@aiqadam.org` + a strong password (cache at `/tmp/aiqadam-secrets-TWENTY_ADMIN_PW` if you'll need it again).
-4. Sprint 5 C5.2 replaces the local password with Authentik SSO; until then, this admin login is the only way in.
+3. Create admin user with email `admin@aiqadam.org` + a strong password (cache at `/tmp/aiqadam-secrets-TWENTY_ADMIN_PW`).
+
+**Auth method**: local email/password (cached above). OIDC SSO via Authentik was attempted (C5.2) but **Twenty 0.50 gates `createOIDCIdentityProvider` behind their Enterprise tier** — the mutation exists in the free image but `EnterpriseFeaturesEnabledGuard` rejects every call. Sprint 7 wires Google SSO instead via `AUTH_GOOGLE_*` envs (free in Twenty), reusing the same Google OAuth credentials we'll create for the web app.
 
 **Healthcheck**: `https://crm.aiqadam.org/healthz` should return `{"status":"ok",...}`. Server container also runs an internal curl healthcheck every 5s.

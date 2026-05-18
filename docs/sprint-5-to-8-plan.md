@@ -64,11 +64,13 @@ Sprint 5 ships now. Sprints 5.5–8 land after we sit down with the flow diagram
 - Document the stack in `docs/runbooks/coolify-app-stacks.md`
 - **Verification:** sign in to `crm.aiqadam.org` with bootstrap admin; create a test Person manually
 
-### C5.2 — Authentik OIDC SSO for Twenty
-- New Authentik OAuth2 provider (3rd one, after Directus + platform), assign RS256 signing key from the start (lesson from Directus SSO)
-- Twenty env vars: `OIDC_PROVIDER_AUTHENTIK_ISSUER_URL`, `OIDC_PROVIDER_AUTHENTIK_CLIENT_ID`, `OIDC_PROVIDER_AUTHENTIK_CLIENT_SECRET`
-- Same `admin@aiqadam.org` user pre-linked as the Twenty Administrator
-- **Verification:** "Sign in with AI Qadam" button on Twenty login → lands in Twenty admin
+### C5.2 — Authentik OIDC SSO for Twenty — **ABANDONED (Enterprise-gated)**
+
+> Attempted 2026-05-18. Hit a wall: Twenty 0.50's `createOIDCIdentityProvider` GraphQL mutation is gated behind their `EnterpriseFeaturesEnabledGuard` — OIDC SSO is a paid Twenty Enterprise feature. Free self-hosted Twenty cannot enable it without modifying the source.
+>
+> The Authentik provider + application we briefly created were torn down. Twenty stays on the bootstrap local-password admin (`admin@aiqadam.org`, password cached at `/tmp/aiqadam-secrets-TWENTY_ADMIN_PW`) until Sprint 7.
+>
+> **Replacement path (Sprint 7):** Twenty's `AUTH_GOOGLE_*` env vars (free, not Enterprise-gated) let us wire Google OAuth. Operators already have Google Workspace identities → "Sign in with Google" gives the same UX as full SSO. Same Google OAuth credentials get reused on the web app (Sprint 7 A7.1). Added to Sprint 7's scope.
 
 ### C5.3 — Contact sync (`POST /v1/internal/crm/sync-contact`)
 - New `apps/api/src/modules/internal/crm.controller.ts` + `crm-client.ts` (thin Twenty REST wrapper, admin token from `TWENTY_API_TOKEN` env)
@@ -243,6 +245,7 @@ Pre-bot or parallel-with-bot, your call. Sketched:
 | A7.1 | Authentik Google source | Add Google OAuth2 Source in Authentik, register OAuth app with Google Cloud, configure scopes (email, profile), test sign-in via standard flow |
 | A7.2 | Authentik GitHub source | Same shape, GitHub OAuth app |
 | A7.3 | Web sign-in UI | `apps/web/src/pages/auth/sign-in.astro` — render the 3 buttons (Sign in / Google / GitHub) + a "Sign in with Telegram" placeholder for T6.4 |
+| A7.4 | Twenty Google SSO | Set `AUTH_GOOGLE_*` envs on the Twenty Coolify service. Replaces the abandoned C5.2 OIDC path. Same Google client credentials as A7.1. Operators sign into Twenty via "Continue with Google". |
 
 These are mostly configuration, not code — light week.
 
