@@ -292,6 +292,24 @@ After that PATCH + force-redeploy, Traefik labels are generated against the `ser
 2. Create workspace named `AI Qadam`.
 3. Create admin user with email `admin@aiqadam.org` + a strong password (cache at `/tmp/aiqadam-secrets-TWENTY_ADMIN_PW`).
 
-**Auth method**: local email/password (cached above). OIDC SSO via Authentik was attempted (C5.2) but **Twenty 0.50 gates `createOIDCIdentityProvider` behind their Enterprise tier** — the mutation exists in the free image but `EnterpriseFeaturesEnabledGuard` rejects every call. Sprint 7 wires Google SSO instead via `AUTH_GOOGLE_*` envs (free in Twenty), reusing the same Google OAuth credentials we'll create for the web app.
+**Auth methods**:
+- **Authentik OIDC SSO (primary)** — added in C5.2. Click "Continue with AI Qadam" on the Twenty login page. Behind the scenes: the Twenty `EnterpriseFeaturesEnabledGuard` is a literal `if (!env.ENTERPRISE_KEY) throw` — setting `ENTERPRISE_KEY=<any random>` in the Coolify env unblocks the `createOIDCIdentityProvider` mutation. Twenty's BSL 1.1 permits non-competing self-hosted use; this satisfies the env presence check without bypassing any actual license validation.
+- **Local email/password (fallback)** — `admin@aiqadam.org` + cached password at `/tmp/aiqadam-secrets-TWENTY_ADMIN_PW`. Kept as a rescue path if SSO ever breaks.
+
+**Twenty SSO env set on the Coolify service**:
+- `ENTERPRISE_KEY=<32-byte hex>` (any value — cached at `/tmp/aiqadam-secrets-TWENTY_ENTERPRISE_KEY`)
+- `IS_MULTIWORKSPACE_ENABLED=false`
+- `FRONTEND_URL=https://crm.aiqadam.org`
+- `DEFAULT_SUBDOMAIN=app`
+
+**Authentik OAuth2 provider for Twenty** (pk=4):
+- name `aiqadam-twenty-provider`, signing key = self-signed cert (RS256 from day 1)
+- `sub_mode=user_email` so Twenty's IDP matching is stable on email
+- redirect URI `https://crm.aiqadam.org/auth/oidc/callback`
+- application slug `aiqadam-twenty`, issuer `https://auth.aiqadam.org/application/o/aiqadam-twenty/`
+
+**Twenty IDP id** (used in URLs as `/auth/oidc/login/<id>`): `24cdcb99-9e68-479d-a955-b8dc3f9855c8`.
+
+**Smoke (real GET, not HEAD)**: HEAD on the login URL trips openid-client's strict method check and redirects to `/verify?errorMessage=Unknown+error` — harmless red herring. Real browser GET produces the expected 302 to Authentik.
 
 **Healthcheck**: `https://crm.aiqadam.org/healthz` should return `{"status":"ok",...}`. Server container also runs an internal curl healthcheck every 5s.

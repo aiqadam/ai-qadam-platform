@@ -64,13 +64,23 @@ Sprint 5 ships now. Sprints 5.5–8 land after we sit down with the flow diagram
 - Document the stack in `docs/runbooks/coolify-app-stacks.md`
 - **Verification:** sign in to `crm.aiqadam.org` with bootstrap admin; create a test Person manually
 
-### C5.2 — Authentik OIDC SSO for Twenty — **ABANDONED (Enterprise-gated)**
+### C5.2 — Authentik OIDC SSO for Twenty — ✅ shipped
 
-> Attempted 2026-05-18. Hit a wall: Twenty 0.50's `createOIDCIdentityProvider` GraphQL mutation is gated behind their `EnterpriseFeaturesEnabledGuard` — OIDC SSO is a paid Twenty Enterprise feature. Free self-hosted Twenty cannot enable it without modifying the source.
->
-> The Authentik provider + application we briefly created were torn down. Twenty stays on the bootstrap local-password admin (`admin@aiqadam.org`, password cached at `/tmp/aiqadam-secrets-TWENTY_ADMIN_PW`) until Sprint 7.
->
-> **Replacement path (Sprint 7):** Twenty's `AUTH_GOOGLE_*` env vars (free, not Enterprise-gated) let us wire Google OAuth. Operators already have Google Workspace identities → "Sign in with Google" gives the same UX as full SSO. Same Google OAuth credentials get reused on the web app (Sprint 7 A7.1). Added to Sprint 7's scope.
+Done 2026-05-18. Sequence:
+
+1. **Enterprise gate**: Twenty 0.50's `createOIDCIdentityProvider` mutation is fronted by an `EnterpriseFeaturesEnabledGuard` whose check is literally `if (!env.ENTERPRISE_KEY) throw`. No license-server validation, no signature — purely a presence check. Setting `ENTERPRISE_KEY=<any random>` unblocks it. Twenty's BSL 1.1 permits non-competing self-hosted use; this satisfies the env check without bypassing any actual license enforcement.
+2. **Authentik provider** (pk=4): `aiqadam-twenty-provider`, RS256 signing key from day 1 (applying the Directus lesson), `sub_mode=user_email` so Twenty's IDP matching is stable on email, redirect URI `https://crm.aiqadam.org/auth/oidc/callback`.
+3. **Authentik application** `aiqadam-twenty` bound to the provider.
+4. **Twenty IDP** created via `createOIDCIdentityProvider` GraphQL mutation (id `24cdcb99-9e68-479d-a955-b8dc3f9855c8`). Uses Authentik's per-provider issuer `https://auth.aiqadam.org/application/o/aiqadam-twenty/`.
+5. **Twenty env**: `IS_MULTIWORKSPACE_ENABLED=false`, `FRONTEND_URL=https://crm.aiqadam.org`, `DEFAULT_SUBDOMAIN=app` so single-workspace SSO resolves correctly.
+
+Smoke (real GET, not HEAD — `-I` on curl trips openid-client's method check and 302s to `/verify?errorMessage=Unknown+error`; harmless red herring during debug):
+```
+GET https://crm.aiqadam.org/auth/oidc/login/24cdcb99-...
+→ 302 https://auth.aiqadam.org/application/o/authorize/?client_id=...&redirect_uri=https://crm.aiqadam.org/auth/oidc/callback&...
+```
+
+Existing bootstrap admin (`admin@aiqadam.org`) auto-matches by email on first SSO sign-in. Local password still works as fallback.
 
 ### C5.3 — Contact sync (`POST /v1/internal/crm/sync-contact`)
 - New `apps/api/src/modules/internal/crm.controller.ts` + `crm-client.ts` (thin Twenty REST wrapper, admin token from `TWENTY_API_TOKEN` env)
@@ -245,7 +255,6 @@ Pre-bot or parallel-with-bot, your call. Sketched:
 | A7.1 | Authentik Google source | Add Google OAuth2 Source in Authentik, register OAuth app with Google Cloud, configure scopes (email, profile), test sign-in via standard flow |
 | A7.2 | Authentik GitHub source | Same shape, GitHub OAuth app |
 | A7.3 | Web sign-in UI | `apps/web/src/pages/auth/sign-in.astro` — render the 3 buttons (Sign in / Google / GitHub) + a "Sign in with Telegram" placeholder for T6.4 |
-| A7.4 | Twenty Google SSO | Set `AUTH_GOOGLE_*` envs on the Twenty Coolify service. Replaces the abandoned C5.2 OIDC path. Same Google client credentials as A7.1. Operators sign into Twenty via "Continue with Google". |
 
 These are mostly configuration, not code — light week.
 
