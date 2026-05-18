@@ -256,3 +256,41 @@ Coolify keeps the last N image builds. **Application → Deployments → previou
 ## Backups
 
 Restic snapshots include `/var/lib/docker/volumes` (per [restic-backups.md](./restic-backups.md)), which covers Coolify-managed volumes. Postgres + Redis + Authentik state restore by reverse-applying the snapshot, then re-deploying the stacks pointing at the restored volumes.
+
+---
+
+## Twenty CRM (`aiqadam-twenty`) — added Sprint 5 C5.1
+
+Compose-based Coolify service at `crm.aiqadam.org`. Four containers (server + worker + dedicated Postgres + dedicated Redis). Source-of-truth compose: [`infrastructure/twenty/docker-compose.yml`](../../infrastructure/twenty/docker-compose.yml).
+
+**Coolify identifiers**
+- Service uuid: `x12tbwbkpmy4ump0kgf15mrc`
+- Sub-application uuid (`server`, the one the FQDN routes to): `ssemgpv3jvi44xj71bnrs956`
+- Image tag: `twentycrm/twenty:v0.50.0` (pinned via `TAG` env; bump deliberately, don't ride `latest`)
+
+**Required service envs** (set at Coolify service level):
+- `APP_SECRET` — `openssl rand -base64 32`. Cached locally at `/tmp/aiqadam-secrets-TWENTY_APP_SECRET`.
+- `PG_DATABASE_PASSWORD` — `openssl rand -hex 24`. Cached at `/tmp/aiqadam-secrets-TWENTY_PG_PW`.
+- `PG_DATABASE_USER` — `postgres`.
+- `SERVER_URL` — `https://crm.aiqadam.org`.
+- `TAG` — `v0.50.0`.
+
+**Routing**: do NOT use the magic `SERVICE_FQDN_*` env approach — for compose-based services Coolify doesn't auto-generate Traefik labels from those. Instead, register the FQDN via:
+
+```
+PATCH /api/v1/services/<svc>  body: {"urls":[{"name":"server","url":"https://crm.aiqadam.org"}]}
+```
+
+After that PATCH + force-redeploy, Traefik labels are generated against the `server` container automatically (gzip middleware, redirect-to-https, Let's Encrypt cert).
+
+**Two gotchas from the initial deploy** (both documented in the compose):
+1. The v0.50.0 entrypoint runs `touch /app/docker-data/db_status` with `set -e`. The directory is part of the image but a named-volume mount masks it (root-owned, container user can't write → crashloop). Fix: mount `/app/docker-data` as world-writable tmpfs (`mode=1777`). Migrations re-run on every container start, which is fine (~10s, idempotent).
+2. Need `expose: ["3000"]` on the `server` service so Coolify knows what port Traefik should target.
+
+**First-time bootstrap** (one-shot, manual):
+1. Open `https://crm.aiqadam.org/` → Twenty's "Welcome" wizard.
+2. Create workspace named `AI Qadam`.
+3. Create admin user with email `admin@aiqadam.org` + a strong password (cache at `/tmp/aiqadam-secrets-TWENTY_ADMIN_PW` if you'll need it again).
+4. Sprint 5 C5.2 replaces the local password with Authentik SSO; until then, this admin login is the only way in.
+
+**Healthcheck**: `https://crm.aiqadam.org/healthz` should return `{"status":"ok",...}`. Server container also runs an internal curl healthcheck every 5s.
