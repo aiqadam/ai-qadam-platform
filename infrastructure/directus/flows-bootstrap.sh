@@ -39,6 +39,12 @@
 #   - reg-waitlist-promotion after `promote`, looks up the promoted user's
 #                            email + event details → POST /v1/internal/email
 #                            with template=registration-promoted.
+#
+# CRM mirror (added in C5.3):
+#   crm-contact-sync       — action hook on directus_users.items.create
+#                            AND directus_users.items.update → POST to
+#                            /v1/internal/crm/sync-contact (API upserts the
+#                            matching Twenty Person by email).
 
 set -euo pipefail
 
@@ -73,6 +79,10 @@ OP_PROMO_EMAIL_PROMOTED="11111111-c3c2-4002-8002-000000000017"
 
 FLOW_REG_CHECKIN="11111111-c3c3-4003-8003-000000000001"
 OP_CHECKIN_GATE="11111111-c3c3-4003-8003-000000000010"
+
+FLOW_CRM_CONTACT_SYNC="11111111-c5c3-5003-9003-000000000001"
+OP_CRM_LOAD_USER="11111111-c5c3-5003-9003-000000000010"
+OP_CRM_SYNC_REQUEST="11111111-c5c3-5003-9003-000000000011"
 OP_CHECKIN_LOAD_REG="11111111-c3c3-4003-8003-000000000011"
 OP_CHECKIN_LOAD_EVENT="11111111-c3c3-4003-8003-000000000012"
 OP_CHECKIN_DEDUPE="11111111-c3c3-4003-8003-000000000013"
@@ -758,8 +768,94 @@ upsert "op checkin_gate" "operations" "${OP_CHECKIN_GATE}" "$(cat <<JSON
 JSON
 )"
 
+# ──────────── crm-contact-sync flow (Sprint 5 C5.3) ────────────────────
+#
+# Action hook on directus_users.items.create AND items.update. The flow
+# loads the user row (needs email + first_name + last_name; trigger
+# payload for updates only contains the patched fields), then POSTs to
+# /v1/internal/crm/sync-contact on the API, which upserts the matching
+# Twenty Person by email.
+#
+# Chain:
+#   trigger
+#     → crm_load_user      (read directus_users[trigger.key|keys[0]] for full fields)
+#     → crm_sync_request   (POST to /v1/internal/crm/sync-contact)
+
+echo
+echo "[flow: crm-contact-sync]"
+
+upsert "flow crm-contact-sync" "flows" "${FLOW_CRM_CONTACT_SYNC}" "$(cat <<JSON
+{
+  "name": "CRM contact sync",
+  "icon": "person_add",
+  "color": "#2dd4bf",
+  "description": "On directus_users.items.create or update, upsert a matching Person row in Twenty CRM via the API's /v1/internal/crm/sync-contact endpoint.",
+  "status": "active",
+  "trigger": "event",
+  "accountability": "all",
+  "options": {
+    "type": "action",
+    "scope": ["items.create", "items.update"],
+    "collections": ["directus_users"]
+  },
+  "operation": "${OP_CRM_LOAD_USER}"
+}
+JSON
+)"
+
+# Op 2 (terminal): POST to the API. \$last is the user row from crm_load_user.
+upsert "op crm_sync_request" "operations" "${OP_CRM_SYNC_REQUEST}" "$(cat <<JSON
+{
+  "name": "POST /v1/internal/crm/sync-contact",
+  "key": "crm_sync_request",
+  "type": "request",
+  "position_x": 37,
+  "position_y": 1,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/crm/sync-contact",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"directusUserId\": \"{{ \$last.id }}\", \"email\": \"{{ \$last.email }}\", \"firstName\": \"{{ \$last.first_name }}\", \"lastName\": \"{{ \$last.last_name }}\" }"
+  },
+  "flow": "${FLOW_CRM_CONTACT_SYNC}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 1: load the full directus_users row.
+# For create: trigger.key is the new id; for update: trigger.keys[0].
+# Directus templating handles both — when key is missing it falls back to
+# keys[0] via the || trick built into our resolver. Simpler: always use
+# keys[0] (set on both create and update by Directus 11).
+upsert "op crm_load_user" "operations" "${OP_CRM_LOAD_USER}" "$(cat <<JSON
+{
+  "name": "Load directus_users row",
+  "key": "crm_load_user",
+  "type": "item-read",
+  "position_x": 19,
+  "position_y": 1,
+  "options": {
+    "collection": "directus_users",
+    "key": "{{ \$trigger.keys[0] }}",
+    "query": {
+      "fields": ["id", "email", "first_name", "last_name", "status"]
+    }
+  },
+  "flow": "${FLOW_CRM_CONTACT_SYNC}",
+  "resolve": "${OP_CRM_SYNC_REQUEST}",
+  "reject": null
+}
+JSON
+)"
+
 echo
 echo "Done."
 echo "  capacity flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CAPACITY}"
 echo "  promotion flow:  ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_PROMOTION}"
 echo "  check-in flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_REG_CHECKIN}"
+echo "  crm sync flow:   ${DIRECTUS_URL}/admin/settings/flows/${FLOW_CRM_CONTACT_SYNC}"

@@ -59,6 +59,13 @@ const envSchema = z.object({
   // header — Directus doesn't speak our tenant model.
   DIRECTUS_URL: z.string().url().default('https://cms.aiqadam.org'),
   DIRECTUS_TOKEN: z.string().min(16),
+
+  // Outbound calls to Twenty CRM (Sprint 5 C5.3 onwards: API proxies
+  // member-record + activity-timeline syncs out of Directus into Twenty).
+  // Token is an API key from Twenty's Settings → APIs, created via
+  // createApiKey + generateApiKeyToken (see runbook).
+  TWENTY_URL: z.string().url().default('https://crm.aiqadam.org'),
+  TWENTY_API_TOKEN: z.string().min(16),
 });
 
 const parsed = envSchema.safeParse(process.env);
