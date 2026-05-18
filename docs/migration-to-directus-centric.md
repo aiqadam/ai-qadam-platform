@@ -1,6 +1,7 @@
 # Migration to Directus-centric architecture
 
-> **Status:** in flight as of 2026-05-17. Owner: Viktor + Claude.
+> **Status:** Sprint 1 through Sprint 4.5 shipped as of 2026-05-18. Sprint 5 (Twenty CRM) + Sprint 6 (Telegram bot) deferred — see below.
+> Owner: Viktor + Claude.
 > **Why:** the custom `/admin` pages + NestJS event/registration logic
 > we built in PRs #41–#54 don't match the originally intended
 > architecture, which is a single CMS-of-truth (Directus) wired to one
@@ -86,14 +87,27 @@
 | C3.3 | Check-in + point award | Webhook from our `/api/v1/checkin/<code>` → Directus updates registration status='attended', inserts point_award. (Or do it entirely in Directus if scanner can hit Directus directly.) |
 | C3.4 | Email dispatch endpoint | Directus webhook → thin NestJS endpoint `/v1/internal/email` → Resend. Keeps email templates in our repo for review. |
 
-### Sprint 4 — Decommission our custom admin (~2 days)
+### Sprint 4 — Decommission our custom admin (~2 days) ✅ shipped
 
-| PR | Title | What lands |
+| PR | Title | What landed |
 |---|---|---|
-| C4.1 | `/admin/*` 302 to `cms.aiqadam.org` | All `/admin/*` URLs redirect to the Directus app. AdminShell layout removed. |
-| C4.2 | Remove `apps/api/src/modules/admin/*` | Whole admin module deleted (controllers, services, tests). |
-| C4.3 | Remove `events.service` / `registrations.service` writes | Keep read-side as a proxy for the bot? Or delete entirely if web reads directly from Directus. |
-| C4.4 | Trim Drizzle schemas | Drop `events`, `registrations`, `point_awards` migrations from our repo (data lives in Directus only now). Keep `users` (auth-linked) + `countries` (tenant resolution). |
+| C4.1 (#64) | `/admin/*` 302 to `cms.aiqadam.org` | Middleware in `apps/web/src/middleware.ts` redirects `admin.aiqadam.org/*` **and** `<country>.aiqadam.org/admin/*` to `cms.aiqadam.org/admin`. |
+| C4.2 + C4.3 (#65) | Delete dead admin UI + API admin module | -2687 LOC: 6 Astro pages, AdminShell layout, 5 admin React islands, CheckinScanner, the entire `apps/api/src/modules/admin/*`, `AdminGuard`, `@Roles()` decorator, `admin-guard.spec.ts`. |
+
+C4.4 ("trim Drizzle schemas") was originally listed here but turned out to be premature — member-side endpoints still backed by `platform.events / registrations / point_awards`. Folded into Sprint 4.5 below.
+
+### Sprint 4.5 — Member-side proxy to Directus (~1 day) ✅ shipped
+
+Surfaced after Sprint 4 reviews: `POST /v1/registrations`, `POST /v1/checkin`, `GET /v1/leaderboard`, `GET /v1/users/:handle/profile` were still Drizzle-backed. Sprint 4.5 cuts them over so C4.4 can finally drop the tables.
+
+| PR | Title | What landed |
+|---|---|---|
+| S4.5/1 (#66) | Directus user bridge | Migration 0010 adds `platform.users.directus_user_id`. New `DirectusUsersBridgeService` syncs a `directus_users` row at OIDC sign-in (lookup by email → link or create with `provider=authentik, external_identifier=email`). Sign-in never blocks on Directus availability. New env vars: `DIRECTUS_URL`, `DIRECTUS_TOKEN`. |
+| S4.5/2 (#67) | Proxy registrations + check-in | Rewrote `POST /v1/events/:id/register`, `DELETE /v1/events/:id/register`, `GET /v1/registrations/mine`, `POST /v1/checkin/:code` to call Directus via `DirectusClient`. Capacity / waitlist / email / point-award side-effects already shipped as Directus flows in Sprint 3 — the controllers shrank to thin orchestration. Deleted `registrations.service` (Drizzle). |
+| S4.5/3 (#68) | Proxy leaderboard | `GET /v1/leaderboard` reads `point_awards` aggregate from Directus, joins with `platform.users` via `directus_user_id` for display fields. Deleted `points.service` (Drizzle). |
+| S4.5/4 (#69) | Drop Drizzle schemas (= C4.4) | Migration 0011 `DROP TABLE events, registrations, point_awards CASCADE` + matching enum drops. Deleted `apps/api/src/modules/events/*`, `registrations/schema.ts`, `points/schema.ts`, `events.spec.ts`. Refactored `users.service.getPublicProfile` to fetch the 3 aggregates from Directus (degraded mode = zero counts when bridge not yet populated). |
+
+**Net retired across Sprint 4 + 4.5: ~4400 LOC.** End-state: `platform.*` keeps only `countries`, `users`, `refresh_tokens` (auth + tenant). Directus owns everything event-shaped.
 
 ### Sprint 5 — Twenty CRM (optional, post-launch) (~3 days)
 
@@ -122,17 +136,26 @@
 - All design system, locales, country routing, F-series infrastructure.
 - Auth architecture doc at `docs/auth-architecture.md`.
 
-## What goes away
+## What went away (final, after Sprint 4 + 4.5)
 
 - `apps/api/src/modules/admin/` (whole module)
-- `apps/api/src/modules/events/{events.controller, events.service}` writes (reads maybe survive as a proxy)
-- `apps/api/src/modules/registrations/` (becomes a thin webhook receiver)
-- `apps/api/src/modules/points/` (Directus owns it)
-- `apps/api/src/db/migrations/0001 – 0007` for events/registrations/points (after the data migration)
-- `apps/web/src/pages/admin/*` (all replaced by 302 to cms)
-- `apps/web/src/components/Admin*` (AdminDashboard, AdminEventsTable, AdminEventEditor, AdminUsersTable, AdminRegistrationsTable)
+- `apps/api/src/modules/events/` (whole module)
+- `apps/api/src/modules/registrations/{schema,registrations.service}` — `registrations.controller` + `checkin.controller` retained as thin proxies to Directus
+- `apps/api/src/modules/points/{schema,points.service}` — `points.controller` retained as thin proxy to Directus
+- `apps/api/src/modules/auth/{admin.guard,roles.decorator}.ts`
+- `apps/web/src/pages/admin/*` (all replaced by 302 to cms.aiqadam.org/admin)
+- `apps/web/src/components/Admin*` + `CheckinScanner.tsx`
+- `apps/web/src/layouts/AdminShell.astro`
+- DB tables `events`, `registrations`, `point_awards` (migration 0011) plus their enums
 
-About **2.5k LOC retired**. Net code reduction.
+**~4400 LOC retired** across Sprint 4 + 4.5. Net code reduction.
+
+## New things that were NOT in the original plan
+
+- **`DirectusClient` + `DirectusUsersBridgeService`** (Sprint 4.5/1). Identity bridge wasn't anticipated because the original plan assumed Directus would own users from the start. Reality: Authentik OIDC issues OUR JWT (`sub = platform.users.id`), so member-side proxy needed a mapping column + sync on sign-in.
+- **`POST /v1/internal/email`** + `INTERNAL_API_TOKEN` shared-secret guard (Sprint 3 C3.4). Sprint 3 spec said "Directus webhook → Resend"; in practice we kept templates server-side in the repo (code-review path, escapes, dedupe) and Directus flow `request` ops call the endpoint with the shared secret.
+- **Authentik RS256 signing key** (during SSO setup). Directus's openid-client expects RS256; Authentik's OAuth2 provider was created without a signing key, defaulted to HS256 (symmetric using the client secret). Fix was assigning the self-signed cert to the provider's `signing_key`.
+- **`AUTH_AUTHENTIK_IDENTIFIER_KEY=email`** + pre-linking `admin@aiqadam.org` (during SSO setup). Default `sub` mode doesn't match users who were created locally before SSO existed.
 
 ## Rollback strategy
 
