@@ -13,6 +13,11 @@
 #   actor_kinds      — field on directus_users (Sprint 5.5/1)
 #   sponsors         — sponsor org records (Sprint 5.5/1)
 #   speakers         — speaker records (Sprint 5.5/1)
+#   eulas            — EULA datasets, versioned, immutable (Sprint 5.5/2)
+#   consent_records  — per-user per-intent consent log (Sprint 5.5/2)
+#   eula_acceptances — audit trail of EULA acceptances (Sprint 5.5/2)
+#   events.eula_id   — nullable FK; per-event EULA override (Sprint 5.5/2)
+#   event_types.default_eula_id — nullable FK; per-type default (Sprint 5.5/2)
 #   countries        — tenant catalogue (uz, kz, tj)
 #   event_types      — meetup / workshop / hackathon / conference / online
 #   events           — first-class events
@@ -438,6 +443,176 @@ ensure "relation speakers.photo -> directus_files.id" \
   "${DIRECTUS_URL}/relations/speakers/photo" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"speakers","field":"photo","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── eulas (Sprint 5.5/2) ──────────────────────────────────────
+#
+# Per Q1: capability only — multiple independent EULA datasets supported;
+# texts come from legal later. No baseline EULA seeded by this script.
+#
+# Rows are immutable once published: to change a EULA, insert a new
+# (slug, version) row. Old rows remain bound to all eula_acceptances
+# that reference them so the audit trail is stable.
+
+echo "[eulas]"
+ensure "collection eulas" \
+  "${DIRECTUS_URL}/collections/eulas" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"eulas",
+    "schema":{"name":"eulas"},
+    "meta":{
+      "icon":"gavel",
+      "note":"Immutable EULA texts. Multiple datasets via slug; new version = new row.",
+      "sort_field":"valid_from",
+      "archive_field":"status",
+      "archive_value":"archived",
+      "unarchive_value":"published"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":80},"meta":{"interface":"input","width":"half","required":true,"note":"Dataset identifier — e.g. platform-baseline, hackathon-waiver, paid-event-tos"}},
+      {"field":"version","type":"string","schema":{"is_nullable":false,"max_length":20},"meta":{"interface":"input","width":"half","required":true,"note":"Semver. New text = new version row."}},
+      {"field":"locale","type":"string","schema":{"is_nullable":false,"default_value":"en","max_length":10},"meta":{"interface":"input","width":"half","note":"BCP-47, e.g. en | ru | uz-Latn | kk"}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"draft","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Draft","value":"draft"},{"text":"Published","value":"published"},{"text":"Archived","value":"archived"}]}}},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":200},"meta":{"interface":"input","width":"full","required":true}},
+      {"field":"body_markdown","type":"text","schema":{"is_nullable":false},"meta":{"interface":"input-rich-text-md","width":"full","required":true,"note":"Once published, do NOT edit — insert a new version row instead"}},
+      {"field":"applies_to_event_types","type":"json","schema":{"is_nullable":true,"default_value":"[]"},"meta":{"interface":"tags","special":["cast-json"],"width":"full","note":"Array of event_type keys; empty = applies generally"}},
+      {"field":"required_consents","type":"json","schema":{"is_nullable":true,"default_value":"[]"},"meta":{"interface":"tags","special":["cast-json"],"width":"full","note":"Consent kinds the user implicitly grants by accepting: data_processing, sponsor_marketing, photo_release, code_of_conduct, minor_participation, ..."}},
+      {"field":"valid_from","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","required":true}},
+      {"field":"valid_until","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Null = no end"}}
+    ]
+  }'
+
+# ──────────── consent_records (Sprint 5.5/2) ────────────────────────────
+#
+# Append-only-ish: each toggle creates a new row. Reading current state
+# = SELECT most recent (granted_at DESC) per (user, initiator_actor_class,
+# intent_class, scope) and check revoked_at. The /me/preferences UI in
+# 5.5/6 writes these.
+
+echo "[consent_records]"
+ensure "collection consent_records" \
+  "${DIRECTUS_URL}/collections/consent_records" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"consent_records",
+    "schema":{"name":"consent_records"},
+    "meta":{
+      "icon":"check_circle",
+      "note":"Per-user per-(actor-class × intent) consent log. Most recent row wins.",
+      "sort_field":"granted_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"user","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"initiator_actor_class","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Operator","value":"operator"},{"text":"Sponsor","value":"sponsor"},{"text":"Speaker","value":"speaker"},{"text":"System","value":"system"},{"text":"Client (peer)","value":"client"}]}}},
+      {"field":"intent_class","type":"string","schema":{"is_nullable":false,"max_length":80},"meta":{"interface":"input","width":"half","note":"e.g. newsletter, sponsor_offer, speaker_promo, csat, event_announce"}},
+      {"field":"scope","type":"json","schema":{"is_nullable":true},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","note":"e.g. {\"sponsor_id\":\"...\"} or {\"event_type\":\"hackathon\"}; null = all"}},
+      {"field":"granted_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"revoked_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Null = currently consented"}},
+      {"field":"source","type":"string","schema":{"is_nullable":false,"default_value":"preferences_page","max_length":40},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Registration","value":"registration"},{"text":"Preferences page","value":"preferences_page"},{"text":"Bot command","value":"bot_command"},{"text":"Operator set","value":"operator_set"}]}}},
+      {"field":"source_ref","type":"json","schema":{"is_nullable":true},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"half","note":"e.g. {\"registration_id\":\"...\"}"}}
+    ]
+  }'
+
+ensure "relation consent_records.user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/consent_records/user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"consent_records","field":"user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+# ──────────── eula_acceptances (Sprint 5.5/2) ───────────────────────────
+#
+# Legal audit trail. One row per (user × eula version × event_optional).
+# IP + user agent recorded for non-repudiation.
+
+echo "[eula_acceptances]"
+ensure "collection eula_acceptances" \
+  "${DIRECTUS_URL}/collections/eula_acceptances" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"eula_acceptances",
+    "schema":{"name":"eula_acceptances"},
+    "meta":{
+      "icon":"fact_check",
+      "note":"Audit trail: who agreed to what EULA when from where.",
+      "sort_field":"accepted_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"user","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"eula","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{slug}} v{{version}} ({{locale}})"}}},
+      {"field":"source_event","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{title}}"},"note":"Optional — the event registration that triggered acceptance"}},
+      {"field":"accepted_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"ip_address","type":"string","schema":{"is_nullable":true,"max_length":45},"meta":{"interface":"input","width":"half","note":"IPv4 or IPv6"}},
+      {"field":"user_agent","type":"string","schema":{"is_nullable":true,"max_length":500},"meta":{"interface":"input","width":"full"}}
+    ]
+  }'
+
+ensure "relation eula_acceptances.user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/eula_acceptances/user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"eula_acceptances","field":"user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation eula_acceptances.eula -> eulas.id" \
+  "${DIRECTUS_URL}/relations/eula_acceptances/eula" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"eula_acceptances","field":"eula","related_collection":"eulas","schema":{"on_delete":"RESTRICT"}}'
+
+ensure "relation eula_acceptances.source_event -> events.id" \
+  "${DIRECTUS_URL}/relations/eula_acceptances/source_event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"eula_acceptances","field":"source_event","related_collection":"events","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── events.eula_id + event_types.default_eula_id ──────────────
+#
+# Two FK columns wire events to EULAs via the resolution chain documented
+# in §5 of the architecture: events.eula_id (override) → event_types
+# .default_eula_id (default) → null (no EULA prompt, registration flow is
+# a no-op per Q1).
+
+echo "[events.eula_id]"
+ensure "field events.eula_id" \
+  "${DIRECTUS_URL}/fields/events/eula_id" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"eula_id",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"half",
+      "display":"related-values",
+      "display_options":{"template":"{{slug}} v{{version}}"},
+      "note":"Optional per-event EULA override. Falls back to event_type.default_eula_id, then to null (no prompt)."
+    }
+  }'
+
+ensure "relation events.eula_id -> eulas.id" \
+  "${DIRECTUS_URL}/relations/events/eula_id" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"events","field":"eula_id","related_collection":"eulas","schema":{"on_delete":"SET NULL"}}'
+
+echo "[event_types.default_eula_id]"
+ensure "field event_types.default_eula_id" \
+  "${DIRECTUS_URL}/fields/event_types/default_eula_id" \
+  "${DIRECTUS_URL}/fields/event_types" \
+  '{
+    "field":"default_eula_id",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"full",
+      "display":"related-values",
+      "display_options":{"template":"{{slug}} v{{version}}"},
+      "note":"Default EULA for events of this type. Individual events may override via events.eula_id."
+    }
+  }'
+
+ensure "relation event_types.default_eula_id -> eulas.id" \
+  "${DIRECTUS_URL}/relations/event_types/default_eula_id" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_types","field":"default_eula_id","related_collection":"eulas","schema":{"on_delete":"SET NULL"}}'
 
 echo
 echo "✅ Directus schema bootstrapped."
