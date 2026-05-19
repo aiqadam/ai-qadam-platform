@@ -1,0 +1,16 @@
+---
+import { PreferencesForm } from '../../components/PreferencesForm';
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Preferences · AI Qadam">
+  <main style="max-width: 720px; margin: 0 auto; padding: 40px 48px;">
+    <p style="margin: 0 0 8px; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase;">
+      Account
+    </p>
+    <h1 style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin: 0 0 32px;">
+      Preferences
+    </h1>
+    <PreferencesForm client:load />
+  </main>
+</Layout>

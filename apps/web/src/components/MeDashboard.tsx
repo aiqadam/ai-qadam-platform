@@ -357,9 +357,18 @@ function Dashboard({ session }: DashboardProps): ReactElement {
             {session.me.email}
           </p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => void signOut()}>
-          Sign out
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <a
+            className="btn btn-outline btn-sm"
+            href="/me/preferences"
+            style={{ textDecoration: 'none' }}
+          >
+            Preferences
+          </a>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
