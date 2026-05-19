@@ -38,9 +38,53 @@ const fullDate = new Date(event.startsAt).toLocaleDateString('en-US', {
 });
 const startTime = new Date(event.startsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 const endTime = new Date(event.endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+// M5.1 — JSON-LD Event schema for Google rich results + LinkedIn previews.
+// https://schema.org/Event
+const origin = `${Astro.url.protocol}//${Astro.url.host}`;
+const eventUrl = `${origin}/events/${event.id}`;
+const isOnline = event.format === 'online' || !event.location;
+const eventJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Event',
+  name: event.title,
+  description: event.description,
+  startDate: event.startsAt,
+  endDate: event.endsAt,
+  eventStatus: 'https://schema.org/EventScheduled',
+  eventAttendanceMode: isOnline
+    ? 'https://schema.org/OnlineEventAttendanceMode'
+    : 'https://schema.org/OfflineEventAttendanceMode',
+  url: eventUrl,
+  organizer: {
+    '@type': 'Organization',
+    name: 'AI Qadam',
+    url: origin,
+  },
+  ...(event.location && !isOnline
+    ? {
+        location: {
+          '@type': 'Place',
+          name: event.location,
+          address: event.location,
+        },
+      }
+    : {
+        location: {
+          '@type': 'VirtualLocation',
+          url: eventUrl,
+        },
+      }),
+};
 ---
 
-<Layout title={`${event.title} · AI Qadam`} description={event.description}>
+<Layout
+  title={`${event.title} · AI Qadam`}
+  description={event.description}
+  ogType="event"
+  canonical={eventUrl}
+>
+  <script slot="head" is:inline type="application/ld+json" set:html={JSON.stringify(eventJsonLd)} />
   <main>
     <div style="border-bottom: 1px solid var(--border);">
       <div style="max-width: 1180px; margin: 0 auto; padding: 16px 32px;">

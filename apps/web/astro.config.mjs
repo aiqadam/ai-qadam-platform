@@ -14,6 +14,12 @@ import { defineConfig } from 'astro/config';
 // Per ARCHITECTURE.md §"Frontend architecture": SSR/client-only for
 // personalized surfaces; static for content-heavy pages.
 export default defineConfig({
+  // Per-tenant subdomains (uz/kz/tj.aiqadam.org) all serve the same
+  // build. `site` is the canonical apex used by Layout.astro to build
+  // OG / canonical URLs when Astro.url isn't a real request URL
+  // (i.e. for prerendered pages). SSR pages override via the actual
+  // request URL — see lib/cms.countryFromHost.
+  site: 'https://aiqadam.org',
   output: 'static',
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],

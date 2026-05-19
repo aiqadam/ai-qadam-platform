@@ -5,12 +5,45 @@ import Nav from '../components/Nav.astro';
 interface Props {
   title?: string;
   description?: string;
+  // M5.1 SEO props: each is optional, sensible defaults below. Pages that
+  // want a per-page social card or canonical override pass overrides.
+  ogType?: 'website' | 'article' | 'event';
+  ogImage?: string;
+  canonical?: string;
 }
 
 const {
   title = 'AI Qadam',
   description = 'Multi-tenant community platform for AI engineers across Central Asia.',
+  ogType = 'website',
+  ogImage,
 } = Astro.props;
+
+// Absolute URL helpers for OG / canonical. Astro.url contains the build-
+// time URL for prerendered pages (host is typically the dev server) and
+// the real request URL for SSR pages. We pick the most useful origin:
+//   - explicit `canonical` prop wins
+//   - else Astro.url if host looks like an aiqadam.org subdomain (SSR)
+//   - else Astro.site (apex, configured in astro.config.mjs)
+// Note: per-tenant subdomains all serve the same prerendered bundle, so
+// prerendered pages canonicalize to apex. That's fine — Google treats
+// the apex as the authoritative copy and the subdomains as locale
+// variants of the same content. Override per-page when a tenant-aware
+// canonical matters.
+const site = Astro.site ?? new URL('https://aiqadam.org/');
+const requestUrl = Astro.url ?? site;
+const requestIsAiqadam = requestUrl.host.endsWith('aiqadam.org');
+const origin = requestIsAiqadam ? `${requestUrl.protocol}//${requestUrl.host}` : site.origin;
+const canonicalUrl =
+  Astro.props.canonical ?? (requestIsAiqadam ? requestUrl.toString() : `${origin}${requestUrl.pathname}`);
+// Default OG image is the brand mark. Per-page overrides (event detail,
+// etc.) pass an absolute or origin-rooted URL. Pre-generated per-event
+// social cards are a M5.1-followup; for now everyone shares the mark.
+const ogImageUrl = ogImage
+  ? ogImage.startsWith('http')
+    ? ogImage
+    : `${origin}${ogImage}`
+  : `${origin}/brand/aiqadam-mark.png`;
 ---
 
 <!doctype html>
@@ -20,7 +53,24 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <title>{title}</title>
+    <link rel="canonical" href={canonicalUrl} />
     <link rel="icon" type="image/png" href="/brand/aiqadam-mark.png" />
+
+    <!-- Open Graph (Facebook / LinkedIn / Telegram / Slack / Discord) -->
+    <meta property="og:site_name" content="AI Qadam" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card (Twitter / X) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -36,6 +86,7 @@ const {
       data-domain="aiqadam.org"
       src="https://analytics.aiqadam.org/js/script.js"
     ></script>
+    <slot name="head" />
   </head>
   <body class="min-h-screen antialiased">
     <Nav />
