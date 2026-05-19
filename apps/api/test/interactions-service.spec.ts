@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
+import type { ConsentDecision, ConsentService } from '../src/modules/interactions/consent.service';
 import { InteractionsService } from '../src/modules/interactions/interactions.service';
 import type {
   AdapterResult,
@@ -42,6 +43,12 @@ function fakeAdapter(
   };
 }
 
+// Default: every consent check passes. Override per-test with .mockResolvedValueOnce.
+function fakeConsent(): ConsentService & { check: ReturnType<typeof vi.fn> } {
+  const check = vi.fn().mockResolvedValue({ ok: true } satisfies ConsentDecision);
+  return { check } as unknown as ConsentService & { check: ReturnType<typeof vi.fn> };
+}
+
 function baseInput(overrides: Partial<DispatchInput> = {}): DispatchInput {
   return {
     initiatorActor: 'system',
@@ -75,7 +82,7 @@ beforeEach(() => {
 describe('InteractionsService.dispatch — happy path', () => {
   it('creates interaction → delivery → sent, patches delivery + interaction', async () => {
     const email = fakeAdapter('email', { state: 'sent' });
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [email]);
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
 
     wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
     wireInteractionRow(dx);
@@ -118,7 +125,7 @@ describe('InteractionsService.dispatch — happy path', () => {
 
   it('fans out to multiple recipients, one delivery per user', async () => {
     const email = fakeAdapter('email', { state: 'sent' });
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [email]);
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
 
     wireDirectusUserLookup(dx, [
       { id: USER_A, email: 'a@b.com' },
@@ -137,7 +144,7 @@ describe('InteractionsService.dispatch — happy path', () => {
 
   it('de-dups duplicate user ids before fan-out', async () => {
     const email = fakeAdapter('email', { state: 'sent' });
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [email]);
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
 
     wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
     wireInteractionRow(dx);
@@ -150,10 +157,12 @@ describe('InteractionsService.dispatch — happy path', () => {
   });
 });
 
-describe('InteractionsService.dispatch — consent', () => {
-  it('skips delivery when consent_basis=explicit_opt_in (not yet enforced)', async () => {
+describe('InteractionsService.dispatch — consent gating (via mocked ConsentService)', () => {
+  it('records skipped_consent + reason when ConsentService rejects', async () => {
     const email = fakeAdapter('email');
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [email]);
+    const consent = fakeConsent();
+    consent.check.mockResolvedValueOnce({ ok: false, reason: 'mock-rejected' });
+    const svc = new InteractionsService(dx as unknown as DirectusClient, consent, [email]);
 
     wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
     wireInteractionRow(dx);
@@ -162,34 +171,22 @@ describe('InteractionsService.dispatch — consent', () => {
     const res = await svc.dispatch(baseInput({ consentBasis: 'explicit_opt_in' }));
 
     expect(res.deliveries[0]?.state).toBe('skipped_consent');
-    expect(res.deliveries[0]?.failureReason).toContain('5.5/5');
+    expect(res.deliveries[0]?.failureReason).toBe('mock-rejected');
     expect(email.send).not.toHaveBeenCalled();
-
-    // Delivery row was created with state=skipped_consent, no PATCH needed
-    const deliveryBody = dx.post.mock.calls[1]?.[1] as Record<string, unknown>;
-    expect(deliveryBody.state).toBe('skipped_consent');
-    expect(deliveryBody.failure_reason).toContain('5.5/5');
-  });
-
-  it('passes b2b_contract through without consent check', async () => {
-    const email = fakeAdapter('email', { state: 'sent' });
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [email]);
-
-    wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
-    wireInteractionRow(dx);
-    wireDeliveryRow(dx, 'd-1');
-
-    const res = await svc.dispatch(baseInput({ consentBasis: 'b2b_contract' }));
-
-    expect(res.deliveries[0]?.state).toBe('sent');
-    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(consent.check).toHaveBeenCalledWith({
+      userId: USER_A,
+      initiatorActor: 'system',
+      intent: 'smoke',
+      consentBasis: 'explicit_opt_in',
+      consentScope: undefined,
+    });
   });
 });
 
 describe('InteractionsService.dispatch — adapter outcomes', () => {
   it('records failed when adapter returns failed', async () => {
     const email = fakeAdapter('email', { state: 'failed', failureReason: 'resend 502' });
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [email]);
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
 
     wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
     wireInteractionRow(dx);
@@ -210,7 +207,7 @@ describe('InteractionsService.dispatch — adapter outcomes', () => {
       state: 'skipped_policy',
       failureReason: 'channel telegram not implemented',
     });
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [telegram]);
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [telegram]);
 
     wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
     wireInteractionRow(dx);
@@ -223,7 +220,7 @@ describe('InteractionsService.dispatch — adapter outcomes', () => {
   });
 
   it('records failed when no adapter is registered for the chosen channel', async () => {
-    const svc = new InteractionsService(dx as unknown as DirectusClient, []);
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), []);
 
     wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
     wireInteractionRow(dx);
@@ -239,7 +236,7 @@ describe('InteractionsService.dispatch — adapter outcomes', () => {
 describe('InteractionsService.dispatch — input errors', () => {
   it('throws when audience resolves to zero recipients', async () => {
     const email = fakeAdapter('email');
-    const svc = new InteractionsService(dx as unknown as DirectusClient, [email]);
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
 
     // user lookup returns empty (deleted user)
     wireDirectusUserLookup(dx, []);

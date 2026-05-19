@@ -4,6 +4,7 @@ import { EmailModule } from '../email/email.module';
 import { CHANNEL_ADAPTERS } from './channels/adapter.tokens';
 import { EmailAdapter } from './channels/email-adapter';
 import { CrmAdapter, InAppAdapter, TelegramAdapter } from './channels/stub-adapters';
+import { ConsentService } from './consent.service';
 import { InteractionsController } from './interactions.controller';
 import { InteractionsService } from './interactions.service';
 
@@ -14,6 +15,7 @@ import { InteractionsService } from './interactions.service';
   imports: [DirectusModule, EmailModule],
   providers: [
     InteractionsService,
+    ConsentService,
     EmailAdapter,
     TelegramAdapter,
     InAppAdapter,

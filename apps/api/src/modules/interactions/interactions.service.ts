@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { DirectusClient } from '../directus/directus.client';
 import { CHANNEL_ADAPTERS, type ChannelAdapter } from './channels/adapter.tokens';
+import { ConsentService } from './consent.service';
 import {
   type Channel,
-  type ConsentBasis,
   type DeliveryState,
   type DispatchDeliveryResult,
   type DispatchInput,
@@ -28,9 +28,10 @@ import {
 //
 // Deliberate non-features here (see interactions.types.ts header):
 //   - team / filter audiences  — Phase 3 + 5.5/5+
-//   - real consent lookup       — 5.5/5
 //   - fallback chain            — 5.5/5
 //   - user channel preferences  — 5.5/6
+//
+// Consent decisions now live in ConsentService (5.5/5b).
 //
 // Errors at the per-recipient level produce a delivery row with
 // state='failed' or 'skipped_*'; the top-level dispatch never throws
@@ -51,6 +52,7 @@ export class InteractionsService {
 
   constructor(
     private readonly directus: DirectusClient,
+    private readonly consent: ConsentService,
     @Inject(CHANNEL_ADAPTERS) adapters: ChannelAdapter[],
   ) {
     this.adapterByChannel = new Map(adapters.map((a) => [a.channel, a]));
@@ -83,7 +85,13 @@ export class InteractionsService {
   }): Promise<DispatchDeliveryResult> {
     const { interactionId, recipient, channel, input } = args;
 
-    const consentOk = this.checkConsent(input.consentBasis);
+    const consentOk = await this.consent.check({
+      userId: recipient.userId,
+      initiatorActor: input.initiatorActor,
+      intent: input.intent,
+      consentBasis: input.consentBasis,
+      consentScope: input.consentScope,
+    });
     if (!consentOk.ok) {
       const deliveryId = await this.createDeliveryRow({
         interactionId,
@@ -154,23 +162,6 @@ export class InteractionsService {
       throw new Error('dispatch: allowedChannels is empty');
     }
     return first;
-  }
-
-  // Trivial today; real consent service in 5.5/5 will replace this.
-  // Returns ok=false with reason if the call SHOULD be suppressed.
-  private checkConsent(basis: ConsentBasis): { ok: true } | { ok: false; reason: string } {
-    if (basis === 'operational_contract') {
-      return { ok: true };
-    }
-    if (basis === 'b2b_contract') {
-      // Treated as pass — only used for operator↔sponsor/speaker traffic,
-      // which is contractual by construction. We log but don't suppress.
-      return { ok: true };
-    }
-    return {
-      ok: false,
-      reason: `consent_basis=${basis} not yet enforced — pending consent service (5.5/5)`,
-    };
   }
 
   private async resolveRecipients(input: DispatchInput): Promise<ResolvedRecipient[]> {
