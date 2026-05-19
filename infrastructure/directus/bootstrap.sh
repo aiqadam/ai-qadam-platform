@@ -753,6 +753,118 @@ ensure "relation interaction_responses.delivery -> interaction_deliveries.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"interaction_responses","field":"delivery","related_collection":"interaction_deliveries","schema":{"on_delete":"CASCADE"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# S0.1 — Demo-tenant isolation (roadmap §7 Sprint 0.1)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Tier (a) of the layered-staging plan: country=demo cohabits production
+# inside every engine, isolated by Directus permission policies. Schema
+# pieces this block adds:
+#
+#   (1) `demo` row in countries
+#   (2) `is_test_user` boolean on directus_users (default false)
+#   (3) policy "S0.1 Demo-tenant isolation" + per-collection read filters
+#       that hide country=demo rows from users with is_test_user=false
+#
+# Out of scope (lands in other PRs):
+#   - email routing (Mailtrap vs Resend) — Agent-API S0.1
+#   - Plausible is_test=true tagging — Agent-Web S0.1
+#   - access-table binding (policy → role) — RBAC manifest ADR (S0.6) +
+#     RBAC sync service (S2.2). Until S2.2 binds the policy to roles, the
+#     policy exists in Directus but is inert; bootstrap re-runs with the
+#     admin token bypass policies regardless.
+
+echo "[S0.1 — demo country]"
+seed_country demo "Demo (staging)" "Демо" "UTC"
+
+echo "[S0.1 — directus_users.is_test_user]"
+ensure "field directus_users.is_test_user" \
+  "${DIRECTUS_URL}/fields/directus_users/is_test_user" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"is_test_user",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"True iff this user is a staging/training contact. Drives: (a) email dispatcher routes via Mailtrap; (b) Plausible events tagged is_test=true; (c) only these users see country=demo rows. Flip true only for the ~20 test contacts + country-lead trainees."
+    }
+  }'
+
+# Deterministic policy UUID — stable across re-runs.
+POLICY_DEMO_TENANT="500e0001-0000-4000-8000-000000000001"
+
+echo "[S0.1 — policy: demo-tenant isolation]"
+ensure "policy ${POLICY_DEMO_TENANT}" \
+  "${DIRECTUS_URL}/policies/${POLICY_DEMO_TENANT}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_DEMO_TENANT" '{
+    id:$id,
+    name:"S0.1 Demo-tenant isolation",
+    icon:"science",
+    description:"Restrict reads on country-scoped collections so country=demo rows are visible only to users with directus_users.is_test_user=true. Bound to roles by RBAC manifest (S0.6) + sync service (S2.2).",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
+# directus_permissions rows have auto-increment integer IDs, so the
+# ensure() helper (GET-by-id) doesn't fit. Identify the row by the
+# (policy, collection, action) triple via the items API filter syntax.
+ensure_perm() {
+  local kind="$1" collection="$2" action="$3" filter="$4"
+  local count
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_DEMO_TENANT}&filter%5Bcollection%5D%5B_eq%5D=${collection}&filter%5Baction%5D%5B_eq%5D=${action}&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ ${kind} (exists)"
+    return 0
+  fi
+  local body
+  body=$(jq -nc --arg pol "$POLICY_DEMO_TENANT" --arg col "$collection" \
+                --arg act "$action" --argjson f "$filter" \
+    '{policy:$pol, collection:$col, action:$act, permissions:$f, fields:["*"]}')
+  local code
+  code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+  if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    echo "  + ${kind} (created)"
+  else
+    echo "  ✗ ${kind} HTTP ${code}"
+    head -c 300 /tmp/directus-resp; echo
+    return 1
+  fi
+}
+
+# Filter shape: a row is visible iff
+#   (a) row is not demo-tenant; OR
+#   (b) the requester carries is_test_user=true.
+# Per-collection LHS path differs: most use `country`; countries uses its
+# PK `code`; registrations traverse via `event.country`; directus_users
+# substitute the `is_test_user` field for the country check.
+
+COUNTRY_FILTER='{"_or":[{"country":{"_neq":"demo"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+
+echo "[S0.1 — permissions: demo-tenant isolation]"
+ensure_perm "perm events/read"        events        read "$COUNTRY_FILTER"
+ensure_perm "perm point_awards/read"  point_awards  read "$COUNTRY_FILTER"
+ensure_perm "perm partners/read"      partners      read "$COUNTRY_FILTER"
+ensure_perm "perm homepage_hero/read" homepage_hero read "$COUNTRY_FILTER"
+ensure_perm "perm sponsors/read"      sponsors      read "$COUNTRY_FILTER"
+ensure_perm "perm speakers/read"      speakers      read "$COUNTRY_FILTER"
+
+ensure_perm "perm countries/read" countries read \
+  '{"_or":[{"code":{"_neq":"demo"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+
+ensure_perm "perm registrations/read" registrations read \
+  '{"_or":[{"event":{"country":{"_neq":"demo"}}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+
+ensure_perm "perm directus_users/read" directus_users read \
+  '{"_or":[{"is_test_user":{"_eq":false}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
