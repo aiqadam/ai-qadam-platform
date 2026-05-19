@@ -313,3 +313,52 @@ After that PATCH + force-redeploy, Traefik labels are generated against the `ser
 **Smoke (real GET, not HEAD)**: HEAD on the login URL trips openid-client's strict method check and redirects to `/verify?errorMessage=Unknown+error` — harmless red herring. Real browser GET produces the expected 302 to Authentik.
 
 **Healthcheck**: `https://crm.aiqadam.org/healthz` should return `{"status":"ok",...}`. Server container also runs an internal curl healthcheck every 5s.
+
+---
+
+## Plausible Analytics (`aiqadam-plausible`) — added Sprint M5.0
+
+Compose-based Coolify service at `analytics.aiqadam.org`. Three containers (Plausible + dedicated Postgres + ClickHouse). Source-of-truth compose: [`infrastructure/plausible/docker-compose.yml`](../../infrastructure/plausible/docker-compose.yml).
+
+**Coolify identifiers**
+- Service uuid: `yhl7tx5ckc9j4quilq2y8f61`
+- Image tag: `ghcr.io/plausible/community-edition:v3.0.1` (pinned via `PLAUSIBLE_TAG`; bump deliberately)
+
+**Required service envs** (all set at Coolify service level):
+- `BASE_URL` — `https://analytics.aiqadam.org`.
+- `SECRET_KEY_BASE` — `openssl rand -hex 64` (must be ≥ 64 bytes; Phoenix rejects shorter). Cached at `/tmp/aiqadam-secrets-PLAUSIBLE_SKB`.
+- `TOTP_VAULT_KEY` — `openssl rand -base64 32`. Cached at `/tmp/aiqadam-secrets-PLAUSIBLE_TOTP`.
+- `PLAUSIBLE_PG_PW` — `openssl rand -hex 24`. Cached at `/tmp/aiqadam-secrets-PLAUSIBLE_PG_PW`.
+- `MAILER_EMAIL` — `admin@aiqadam.org` (must be verified on Resend).
+- `RESEND_API_KEY` — same Resend key used by the main API (`/tmp/aiqadam-secrets-RESEND_KEY`).
+
+**Routing**: same pattern as Twenty — PATCH `/api/v1/services/<uuid>` with `{"urls":[{"name":"plausible","url":"https://analytics.aiqadam.org"}]}`. Wildcard DNS already covers the subdomain.
+
+**Gotchas encountered during the initial deploy** (all fixed in the compose):
+1. `MAILER_ADAPTER` must be `Bamboo.SMTPAdapter` (not `Bamboo.Mua.SMTPAdapter` — that name is invented; Plausible v3 just uses plain Bamboo). Wrong value crashes the container during boot config eval with `ArgumentError: Unknown mailer_adapter`.
+2. `SECRET_KEY_BASE` < 64 bytes crashes Phoenix on boot. `openssl rand -hex 32` produces 32 bytes (64 hex chars) which is BELOW the minimum — must use `openssl rand -hex 64` for 64 bytes (128 hex chars).
+3. ClickHouse 25.x default users.d configuration silently fails to bind a listener on our host (no error in logs, container sits at `health: starting` forever). Pin to `clickhouse/clickhouse-server:24.12-alpine` (the version the upstream Plausible v3.0.1 compose ships with) + `CLICKHOUSE_SKIP_USER_SETUP=1`.
+4. Docker's default bridge network has IPv6 disabled; ClickHouse's `listen_host=[::]` default fails with `Address family for hostname not supported`. Inline an `ipv4-only.xml` config via compose `configs:` that sets `<listen_host>0.0.0.0</listen_host>` + `<listen_host>::</listen_host>` + `<listen_try>1</listen_try>`.
+5. ClickHouse low-RAM tuning recommended (`query_log`/`trace_log` etc. writes pad ~50MB/day). Inlined via the same `configs:` mechanism, no host filesystem bind mount needed.
+6. The `plausible` container needs a `plausible-data` named volume mounted at `/var/lib/plausible` + `TMPDIR=/var/lib/plausible/tmp`. Without it, the entrypoint's `db migrate` step crashes trying to write tmp files.
+
+**Resend SMTP relay**: `smtp.resend.com:587` with STARTTLS (`SMTP_HOST_SSL_ENABLED=false`), username `resend`, password = Resend API key. Sender (`MAILER_EMAIL`) must be on a Resend-verified domain; `admin@aiqadam.org` already is.
+
+**First-time bootstrap** (one-shot, manual):
+
+Plausible v3 has no `user_create` CLI; first admin is created via the UI with public registration temporarily open.
+
+1. Confirm `DISABLE_REGISTRATION=false` is set in the Coolify service env. (M5.0 compose references `${DISABLE_REGISTRATION:-true}`, so the deploy boots locked-down; only the human bootstrap step flips this temporarily.) If you need to flip it, PATCH the env via the Coolify API:
+   ```
+   curl -X PATCH -H "Authorization: Bearer $COOLIFY_TOKEN" -H "content-type: application/json" \
+     https://coolify.aiqadam.org/api/v1/services/yhl7tx5ckc9j4quilq2y8f61/envs \
+     -d '{"key":"DISABLE_REGISTRATION","value":"false","is_preview":false,"is_build_time":false,"is_literal":true}'
+   curl -X GET -H "Authorization: Bearer $COOLIFY_TOKEN" \
+     https://coolify.aiqadam.org/api/v1/services/yhl7tx5ckc9j4quilq2y8f61/restart
+   ```
+2. Open `https://analytics.aiqadam.org/register`, sign up with `admin@aiqadam.org` + a strong password. **Cache the password at `/tmp/aiqadam-secrets-PLAUSIBLE_ADMIN_PW`.**
+3. **Immediately flip `DISABLE_REGISTRATION` back to `true`** and restart (same PATCH as above with `"value":"true"`) so the world can't register accounts on our dashboard.
+4. Log in, create a site with domain `aiqadam.org`. Plausible will issue the snippet `<script defer data-domain="aiqadam.org" src="https://analytics.aiqadam.org/js/script.js"></script>` — this matches what M5.0 already added to `apps/web/src/layouts/Layout.astro`.
+5. Confirm on first prod visit that the dashboard receives a pageview.
+
+**Healthcheck**: `https://analytics.aiqadam.org/api/health` returns 200 with `{"clickhouse":"ok","postgres":"ok"}` (approx). Container also has an internal `wget --spider` healthcheck every 10s.
