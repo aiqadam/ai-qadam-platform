@@ -1,0 +1,64 @@
+---
+import { UtmUrlBuilder } from '../../components/UtmUrlBuilder';
+import Layout from '../../layouts/Layout.astro';
+
+// Sprint 0.8 — marketing URL builder (operator tool).
+//
+// Per marketing-and-pr-playbook.md §16.2 and marketing-utm-scheme.md §7:
+// operators use this page to construct UTM-tagged links rather than
+// hand-typing parameters. The page itself is intentionally simple — the
+// canonical spec lives in the doc; this is just the input form.
+//
+// Future: when the workspace shell ships in Sprint 2.1, this page moves
+// behind RBAC (operator-only). For now it's public; UTM rules are not
+// secret and there's no PII surface.
+
+const description =
+  'Build a UTM-tagged URL for AI Qadam marketing links. The convention lives in docs/marketing-utm-scheme.md.';
+---
+
+<Layout title="Marketing URL builder · AI Qadam" description={description}>
+  <main
+    style="max-width: 880px; margin: 0 auto; padding: 56px 24px 96px; display: flex; flex-direction: column; gap: 32px;"
+  >
+    <header style="display: flex; flex-direction: column; gap: 8px;">
+      <p
+        style="font-size: 12px; font-weight: 500; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; margin: 0;"
+      >
+        Marketing operator tool
+      </p>
+      <h1 style="font-size: 32px; font-weight: 600; line-height: 1.2; margin: 0;">
+        Build a UTM-tagged URL
+      </h1>
+      <p style="font-size: 16px; color: var(--muted-foreground); margin: 0; max-width: 60ch;">
+        Use this on every external link that points to aiqadam.org. Internal
+        links don't need UTM. The full convention lives in <a
+          href="https://github.com/viktordrukker/aiqadam/blob/main/docs/marketing-utm-scheme.md"
+          style="color: var(--primary);">marketing-utm-scheme.md</a>.
+      </p>
+    </header>
+
+    <UtmUrlBuilder client:load />
+
+    <section
+      style="padding: 20px; border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 8px;"
+    >
+      <h2
+        style="font-size: 13px; font-weight: 500; color: var(--muted-foreground); letter-spacing: 0.04em; text-transform: uppercase; margin: 0;"
+      >
+        Rules at a glance
+      </h2>
+      <ul
+        style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; color: var(--foreground);"
+      >
+        <li>Lowercase. Hyphens, not spaces. Underscores only inside fixed mediums.</li>
+        <li>
+          Values are <strong>stable</strong> — never rename <code>binali-li</code> to
+          <code>binali-linkedin</code> after the fact.
+        </li>
+        <li><code>utm_content</code> is for A/B testing only — leave it blank otherwise.</li>
+        <li>Tag every external entry point. Do not tag internal links.</li>
+      </ul>
+    </section>
+  </main>
+</Layout>
