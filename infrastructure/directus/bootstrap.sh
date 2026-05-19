@@ -18,6 +18,9 @@
 #   eula_acceptances — audit trail of EULA acceptances (Sprint 5.5/2)
 #   events.eula_id   — nullable FK; per-event EULA override (Sprint 5.5/2)
 #   event_types.default_eula_id — nullable FK; per-type default (Sprint 5.5/2)
+#   interactions          — every outbound message (Sprint 5.5/3)
+#   interaction_deliveries — per recipient × channel (Sprint 5.5/3)
+#   interaction_responses — structured replies (CSAT, RSVP, ...) (Sprint 5.5/3)
 #   countries        — tenant catalogue (uz, kz, tj)
 #   event_types      — meetup / workshop / hackathon / conference / online
 #   events           — first-class events
@@ -613,6 +616,142 @@ ensure "relation event_types.default_eula_id -> eulas.id" \
   "${DIRECTUS_URL}/relations/event_types/default_eula_id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"event_types","field":"default_eula_id","related_collection":"eulas","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── interactions (Sprint 5.5/3) ───────────────────────────────
+#
+# The architectural unit. Every outbound message in the platform — email,
+# Telegram DM, in-app banner, CRM activity log — is rooted in a row here.
+# Per §4 of docs/interaction-architecture.md.
+#
+# Inserts come from the InteractionsService (Sprint 5.5/4); operators
+# should not insert manually. Lookups + audit views can read freely.
+#
+# Polymorphic note: initiator_id has no FK constraint because it can
+# reference different tables based on initiator_actor (operator/client
+# → directus_users; sponsor → sponsors; speaker → speakers; team →
+# teams (not yet); system → null). The dispatcher enforces shape.
+
+echo "[interactions]"
+ensure "collection interactions" \
+  "${DIRECTUS_URL}/collections/interactions" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"interactions",
+    "schema":{"name":"interactions"},
+    "meta":{
+      "icon":"forum",
+      "note":"Every outbound message. One interaction → N deliveries → 0..N responses.",
+      "sort_field":"created_at",
+      "archive_field":"policy_state",
+      "archive_value":"cancelled",
+      "unarchive_value":"draft"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"initiator_actor","type":"string","schema":{"is_nullable":false,"max_length":20},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Operator","value":"operator"},{"text":"Sponsor","value":"sponsor"},{"text":"Speaker","value":"speaker"},{"text":"Client","value":"client"},{"text":"Team","value":"team"},{"text":"System","value":"system"}]}}},
+      {"field":"initiator_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"Polymorphic — refers to the table implied by initiator_actor; system has none."}},
+      {"field":"audience","type":"json","schema":{"is_nullable":false,"default_value":"{}"},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","required":true,"note":"One of: {\"user_ids\":[...]} | {\"team_ids\":[...]} | {\"filter\":{...}}"}},
+      {"field":"intent","type":"string","schema":{"is_nullable":false,"max_length":60},"meta":{"interface":"input","width":"half","required":true,"note":"e.g. registered, promoted, cancelled, reminder, event_announce, csat, enps, newsletter, sponsor_offer, speaker_promo, team_invite, eula_update, password_reset"}},
+      {"field":"payload","type":"json","schema":{"is_nullable":false,"default_value":"{}"},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","note":"Versioned per intent — see InteractionsService for the schema map"}},
+      {"field":"consent_basis","type":"string","schema":{"is_nullable":false,"max_length":30},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Operational contract","value":"operational_contract"},{"text":"Event EULA","value":"event_eula"},{"text":"Explicit opt-in","value":"explicit_opt_in"},{"text":"Client-initiated","value":"client_initiated"},{"text":"B2B contract","value":"b2b_contract"}]}}},
+      {"field":"consent_scope","type":"json","schema":{"is_nullable":true},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"half","note":"e.g. {\"event_id\":\"...\"} when consent_basis=event_eula"}},
+      {"field":"allowed_channels","type":"json","schema":{"is_nullable":false,"default_value":"[]"},"meta":{"interface":"tags","special":["cast-json"],"width":"full","note":"Channel allow-list: email, telegram, in_app, push, crm, sms, web_modal"}},
+      {"field":"fallback_chain","type":"json","schema":{"is_nullable":false,"default_value":"[]"},"meta":{"interface":"tags","special":["cast-json"],"width":"full","note":"Ordered fallback channels after the primary fails"}},
+      {"field":"policy_state","type":"string","schema":{"is_nullable":false,"default_value":"draft","max_length":30},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Draft","value":"draft"},{"text":"Pending approval","value":"pending_approval"},{"text":"Approved","value":"approved"},{"text":"Scheduled","value":"scheduled"},{"text":"Sending","value":"sending"},{"text":"Sent","value":"sent"},{"text":"Suppressed by policy","value":"suppressed_by_policy"},{"text":"Cancelled","value":"cancelled"}]}}},
+      {"field":"scheduled_for","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Null = send now"}},
+      {"field":"expires_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Skip delivery if past this; e.g. event-reminder after event end"}},
+      {"field":"experiment_assignment","type":"json","schema":{"is_nullable":true},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","note":"{\"experiment\":\"<key>\",\"variant\":\"<a|b|...>\"} when an experiment routes this interaction"}},
+      {"field":"created_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"created_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"Operator user when composed via admin; null when system-generated"}}
+    ]
+  }'
+
+ensure "relation interactions.created_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/interactions/created_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"interactions","field":"created_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── interaction_deliveries (Sprint 5.5/3) ─────────────────────
+#
+# One row per (interaction × recipient × channel). The dispatcher writes
+# the initial row at queue time and updates state through the lifecycle:
+#   queued → sent → delivered → opened → clicked → responded
+# or queued → failed / skipped_consent / skipped_policy.
+#
+# Recipient is exactly one of recipient_user / recipient_team. Directus
+# can't express the XOR CHECK constraint via schema JSON; the dispatcher
+# enforces it. Teams collection arrives in Phase 3 — recipient_team has
+# NO FK constraint until then (added when teams ships).
+
+echo "[interaction_deliveries]"
+ensure "collection interaction_deliveries" \
+  "${DIRECTUS_URL}/collections/interaction_deliveries" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"interaction_deliveries",
+    "schema":{"name":"interaction_deliveries"},
+    "meta":{
+      "icon":"send",
+      "note":"Per-recipient × channel attempt. Exactly one of recipient_user/recipient_team is set.",
+      "sort_field":"attempted_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"interaction","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{intent}} ({{policy_state}})"}}},
+      {"field":"recipient_user","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"Set XOR with recipient_team"}},
+      {"field":"recipient_team","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"FK to teams added in Phase 3. Until then this is a free uuid; do not populate."}},
+      {"field":"channel","type":"string","schema":{"is_nullable":false,"max_length":20},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Email","value":"email"},{"text":"Telegram","value":"telegram"},{"text":"In-app","value":"in_app"},{"text":"Push","value":"push"},{"text":"CRM activity","value":"crm"},{"text":"SMS","value":"sms"},{"text":"Web modal","value":"web_modal"}]}}},
+      {"field":"state","type":"string","schema":{"is_nullable":false,"default_value":"queued","max_length":30},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Queued","value":"queued"},{"text":"Sent","value":"sent"},{"text":"Delivered","value":"delivered"},{"text":"Opened","value":"opened"},{"text":"Clicked","value":"clicked"},{"text":"Responded","value":"responded"},{"text":"Failed","value":"failed"},{"text":"Skipped (consent)","value":"skipped_consent"},{"text":"Skipped (policy)","value":"skipped_policy"}]}}},
+      {"field":"attempted_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"delivered_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"opened_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"clicked_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"responded_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"failure_reason","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Free-text — for state=failed or skipped_*"}}
+    ]
+  }'
+
+ensure "relation interaction_deliveries.interaction -> interactions.id" \
+  "${DIRECTUS_URL}/relations/interaction_deliveries/interaction" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"interaction_deliveries","field":"interaction","related_collection":"interactions","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation interaction_deliveries.recipient_user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/interaction_deliveries/recipient_user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"interaction_deliveries","field":"recipient_user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+# ──────────── interaction_responses (Sprint 5.5/3) ──────────────────────
+#
+# Structured replies: CSAT scores, eNPS scores, sponsor-interest clicks,
+# unsubscribes, RSVP yes/no, etc. Free-form text replies (e.g. support)
+# go straight to Twenty as activity; only structured replies belong here.
+
+echo "[interaction_responses]"
+ensure "collection interaction_responses" \
+  "${DIRECTUS_URL}/collections/interaction_responses" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"interaction_responses",
+    "schema":{"name":"interaction_responses"},
+    "meta":{
+      "icon":"rate_review",
+      "note":"Structured replies to interaction_deliveries.",
+      "sort_field":"received_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"delivery","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{channel}} → {{state}}"}}},
+      {"field":"response_intent","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"CSAT score","value":"csat_score"},{"text":"eNPS score","value":"enps_score"},{"text":"Sponsor interest","value":"sponsor_interest"},{"text":"Speaker question","value":"speaker_question"},{"text":"Unsubscribe","value":"unsubscribe"},{"text":"RSVP","value":"rsvp"},{"text":"Other","value":"other"}]}}},
+      {"field":"payload","type":"json","schema":{"is_nullable":false,"default_value":"{}"},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","note":"e.g. {\"rating\":8,\"comment\":\"...\"} | {\"answer\":\"yes\"}"}},
+      {"field":"received_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}}
+    ]
+  }'
+
+ensure "relation interaction_responses.delivery -> interaction_deliveries.id" \
+  "${DIRECTUS_URL}/relations/interaction_responses/delivery" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"interaction_responses","field":"delivery","related_collection":"interaction_deliveries","schema":{"on_delete":"CASCADE"}}'
 
 echo
 echo "✅ Directus schema bootstrapped."
