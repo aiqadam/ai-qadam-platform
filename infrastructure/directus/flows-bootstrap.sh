@@ -29,16 +29,19 @@
 #                            points). Dedupes against existing award for
 #                            the same (user, event) pair.
 #
-# Email side-effects (added in C3.5):
-#   - reg-capacity-decision  branches on decide_status: reject (within
-#                            capacity → user stays registered) → POST
-#                            /v1/internal/email with template=registration-
-#                            confirmed. Resolve branch (overflow → patched
-#                            to waitlisted) sends no email yet — no
-#                            waitlist template exists.
-#   - reg-waitlist-promotion after `promote`, looks up the promoted user's
-#                            email + event details → POST /v1/internal/email
-#                            with template=registration-promoted.
+# Email side-effects (added in C3.5; migrated to Interactions in 5.5/5):
+#   All three email ops now POST /v1/internal/interactions/dispatch with:
+#     { initiatorActor: "system",
+#       audience: { userIds: [<user uuid from trigger>] },
+#       intent: "registered" | "waitlisted" | "promoted",
+#       payload: { template: "registration-*", data: {...} },
+#       consentBasis: "operational_contract",
+#       allowedChannels: ["email"] }
+#   The dispatcher writes an interactions row + a deliveries row, then
+#   delegates to EmailAdapter which renders the template via the same
+#   functions InternalController.sendEmail used. /v1/internal/email is
+#   still mounted for legacy callers (none in production) but emits no
+#   audit trail — prefer /v1/internal/interactions/dispatch.
 #
 # CRM mirror (added in C5.3 + C5.4):
 #   crm-contact-sync       — action hook on directus_users.items.create
@@ -218,12 +221,12 @@ upsert "op capacity_email_waitlisted" "operations" "${OP_CAPACITY_EMAIL_WAITLIST
   "position_y": 1,
   "options": {
     "method": "POST",
-    "url": "https://uz.aiqadam.org/api/v1/internal/email",
+    "url": "https://uz.aiqadam.org/api/v1/internal/interactions/dispatch",
     "headers": [
       { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
       { "header": "content-type", "value": "application/json" }
     ],
-    "body": "{ \"template\": \"registration-waitlisted\", \"to\": \"{{ capacity_user_lookup_wl.email }}\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup_wl.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }"
+    "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ \$trigger.payload.user }}\"] }, \"intent\": \"waitlisted\", \"payload\": { \"template\": \"registration-waitlisted\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup_wl.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"email\"] }"
   },
   "flow": "${FLOW_REG_CAPACITY}",
   "resolve": null,
@@ -295,12 +298,12 @@ upsert "op capacity_email_confirmed" "operations" "${OP_CAPACITY_EMAIL_CONFIRMED
   "position_y": 17,
   "options": {
     "method": "POST",
-    "url": "https://uz.aiqadam.org/api/v1/internal/email",
+    "url": "https://uz.aiqadam.org/api/v1/internal/interactions/dispatch",
     "headers": [
       { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
       { "header": "content-type", "value": "application/json" }
     ],
-    "body": "{ \"template\": \"registration-confirmed\", \"to\": \"{{ capacity_user_lookup.email }}\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }"
+    "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ \$trigger.payload.user }}\"] }, \"intent\": \"registered\", \"payload\": { \"template\": \"registration-confirmed\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"email\"] }"
   },
   "flow": "${FLOW_REG_CAPACITY}",
   "resolve": null,
@@ -445,12 +448,12 @@ upsert "op promo_email_promoted" "operations" "${OP_PROMO_EMAIL_PROMOTED}" "$(ca
   "position_y": 1,
   "options": {
     "method": "POST",
-    "url": "https://uz.aiqadam.org/api/v1/internal/email",
+    "url": "https://uz.aiqadam.org/api/v1/internal/interactions/dispatch",
     "headers": [
       { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
       { "header": "content-type", "value": "application/json" }
     ],
-    "body": "{ \"template\": \"registration-promoted\", \"to\": \"{{ promo_user_lookup.email }}\", \"data\": { \"recipientName\": \"{{ promo_user_lookup.first_name }}\", \"eventTitle\": \"{{ promo_load_event.title }}\", \"eventStartsAt\": \"{{ promo_load_event.starts_at }}\", \"eventLocation\": \"{{ promo_load_event.location }}\" } }"
+    "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ find_waitlist[0].user }}\"] }, \"intent\": \"promoted\", \"payload\": { \"template\": \"registration-promoted\", \"data\": { \"recipientName\": \"{{ promo_user_lookup.first_name }}\", \"eventTitle\": \"{{ promo_load_event.title }}\", \"eventStartsAt\": \"{{ promo_load_event.starts_at }}\", \"eventLocation\": \"{{ promo_load_event.location }}\" } }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"email\"] }"
   },
   "flow": "${FLOW_REG_PROMOTION}",
   "resolve": null,
