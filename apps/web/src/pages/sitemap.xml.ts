@@ -54,6 +54,7 @@ export const GET: APIRoute = async ({ request }) => {
     { loc: `${origin}/`, changefreq: 'daily', priority: 1.0 },
     { loc: `${origin}/events`, changefreq: 'daily', priority: 0.9 },
     { loc: `${origin}/leaderboard`, changefreq: 'weekly', priority: 0.5 },
+    { loc: `${origin}/press`, changefreq: 'monthly', priority: 0.4 },
   ];
 
   let eventPages: UrlEntry[] = [];
