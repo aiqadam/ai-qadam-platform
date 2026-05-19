@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
+import type { EulaService } from '../src/modules/eula/eula.service';
 import {
   CheckinIneligibleError,
   CheckinNotFoundError,
@@ -23,10 +24,24 @@ type FakeBridge = {
   resolveDirectusId: ReturnType<typeof vi.fn>;
 };
 
-function makeService(fake: FakeDirectus, bridge: FakeBridge) {
+// Default fake EulaService — every event resolves to null EULA, so the
+// registration flow is a no-op for consent. Per-test override available
+// by passing your own object.
+function makeService(
+  fake: FakeDirectus,
+  bridge: FakeBridge,
+  eulas: {
+    resolveForEvent: ReturnType<typeof vi.fn>;
+    recordAcceptance: ReturnType<typeof vi.fn>;
+  } = {
+    resolveForEvent: vi.fn().mockResolvedValue(null),
+    recordAcceptance: vi.fn().mockResolvedValue(undefined),
+  },
+) {
   return new RegistrationsDirectusService(
     fake as unknown as DirectusClient,
     bridge as unknown as DirectusUsersBridgeService,
+    eulas as unknown as EulaService,
   );
 }
 

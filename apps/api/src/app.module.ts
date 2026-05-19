@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import './modules/tenants/tenant.types';
 import { HealthController } from './health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
+import { EulaModule } from './modules/eula/eula.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
 import { InternalModule } from './modules/internal/internal.module';
 import { PointsModule } from './modules/points/points.module';
@@ -15,6 +16,7 @@ import { UsersModule } from './modules/users/users.module';
     TenantsModule,
     UsersModule,
     AuthModule,
+    EulaModule,
     RegistrationsModule,
     PointsModule,
     InternalModule,

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -14,8 +15,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { z } from 'zod';
 import { AuthGuard } from '../auth/auth.guard';
 import {
+  RegistrationConsentRequiredError,
   RegistrationIneligibleError,
   RegistrationNotFoundError,
   RegistrationsDirectusService,
@@ -62,11 +65,18 @@ export class RegistrationsController {
   async register(
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
     @Req() req: Request,
+    @Body() body: unknown,
   ): Promise<RegistrationResponse> {
     const userId = requireUserId(req);
     const tenantCode = requireTenant(req);
+    const acceptance = parseAcceptance(body, req);
     try {
-      const row = await this.registrations.register({ userId, eventId, countryCode: tenantCode });
+      const row = await this.registrations.register({
+        userId,
+        eventId,
+        countryCode: tenantCode,
+        ...(acceptance ? { acceptance } : {}),
+      });
       return {
         id: row.id,
         eventId: row.eventId,
@@ -78,6 +88,9 @@ export class RegistrationsController {
     } catch (err) {
       if (err instanceof RegistrationNotFoundError) {
         throw new NotFoundException(err.message);
+      }
+      if (err instanceof RegistrationConsentRequiredError) {
+        throw new BadRequestException(err.message);
       }
       if (err instanceof RegistrationIneligibleError) {
         throw new BadRequestException(err.message);
@@ -128,6 +141,43 @@ function requireUserId(req: Request): string {
     throw new UnauthorizedException('no claims attached');
   }
   return req.user.sub;
+}
+
+// Acceptance is optional on the request body. When present, also enrich
+// it with IP + user agent from the request — these are part of the
+// non-repudiation record we store on eula_acceptances.
+const acceptanceSchema = z.object({
+  acceptance: z
+    .object({
+      eulaId: z.string().uuid(),
+      consentedIntents: z.array(z.string().min(1)).min(1),
+    })
+    .optional(),
+});
+
+function parseAcceptance(
+  body: unknown,
+  req: Request,
+):
+  | {
+      eulaId: string;
+      consentedIntents: string[];
+      ipAddress: string | null;
+      userAgent: string | null;
+    }
+  | undefined {
+  if (body == null) return undefined;
+  const parsed = acceptanceSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new BadRequestException(parsed.error.flatten());
+  }
+  if (!parsed.data.acceptance) return undefined;
+  return {
+    eulaId: parsed.data.acceptance.eulaId,
+    consentedIntents: parsed.data.acceptance.consentedIntents,
+    ipAddress: req.ip ?? null,
+    userAgent: req.get('user-agent') ?? null,
+  };
 }
 
 function requireTenant(req: Request): string {

@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
+import {
+  type AcceptanceInput,
+  EulaAcceptanceMismatchError,
+  EulaConsentIncompleteError,
+  EulaService,
+} from '../eula/eula.service';
 
 // Member-side registration ops, backed by Directus instead of Drizzle.
 // Capacity / waitlist promotion / point award / email side-effects are
@@ -49,6 +55,7 @@ export interface MineEntry {
 
 export class RegistrationNotFoundError extends Error {}
 export class RegistrationIneligibleError extends Error {}
+export class RegistrationConsentRequiredError extends Error {}
 export class CheckinNotFoundError extends Error {}
 export class CheckinIneligibleError extends Error {}
 
@@ -59,21 +66,40 @@ export class RegistrationsDirectusService {
   constructor(
     private readonly directus: DirectusClient,
     private readonly bridge: DirectusUsersBridgeService,
+    private readonly eulas: EulaService,
   ) {}
 
   // POST: idempotently create (or fetch existing non-cancelled) registration
   // for (user, event). Capacity flow patches status to waitlisted if needed.
+  //
+  // Sprint 5.5/7: if the event resolves to an EULA, the caller MUST pass
+  // an `acceptance` block (eulaId + consented intents). On success we
+  // write eula_acceptances + per-intent consent_records rows linked to
+  // the new registration. If the event has no EULA (null after both
+  // event.eula_id and event_type.default_eula_id lookups), `acceptance`
+  // is ignored.
   async register(input: {
     userId: string;
     eventId: string;
     countryCode: string;
+    acceptance?: AcceptanceInput | undefined;
   }): Promise<RegistrationView> {
     const directusUserId = await this.requireDirectusUserId(input.userId);
     await this.assertEventInTenant(input.eventId, input.countryCode);
 
+    // EULA gate runs BEFORE the registration insert so a missing
+    // acceptance never produces an orphan registration row.
+    const required = await this.eulas.resolveForEvent(input.eventId);
+    if (required && !input.acceptance) {
+      throw new RegistrationConsentRequiredError(
+        `event ${input.eventId} requires EULA acceptance — call /consent-prompt first`,
+      );
+    }
+
     // Idempotency: if a non-cancelled row exists, return it instead of
-    // creating a duplicate. Cancelled rows can be "re-registered" by
-    // inserting a fresh row.
+    // creating a duplicate. We do NOT re-write acceptance/consent rows
+    // for the idempotent case — the user already accepted on first
+    // registration.
     const existing = await this.findActiveByUserEvent(directusUserId, input.eventId);
     if (existing) {
       return toView(existing);
@@ -83,6 +109,16 @@ export class RegistrationsDirectusService {
       user: directusUserId,
       event: input.eventId,
     });
+
+    if (required && input.acceptance) {
+      await this.recordAcceptanceOrThrow({
+        userId: directusUserId,
+        eventId: input.eventId,
+        registrationId: created.data.id,
+        acceptance: input.acceptance,
+      });
+    }
+
     // Re-read so the capacity flow's status patch is reflected.
     const settled = await this.directus.get<{ data: RegistrationRow }>(
       `/items/registrations/${created.data.id}`,
@@ -239,6 +275,22 @@ export class RegistrationsDirectusService {
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────
+
+  private async recordAcceptanceOrThrow(input: {
+    userId: string;
+    eventId: string;
+    registrationId: string;
+    acceptance: AcceptanceInput;
+  }): Promise<void> {
+    try {
+      await this.eulas.recordAcceptance(input);
+    } catch (err) {
+      if (err instanceof EulaAcceptanceMismatchError || err instanceof EulaConsentIncompleteError) {
+        throw new RegistrationConsentRequiredError(err.message);
+      }
+      throw err;
+    }
+  }
 
   private async requireDirectusUserId(userId: string): Promise<string> {
     const id = await this.bridge.resolveDirectusId(userId);
