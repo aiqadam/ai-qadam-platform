@@ -10,6 +10,9 @@
 #   bash infrastructure/directus/bootstrap.sh
 #
 # Collections created:
+#   actor_kinds      — field on directus_users (Sprint 5.5/1)
+#   sponsors         — sponsor org records (Sprint 5.5/1)
+#   speakers         — speaker records (Sprint 5.5/1)
 #   countries        — tenant catalogue (uz, kz, tj)
 #   event_types      — meetup / workshop / hackathon / conference / online
 #   events           — first-class events
@@ -297,6 +300,144 @@ ensure "relation homepage_hero.country -> countries.code" \
   "${DIRECTUS_URL}/relations/homepage_hero/country" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"homepage_hero","field":"country","related_collection":"countries","schema":{"on_delete":"CASCADE"}}'
+
+# ──────────── actor_kinds on directus_users (Sprint 5.5/1) ──────────────
+#
+# Per the interaction architecture, every directus_users row carries an
+# `actor_kinds` array describing which actor categories the user wears
+# (client | operator | speaker | sponsor_rep). A single human can have
+# multiple kinds. Authorization decisions in the API + cabinets read
+# this field per-context (sponsor cabinet checks sponsor_rep + linked
+# sponsors.rep_user, etc.).
+#
+# Idempotency: GET the field; if it exists, skip; otherwise POST.
+
+echo "[directus_users.actor_kinds]"
+ensure "field directus_users.actor_kinds" \
+  "${DIRECTUS_URL}/fields/directus_users/actor_kinds" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"actor_kinds",
+    "type":"json",
+    "schema":{
+      "is_nullable":false,
+      "default_value":"[\"client\"]"
+    },
+    "meta":{
+      "interface":"select-multiple-checkbox",
+      "special":["cast-json"],
+      "options":{
+        "choices":[
+          {"text":"Client","value":"client"},
+          {"text":"Operator","value":"operator"},
+          {"text":"Speaker","value":"speaker"},
+          {"text":"Sponsor rep","value":"sponsor_rep"}
+        ]
+      },
+      "width":"full",
+      "note":"Which actor categories this user occupies. A single human can wear multiple hats."
+    }
+  }'
+
+# ──────────── sponsors (Sprint 5.5/1) ───────────────────────────────────
+#
+# Sponsor organizations. Single user per sponsor (Q4 — multi-rep was
+# deemed overkill at community scale). Eventually replaces the
+# placeholder `partners` collection used by the homepage; partners stays
+# for now as a homepage-display alias (W1.2 will fold them together).
+
+echo "[sponsors]"
+ensure "collection sponsors" \
+  "${DIRECTUS_URL}/collections/sponsors" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"sponsors",
+    "schema":{"name":"sponsors"},
+    "meta":{
+      "icon":"verified",
+      "note":"Sponsor organizations. Single cabinet user per sponsor (Q4).",
+      "sort_field":"sort",
+      "archive_field":"status",
+      "archive_value":"archived",
+      "unarchive_value":"active"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"name","type":"string","schema":{"is_nullable":false,"max_length":160},"meta":{"interface":"input","width":"half","required":true}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":80,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"URL slug — lowercase + dashes"}},
+      {"field":"country","type":"string","schema":{"is_nullable":false,"max_length":2},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"active","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Active","value":"active"},{"text":"Pending","value":"pending"},{"text":"Archived","value":"archived"}]}}},
+      {"field":"tier","type":"string","schema":{"is_nullable":true,"max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Bronze","value":"bronze"},{"text":"Silver","value":"silver"},{"text":"Gold","value":"gold"},{"text":"Platinum","value":"platinum"}]},"note":"Phase 5d sponsorship tier — unused until then"}},
+      {"field":"rep_user","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"Cabinet login user — gates sponsor cabinet access"}},
+      {"field":"logo","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file-image","width":"full"}},
+      {"field":"website","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"full"}},
+      {"field":"description","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full"}},
+      {"field":"sort","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}}
+    ]
+  }'
+
+ensure "relation sponsors.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/sponsors/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"sponsors","field":"country","related_collection":"countries","schema":{"on_delete":"RESTRICT"}}'
+
+ensure "relation sponsors.rep_user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/sponsors/rep_user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"sponsors","field":"rep_user","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation sponsors.logo -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/sponsors/logo" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"sponsors","field":"logo","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── speakers (Sprint 5.5/1) ───────────────────────────────────
+#
+# Speakers are people who present at events. user FK is REQUIRED — a
+# speaker is always a directus_users row (which carries email + name +
+# linked accounts). Speakers may also be clients (commonly).
+
+echo "[speakers]"
+ensure "collection speakers" \
+  "${DIRECTUS_URL}/collections/speakers" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"speakers",
+    "schema":{"name":"speakers"},
+    "meta":{
+      "icon":"campaign",
+      "note":"People who present at events. Linked 1:1 to a directus_users row.",
+      "archive_field":"status",
+      "archive_value":"archived",
+      "unarchive_value":"active"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"user","type":"uuid","schema":{"is_nullable":false,"is_unique":true},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"},"note":"The speaker'\''s directus_users row"}},
+      {"field":"country","type":"string","schema":{"is_nullable":false,"max_length":2},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"active","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Active","value":"active"},{"text":"Pending","value":"pending"},{"text":"Archived","value":"archived"}]}}},
+      {"field":"bio","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-rich-text-md","width":"full","note":"Markdown"}},
+      {"field":"headline","type":"string","schema":{"is_nullable":true,"max_length":160},"meta":{"interface":"input","width":"full","note":"One-line e.g. \"Principal ML Engineer at Uzum Lab\""}},
+      {"field":"linkedin_url","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}},
+      {"field":"twitter_handle","type":"string","schema":{"is_nullable":true,"max_length":40},"meta":{"interface":"input","width":"half"}},
+      {"field":"photo","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file-image","width":"full"}}
+    ]
+  }'
+
+ensure "relation speakers.user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/speakers/user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"speakers","field":"user","related_collection":"directus_users","schema":{"on_delete":"RESTRICT"}}'
+
+ensure "relation speakers.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/speakers/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"speakers","field":"country","related_collection":"countries","schema":{"on_delete":"RESTRICT"}}'
+
+ensure "relation speakers.photo -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/speakers/photo" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"speakers","field":"photo","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
 
 echo
 echo "✅ Directus schema bootstrapped."
