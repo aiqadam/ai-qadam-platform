@@ -1,0 +1,84 @@
+name: supply-chain
+
+# Enforces Sprint 0.3 supply-chain CI gates:
+#   - pnpm audit (severity ≥ high) blocks merge on every PR + push to main
+#   - Trivy scans every deployed prod image weekly (severity ≥ high blocks)
+#   - Dependabot config in .github/dependabot.yml feeds the auto-bump PRs
+#     that keep the lockfile + image tags green between scans
+# Runbook: docs/runbooks/supply-chain.md
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Mondays 06:00 UTC = 11:00 Asia/Tashkent. Triggers the weekly image scan.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: supply-chain-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pnpm-audit:
+    name: pnpm audit (high+critical block)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=high
+
+  trivy-images:
+    name: Trivy scan ${{ matrix.image }}
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every container image we run in production. Mirror this list when a
+        # new service is added in infrastructure/<stack>/docker-compose.yml.
+        # Local-only images (pgvector for dev DB, MinIO) are excluded.
+        image:
+          - postgres:16
+          - postgres:16-alpine
+          - redis:7-alpine
+          - ghcr.io/goauthentik/server:2024.12.3
+          - directus/directus:11
+          - clickhouse/clickhouse-server:24.12-alpine
+          - ghcr.io/plausible/community-edition:v3.0.1
+          - twentycrm/twenty:v0.50.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy scan ${{ matrix.image }}
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ matrix.image }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          format: table
+          timeout: 10m
