@@ -1,0 +1,151 @@
+# Observability v0 — Coolify Docker Compose service stack.
+#
+# Ships Sprint 0.4 from docs/community-platform-roadmap.md §7:
+#   - Loki + Promtail for log aggregation across all Coolify containers
+#   - Uptime Kuma probing every public endpoint, alerts to Telegram/email
+#
+# Sizing: ~1.5 GB RAM total at idle (Loki ~250 MB + Promtail ~80 MB +
+# Uptime Kuma ~180 MB). Fits the single-VM Hyperapp host budget per
+# ARCHITECTURE.md.
+#
+# Inlined configs (Coolify supports `configs:` with inline content) so this
+# compose can be POST-ed to Coolify without a host-side checkout — same
+# pattern as infrastructure/plausible/docker-compose.yml.
+#
+# Deployment: see docs/runbooks/observability.md "Coolify deploy steps".
+# Plausible custom-event side of S0.4 (auth/dispatch/RBAC failure tracking)
+# is Agent-API's job — tracked in a follow-up issue.
+
+name: observability
+
+services:
+  # Loki — single-binary mode, filesystem storage, 30-day retention.
+  # Public endpoint not exposed via Traefik; Coolify internal network only.
+  # Promtail + future Grafana reach it on the compose-private DNS `loki:3100`.
+  loki:
+    image: grafana/loki:3.3.0
+    command: -config.file=/etc/loki/loki-config.yml
+    expose:
+      - "3100"
+    volumes:
+      - loki-data:/loki
+    configs:
+      - source: loki_config
+        target: /etc/loki/loki-config.yml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: always
+
+  # Promtail — scrapes every running Docker container's stdout/stderr stream
+  # via the Docker socket, labels with container name + image, ships to Loki.
+  # Mounts the host's /var/lib/docker/containers read-only for log files +
+  # the docker socket read-only for container metadata discovery.
+  promtail:
+    image: grafana/promtail:3.3.0
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail-positions:/var/promtail-positions
+    configs:
+      - source: promtail_config
+        target: /etc/promtail/promtail-config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+    restart: always
+
+  # Uptime Kuma — synthetic probes (HTTP, TCP, ping, DNS). Notifications
+  # (Telegram bot, email via Resend SMTP) configured via the UI after first
+  # boot; persisted in /app/data/kuma.db. Per the runbook, first-boot owner
+  # signup is HUMAN action.
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.16
+    expose:
+      - "3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    healthcheck:
+      test: ["CMD", "extra/healthcheck"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    restart: always
+
+configs:
+  loki_config:
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+        log_level: warn
+      common:
+        ring:
+          instance_addr: 127.0.0.1
+          kvstore:
+            store: inmemory
+        replication_factor: 1
+        path_prefix: /loki
+      schema_config:
+        configs:
+          - from: "2025-01-01"
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+      storage_config:
+        tsdb_shipper:
+          active_index_directory: /loki/tsdb-shipper-active
+          cache_location: /loki/tsdb-shipper-cache
+        filesystem:
+          directory: /loki/chunks
+      limits_config:
+        retention_period: 720h
+        ingestion_rate_mb: 8
+        ingestion_burst_size_mb: 16
+        reject_old_samples: true
+        reject_old_samples_max_age: 168h
+      compactor:
+        working_directory: /loki/compactor
+        retention_enabled: true
+        retention_delete_delay: 2h
+        delete_request_store: filesystem
+      analytics:
+        reporting_enabled: false
+
+  promtail_config:
+    content: |
+      server:
+        http_listen_port: 9080
+        log_level: warn
+      positions:
+        filename: /var/promtail-positions/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 15s
+          relabel_configs:
+            - source_labels: [__meta_docker_container_name]
+              regex: "/(.*)"
+              target_label: container
+            - source_labels: [__meta_docker_container_log_stream]
+              target_label: stream
+            - source_labels: [__meta_docker_container_label_com_docker_compose_project]
+              target_label: stack
+            - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+              target_label: service
+
+volumes:
+  loki-data:
+  promtail-positions:
+  uptime-kuma-data:
