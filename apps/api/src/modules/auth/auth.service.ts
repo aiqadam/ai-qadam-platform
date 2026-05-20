@@ -17,7 +17,14 @@ import { RefreshTokenService } from './refresh-token.service';
 // user, mint OUR session (access JWT + opaque refresh row), set the
 // refresh cookie on .aiqadam.org, redirect to the original `next`.
 
-const FLOW_COOKIE_TTL_SECONDS = 60;
+// 10 minutes — covers a fresh login flow (email → password → optional
+// MFA → maybe a password-manager prompt → consent). Phase 1 had this at
+// 60s on the assumption that the round-trip to Authentik was instant;
+// in practice users routinely blew past 60s and got "missing oauth flow
+// cookie" on the callback (verified against prod 2026-05-20). The flow
+// cookie carries only PKCE verifier + state nonce + next URL, all
+// single-use — extending the TTL doesn't widen the attack surface.
+const FLOW_COOKIE_TTL_SECONDS = 600;
 const FLOW_ISSUER = 'aiqadam-api-oauth-flow';
 const FLOW_AUDIENCE = 'aiqadam-api-callback';
 const FLOW_SCOPES = 'openid email profile';
