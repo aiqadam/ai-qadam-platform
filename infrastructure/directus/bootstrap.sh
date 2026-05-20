@@ -757,14 +757,23 @@ ensure "relation interaction_responses.delivery -> interaction_deliveries.id" \
 # S0.1 — Demo-tenant isolation (roadmap §7 Sprint 0.1)
 # ════════════════════════════════════════════════════════════════════════
 #
-# Tier (a) of the layered-staging plan: country=demo cohabits production
-# inside every engine, isolated by Directus permission policies. Schema
-# pieces this block adds:
+# Tier (a) of the layered-staging plan: a synthetic "demo" tenant
+# cohabits production inside every engine, isolated by Directus
+# permission policies.
 #
-#   (1) `demo` row in countries
+# Note on the country code: `countries.code` is varchar(2) per ISO 3166-1
+# alpha-2 (uz/kz/tj). The demo tenant uses code `xx` — the ISO 3166-1
+# user-assigned range (X-prefix is reserved for non-country use). The
+# original PR #115 used `demo` (4 chars) which overflowed the column;
+# this comment exists so future readers don't repeat the mistake. The
+# human-readable name field stays "Demo (staging)".
+#
+# Schema pieces this block adds:
+#
+#   (1) `xx` row in countries (display name "Demo (staging)")
 #   (2) `is_test_user` boolean on directus_users (default false)
 #   (3) policy "S0.1 Demo-tenant isolation" + per-collection read filters
-#       that hide country=demo rows from users with is_test_user=false
+#       that hide country=xx rows from users with is_test_user=false
 #
 # Out of scope (lands in other PRs):
 #   - email routing (Mailtrap vs Resend) — Agent-API S0.1
@@ -774,8 +783,8 @@ ensure "relation interaction_responses.delivery -> interaction_deliveries.id" \
 #     policy exists in Directus but is inert; bootstrap re-runs with the
 #     admin token bypass policies regardless.
 
-echo "[S0.1 — demo country]"
-seed_country demo "Demo (staging)" "Демо" "UTC"
+echo "[S0.1 — demo tenant: country=xx]"
+seed_country xx "Demo (staging)" "Демо" "UTC"
 
 echo "[S0.1 — directus_users.is_test_user]"
 ensure "field directus_users.is_test_user" \
@@ -789,7 +798,7 @@ ensure "field directus_users.is_test_user" \
       "interface":"boolean",
       "special":["cast-boolean"],
       "width":"half",
-      "note":"True iff this user is a staging/training contact. Drives: (a) email dispatcher routes via Mailtrap; (b) Plausible events tagged is_test=true; (c) only these users see country=demo rows. Flip true only for the ~20 test contacts + country-lead trainees."
+      "note":"True iff this user is a staging/training contact. Drives: (a) email dispatcher routes via Mailtrap; (b) Plausible events tagged is_test=true; (c) only these users see country=xx (demo) rows. Flip true only for the ~20 test contacts + country-lead trainees."
     }
   }'
 
@@ -804,7 +813,7 @@ ensure "policy ${POLICY_DEMO_TENANT}" \
     id:$id,
     name:"S0.1 Demo-tenant isolation",
     icon:"science",
-    description:"Restrict reads on country-scoped collections so country=demo rows are visible only to users with directus_users.is_test_user=true. Bound to roles by RBAC manifest (S0.6) + sync service (S2.2).",
+    description:"Restrict reads on country-scoped collections so country=xx (demo tenant) rows are visible only to users with directus_users.is_test_user=true. Bound to roles by RBAC manifest (S0.6) + sync service (S2.2).",
     admin_access:false,
     app_access:true,
     enforce_tfa:false
@@ -840,13 +849,13 @@ ensure_perm() {
 }
 
 # Filter shape: a row is visible iff
-#   (a) row is not demo-tenant; OR
+#   (a) row is not the demo tenant (country != "xx"); OR
 #   (b) the requester carries is_test_user=true.
 # Per-collection LHS path differs: most use `country`; countries uses its
 # PK `code`; registrations traverse via `event.country`; directus_users
 # substitute the `is_test_user` field for the country check.
 
-COUNTRY_FILTER='{"_or":[{"country":{"_neq":"demo"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+COUNTRY_FILTER='{"_or":[{"country":{"_neq":"xx"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
 
 echo "[S0.1 — permissions: demo-tenant isolation]"
 ensure_perm "perm events/read"        events        read "$COUNTRY_FILTER"
@@ -857,10 +866,10 @@ ensure_perm "perm sponsors/read"      sponsors      read "$COUNTRY_FILTER"
 ensure_perm "perm speakers/read"      speakers      read "$COUNTRY_FILTER"
 
 ensure_perm "perm countries/read" countries read \
-  '{"_or":[{"code":{"_neq":"demo"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+  '{"_or":[{"code":{"_neq":"xx"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
 
 ensure_perm "perm registrations/read" registrations read \
-  '{"_or":[{"event":{"country":{"_neq":"demo"}}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+  '{"_or":[{"event":{"country":{"_neq":"xx"}}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
 
 ensure_perm "perm directus_users/read" directus_users read \
   '{"_or":[{"is_test_user":{"_eq":false}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
