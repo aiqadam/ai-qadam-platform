@@ -59,14 +59,26 @@ export class AuthService {
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
-      // Force re-authentication every time. prompt=login is the OIDC
-      // standard hint; max_age=0 is the harder mandate (auth_time must
-      // be <= 0 seconds ago = always re-auth). Authentik honors max_age
-      // more reliably than prompt for this purpose. Trade-off: we lose
-      // silent SSO across other Authentik-protected apps — acceptable
-      // for now since AI Qadam is the only such app.
-      prompt: 'login',
-      max_age: 0,
+      // NO prompt=login + NO max_age=0 — see the long-form rationale
+      // below. The short version: those two flags were added in Phase 1
+      // when AI Qadam was the only OIDC app, and they're now actively
+      // breaking SSO across the workspace tools.
+      //
+      // The original comment acknowledged the trade-off ("we lose
+      // silent SSO across other Authentik-protected apps") and accepted
+      // it because AI Qadam was the only such app at the time. That's
+      // no longer true — Directus, Twenty, and Gatus are all OIDC-
+      // bound to the same Authentik now (ADR-0032 acceleration,
+      // 2026-05-20). Forcing re-auth on workspace not only kills
+      // silent SSO but — verified against prod 2026-05-20 — leaves
+      // the user stuck on the Authentik login page with a
+      // "Successfully logged in!" toast and no redirect, because the
+      // OAuth2 authorize endpoint refuses to issue a code when it
+      // sees max_age=0 even immediately after a fresh login.
+      //
+      // Silent SSO is now the correct behavior: valid Authentik
+      // session → consent (skipped via implicit-consent) → callback →
+      // workspace. Sign-out remains explicit via POST /v1/auth/sign-out.
     });
 
     const flowToken = await new SignJWT({
