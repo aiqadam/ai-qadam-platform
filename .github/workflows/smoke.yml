@@ -1,0 +1,72 @@
+name: smoke
+
+# Sprint 0.10 — browser-agent smoke tests (Lane 2 of 3-lane execution model).
+# See docs/community-platform-roadmap.md §2.5 + §7.5.
+#
+# Runs Playwright tests against production (read-only assertions only).
+# A separate workflow (Sprint 0.11 — smoke-production-probe.yml) runs every
+# 30 min for continuous production health monitoring.
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        working-directory: apps/e2e
+        env:
+          BASE_URL: ${{ vars.SMOKE_BASE_URL || 'https://aiqadam.org' }}
+          CI: "true"
+        run: pnpm test:e2e
+
+      - name: Upload Playwright HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: apps/e2e/playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright traces (failures only)
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ github.run_id }}
+          path: apps/e2e/test-results/
+          retention-days: 7
