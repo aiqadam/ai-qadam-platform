@@ -48,6 +48,27 @@ jobs:
         working-directory: apps/e2e
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Wait for prod to be healthy
+        # Coolify auto-deploy on push to main takes ~60–90s; during that window
+        # the Coolify load balancer returns "no available server" plaintext
+        # before the new container is up. Without this gate, smoke races the
+        # deploy and fails with 0 favicons / 502 / missing nav. We poll
+        # /api/health until it returns 200 (max 5 min) before running tests.
+        env:
+          PROBE_URL: ${{ vars.SMOKE_BASE_URL || 'https://aiqadam.org' }}/api/health
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$PROBE_URL" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "✅ prod healthy (HTTP 200) after ${i} attempt(s)"
+              exit 0
+            fi
+            echo "  ${i}/60: $PROBE_URL → HTTP $code (waiting 5s…)"
+            sleep 5
+          done
+          echo "❌ prod did not become healthy within 5 min"
+          exit 1
+
       - name: Run smoke tests
         working-directory: apps/e2e
         env:
