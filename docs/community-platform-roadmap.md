@@ -503,7 +503,7 @@ Depends on Sprint 0.6 RBAC manifest ADR.
 
 | Item | Output | Effort |
 |---|---|---|
-| **2.1 — `workspace.aiqadam.org` shell** | New Astro app (or sub-path of main web). Authentik SSO, role-aware landing dashboard, application launcher cards (Events / CRM / CMS / Analytics). | 2 PRs |
+| **2.1 — `workspace.aiqadam.org` shell** (shell shipped at `/workspace/*` per ADR-0032 acceleration; placeholder RBAC = "is logged in"; role-aware gates land with S2.2 RBAC sync; subdomain promotion is a follow-up Coolify config change) | New Astro app (or sub-path of main web). Authentik SSO, role-aware landing dashboard, application launcher cards (Events / CRM / CMS / Analytics). | 2 PRs |
 | **2.2 — RBAC sync service** | Per manifest ADR: webhook from Authentik group change → applies to Directus policy + Twenty workspace + Plausible site. State machine with per-engine status + retry. Partial-failure paths surface in workspace dashboard with retry button (no silent partial state). | 3 PRs |
 | **2.3 — Application launcher cards (role+country gated)** | Each card resolves to underlying engine URL with scoping pre-applied (Directus filter token, Twenty workspace, Plausible site). One card per app the user can access. | 2 PRs |
 | **2.4 — Country-scoped operator dashboard** | "This week in {country}" widget: events count, registrations delta, CSAT trend, sponsor activity, **pending operator tasks** (lapsed members queue from §4.1 T+7 flow, speaker abstract reviews from §4.2, sponsor renewal nudges from §4.3, operator-assisted Interactions awaiting approval). Built on Metabase queries against `bi.*` SQL views (architecture doc §8). Metabase deploys here, ahead of original Phase 4 schedule. | 2 PRs + Metabase deploy |

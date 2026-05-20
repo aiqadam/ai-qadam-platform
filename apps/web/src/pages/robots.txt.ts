@@ -19,6 +19,7 @@ export const GET: APIRoute = ({ request }) => {
     'Disallow: /admin/',
     'Disallow: /api/',
     'Disallow: /auth/',
+    'Disallow: /workspace/',
     '',
     `Sitemap: ${origin}/sitemap.xml`,
     '',
