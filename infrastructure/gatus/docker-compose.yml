@@ -39,12 +39,12 @@ services:
       - source: gatus-config
         target: /config/config.yaml
         mode: 0444
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+    # No Docker healthcheck. The Gatus image (twinproduction/gatus) is
+    # built FROM scratch — no shell, no wget, no curl. Any healthcheck
+    # we name returns "command not found", which marks the container
+    # unhealthy and trips Coolify's Traefik labels into routing 503 to
+    # status.aiqadam.org. Coolify's external port-check + Gatus's own
+    # /health endpoint give us the same coverage from outside.
 
 volumes:
   gatus-data:
@@ -149,7 +149,9 @@ configs:
           url: https://auth.aiqadam.org/-/health/ready/
           interval: 120s
           conditions:
-            - "[STATUS] == 204"
+            # Authentik returns 200 (not 204) when ready. Verified
+            # against prod 2026-05-20.
+            - "[STATUS] == 200"
           alerts:
             - type: telegram
               failure-threshold: 2
