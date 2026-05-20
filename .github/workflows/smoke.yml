@@ -13,11 +13,25 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
+  schedule:
+    # Every 30 minutes — production probe. Replaces the previous
+    # push-to-main trigger which raced the Coolify auto-deploy that the
+    # SAME push initiated (web container redeploys lag api by ~30–90s and
+    # serve "no available server" plaintext during that window). The
+    # health-gate workaround consistently saw `api=200 web=no` from
+    # GitHub-Actions IPs for the full 7.5-min budget, so push-trigger
+    # smoke could never be reliably green.
+    #
+    # Smoke now runs:
+    #   - on PR: validates the PR's behavior against current prod (no
+    #     deploy race because the PR isn't deploying)
+    #   - on schedule (every 30 min): genuine prod-probe duty
+    #
+    # Push-to-main no longer triggers smoke; the supply-chain + ci gates
+    # already guard merges, and the next scheduled run catches any
+    # post-deploy regression.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
 
 concurrency:
   group: smoke-${{ github.ref }}
