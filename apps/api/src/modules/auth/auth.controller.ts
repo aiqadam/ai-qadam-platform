@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import { env } from '../../config/env';
+import { track } from '../../lib/ops-events';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { UsersService } from '../users/users.service';
 import { AuthGuard } from './auth.guard';
@@ -96,10 +97,26 @@ export class AuthController {
     const flowToken =
       (req.cookies?.[FLOW_COOKIE] as string | undefined) ??
       (req.cookies?.[LEGACY_FLOW_COOKIE] as string | undefined);
-    const { sub, email, displayName, next } = await this.auth.completeAuthorization({
-      flowToken,
-      callbackParams: req.query as Record<string, string | undefined>,
-    });
+    let sub: string;
+    let email: string;
+    let displayName: string | undefined;
+    let next: string;
+    try {
+      ({ sub, email, displayName, next } = await this.auth.completeAuthorization({
+        flowToken,
+        callbackParams: req.query as Record<string, string | undefined>,
+      }));
+    } catch (err) {
+      // Emit ops event for observability dashboards (Plausible). Reason is
+      // the error class — e.g. "BadFlowCookie", "InvalidStateError" — so
+      // operator can spot a CSRF probe vs an Authentik outage. Fire-and-
+      // forget; never blocks the (re-)thrown error.
+      void track('auth.failed', {
+        reason: err instanceof Error ? err.constructor.name : 'unknown',
+        path: 'callback',
+      });
+      throw err;
+    }
 
     const user = await this.users.upsertByAuthentikSubject({
       authentikSubject: sub,

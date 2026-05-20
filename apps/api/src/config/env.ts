@@ -66,6 +66,12 @@ const envSchema = z.object({
   // createApiKey + generateApiKeyToken (see runbook).
   TWENTY_URL: z.string().url().default('https://crm.aiqadam.org'),
   TWENTY_API_TOKEN: z.string().min(16),
+
+  // Plausible Events API host for server-side ops events (S0.4 / issue
+  // #113). Empty string disables emission — set in prod (Coolify env).
+  // The helper at apps/api/src/lib/ops-events.ts is fire-and-forget; bad
+  // values never break the request path.
+  PLAUSIBLE_HOST: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

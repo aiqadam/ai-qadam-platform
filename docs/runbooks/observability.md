@@ -15,7 +15,24 @@
 What this stack does **not** include yet:
 - Grafana for log visualization — defer to Sprint 2.4 (Metabase deploy) or later if needed; for now use `logcli` or curl against the Loki HTTP API.
 - Tracing (OTel collector + Tempo / Jaeger) — out of scope for v0.
-- Plausible custom events for `auth.failed`, `dispatch.failed`, `rbac.denied` — separate workstream owned by Agent-API (see referenced follow-up issue).
+
+## Ops events (Plausible)
+
+The API emits server-side ops events to Plausible via `apps/api/src/lib/ops-events.ts`. These complement the user-facing pageviews collected by the browser tracker and surface in the same `analytics.aiqadam.org` dashboard.
+
+| Event | Where emitted | Props |
+|---|---|---|
+| `auth.failed` | `auth.controller.ts` OIDC callback `catch` block | `reason` (Error class name), `path` (`callback`) |
+| `dispatch.failed` | `interactions.service.ts` adapter-failure + no-adapter paths | `channel`, `intent`, `reason` |
+| `rbac.denied` | **Not wired yet** — RBAC system itself ships in Sprint 2.2 (ADR-0021). When that lands, hook into the AuthGuard role-check path with props `route`, `required_role`, `actual_role`. |
+
+**Config:** set `PLAUSIBLE_HOST=https://analytics.aiqadam.org` in the API container's Coolify env. Empty (the default) disables emission — useful in dev/test.
+
+**Filtering test traffic:** every event also receives `is_test=true` once the email-adapter `is_test_user` routing ships (S0.1 schema landed; routing is a follow-up). Until then, every event is emitted; Plausible's dashboard filters can exclude by props.
+
+**Synthetic URLs:** ops events use `https://aiqadam.org/__ops__/<event-name>` as their URL so they group cleanly. Add a Plausible filter to exclude `/__ops__/*` from the default page-views dashboard if it bothers the eye.
+
+**Safety:** the helper is fire-and-forget — it `void`s the Promise, swallows all errors, and aborts after 1 s. Observability MUST NOT break the request path.
 
 ## Coolify deploy steps
 
@@ -100,5 +117,5 @@ Loki keeps 30 days of logs. Older logs are deleted by the compactor.
 - Log volume exceeds 50 GB/day → switch to S3 backend.
 - A second country goes live → confirm its FQDN has a monitor.
 - Grafana joins the stack for log dashboards.
-- Plausible ops-events helper from Agent-API lands → cross-link from this runbook to the helper's docstring.
+- ~~Plausible ops-events helper from Agent-API lands → cross-link from this runbook to the helper's docstring.~~ Shipped via issue #113 — see "Ops events (Plausible)" section above.
 - Coolify gains deploy-on-merge → drop the "HUMAN action required" callout.

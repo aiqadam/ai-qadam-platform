@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { track } from '../../lib/ops-events';
 import { DirectusClient } from '../directus/directus.client';
 import { CHANNEL_ADAPTERS, type ChannelAdapter } from './channels/adapter.tokens';
 import { ConsentService } from './consent.service';
@@ -121,6 +122,12 @@ export class InteractionsService {
     if (!adapter) {
       const reason = `no adapter registered for channel=${channel}`;
       await this.patchDeliveryRow(deliveryId, { state: 'failed', failure_reason: reason });
+      // Ops event: operator wants to know if a channel is mis-configured.
+      void track('dispatch.failed', {
+        channel,
+        intent: input.intent,
+        reason: 'no_adapter',
+      });
       return {
         deliveryId,
         recipientUserId: recipient.userId,
@@ -144,6 +151,17 @@ export class InteractionsService {
       patch.failure_reason = result.failureReason;
     }
     await this.patchDeliveryRow(deliveryId, patch);
+
+    if (result.state === 'failed') {
+      // Ops event: adapter returned a failure (SMTP error, API timeout,
+      // etc.). reason is the adapter's failure_reason if present, else
+      // a short marker.
+      void track('dispatch.failed', {
+        channel,
+        intent: input.intent,
+        reason: result.failureReason ?? 'adapter_failed',
+      });
+    }
 
     return {
       deliveryId,
