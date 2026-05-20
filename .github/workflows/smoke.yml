@@ -49,24 +49,46 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Wait for prod to be healthy
-        # Coolify auto-deploy on push to main takes ~60–90s; during that window
-        # the Coolify load balancer returns "no available server" plaintext
-        # before the new container is up. Without this gate, smoke races the
-        # deploy and fails with 0 favicons / 502 / missing nav. We poll
-        # /api/health until it returns 200 (max 5 min) before running tests.
+        # Coolify auto-deploy on push to main redeploys BOTH web + api as
+        # separate containers; each redeploy takes ~60–90s during which the
+        # Coolify load balancer returns "no available server" plaintext for
+        # that specific container. Without this gate, smoke races the deploy
+        # and fails with 0 favicons / 502 / missing nav.
+        #
+        # We check BOTH containers are up — /api/health (api) AND the
+        # homepage HTML contains <link rel="icon"> (web served real HTML, not
+        # the LB fallback). Both must be true for 2 consecutive polls (10s
+        # stable) before we run tests, so we don't race a deploy that just
+        # came online.
         env:
-          PROBE_URL: ${{ vars.SMOKE_BASE_URL || 'https://aiqadam.org' }}/api/health
+          BASE: ${{ vars.SMOKE_BASE_URL || 'https://aiqadam.org' }}
         run: |
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$PROBE_URL" || echo "000")
-            if [ "$code" = "200" ]; then
-              echo "✅ prod healthy (HTTP 200) after ${i} attempt(s)"
-              exit 0
+          stable_polls=0
+          for i in $(seq 1 90); do
+            api_code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/health" || echo "000")
+            web_body=$(curl -sL "$BASE" || true)
+            web_ok="no"
+            if echo "$web_body" | grep -q 'rel="icon"'; then
+              web_ok="yes"
             fi
-            echo "  ${i}/60: $PROBE_URL → HTTP $code (waiting 5s…)"
+            if [ "$api_code" = "200" ] && [ "$web_ok" = "yes" ]; then
+              stable_polls=$((stable_polls + 1))
+              echo "  ${i}/90: api=$api_code web=$web_ok (stable: $stable_polls/2)"
+              if [ "$stable_polls" -ge 2 ]; then
+                echo "✅ prod healthy (api+web both responding) after ${i} attempt(s)"
+                exit 0
+              fi
+            else
+              if [ "$stable_polls" -gt 0 ]; then
+                echo "  ${i}/90: api=$api_code web=$web_ok (resetting stability)"
+              else
+                echo "  ${i}/90: api=$api_code web=$web_ok (waiting 5s…)"
+              fi
+              stable_polls=0
+            fi
             sleep 5
           done
-          echo "❌ prod did not become healthy within 5 min"
+          echo "❌ prod did not become stable within 7.5 min"
           exit 1
 
       - name: Run smoke tests
