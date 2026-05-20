@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# Provision the Gatus OIDC application + provider in Authentik.
+#
+# Per ADR-0032: operator-facing tools must SSO via Authentik. Gatus
+# (replacing Uptime Kuma) speaks OIDC out of the box; this script
+# creates the Authentik side (provider + application) so the Gatus
+# config can point at it.
+#
+# Idempotent: re-running is safe — checks for existing slugs first.
+#
+# Required env (read from /tmp/aiqadam-secrets-AK_API_TOKEN if not
+# explicitly set):
+#   AK_API_TOKEN  — Authentik admin API token
+#   AUTHENTIK_URL — defaults to https://auth.aiqadam.org
+#
+# Outputs (printed + cached at /tmp/aiqadam-secrets-GATUS_OIDC_CLIENT_SECRET):
+#   The OIDC client secret to paste into the Coolify env when creating
+#   the Gatus service.
+#
+# Usage:
+#   bash scripts/provision-gatus-authentik.sh
+
+set -euo pipefail
+
+AUTHENTIK_URL="${AUTHENTIK_URL:-https://auth.aiqadam.org}"
+AK_TOKEN_PATH="${AK_TOKEN_PATH:-/tmp/aiqadam-secrets-AK_API_TOKEN}"
+AK_API_TOKEN="${AK_API_TOKEN:-$(cat "$AK_TOKEN_PATH" 2>/dev/null || true)}"
+
+if [[ -z "$AK_API_TOKEN" ]]; then
+  echo "FATAL: AK_API_TOKEN not set and $AK_TOKEN_PATH missing." >&2
+  exit 2
+fi
+
+H_AUTH="Authorization: Bearer $AK_API_TOKEN"
+H_JSON="Content-Type: application/json"
+
+# Identifiers used throughout. Stable so re-runs are idempotent.
+PROVIDER_NAME="Gatus OIDC"
+APP_NAME="Gatus"
+APP_SLUG="gatus"
+CLIENT_ID="gatus"
+REDIRECT_URL="https://status.aiqadam.org/authorization-code/callback"
+
+echo "[1/5] Looking for existing provider named \"$PROVIDER_NAME\"…"
+PROVIDER_LIST=$(curl -sf -H "$H_AUTH" \
+  "$AUTHENTIK_URL/api/v3/providers/oauth2/?name=$(printf %s "$PROVIDER_NAME" | jq -sRr @uri)")
+PROVIDER_ID=$(echo "$PROVIDER_LIST" | jq -r '.results[0].pk // empty')
+
+if [[ -n "$PROVIDER_ID" ]]; then
+  echo "  ✓ provider exists (id=$PROVIDER_ID)"
+  CLIENT_SECRET=$(echo "$PROVIDER_LIST" | jq -r '.results[0].client_secret')
+else
+  echo "[2/5] Resolving the default 'authorization-code' flow + signing key…"
+  AUTHZ_FLOW=$(curl -sf -H "$H_AUTH" \
+    "$AUTHENTIK_URL/api/v3/flows/instances/?slug=default-provider-authorization-implicit-consent" \
+    | jq -r '.results[0].pk')
+  if [[ -z "$AUTHZ_FLOW" || "$AUTHZ_FLOW" == "null" ]]; then
+    echo "  ! 'default-provider-authorization-implicit-consent' not found; trying 'default-provider-authorization-explicit-consent'"
+    AUTHZ_FLOW=$(curl -sf -H "$H_AUTH" \
+      "$AUTHENTIK_URL/api/v3/flows/instances/?slug=default-provider-authorization-explicit-consent" \
+      | jq -r '.results[0].pk')
+  fi
+  if [[ -z "$AUTHZ_FLOW" || "$AUTHZ_FLOW" == "null" ]]; then
+    echo "FATAL: no authorization flow found. Inspect Authentik admin." >&2
+    exit 3
+  fi
+
+  SIGNING_KEY=$(curl -sf -H "$H_AUTH" \
+    "$AUTHENTIK_URL/api/v3/crypto/certificatekeypairs/?name=authentik+Self-signed+Certificate" \
+    | jq -r '.results[0].pk')
+  if [[ -z "$SIGNING_KEY" || "$SIGNING_KEY" == "null" ]]; then
+    # Older Authentik installs sometimes name it differently — fall
+    # back to the first available cert.
+    SIGNING_KEY=$(curl -sf -H "$H_AUTH" "$AUTHENTIK_URL/api/v3/crypto/certificatekeypairs/" \
+      | jq -r '.results[0].pk')
+  fi
+
+  CLIENT_SECRET=$(openssl rand -hex 32)
+
+  echo "[3/5] Creating provider…"
+  PROVIDER_BODY=$(jq -nc \
+    --arg name "$PROVIDER_NAME" \
+    --arg cid "$CLIENT_ID" \
+    --arg secret "$CLIENT_SECRET" \
+    --arg flow "$AUTHZ_FLOW" \
+    --arg key "$SIGNING_KEY" \
+    --arg redirect "$REDIRECT_URL" \
+    '{
+      name: $name,
+      client_type: "confidential",
+      client_id: $cid,
+      client_secret: $secret,
+      authorization_flow: $flow,
+      signing_key: $key,
+      redirect_uris: [{matching_mode: "strict", url: $redirect}],
+      sub_mode: "user_email",
+      include_claims_in_id_token: true,
+      property_mappings: [],
+      access_code_validity: "minutes=1",
+      access_token_validity: "minutes=10",
+      refresh_token_validity: "days=30"
+    }')
+  PROVIDER_ID=$(curl -sf -H "$H_AUTH" -H "$H_JSON" \
+    -X POST "$AUTHENTIK_URL/api/v3/providers/oauth2/" \
+    -d "$PROVIDER_BODY" | jq -r '.pk')
+  echo "  + provider created (id=$PROVIDER_ID)"
+fi
+
+echo "[4/5] Looking for existing application slug=$APP_SLUG…"
+APP_EXISTS=$(curl -sf -H "$H_AUTH" \
+  "$AUTHENTIK_URL/api/v3/core/applications/?slug=$APP_SLUG" \
+  | jq -r '.results[0].pk // empty')
+
+if [[ -n "$APP_EXISTS" ]]; then
+  echo "  ✓ application exists (pk=$APP_EXISTS)"
+else
+  echo "[5/5] Creating application…"
+  APP_BODY=$(jq -nc \
+    --arg name "$APP_NAME" \
+    --arg slug "$APP_SLUG" \
+    --arg provider "$PROVIDER_ID" \
+    '{
+      name: $name,
+      slug: $slug,
+      provider: ($provider | tonumber),
+      meta_launch_url: "https://status.aiqadam.org",
+      meta_description: "Uptime + health-check monitoring for every public AI Qadam surface. Per ADR-0032.",
+      policy_engine_mode: "any"
+    }')
+  curl -sf -H "$H_AUTH" -H "$H_JSON" \
+    -X POST "$AUTHENTIK_URL/api/v3/core/applications/" \
+    -d "$APP_BODY" >/dev/null
+  echo "  + application created"
+fi
+
+# Cache the secret + print it so the operator can paste into Coolify.
+umask 077
+printf '%s' "$CLIENT_SECRET" > /tmp/aiqadam-secrets-GATUS_OIDC_CLIENT_SECRET
+chmod 600 /tmp/aiqadam-secrets-GATUS_OIDC_CLIENT_SECRET
+
+echo
+echo "─────────────────────────────────────────────────────────────────"
+echo "  Authentik provider + application provisioned."
+echo "  Issuer URL:    $AUTHENTIK_URL/application/o/$APP_SLUG/"
+echo "  Client ID:     $CLIENT_ID"
+echo "  Client secret: $CLIENT_SECRET"
+echo "  (also cached at /tmp/aiqadam-secrets-GATUS_OIDC_CLIENT_SECRET)"
+echo
+echo "  Paste the client secret into the Coolify aiqadam-gatus service"
+echo "  env as GATUS_OIDC_CLIENT_SECRET, then restart."
+echo "─────────────────────────────────────────────────────────────────"

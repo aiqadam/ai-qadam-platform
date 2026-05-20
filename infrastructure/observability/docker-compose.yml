@@ -63,20 +63,6 @@ services:
   # (Telegram bot, email via Resend SMTP) configured via the UI after first
   # boot; persisted in /app/data/kuma.db. Per the runbook, first-boot owner
   # signup is HUMAN action.
-  uptime-kuma:
-    image: louislam/uptime-kuma:1.23.16
-    expose:
-      - "3001"
-    volumes:
-      - uptime-kuma-data:/app/data
-    healthcheck:
-      test: ["CMD", "extra/healthcheck"]
-      interval: 60s
-      timeout: 30s
-      retries: 5
-      start_period: 60s
-    restart: always
-
 configs:
   loki_config:
     content: |
@@ -148,4 +134,3 @@ configs:
 volumes:
   loki-data:
   promtail-positions:
-  uptime-kuma-data:

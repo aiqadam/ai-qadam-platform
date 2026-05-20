@@ -1,0 +1,212 @@
+# Gatus — uptime + health-check monitoring with native Authentik OIDC.
+#
+# Replaces the Uptime Kuma deploy (PR #112) per ADR-0032: every
+# operator-facing tool must SSO via Authentik or embed in workspace.
+# Uptime Kuma has no OIDC and never will (upstream "will-not-implement")
+# so it was an auth island the moment it shipped.
+#
+# Gatus is a single Go binary + YAML config — much lighter than Uptime
+# Kuma (~50 MB RAM vs ~180 MB) — and speaks OIDC natively via the
+# `security.oidc` section in config.yaml.
+#
+# Storage: SQLite, single volume at /data. Good enough for the probe
+# history we keep (30 days default). Switch to Postgres if we ever
+# want cross-host HA.
+#
+# OIDC config is environment-templated so the Authentik client secret
+# isn't checked into the repo. Coolify env (set when the service is
+# created):
+#   GATUS_OIDC_CLIENT_SECRET=<from Authentik provider creation>
+# All other OIDC values are public (issuer URL, client ID, redirect
+# URL) and inlined below.
+#
+# Deployment: see docs/runbooks/observability.md.
+
+name: gatus
+
+services:
+  gatus:
+    image: twinproduction/gatus:v5.13.1
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      # Required: Authentik OIDC client secret (set in Coolify env)
+      GATUS_OIDC_CLIENT_SECRET: ${GATUS_OIDC_CLIENT_SECRET}
+    volumes:
+      - gatus-data:/data
+    configs:
+      - source: gatus-config
+        target: /config/config.yaml
+        mode: 0444
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  gatus-data:
+
+configs:
+  gatus-config:
+    content: |
+      # ──────────────────────────────────────────────────────────────
+      # Gatus config — see https://gatus.io/docs
+      # ──────────────────────────────────────────────────────────────
+
+      storage:
+        type: sqlite
+        path: /data/data.db
+
+      # Web UI binds to 8080 inside the container; Coolify Traefik
+      # terminates TLS at https://status.aiqadam.org and proxies in.
+      web:
+        address: 0.0.0.0
+        port: 8080
+
+      # OIDC via Authentik — the whole reason this stack exists.
+      # Anyone in Authentik with the "Gatus" application assigned can
+      # log in; access is otherwise public-read-only of the dashboard
+      # (probes themselves are not gated).
+      security:
+        oidc:
+          issuer-url: https://auth.aiqadam.org/application/o/gatus/
+          client-id: gatus
+          client-secret: ${GATUS_OIDC_CLIENT_SECRET}
+          redirect-url: https://status.aiqadam.org/authorization-code/callback
+          scopes:
+            - openid
+            - email
+            - profile
+          # Empty allowed-subjects = any authenticated user. Tighten by
+          # listing emails or domains once the operator roster stabilises.
+          allowed-subjects: []
+
+      # Make the dashboard public (read-only). Auth is required only for
+      # admin actions (none today; this is future-proofing).
+      ui:
+        title: AI Qadam · status
+        header: AI Qadam status
+        description: Production health of every public AI Qadam surface.
+        link: https://aiqadam.org
+
+      # Default alerting config — Telegram on state-change. Configure
+      # the bot token + chat ID by setting env vars on the Coolify
+      # service: GATUS_TELEGRAM_TOKEN, GATUS_TELEGRAM_CHAT_ID.
+      alerting:
+        telegram:
+          token: ${GATUS_TELEGRAM_TOKEN:-}
+          id: ${GATUS_TELEGRAM_CHAT_ID:-}
+
+      # ──────────────────────────────────────────────────────────────
+      # Endpoints — every public AI Qadam surface gets a probe here.
+      # When you add a new FQDN, add a corresponding entry below in the
+      # SAME PR that adds the FQDN (rule per docs/runbooks/observability.md).
+      # ──────────────────────────────────────────────────────────────
+      endpoints:
+        - name: web — aiqadam.org (apex)
+          group: web
+          url: https://aiqadam.org/
+          interval: 60s
+          conditions:
+            - "[STATUS] == 200"
+            - "[RESPONSE_TIME] < 3000"
+            - "[BODY] != "
+          alerts:
+            - type: telegram
+              failure-threshold: 3
+              send-on-resolved: true
+
+        - name: web — uz.aiqadam.org
+          group: web
+          url: https://uz.aiqadam.org/
+          interval: 60s
+          conditions:
+            - "[STATUS] == 200"
+            - "[RESPONSE_TIME] < 3000"
+            - "[BODY] != "
+          alerts:
+            - type: telegram
+              failure-threshold: 3
+              send-on-resolved: true
+
+        - name: api — /api/health
+          group: api
+          url: https://aiqadam.org/api/health
+          interval: 60s
+          conditions:
+            - "[STATUS] == 200"
+            - "[BODY].status == ok"
+          alerts:
+            - type: telegram
+              failure-threshold: 3
+              send-on-resolved: true
+
+        - name: auth — Authentik /-/health/ready/
+          group: identity
+          url: https://auth.aiqadam.org/-/health/ready/
+          interval: 120s
+          conditions:
+            - "[STATUS] == 204"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
+
+        - name: cms — Directus /server/health
+          group: cms
+          url: https://cms.aiqadam.org/server/health
+          interval: 120s
+          conditions:
+            - "[STATUS] == 200"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
+
+        - name: crm — Twenty /healthz
+          group: crm
+          url: https://crm.aiqadam.org/healthz
+          interval: 300s
+          conditions:
+            - "[STATUS] == 200"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
+
+        - name: analytics — Plausible /api/health
+          group: analytics
+          url: https://analytics.aiqadam.org/api/health
+          interval: 300s
+          conditions:
+            - "[STATUS] == 200"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
+
+        - name: platform — Coolify
+          group: platform
+          url: https://coolify.aiqadam.org/
+          interval: 300s
+          conditions:
+            - "[STATUS] == 200"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
+
+        - name: workspace — /workspace
+          group: web
+          url: https://aiqadam.org/workspace
+          interval: 120s
+          conditions:
+            - "[STATUS] == 200"
+            - "[BODY] != "
+          alerts:
+            - type: telegram
+              failure-threshold: 3
+              send-on-resolved: true
