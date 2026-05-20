@@ -9,17 +9,25 @@ test.describe('S2.1 — workspace shell', () => {
   test('/workspace anon viewer auto-redirects toward Authentik login', async ({ page }) => {
     // Initial response is the static shell (200); the JS island then
     // calls /auth/refresh, sees no session, and replaces the URL with
-    // /api/v1/auth/login → 302 → Authentik authorize URL.
-    const response = await page.goto('/workspace');
+    // /api/v1/auth/login → 302 → Authentik authorize URL → 302 →
+    // Authentik's authentication-flow UI.
+    const response = await page.goto('/workspace', { waitUntil: 'domcontentloaded' });
     expect(response?.status()).toBe(200);
 
-    // Wait for the redirect chain to settle off /workspace. The
-    // destination is /api/v1/auth/login → 302 → Authentik authorize
-    // URL with a state nonce; matching either suffices to prove the
-    // auto-redirect fired. Don't assert deeper into Authentik's UI
-    // (it's their surface, not ours; assertions there churn).
-    await page.waitForURL(/auth\.aiqadam\.org|\/api\/v1\/auth\/login/, { timeout: 10_000 });
-    expect(page.url()).not.toMatch(/\/workspace\/?$/);
+    // Poll page.url() until we're off /workspace. waitForURL with a
+    // regex can race the multi-hop chain; sample the URL ourselves at
+    // 200ms intervals up to 10s. Final URL ends up on auth.aiqadam.org
+    // (Authentik's flow UI) — any URL outside /workspace proves the
+    // auto-redirect fired.
+    let url = '';
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      url = page.url();
+      if (!/\/workspace\/?$/.test(url)) break;
+      await page.waitForTimeout(200);
+    }
+    expect(url, 'page should redirect off /workspace within 10s').not.toMatch(/\/workspace\/?$/);
+    expect(url).toMatch(/auth\.aiqadam\.org|\/api\/v1\/auth\/login/);
   });
 
   test('robots.txt disallows /workspace/', async ({ request }) => {
