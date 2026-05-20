@@ -43,7 +43,10 @@ const CARDS: AppCard[] = [
     slug: 'cms',
     title: 'Content · Directus',
     description: 'Edit homepage hero, partners, sponsors, speakers, events.',
-    url: 'https://cms.aiqadam.org',
+    // Deep-link into Directus's OIDC entry — no intermediate "Sign in
+    // with Authentik" click. Verified: 302 straight to Authentik
+    // authorize URL.
+    url: 'https://cms.aiqadam.org/auth/login/authentik',
     scope: 'operator',
     status: 'open-in-new-tab',
   },

@@ -65,7 +65,21 @@ export default function Workspace(): ReactElement {
     void bootstrap().then(setState);
   }, []);
 
-  if (state.phase === 'loading') {
+  // Anon viewers auto-redirect to Authentik immediately — no
+  // intermediate "Sign in" button click. The workspace IS the operator
+  // surface (ADR-0032) so any anon visit IS an intent to sign in.
+  // Effect runs whenever state transitions to 'anon'; useEffect's
+  // dependency tracking handles re-renders without re-redirecting.
+  useEffect(() => {
+    if (state.phase === 'anon' && typeof window !== 'undefined') {
+      window.location.replace(signInUrl());
+    }
+  }, [state.phase]);
+
+  if (state.phase === 'loading' || state.phase === 'anon') {
+    // 'anon' shows the same loading frame for the split second before
+    // the redirect fires — no flash of a sign-in CTA the user might
+    // try to interact with.
     return <ShellFrame title="Workspace">{<Loading />}</ShellFrame>;
   }
 
@@ -73,14 +87,6 @@ export default function Workspace(): ReactElement {
     return (
       <ShellFrame title="Workspace">
         <ErrorState message={state.message} />
-      </ShellFrame>
-    );
-  }
-
-  if (state.phase === 'anon') {
-    return (
-      <ShellFrame title="Workspace">
-        <AnonGate />
       </ShellFrame>
     );
   }
@@ -182,41 +188,6 @@ function ErrorState({ message }: { message: string }): ReactElement {
         Workspace unavailable
       </h1>
       <p style={{ color: 'var(--muted-foreground)', fontSize: 14 }}>{message}</p>
-    </div>
-  );
-}
-
-function AnonGate(): ReactElement {
-  return (
-    <div style={{ maxWidth: 520 }}>
-      <h1
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: 28,
-          margin: '0 0 12px',
-          letterSpacing: '-0.01em',
-        }}
-      >
-        Workspace
-      </h1>
-      <p
-        style={{
-          color: 'var(--muted-foreground)',
-          fontSize: 15,
-          lineHeight: 1.6,
-          margin: '0 0 24px',
-        }}
-      >
-        Single landing for AI Qadam operators — admins, sponsors, country leads, and speakers. Sign
-        in with your Authentik account to continue.
-      </p>
-      <a
-        href={signInUrl()}
-        className="btn btn-primary"
-        style={{ textDecoration: 'none', display: 'inline-block' }}
-      >
-        Sign in
-      </a>
     </div>
   );
 }
