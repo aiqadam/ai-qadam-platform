@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from 'react';
+import AppLauncher from './AppLauncher';
 
 // /workspace — the single landing surface for operators, per ADR-0032
 // ("operator-facing tools must SSO via Authentik or embed in workspace").
@@ -248,37 +249,7 @@ function AuthedShell({ email }: { email: string }): ReactElement {
         </h1>
       </header>
 
-      <section
-        style={{
-          padding: 24,
-          border: '1px dashed var(--border)',
-          borderRadius: 12,
-          background: 'var(--card)',
-        }}
-      >
-        <p
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10,
-            color: 'var(--muted-foreground)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            margin: '0 0 8px',
-          }}
-        >
-          Coming next
-        </p>
-        <p style={{ margin: '0 0 4px', fontSize: 14 }}>
-          App launcher with cards for the tools you can access.
-        </p>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-          Per-role gates land when{' '}
-          <a href="/docs/adr/0021-rbac-manifest" style={{ color: 'var(--primary)' }}>
-            ADR-0021
-          </a>{' '}
-          is Accepted and Sprint 2.2 RBAC sync ships. Until then everyone sees the same dashboard.
-        </p>
-      </section>
+      <AppLauncher />
     </div>
   );
 }

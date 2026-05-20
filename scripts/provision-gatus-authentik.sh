@@ -41,6 +41,25 @@ APP_SLUG="gatus"
 CLIENT_ID="gatus"
 REDIRECT_URL="https://status.aiqadam.org/authorization-code/callback"
 
+# Helper: POST/PATCH that surfaces the response body on HTTP error
+# instead of silently exiting. The first prod run of this script
+# (2026-05-20) used `curl -sf` which swallowed the response and the
+# script died at "[3/5] Creating provider…" with no clue. Took ~30
+# minutes to discover Authentik now requires `invalidation_flow`.
+ak_post() {
+  local url="$1" body="$2"
+  local resp code respbody
+  resp=$(curl -s -H "$H_AUTH" -H "$H_JSON" -X POST -w "\n%{http_code}" "$url" -d "$body")
+  code="${resp##*$'\n'}"
+  respbody="${resp%$'\n'*}"
+  if [[ "$code" != "200" && "$code" != "201" ]]; then
+    echo "  ✗ POST $url returned HTTP $code" >&2
+    echo "    $respbody" >&2
+    return 1
+  fi
+  printf '%s' "$respbody"
+}
+
 echo "[1/5] Looking for existing provider named \"$PROVIDER_NAME\"…"
 PROVIDER_LIST=$(curl -sf -H "$H_AUTH" \
   "$AUTHENTIK_URL/api/v3/providers/oauth2/?name=$(printf %s "$PROVIDER_NAME" | jq -sRr @uri)")
@@ -50,29 +69,50 @@ if [[ -n "$PROVIDER_ID" ]]; then
   echo "  ✓ provider exists (id=$PROVIDER_ID)"
   CLIENT_SECRET=$(echo "$PROVIDER_LIST" | jq -r '.results[0].client_secret')
 else
-  echo "[2/5] Resolving the default 'authorization-code' flow + signing key…"
+  echo "[2/5] Resolving authorization + invalidation flows + signing key…"
   AUTHZ_FLOW=$(curl -sf -H "$H_AUTH" \
     "$AUTHENTIK_URL/api/v3/flows/instances/?slug=default-provider-authorization-implicit-consent" \
-    | jq -r '.results[0].pk')
-  if [[ -z "$AUTHZ_FLOW" || "$AUTHZ_FLOW" == "null" ]]; then
+    | jq -r '.results[0].pk // empty')
+  if [[ -z "$AUTHZ_FLOW" ]]; then
     echo "  ! 'default-provider-authorization-implicit-consent' not found; trying 'default-provider-authorization-explicit-consent'"
     AUTHZ_FLOW=$(curl -sf -H "$H_AUTH" \
       "$AUTHENTIK_URL/api/v3/flows/instances/?slug=default-provider-authorization-explicit-consent" \
-      | jq -r '.results[0].pk')
+      | jq -r '.results[0].pk // empty')
   fi
-  if [[ -z "$AUTHZ_FLOW" || "$AUTHZ_FLOW" == "null" ]]; then
+  if [[ -z "$AUTHZ_FLOW" ]]; then
     echo "FATAL: no authorization flow found. Inspect Authentik admin." >&2
+    exit 3
+  fi
+
+  # Authentik 2024.x and later require `invalidation_flow` on OAuth2
+  # providers (previously optional). Pick the default provider
+  # invalidation flow if it exists, else any flow with
+  # designation=invalidation.
+  INVALID_FLOW=$(curl -sf -H "$H_AUTH" \
+    "$AUTHENTIK_URL/api/v3/flows/instances/?slug=default-provider-invalidation-flow" \
+    | jq -r '.results[0].pk // empty')
+  if [[ -z "$INVALID_FLOW" ]]; then
+    INVALID_FLOW=$(curl -sf -H "$H_AUTH" \
+      "$AUTHENTIK_URL/api/v3/flows/instances/?designation=invalidation" \
+      | jq -r '.results[0].pk // empty')
+  fi
+  if [[ -z "$INVALID_FLOW" ]]; then
+    echo "FATAL: no invalidation flow found. Inspect Authentik admin." >&2
     exit 3
   fi
 
   SIGNING_KEY=$(curl -sf -H "$H_AUTH" \
     "$AUTHENTIK_URL/api/v3/crypto/certificatekeypairs/?name=authentik+Self-signed+Certificate" \
-    | jq -r '.results[0].pk')
-  if [[ -z "$SIGNING_KEY" || "$SIGNING_KEY" == "null" ]]; then
+    | jq -r '.results[0].pk // empty')
+  if [[ -z "$SIGNING_KEY" ]]; then
     # Older Authentik installs sometimes name it differently — fall
     # back to the first available cert.
     SIGNING_KEY=$(curl -sf -H "$H_AUTH" "$AUTHENTIK_URL/api/v3/crypto/certificatekeypairs/" \
-      | jq -r '.results[0].pk')
+      | jq -r '.results[0].pk // empty')
+  fi
+  if [[ -z "$SIGNING_KEY" ]]; then
+    echo "FATAL: no signing key found. Inspect Authentik admin → Certificates." >&2
+    exit 3
   fi
 
   CLIENT_SECRET=$(openssl rand -hex 32)
@@ -82,7 +122,8 @@ else
     --arg name "$PROVIDER_NAME" \
     --arg cid "$CLIENT_ID" \
     --arg secret "$CLIENT_SECRET" \
-    --arg flow "$AUTHZ_FLOW" \
+    --arg af "$AUTHZ_FLOW" \
+    --arg if_ "$INVALID_FLOW" \
     --arg key "$SIGNING_KEY" \
     --arg redirect "$REDIRECT_URL" \
     '{
@@ -90,7 +131,8 @@ else
       client_type: "confidential",
       client_id: $cid,
       client_secret: $secret,
-      authorization_flow: $flow,
+      authorization_flow: $af,
+      invalidation_flow: $if_,
       signing_key: $key,
       redirect_uris: [{matching_mode: "strict", url: $redirect}],
       sub_mode: "user_email",
@@ -100,9 +142,7 @@ else
       access_token_validity: "minutes=10",
       refresh_token_validity: "days=30"
     }')
-  PROVIDER_ID=$(curl -sf -H "$H_AUTH" -H "$H_JSON" \
-    -X POST "$AUTHENTIK_URL/api/v3/providers/oauth2/" \
-    -d "$PROVIDER_BODY" | jq -r '.pk')
+  PROVIDER_ID=$(ak_post "$AUTHENTIK_URL/api/v3/providers/oauth2/" "$PROVIDER_BODY" | jq -r '.pk')
   echo "  + provider created (id=$PROVIDER_ID)"
 fi
 
