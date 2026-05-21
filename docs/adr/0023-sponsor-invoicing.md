@@ -1,9 +1,9 @@
 # ADR-0023: Sponsor invoicing — billing flow, currency, and tax handling
 
 ## Status
-Proposed, 2026-05-21
+Accepted (Phase 1 only), 2026-05-21
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md). Gates Sprint 3.5 (partner cabinet) — without an invoicing decision, the cabinet UX can't determine whether sponsors pay in-cabinet or via external link.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md), constrained by a zero-recurring-spend filter: **Phase 1 (manual + Directus status) is Accepted; Phase 2 (Stripe) and Phase 3 (local-portal integration) remain Proposed and revisit when their stated triggers fire.** The cabinet UX (Sprint 3.5 partner cabinet) reads `sponsor_contributions.status` regardless of which phase is live, so this scope cut doesn't block downstream work.
 
 ## Context
 

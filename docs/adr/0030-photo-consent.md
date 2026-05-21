@@ -1,9 +1,9 @@
 # ADR-0030: Photo consent at events — capture, propagation, revocation
 
 ## Status
-Proposed, 2026-05-21
+Accepted, 2026-05-21
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md). Gates Phase ζ moderation work + sponsor PII boundary integrity per ADR-0033.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Recurring cost is negligible — wristbands ~$5/event × ~10 events/year/country ≈ $150/year across UZ+KZ+TJ; the schema work + cron sit alongside the F-S3.0 graph. Unblocks Phase ζ moderation work + sponsor PII boundary integrity per ADR-0033.
 
 ## Context
 

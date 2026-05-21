@@ -1,9 +1,9 @@
 # ADR-0022: Country-lead compensation model
 
 ## Status
-Proposed, 2026-05-21
+Deferred, 2026-05-21 — on the [business-process gap list](../business-process-gaps.md)
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md). **Gates Sprint 4** (country provisioning) — no country lead can be onboarded without an accepted compensation model.
+> Reviewed by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Decision: **defer**, not accept. Reason: all paid options (B/C/D) require recurring spend that isn't authorized at this stage. **Operating reality stays Option A (pure volunteer)** with explicit acknowledgement that this will not survive past KZ/TJ activation. Logged in [`docs/business-process-gaps.md`](../business-process-gaps.md) with the trigger conditions for revisit. Sprint 4 (country provisioning) is consequently gated on this ADR being revisited + Accepted before any country lead beyond UZ is onboarded.
 
 ## Context
 

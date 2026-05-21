@@ -1,9 +1,9 @@
 # ADR-0028: First paid spend — when, on what, what we're testing
 
 ## Status
-Proposed, 2026-05-21
+Deferred, 2026-05-21 — on the [business-process gap list](../business-process-gaps.md)
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md).
+> Reviewed by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Decision: **defer**, not accept. Reason: any paid spend (Options B/C/D) requires recurring budget that isn't authorized at this stage. **Operating reality stays Option A (no paid spend Year-1; organic only)** until sponsor revenue stabilizes enough to fund test campaigns from real platform revenue. Logged in [`docs/business-process-gaps.md`](../business-process-gaps.md) with the trigger conditions for revisit. Paid-channel CAPABILITY (campaign landing pages + UTM scheme + Plausible attribution) still ships per [community-platform-roadmap §7 Sprint 5.9](../community-platform-roadmap.md); only the SPEND decision is deferred.
 
 ## Context
 

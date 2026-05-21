@@ -1,9 +1,9 @@
 # ADR-0024: Future revenue phasing — when paid products on the member graph turn on
 
 ## Status
-Proposed, 2026-05-21
+Accepted, 2026-05-21
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md). Informs Phase ζ product prioritization.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Informs Phase ζ product prioritization. Each phase gate (ζ.1 hackathons, ζ.2 paid workshops, ζ.3 HRtech, ζ.4 paid premium content, ζ.5 mentorship, ζ.6 sponsor talent-slice) remains its own go/no-go decision at gate-time — accepting the phasing model itself does not commit spend or hires on day one.
 
 ## Context
 

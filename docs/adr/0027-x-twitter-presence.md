@@ -1,9 +1,9 @@
 # ADR-0027: X (Twitter) presence — yes, no, or scope
 
 ## Status
-Proposed, 2026-05-21
+Accepted, 2026-05-21
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md).
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Zero ongoing recurring spend — Option D requires a one-time ~1-day engineering integration with F-S5.4 social cards; subsequent auto-post traffic costs nothing per X's free tier. Squat-prevent the handle immediately as a separate HUMAN one-off step.
 
 ## Context
 

@@ -717,15 +717,28 @@ Sprint dependency graph remains valid; what changed is the rate at which depende
 
 ## 10. Open decisions (blocking issues)
 
-These must be resolved before the named sprint can ship.
+These must be resolved before the named sprint can ship. **Decision-batch #1 closed 2026-05-21** (PR #149 drafted 8 ADRs; this batch flipped 7 of them via the decision-batch process — see [Decision-batch outcomes](#10-decision-batch-outcomes) below). Two ADRs (0022 country-lead compensation, 0028 first paid spend) moved to the [business-process gap list](./business-process-gaps.md) because their accepted options require recurring spend that isn't authorized at this stage.
 
-| Decision | Blocks | Owner | Notes |
+| Decision | Blocks | Owner | Status / notes |
 |---|---|---|---|
-| **Country-lead compensation model** | Sprint 4.3 (onboarding runbook) | PM | Volunteer-with-title vs revenue-share vs part-time salary vs hybrid. Biggest non-technical unknown for scaling. PM should drive answer by week 6. |
-| **Invoicing integration** | Sprint 3.2 (sponsor cabinet UX) | PM | Xero / Stripe Invoicing / manual link to external invoice. Determines whether sponsors pay in-cabinet or get an external invoice link. |
-| **Single-origin cabinet routing (A/B/C)** | Sprint 3.1 (ADR), then 3.2 + 3.3 | Architect | Architect picks Option C (single-origin role-routed: `app.aiqadam.org/sponsor` etc). Confirmed at planning, ADR makes it formal. |
+| **Country-lead compensation model** | Sprint 4.3 (onboarding runbook) | PM | **Deferred 2026-05-21** to [gap list G-1](./business-process-gaps.md); ADR-0022 reviewed but not accepted. Operating reality stays Option A (volunteer); revisit triggered by sustained sponsor revenue ≥ USD 15k/yr OR a candidate who can't volunteer. |
+| **Sponsor invoicing integration** | Sprint 3.5 (sponsor cabinet UX) | PM | **Accepted 2026-05-21 (Phase 1 only)** per [ADR-0023](./adr/0023-sponsor-invoicing.md). Cabinet reads `sponsor_contributions.status`; Stripe (Phase 2) + local-portal (Phase 3) deferred to their own triggers. |
+| **Future-revenue phasing** | Phase ζ products | PM | **Accepted 2026-05-21** per [ADR-0024](./adr/0024-future-revenue-phasing.md). Phasing model accepted; each phase gate is its own future go/no-go. |
+| **Brand-asset tooling** | F-S0.7, F-S0.9b | PM | **Accepted 2026-05-21** per [ADR-0025](./adr/0025-brand-asset-tooling.md). Tier 1 in git; Tier 2 in Directus `marketing_assets`. |
+| **Telegram channel** | Telegram funnel | PM | **Accepted 2026-05-21** per [ADR-0026](./adr/0026-telegram-channel.md). Per-country channels; `@aiqadam_uz` first. |
+| **X (Twitter) presence** | International funnel | PM | **Accepted 2026-05-21** per [ADR-0027](./adr/0027-x-twitter-presence.md). Event-driven auto-post via F-S5.4 social cards; no daily engagement. |
+| **First paid marketing spend** | Year-1 growth ceiling | PM | **Deferred 2026-05-21** to [gap list G-2](./business-process-gaps.md); ADR-0028 reviewed but not accepted. Capability ships per Sprint 5.9; spend itself paused until sponsor revenue stabilizes. |
+| **Russian-language voice owner** | Phase ζ.6 i18n | PM | **Accepted 2026-05-21 (Option C only)** per [ADR-0029](./adr/0029-russian-voice-owner.md). Community-pool model; paid-editor half deferred to [gap list G-3](./business-process-gaps.md). |
+| **Event photo consent** | Phase ζ moderation + sponsor PII | PM | **Accepted 2026-05-21** per [ADR-0030](./adr/0030-photo-consent.md). Wristband + tagging + revocation cron. Schema work in F-S3.0-follow-up PR. |
+| **Single-origin cabinet routing** | Sprint 3.x cabinets | Architect | **Accepted 2026-05-21** per [ADR-0031](./adr/0031-single-origin-cabinet-routing.md). All cabinets at `/workspace/<concern>` on one origin. |
 | **i18n approach (Tolgee vs files-only)** | Sprint 6.6 (cabinets i18n) | PM + architect | Tolgee = new service + translator-friendly admin; files = simpler + harder to coordinate. Decide during Sprint 5. |
 | **Plausible behavior for operators/sponsors** | Sprint 2 (workspace launch) | Architect | Surveillance risk (§6 risk #1). Recommend conditional script injection skip for `is_operator || is_sponsor_rep`. |
+
+### Decision-batch outcomes
+
+| Date | Outcome | Reference |
+|---|---|---|
+| 2026-05-21 | Batch #1 closed: 7 ADRs Accepted (0023 Phase-1-only · 0024 · 0025 · 0026 · 0027 · 0029 override-to-Option-C · 0030 · 0031); 2 ADRs Deferred to [gap list](./business-process-gaps.md) (0022 · 0028) under the zero-recurring-spend filter | This PR |
 
 ---
 

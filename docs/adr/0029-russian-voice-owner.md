@@ -1,9 +1,9 @@
 # ADR-0029: Russian-language voice + translation owner
 
 ## Status
-Proposed, 2026-05-21
+Accepted (override → Option C), 2026-05-21
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md).
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md), with **override to Option C (community-led editor pool, zero cash cost) instead of the recommended Option D**. Constraint: no new hiring or recurring spend at this stage. The paid-editor half of Option D is **deferred** to the business-process gap list (revisit when the community pool can't meet quality at scale, or when sponsor revenue stabilizes); the community-pool half is the operating model now. The Russian voice guide (`docs/voice-guide-ru.md`) is still produced — Viktor + a rotating community editor draft it together in the editor's first 2 weeks of activation.
 
 ## Context
 

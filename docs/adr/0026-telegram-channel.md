@@ -1,9 +1,9 @@
 # ADR-0026: Telegram channel (presence beyond the group)
 
 ## Status
-Proposed, 2026-05-21
+Accepted, 2026-05-21
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md).
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Zero recurring spend — Telegram channels are free; cadence relies on country-lead time (volunteer per ADR-0022 status quo, until that ADR is revisited).
 
 ## Context
 

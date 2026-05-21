@@ -1,9 +1,9 @@
 # ADR-0025: Brand-asset tooling — where assets live and who edits them
 
 ## Status
-Proposed, 2026-05-20
+Accepted, 2026-05-21
 
-> Drafted by Agent-Docs per [`docs/community-platform-roadmap.md` §7 Sprint 0.12](../community-platform-roadmap.md). PM flips to Accepted via the [decision-batch process](../decision-batch-process.md). Gates Agent-Marketing's S0.7 operator playbook (asset format depends on host) and S0.9 brand-asset library.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Unblocks F-S0.7 (operator playbook) and F-S0.9b (real brand-asset library). Zero new spend — Tier 1 stays in the existing git repo; Tier 2 lives in the already-deployed Directus instance.
 
 ## Context
 
