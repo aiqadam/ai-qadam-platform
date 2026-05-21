@@ -1,0 +1,21 @@
+[Unit]
+Description=AI Qadam restic restore drill (monthly verification per ADR-0017)
+Documentation=file:///home/aiqadam-admin/aiqadam/docs/runbooks/restic-backups.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+# The script is non-destructive but reads /etc/restic/r2.env (mode 600
+# root:root), so it runs as root for env-file access. The restore
+# happens in a scratch directory cleaned up on exit.
+ExecStart=/usr/local/sbin/aiqadam-restore-drill.sh
+# Tighten ambient capabilities — drill never writes outside /tmp and
+# /var/log.
+ProtectSystem=strict
+ReadWritePaths=/tmp /var/log
+PrivateTmp=no
+NoNewPrivileges=yes
+# Soft cap: a restore that runs > 30 min indicates something pathological.
+TimeoutStartSec=1800

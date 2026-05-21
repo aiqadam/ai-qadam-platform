@@ -117,15 +117,66 @@ Then run a manual backup to verify (`sudo /usr/local/sbin/aiqadam-backup.sh`) an
 
 For MinIO buckets, restic can back up the underlying `/data/coolify/applications/<minio>/data` directly, OR use `mc mirror` to a pre-backup staging dir first. The trade-off: backing up the data dir is faster but skips MinIO's metadata sanity (object listings). Decide when MinIO actually lands.
 
-## Quarterly restore drill (per SECURITY.md)
+## Monthly restore drill (automated, F-S0.5)
 
-Once a quarter, perform a documented restore drill:
+A monthly drill verifies the restore path itself works — not just that backups exist. The drill is **automated on the host** so it survives operator inattention; CI only catches script regressions before they're deployed.
 
-1. Pick a non-trivial path (e.g., the `/data/coolify/source/.env` after Coolify settings have changed).
-2. Restore from the latest snapshot to `/tmp/drill`.
-3. Verify file integrity (diff against current; if you need older state, inspect snapshot timestamps).
+### What runs on the host
+
+| Path | Purpose |
+|---|---|
+| `/usr/local/sbin/aiqadam-restore-drill.sh` | The drill: restores latest snapshot to `/tmp/aiqadam-restore-drill-<timestamp>`, asserts canonical paths exist + non-empty, checks snapshot is ≤ `MAX_SNAPSHOT_AGE_DAYS` old (default 2), cleans up on exit. Emits a Plausible `backup_restore_drill` event with `result=pass`. |
+| `/etc/systemd/system/aiqadam-restore-drill.service` | Oneshot service wrapping the script. Runs as root (needs `/etc/restic/r2.env`); `ProtectSystem=strict` so even a buggy run can't damage the live FS. |
+| `/etc/systemd/system/aiqadam-restore-drill.timer` | Triggers `*-*-01 04:30:00` UTC (1st of each month, well after the 03:00 daily backup). `Persistent=true` so missed runs catch up after reboot. |
+
+The canonical sources of these files live in [`infrastructure/restic/`](../../infrastructure/restic/) — deploy from the repo to the host:
+
+```bash
+sudo install -m 750 infrastructure/restic/aiqadam-restore-drill.sh /usr/local/sbin/aiqadam-restore-drill.sh
+sudo install -m 644 infrastructure/restic/aiqadam-restore-drill.service /etc/systemd/system/
+sudo install -m 644 infrastructure/restic/aiqadam-restore-drill.timer   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now aiqadam-restore-drill.timer
+sudo systemctl list-timers aiqadam-restore-drill.timer --no-pager   # confirm next-run schedule
+```
+
+### Running the drill on demand
+
+When investigating an alert or doing an ad-hoc verification:
+
+```bash
+sudo /usr/local/sbin/aiqadam-restore-drill.sh
+echo "exit=$?"   # 0 = pass, 1 = drill failed, 2 = config error
+```
+
+Inspect journal output for the timestamped FAIL line if exit != 0:
+
+```bash
+sudo journalctl -u aiqadam-restore-drill.service --since '7 days ago' --no-pager
+```
+
+### What CI does
+
+[`.github/workflows/restic-drill-lint.yml`](../../.github/workflows/restic-drill-lint.yml) runs on every PR that touches `infrastructure/restic/**` + weekly cron. It:
+
+1. **shellcheck** on the script (severity ≥ warning blocks)
+2. **systemd-analyze verify** on the .service + .timer unit files
+3. **dry-run-script** — runs the script with `restic` absent + with `RESTIC_ENV_FILE` missing, asserts each exits with code 2 (script's documented config-error code). This catches regressions in pre-flight handling before they break the monthly real drill.
+
+CI does NOT perform a real restore — the passphrase never leaves the host. The drill itself is the verification.
+
+### Alerting on drill failure
+
+When the drill fails on the host, the `result=fail` Plausible event lets the F-S0.11 cron probe pick up the regression on its next run (the workflow at `.github/workflows/smoke.yml` queries Plausible for ops events). If a drill hasn't passed in > 35 days, that's a real alert — open an issue with label `restore-drill-failure` and follow this runbook's "Common failure modes" section to triage.
+
+### Quarterly extension (per SECURITY.md)
+
+The monthly automated drill covers the bulk of recovery-test discipline. Once per quarter, additionally perform a manual file-level diff:
+
+1. Pick a non-trivial path that has changed recently (e.g., the `/data/coolify/source/.env` after Coolify settings have changed).
+2. Restore from the latest snapshot to `/tmp/drill-q`.
+3. Diff against current; if you need older state, inspect snapshot timestamps via `restic snapshots`.
 4. Note in `docs/restore-drills/YYYY-Qn.md`: snapshot ID, file restored, time elapsed, any anomalies.
-5. If the drill exposes any failure (corrupted file, missing path, slow restore), fix BEFORE resuming normal backup operation.
 
 Annually, run a full disaster-recovery drill: provision a fresh VM, follow [coolify-bootstrap.md](coolify-bootstrap.md), restore `/data/coolify` from R2, verify Coolify boots and admin login works.
 

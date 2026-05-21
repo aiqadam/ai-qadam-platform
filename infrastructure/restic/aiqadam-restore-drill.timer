@@ -1,0 +1,15 @@
+[Unit]
+Description=Monthly trigger for AI Qadam restic restore drill
+Documentation=file:///home/aiqadam-admin/aiqadam/docs/runbooks/restic-backups.md
+
+[Timer]
+# First day of each month at 04:30 UTC, well clear of the 03:00 UTC
+# daily backup window so the drill always runs against a same-day
+# snapshot. Persistent=true catches missed runs after host reboots.
+OnCalendar=*-*-01 04:30:00
+Persistent=true
+RandomizedDelaySec=600
+Unit=aiqadam-restore-drill.service
+
+[Install]
+WantedBy=timers.target

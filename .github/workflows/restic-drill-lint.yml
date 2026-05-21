@@ -1,0 +1,143 @@
+name: restic-drill-lint
+
+# F-S0.5 — CI lint for the host-side backup-restore drill (per
+# docs/runbooks/restic-backups.md + ADR-0017). The actual restore
+# happens on the platform host (passphrase never leaves the host); CI
+# only catches regressions in the script + systemd units before they're
+# deployed.
+#
+# Runs on PR when any restic file changes, plus weekly cron as a
+# regression net.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infrastructure/restic/**"
+      - ".github/workflows/restic-drill-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/restic/**"
+  schedule:
+    # Weekly Monday 06:00 UTC. Catches drift from upstream shellcheck /
+    # systemd-analyze rule updates without waiting for a script change.
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: restic-drill-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Shellcheck the drill script
+        # -x = follow sourced files; -e SC1090 was already disabled
+        # inline in the script for the dynamic /etc/restic/r2.env source.
+        # Severity gate: error AND warning block; info/style are
+        # informational.
+        run: shellcheck --severity=warning infrastructure/restic/aiqadam-restore-drill.sh
+
+  systemd-analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install systemd-analyze
+        # systemd ships with every Ubuntu runner image; this is a no-op
+        # under normal circumstances but kept explicit so the workflow
+        # still works if the base image ever omits it.
+        run: command -v systemd-analyze >/dev/null || sudo apt-get update -y && sudo apt-get install -y systemd
+
+      - name: Stage the drill script at its prod path
+        # systemd-analyze verify checks that ExecStart paths exist + are
+        # executable. On the host the script lives at
+        # /usr/local/sbin/aiqadam-restore-drill.sh (mode 0750
+        # root:root) after install; the runner user can't traverse
+        # 0750-root-owned files, so verify gets "Permission denied".
+        # CI-only: widen the mode to 0755 so the runner (non-root)
+        # can stat + notionally execute it. This is the same content
+        # as prod; only the permission bits differ for the duration
+        # of the verify step.
+        run: |
+          sudo install -m 0755 \
+            infrastructure/restic/aiqadam-restore-drill.sh \
+            /usr/local/sbin/aiqadam-restore-drill.sh
+
+      - name: Verify systemd unit syntax
+        run: |
+          for unit in infrastructure/restic/aiqadam-restore-drill.service \
+                     infrastructure/restic/aiqadam-restore-drill.timer; do
+            echo "=== ${unit} ==="
+            # systemd-analyze verify reads the unit file from a directory;
+            # copy to a temp path with the right basename so it loads.
+            tmpdir=$(mktemp -d)
+            cp "${unit}" "${tmpdir}/$(basename "${unit}")"
+            # `verify` returns 0 on success; non-zero on any unit-file
+            # warning that systemd would emit at load time.
+            systemd-analyze verify "${tmpdir}/$(basename "${unit}")"
+            rm -rf "${tmpdir}"
+          done
+
+  dry-run-script:
+    # Self-check that the drill script's pre-flight fails gracefully
+    # when restic isn't installed + when the env file is missing. This
+    # is the "smoke test on the script itself" — it doesn't run a real
+    # restore, just exercises the error paths so regressions in
+    # pre-flight handling get caught.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: pre-flight fails when restic missing
+        run: |
+          # Run the script in a subshell with restic explicitly absent.
+          # Expect exit code 2 (usage/config error per script docs).
+          set +e
+          PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin \
+            bash infrastructure/restic/aiqadam-restore-drill.sh
+          code=$?
+          set -e
+          if [ "${code}" != "2" ]; then
+            echo "Expected exit 2 (restic missing); got ${code}"
+            exit 1
+          fi
+          echo "✓ pre-flight correctly exits 2 when restic is absent"
+
+      - name: pre-flight fails when env file missing
+        run: |
+          # Install a stub restic so the first pre-flight check passes;
+          # then point RESTIC_ENV_FILE at a path that doesn't exist and
+          # expect exit 2.
+          stub=$(mktemp)
+          cat > "${stub}" <<'STUB'
+          #!/usr/bin/env bash
+          exit 0
+          STUB
+          chmod +x "${stub}"
+          stubdir=$(dirname "${stub}")
+          mv "${stub}" "${stubdir}/restic"
+
+          set +e
+          PATH="${stubdir}:${PATH}" RESTIC_ENV_FILE=/nonexistent/path \
+            bash infrastructure/restic/aiqadam-restore-drill.sh
+          code=$?
+          set -e
+          if [ "${code}" != "2" ]; then
+            echo "Expected exit 2 (env file missing); got ${code}"
+            exit 1
+          fi
+          echo "✓ pre-flight correctly exits 2 when RESTIC_ENV_FILE is missing"
