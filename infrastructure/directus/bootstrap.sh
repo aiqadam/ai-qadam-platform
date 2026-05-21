@@ -1772,6 +1772,124 @@ ensure "relation marketing_assets.approved_by -> directus_users.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"marketing_assets","field":"approved_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S2.2-pre — RBAC role policies (per ADR-0021 §4.1, Accepted 2026-05-21)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Seeds the seven named policy containers from ADR-0021 §4.1. Each is an
+# empty container today — per-collection permission rows (the "Effect"
+# column in §4.1) land with F-S2.2 RBAC sync service.
+#
+# super_admin uses the Directus built-in Admin policy — no row to create.
+#
+# Per-country variants (organizer.uz / country_lead.kz / etc.) are NOT
+# seeded here. F-S2.2 either templates them at sync time or attaches the
+# base policy + a per-user country filter via $CURRENT_USER claims.
+# Bootstrap stays single-source-of-truth at the role-template level.
+#
+# Deterministic UUIDs (`400e0021-...`) so re-runs are idempotent.
+
+POLICY_RBAC_MEMBER="400e0021-0000-4000-8000-000000000001"
+POLICY_RBAC_SPEAKER="400e0021-0000-4000-8000-000000000002"
+POLICY_RBAC_SPONSOR_REP="400e0021-0000-4000-8000-000000000003"
+POLICY_RBAC_ORGANIZER="400e0021-0000-4000-8000-000000000004"
+POLICY_RBAC_COUNTRY_LEAD="400e0021-0000-4000-8000-000000000005"
+POLICY_RBAC_SVC_BOT="400e0021-0000-4000-8000-000000000006"
+POLICY_RBAC_SVC_WORKER="400e0021-0000-4000-8000-000000000007"
+
+echo "[ADR-0021 — RBAC role policies]"
+
+ensure "policy.member" \
+  "${DIRECTUS_URL}/policies/${POLICY_RBAC_MEMBER}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_RBAC_MEMBER" '{
+    id:$id,
+    name:"policy.member",
+    icon:"badge",
+    description:"ADR-0021 §4.1: read public collections; CRUD on own directus_users row; create registrations + feedback_responses keyed to self. Per-collection permission rows land with F-S2.2 sync.",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
+ensure "policy.speaker" \
+  "${DIRECTUS_URL}/policies/${POLICY_RBAC_SPEAKER}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_RBAC_SPEAKER" '{
+    id:$id,
+    name:"policy.speaker",
+    icon:"campaign",
+    description:"ADR-0021 §4.1: + update own speakers row, read own event_speakers rows. Additive on top of policy.member.",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
+ensure "policy.sponsor_rep" \
+  "${DIRECTUS_URL}/policies/${POLICY_RBAC_SPONSOR_REP}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_RBAC_SPONSOR_REP" '{
+    id:$id,
+    name:"policy.sponsor_rep",
+    icon:"verified",
+    description:"ADR-0021 §4.1: read own org events + opt-in leads only, scoped via partner_audiences entitlement (per ADR-0033 sponsor PII boundary). Per-row filter $CURRENT_USER.companies linking via companies.rep_user — wired by F-S2.2 sync.",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
+ensure "policy.organizer" \
+  "${DIRECTUS_URL}/policies/${POLICY_RBAC_ORGANIZER}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_RBAC_ORGANIZER" '{
+    id:$id,
+    name:"policy.organizer",
+    icon:"engineering",
+    description:"ADR-0021 §4.1: CRUD events, registrations, event_speakers in country. Country scope applied at sync time via $CURRENT_USER.country_codes (Authentik group claim) — F-S2.2 wires this.",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
+ensure "policy.country_lead" \
+  "${DIRECTUS_URL}/policies/${POLICY_RBAC_COUNTRY_LEAD}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_RBAC_COUNTRY_LEAD" '{
+    id:$id,
+    name:"policy.country_lead",
+    icon:"shield_person",
+    description:"ADR-0021 §4.1: organizer permissions + roster management + sponsor pipeline + see PII (per consent). Country scope per Authentik group claim — wired by F-S2.2 sync.",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
+ensure "policy.svc_bot" \
+  "${DIRECTUS_URL}/policies/${POLICY_RBAC_SVC_BOT}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_RBAC_SVC_BOT" '{
+    id:$id,
+    name:"policy.svc_bot",
+    icon:"smart_toy",
+    description:"ADR-0021 §4.1 + §8: machine principal (Telegram bot). Read all events, write registrations.checked_in_at, read point_awards. No PII except telegram_user_id. JWT carries aud:aiqadam-internal so the web AuthGuard rejects these tokens.",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
+ensure "policy.svc_worker" \
+  "${DIRECTUS_URL}/policies/${POLICY_RBAC_SVC_WORKER}" \
+  "${DIRECTUS_URL}/policies" \
+  "$(jq -nc --arg id "$POLICY_RBAC_SVC_WORKER" '{
+    id:$id,
+    name:"policy.svc_worker",
+    icon:"settings_suggest",
+    description:"ADR-0021 §4.1 + §8: machine principal (BullMQ workers). CRUD interactions, deliveries, responses. No registration writes. JWT carries aud:aiqadam-internal.",
+    admin_access:false,
+    app_access:true,
+    enforce_tfa:false
+  }')"
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
