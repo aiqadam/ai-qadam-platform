@@ -60,13 +60,6 @@ const envSchema = z.object({
   DIRECTUS_URL: z.string().url().default('https://cms.aiqadam.org'),
   DIRECTUS_TOKEN: z.string().min(16),
 
-  // Outbound calls to Twenty CRM (Sprint 5 C5.3 onwards: API proxies
-  // member-record + activity-timeline syncs out of Directus into Twenty).
-  // Token is an API key from Twenty's Settings → APIs, created via
-  // createApiKey + generateApiKeyToken (see runbook).
-  TWENTY_URL: z.string().url().default('https://crm.aiqadam.org'),
-  TWENTY_API_TOKEN: z.string().min(16),
-
   // Plausible Events API host for server-side ops events (S0.4 / issue
   // #113). Empty string disables emission — set in prod (Coolify env).
   // The helper at apps/api/src/lib/ops-events.ts is fire-and-forget; bad

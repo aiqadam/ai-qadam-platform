@@ -29,8 +29,6 @@ export default defineConfig({
       INTERNAL_API_TOKEN: 'test-internal-api-token-at-least-32-chars-long-pad-pad',
       DIRECTUS_URL: 'http://placeholder.invalid',
       DIRECTUS_TOKEN: 'test-directus-token-placeholder',
-      TWENTY_URL: 'http://placeholder.invalid',
-      TWENTY_API_TOKEN: 'test-twenty-api-token-placeholder',
     },
     coverage: {
       provider: 'v8',

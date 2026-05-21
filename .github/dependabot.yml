@@ -39,7 +39,6 @@ updates:
     directories:
       - "/infrastructure"
       - "/infrastructure/plausible"
-      - "/infrastructure/twenty"
     schedule:
       interval: weekly
       day: monday

@@ -168,17 +168,6 @@ configs:
               failure-threshold: 2
               send-on-resolved: true
 
-        - name: crm — Twenty /healthz
-          group: crm
-          url: https://crm.aiqadam.org/healthz
-          interval: 300s
-          conditions:
-            - "[STATUS] == 200"
-          alerts:
-            - type: telegram
-              failure-threshold: 2
-              send-on-resolved: true
-
         - name: analytics — Plausible /api/health
           group: analytics
           url: https://analytics.aiqadam.org/api/health

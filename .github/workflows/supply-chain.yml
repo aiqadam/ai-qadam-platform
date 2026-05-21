@@ -68,7 +68,6 @@ jobs:
           - directus/directus:11
           - clickhouse/clickhouse-server:24.12-alpine
           - ghcr.io/plausible/community-edition:v3.0.1
-          - twentycrm/twenty:v0.50.0
     steps:
       - uses: actions/checkout@v4
 

@@ -874,6 +874,754 @@ ensure_perm "perm registrations/read" registrations read \
 ensure_perm "perm directus_users/read" directus_users read \
   '{"_or":[{"is_test_user":{"_eq":false}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S3.0 — Community member graph foundation (per ADR-0033 Part 1)
+# ════════════════════════════════════════════════════════════════════════
+#
+# AI Qadam's data primitive is a member graph (people ↔ events ↔ skills
+# ↔ employers ↔ interests ↔ consents), NOT a sales CRM. Per ADR-0033
+# (Accepted 2026-05-20) Twenty is dropped and the platform-asset model
+# lives in Directus. Future products (hackathons, HRtech, edtech, paid
+# premium, mentorship) extend this graph with namespaced schema; the
+# graph stays single-source-of-truth.
+#
+# This block adds:
+#   companies              — orgs (sponsors AND employers AND product partners)
+#   directus_users.*       — rich profile fields (job_title, employer FK,
+#                            seniority, industry_tags, is_student, bio_md,
+#                            appear_in_directory)
+#   member_skills          — skill tags per member, optionally event-verified
+#   member_employments     — employment history per member, per-employment
+#                            share_with_sponsors consent
+#   member_interests       — per-member topic + intent (looking_for_job, ...)
+#   member_consents        — per-purpose consent ledger (events/marketing/
+#                            research/recruiting/sponsor_share/content/
+#                            paid_premium). Distinct from the broader
+#                            consent_records (Sprint 5.5/2) which logs
+#                            per-actor-class × intent_class; this one is
+#                            the purpose-keyed ledger ADR-0033 mandates.
+#   member_connections     — social graph edges (co-attended, hackathon
+#                            teammates, mentor pair); powers "3 people you
+#                            might meet" + future products
+#   cohorts                — saved filter against members; feeds dispatcher
+#                            audiences + partner_audiences entitlements
+#   partner_audiences      — sponsor/partner ↔ cohort entitlement; THE
+#                            consent-chain enforcement primitive
+#   events.*               — visibility, audience_cohort, price_usd,
+#                            capacity_band
+#   event_types (seed)     — closed | paid | course_session (extends the
+#                            existing meetup/workshop/hackathon/conference
+#                            /online taxonomy)
+#   event_outcomes         — denormalised post-event rollup
+#   event_followups        — per-event followup checklist (retro, thank-you,
+#                            recap, sponsor report)
+#
+# Idempotency: every helper call uses the existing ensure() pattern
+# (GET-by-id; create on 404). Re-running this script against prod
+# Directus produces only "(exists)" lines on the second run.
+#
+# NOT covered here (separate features):
+#   - F-S3.2 cabinet at /workspace/members reads these collections
+#   - F-S3.5 sponsor cabinet at /workspace/partners/[id] enforces the
+#     sponsor PII boundary (cohort-aggregated views only; NEVER raw rows)
+#   - F-S3.9 referral codes (referral_code on members + referred_by on
+#     registrations) extends this graph
+
+# ──────────── companies ─────────────────────────────────────────────────
+#
+# Universal org primitive: a company can be sponsor OR employer OR
+# product partner (or any combination). Replaces the need for separate
+# sponsor / employer collections; the existing `sponsors` collection
+# (PR #78) stays for now as the cabinet display shape — F-S3.5 will
+# fold its values into companies.is_sponsor.
+
+echo "[companies]"
+ensure "collection companies" \
+  "${DIRECTUS_URL}/collections/companies" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"companies",
+    "schema":{"name":"companies"},
+    "meta":{
+      "icon":"business",
+      "note":"Org primitive. is_sponsor / is_employer / is_product_partner are independent flags.",
+      "sort_field":"name",
+      "archive_field":"status",
+      "archive_value":"archived",
+      "unarchive_value":"active"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"name","type":"string","schema":{"is_nullable":false,"max_length":160},"meta":{"interface":"input","width":"half","required":true}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":80,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"URL slug — lowercase + dashes"}},
+      {"field":"industry","type":"string","schema":{"is_nullable":true,"max_length":80},"meta":{"interface":"input","width":"half","note":"Free text; cohort filters can group later"}},
+      {"field":"size_band","type":"string","schema":{"is_nullable":true,"max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"1–10","value":"micro"},{"text":"11–50","value":"small"},{"text":"51–250","value":"medium"},{"text":"251–1000","value":"large"},{"text":"1000+","value":"xl"}]}}},
+      {"field":"country","type":"string","schema":{"is_nullable":true,"max_length":2},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{name}}"},"note":"Primary country (tenant); null for global"}},
+      {"field":"website","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}},
+      {"field":"logo","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file-image","width":"full"}},
+      {"field":"is_sponsor","type":"boolean","schema":{"default_value":false,"is_nullable":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"third"}},
+      {"field":"is_employer","type":"boolean","schema":{"default_value":false,"is_nullable":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"third"}},
+      {"field":"is_product_partner","type":"boolean","schema":{"default_value":false,"is_nullable":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"third","note":"Hackathon / paid premium / edtech partner"}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"active","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Active","value":"active"},{"text":"Pending","value":"pending"},{"text":"Archived","value":"archived"}]}}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation companies.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/companies/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"companies","field":"country","related_collection":"countries","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation companies.logo -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/companies/logo" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"companies","field":"logo","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── directus_users rich-profile fields ────────────────────────
+#
+# Members carry a rich profile so cohorts, sponsor audiences, and
+# product recommendations all read one row. Members manage these
+# themselves via the F-S3.6 /me/profile cabinet (Cabinet #5).
+#
+# Per ADR-0033 sponsor PII boundary: sponsors NEVER read these fields
+# directly. They see cohort-aggregated views (Metabase) entitled via
+# partner_audiences. Per-employment share_with_sponsors gates the
+# "talent slice" Phase-ζ extension.
+
+echo "[directus_users.job_title]"
+ensure "field directus_users.job_title" \
+  "${DIRECTUS_URL}/fields/directus_users/job_title" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"job_title",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":160},
+    "meta":{"interface":"input","width":"half","note":"Self-reported current role; member edits via /me/profile"}
+  }'
+
+echo "[directus_users.employer]"
+ensure "field directus_users.employer" \
+  "${DIRECTUS_URL}/fields/directus_users/employer" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"employer",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"half",
+      "display":"related-values",
+      "display_options":{"template":"{{name}}"},
+      "note":"Current employer (FK companies). Employment history lives in member_employments."
+    }
+  }'
+
+ensure "relation directus_users.employer -> companies.id" \
+  "${DIRECTUS_URL}/relations/directus_users/employer" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"directus_users","field":"employer","related_collection":"companies","schema":{"on_delete":"SET NULL"}}'
+
+echo "[directus_users.seniority]"
+ensure "field directus_users.seniority" \
+  "${DIRECTUS_URL}/fields/directus_users/seniority" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"seniority",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":20},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"Individual contributor","value":"ic"},
+        {"text":"Senior IC","value":"senior"},
+        {"text":"Lead / staff","value":"lead"},
+        {"text":"Manager","value":"manager"},
+        {"text":"Director","value":"director"},
+        {"text":"VP","value":"vp"},
+        {"text":"C-level / founder","value":"c_level"}
+      ]},
+      "note":"Self-reported career stage; powers cohort filtering"
+    }
+  }'
+
+echo "[directus_users.industry_tags]"
+ensure "field directus_users.industry_tags" \
+  "${DIRECTUS_URL}/fields/directus_users/industry_tags" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"industry_tags",
+    "type":"json",
+    "schema":{"is_nullable":true,"default_value":"[]"},
+    "meta":{
+      "interface":"tags",
+      "special":["cast-json"],
+      "width":"full",
+      "note":"Industries this member works in (free tags; cohort filters can group)"
+    }
+  }'
+
+echo "[directus_users.is_student]"
+ensure "field directus_users.is_student" \
+  "${DIRECTUS_URL}/fields/directus_users/is_student" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"is_student",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"Powers student-discount + university-cohort surfaces"}
+  }'
+
+echo "[directus_users.bio_md]"
+ensure "field directus_users.bio_md" \
+  "${DIRECTUS_URL}/fields/directus_users/bio_md" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"bio_md",
+    "type":"text",
+    "schema":{"is_nullable":true},
+    "meta":{"interface":"input-rich-text-md","width":"full","note":"Member-managed bio (markdown). Public only if appear_in_directory=true."}
+  }'
+
+echo "[directus_users.appear_in_directory]"
+ensure "field directus_users.appear_in_directory" \
+  "${DIRECTUS_URL}/fields/directus_users/appear_in_directory" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"appear_in_directory",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"Member opt-in to appear in any member-facing directory. Default OFF — explicit opt-in. Sponsors NEVER read this field; partner_audiences governs sponsor exposure separately."
+    }
+  }'
+
+# ──────────── member_skills ─────────────────────────────────────────────
+#
+# Tag-per-row keeps cohort filtering simple. verified_by_event nudges
+# trust over time: "attended a fintech meetup" → fintech tag gets a
+# verification signal usable for sponsor audience analytics.
+
+echo "[member_skills]"
+ensure "collection member_skills" \
+  "${DIRECTUS_URL}/collections/member_skills" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"member_skills",
+    "schema":{"name":"member_skills"},
+    "meta":{
+      "icon":"workspace_premium",
+      "note":"One row per (member, skill_tag). Endorsements + event-verification accrue over time.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"member","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"skill_tag","type":"string","schema":{"is_nullable":false,"max_length":80},"meta":{"interface":"input","width":"half","required":true,"note":"Free tag (lowercase, hyphenated); e.g. python, llm-finetuning, fintech, ml-ops"}},
+      {"field":"endorsement_count","type":"integer","schema":{"is_nullable":false,"default_value":0},"meta":{"interface":"input","width":"half","note":"Incremented by peer endorsements; not member-editable"}},
+      {"field":"verified_by_event","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{title}}"},"note":"Event whose attendance verified this skill (optional)"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation member_skills.member -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_skills/member" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_skills","field":"member","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation member_skills.verified_by_event -> events.id" \
+  "${DIRECTUS_URL}/relations/member_skills/verified_by_event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_skills","field":"verified_by_event","related_collection":"events","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── member_employments ────────────────────────────────────────
+#
+# Employment history. Per-employment share_with_sponsors flag is the
+# member-controlled toggle that powers the Phase-ζ "talent slice"
+# sponsor tier — sponsors only see employer info for members who
+# explicitly opted in for THAT employment.
+
+echo "[member_employments]"
+ensure "collection member_employments" \
+  "${DIRECTUS_URL}/collections/member_employments" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"member_employments",
+    "schema":{"name":"member_employments"},
+    "meta":{
+      "icon":"work_history",
+      "note":"Per-employment record. is_current + per-employment share_with_sponsors govern visibility.",
+      "sort_field":"started_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"member","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"employer","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"role","type":"string","schema":{"is_nullable":true,"max_length":160},"meta":{"interface":"input","width":"half"}},
+      {"field":"started_at","type":"date","schema":{"is_nullable":true},"meta":{"interface":"datetime","options":{"includeTime":false},"width":"half"}},
+      {"field":"ended_at","type":"date","schema":{"is_nullable":true},"meta":{"interface":"datetime","options":{"includeTime":false},"width":"half","note":"Null when is_current=true"}},
+      {"field":"is_current","type":"boolean","schema":{"is_nullable":false,"default_value":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half"}},
+      {"field":"share_with_sponsors","type":"boolean","schema":{"is_nullable":false,"default_value":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"Member-controlled per-employment opt-in. Default OFF. Gates Phase-ζ talent-slice sponsor exposure."}}
+    ]
+  }'
+
+ensure "relation member_employments.member -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_employments/member" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_employments","field":"member","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation member_employments.employer -> companies.id" \
+  "${DIRECTUS_URL}/relations/member_employments/employer" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_employments","field":"employer","related_collection":"companies","schema":{"on_delete":"RESTRICT"}}'
+
+# ──────────── member_interests ──────────────────────────────────────────
+
+echo "[member_interests]"
+ensure "collection member_interests" \
+  "${DIRECTUS_URL}/collections/member_interests" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"member_interests",
+    "schema":{"name":"member_interests"},
+    "meta":{
+      "icon":"interests",
+      "note":"One row per (member, topic, intent). Powers matching + recommendations + targeted invites.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"member","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"topic_tag","type":"string","schema":{"is_nullable":false,"max_length":80},"meta":{"interface":"input","width":"half","required":true,"note":"Free tag — e.g. computer-vision, mlops, ai-policy"}},
+      {"field":"intent","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Interested in","value":"interested_in"},
+          {"text":"Willing to speak","value":"willing_to_speak"},
+          {"text":"Looking for job","value":"looking_for_job"},
+          {"text":"Looking for cofounder","value":"looking_for_cofounder"},
+          {"text":"Looking for mentor","value":"looking_for_mentor"},
+          {"text":"Willing to mentor","value":"willing_to_mentor"}
+        ]}
+      }},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation member_interests.member -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_interests/member" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_interests","field":"member","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+# ──────────── member_consents ───────────────────────────────────────────
+#
+# Per-purpose consent ledger. Distinct from the (actor-class × intent)
+# consent_records collection (Sprint 5.5/2): that one keys off the
+# initiator of a message; this one keys off the WHY (events / marketing
+# / research / recruiting / sponsor_share / content / paid_premium).
+#
+# Per ADR-0033 sponsor PII boundary: the (member_consents × partner_audiences)
+# pair is the consent-chain enforcement primitive. Sponsors NEVER touch
+# raw member rows — they read cohort-aggregated views filtered by
+# member_consents.purpose=sponsor_share AND revoked_at IS NULL.
+#
+# Append-only-ish: each toggle inserts a new row. Reading current state =
+# most-recent row per (member, purpose), check revoked_at IS NULL.
+
+echo "[member_consents]"
+ensure "collection member_consents" \
+  "${DIRECTUS_URL}/collections/member_consents" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"member_consents",
+    "schema":{"name":"member_consents"},
+    "meta":{
+      "icon":"verified_user",
+      "note":"Per-purpose consent ledger. Most recent row per (member, purpose) wins. Pair with partner_audiences for sponsor PII enforcement.",
+      "sort_field":"granted_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"member","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"purpose","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Events","value":"events"},
+          {"text":"Marketing","value":"marketing"},
+          {"text":"Research","value":"research"},
+          {"text":"Recruiting","value":"recruiting"},
+          {"text":"Sponsor share (aggregated)","value":"sponsor_share"},
+          {"text":"Content","value":"content"},
+          {"text":"Paid premium","value":"paid_premium"}
+        ]},
+        "note":"Coarse-grained purpose. Per-sponsor / per-employer scoping happens via partner_audiences."
+      }},
+      {"field":"granted_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"revoked_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Null = currently granted"}},
+      {"field":"source","type":"string","schema":{"is_nullable":false,"default_value":"preferences_page","max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Signup","value":"signup"},
+          {"text":"Preferences page","value":"preferences_page"},
+          {"text":"Email link","value":"email_link"},
+          {"text":"Event check-in","value":"event_check_in"}
+        ]}
+      }}
+    ]
+  }'
+
+ensure "relation member_consents.member -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_consents/member" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_consents","field":"member","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+# ──────────── member_connections ────────────────────────────────────────
+#
+# Social-graph edges between two members. Powers "3 people you might
+# meet at this event" + future products (mentor matching, hackathon
+# team formation, alumni-of-cohort-X recommendations).
+#
+# Edges are undirected logically; the app reads both (a→b) and (b→a)
+# rows and de-dupes. Writers should insert one row (lower-uuid first by
+# convention) to avoid double-counting.
+
+echo "[member_connections]"
+ensure "collection member_connections" \
+  "${DIRECTUS_URL}/collections/member_connections" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"member_connections",
+    "schema":{"name":"member_connections"},
+    "meta":{
+      "icon":"hub",
+      "note":"Member ↔ member edges. Writers insert with lower-uuid as member_a to avoid duplicates.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"member_a","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"member_b","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"signal","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Co-attended event","value":"co_attended_event"},
+          {"text":"Hackathon teammate","value":"hackathon_teammate"},
+          {"text":"Mentor pair","value":"mentor_pair"}
+        ]}
+      }},
+      {"field":"context_event","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{title}}"},"note":"Event where the connection formed (optional)"}},
+      {"field":"weight","type":"integer","schema":{"is_nullable":false,"default_value":1},"meta":{"interface":"input","width":"half","note":"Higher = stronger signal; +1 per co-attendance, +5 for hackathon team, +10 for mentor pair"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation member_connections.member_a -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_connections/member_a" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_connections","field":"member_a","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation member_connections.member_b -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_connections/member_b" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_connections","field":"member_b","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation member_connections.context_event -> events.id" \
+  "${DIRECTUS_URL}/relations/member_connections/context_event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_connections","field":"context_event","related_collection":"events","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── cohorts ───────────────────────────────────────────────────
+#
+# A cohort = a saved Directus filter against members. Operators build
+# cohorts in the F-S3.2 Member Directory cabinet; the resulting filter
+# is reusable as:
+#   - audience for the Interactions dispatcher (F-S3.3 announce cabinet)
+#   - entitled-audience for partner_audiences (sponsor reads via cohort)
+#   - alumni-cohort feed for product spawn (edtech recs, etc.)
+#
+# filter_query is a Directus filter object — the same shape Directus
+# uses in the API ?filter=... param. Stored as jsonb. Cron refreshes
+# member_count_cached so cabinets don't re-evaluate on every view.
+
+echo "[cohorts]"
+ensure "collection cohorts" \
+  "${DIRECTUS_URL}/collections/cohorts" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"cohorts",
+    "schema":{"name":"cohorts"},
+    "meta":{
+      "icon":"groups",
+      "note":"Saved filter against members. Feeds dispatcher + partner_audiences.",
+      "sort_field":"name"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"name","type":"string","schema":{"is_nullable":false,"max_length":120},"meta":{"interface":"input","width":"half","required":true}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":80,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"Stable handle for API references"}},
+      {"field":"description","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"What this cohort is for; visible to operators choosing audiences"}},
+      {"field":"filter_query","type":"json","schema":{"is_nullable":false,"default_value":"{}"},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","required":true,"note":"Directus filter object against directus_users (joins via member_skills/member_interests/etc. supported)"}},
+      {"field":"created_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"member_count_cached","type":"integer","schema":{"is_nullable":false,"default_value":0},"meta":{"interface":"input","width":"half","readonly":true,"note":"Refreshed by cron; cabinet UI shows this without re-evaluating filter on every page"}},
+      {"field":"member_count_refreshed_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation cohorts.created_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/cohorts/created_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"cohorts","field":"created_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── partner_audiences ─────────────────────────────────────────
+#
+# THE consent-chain enforcement primitive (per ADR-0033 sponsor PII
+# boundary): partner X can see cohort Y for purpose Z, granted at T1,
+# expires at T2. Every read of "what does this sponsor see?" runs
+# through this table. Cohort-aggregated views (Metabase) filter on
+# (partner, purpose, NOT-expired). Audited per record via audit_events
+# once that collection lands (Sprint 2.5).
+
+echo "[partner_audiences]"
+ensure "collection partner_audiences" \
+  "${DIRECTUS_URL}/collections/partner_audiences" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"partner_audiences",
+    "schema":{"name":"partner_audiences"},
+    "meta":{
+      "icon":"verified_user",
+      "note":"Partner ↔ cohort entitlement. Per ADR-0033 sponsor PII boundary, every sponsor read goes through here.",
+      "sort_field":"granted_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"partner","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"},"note":"FK to companies (is_sponsor / is_employer / is_product_partner = true)"}},
+      {"field":"cohort","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"purpose","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Event invite","value":"event_invite"},
+          {"text":"Job posting","value":"job_posting"},
+          {"text":"Research invite","value":"research_invite"},
+          {"text":"Sponsor analytics","value":"sponsor_analytics"}
+        ]}
+      }},
+      {"field":"granted_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"expires_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Null = no auto-expire; F-S3.5 cabinet enforces"}},
+      {"field":"granted_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"Operator who granted the entitlement"}}
+    ]
+  }'
+
+ensure "relation partner_audiences.partner -> companies.id" \
+  "${DIRECTUS_URL}/relations/partner_audiences/partner" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"partner_audiences","field":"partner","related_collection":"companies","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation partner_audiences.cohort -> cohorts.id" \
+  "${DIRECTUS_URL}/relations/partner_audiences/cohort" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"partner_audiences","field":"cohort","related_collection":"cohorts","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation partner_audiences.granted_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/partner_audiences/granted_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"partner_audiences","field":"granted_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── events taxonomy extensions ────────────────────────────────
+#
+# Extend the existing events collection with cohort + visibility +
+# pricing fields. Existing rows remain valid (all new fields nullable
+# / with safe defaults). Per ADR-0033 Part 1.
+
+echo "[events.visibility]"
+ensure "field events.visibility" \
+  "${DIRECTUS_URL}/fields/events/visibility" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"visibility",
+    "type":"string",
+    "schema":{"is_nullable":false,"default_value":"public","max_length":20},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"Public","value":"public"},
+        {"text":"Cohort","value":"cohort"},
+        {"text":"Invite-only","value":"invite_only"}
+      ]},
+      "note":"public = listed on country home; cohort = only audience_cohort sees it; invite_only = direct link only"
+    }
+  }'
+
+echo "[events.audience_cohort]"
+ensure "field events.audience_cohort" \
+  "${DIRECTUS_URL}/fields/events/audience_cohort" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"audience_cohort",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"half",
+      "display":"related-values",
+      "display_options":{"template":"{{name}}"},
+      "note":"For visibility=cohort: which cohort sees + can register. Required when visibility=cohort (app-enforced)."
+    }
+  }'
+
+ensure "relation events.audience_cohort -> cohorts.id" \
+  "${DIRECTUS_URL}/relations/events/audience_cohort" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"events","field":"audience_cohort","related_collection":"cohorts","schema":{"on_delete":"SET NULL"}}'
+
+echo "[events.price_usd]"
+ensure "field events.price_usd" \
+  "${DIRECTUS_URL}/fields/events/price_usd" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"price_usd",
+    "type":"decimal",
+    "schema":{"is_nullable":true,"numeric_precision":10,"numeric_scale":2},
+    "meta":{"interface":"input","width":"half","note":"Null = free. Used for paid workshops / course sessions / closed events."}
+  }'
+
+echo "[events.capacity_band]"
+ensure "field events.capacity_band" \
+  "${DIRECTUS_URL}/fields/events/capacity_band" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"capacity_band",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":20},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"Micro (<10)","value":"micro"},
+        {"text":"Small (10–29)","value":"small"},
+        {"text":"Medium (30–79)","value":"medium"},
+        {"text":"Large (80–199)","value":"large"},
+        {"text":"XL (200+)","value":"xl"}
+      ]},
+      "note":"Display banding; sponsor cabinet filters by this without exposing exact attendee counts pre-event"
+    }
+  }'
+
+# ──────────── event_types seed extensions ───────────────────────────────
+#
+# Add closed / paid / course_session to the existing meetup / workshop /
+# hackathon / conference / online taxonomy. seed_type() is idempotent.
+
+echo "[event_types — extensions per ADR-0033]"
+seed_type closed         "Closed event"   "#6b7280" 60
+seed_type paid           "Paid event"     "#10b981" 70
+seed_type course_session "Course session" "#a855f7" 80
+
+# ──────────── event_outcomes ────────────────────────────────────────────
+#
+# Denormalised post-event rollup. One row per event. Refreshed by the
+# F-S1.1c post-event cron (existing) PLUS a new F-S3.4 cabinet write
+# path. Powers sponsor reports cheaply (no join across registrations +
+# interaction_responses each render).
+
+echo "[event_outcomes]"
+ensure "collection event_outcomes" \
+  "${DIRECTUS_URL}/collections/event_outcomes" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_outcomes",
+    "schema":{"name":"event_outcomes"},
+    "meta":{
+      "icon":"insights",
+      "note":"Post-event rollup. One row per event. App-enforced uniqueness on event FK.",
+      "sort_field":"date_updated"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false,"is_unique":true},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"registrations_count","type":"integer","schema":{"is_nullable":false,"default_value":0},"meta":{"interface":"input","width":"half","readonly":true}},
+      {"field":"attended_count","type":"integer","schema":{"is_nullable":false,"default_value":0},"meta":{"interface":"input","width":"half","readonly":true}},
+      {"field":"csat_avg","type":"decimal","schema":{"is_nullable":true,"numeric_precision":3,"numeric_scale":2},"meta":{"interface":"input","width":"half","readonly":true,"note":"0–5 scale; null if N<3 responses (anonymity floor)"}},
+      {"field":"nps","type":"integer","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","readonly":true,"note":"-100..+100; null if N<3 responses"}},
+      {"field":"content_artifacts_count","type":"integer","schema":{"is_nullable":false,"default_value":0},"meta":{"interface":"input","width":"half","readonly":true,"note":"Recordings + slides + recaps published"}},
+      {"field":"follow_up_completed","type":"boolean","schema":{"is_nullable":false,"default_value":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"All event_followups for this event marked complete"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation event_outcomes.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_outcomes/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_outcomes","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+# ──────────── event_followups ───────────────────────────────────────────
+
+echo "[event_followups]"
+ensure "collection event_followups" \
+  "${DIRECTUS_URL}/collections/event_followups" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_followups",
+    "schema":{"name":"event_followups"},
+    "meta":{
+      "icon":"task_alt",
+      "note":"Per-event followup checklist. F-S3.4 cabinet drives completion; F-S3.5 partner cabinet reads sponsor_report_delivered.",
+      "sort_field":"due_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"kind","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Retrospective","value":"retrospective"},
+          {"text":"Thank-you sent","value":"thank_you_sent"},
+          {"text":"Recap posted","value":"recap_posted"},
+          {"text":"Sponsor report delivered","value":"sponsor_report_delivered"}
+        ]}
+      }},
+      {"field":"body_md","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-rich-text-md","width":"full","note":"Retrospective notes or recap copy (markdown). Optional for other kinds."}},
+      {"field":"due_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half"}},
+      {"field":"completed_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Null = pending"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation event_followups.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_followups/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_followups","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+# ──────────── F-S3.0 — extend S0.1 demo-tenant isolation ────────────────
+#
+# Only collections with their own country field need a new permission
+# row; member-scoped collections cascade via the existing
+# directus_users/read filter (is_test_user). cohorts + partner_audiences
+# are member-graph-scoped not country-scoped, so a country filter
+# doesn't apply.
+
+echo "[S0.1 — permissions: extend for member graph collections]"
+ensure_perm "perm companies/read" companies read "$COUNTRY_FILTER"
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

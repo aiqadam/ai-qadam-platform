@@ -74,8 +74,8 @@ export class AuthService {
       // The original comment acknowledged the trade-off ("we lose
       // silent SSO across other Authentik-protected apps") and accepted
       // it because AI Qadam was the only such app at the time. That's
-      // no longer true — Directus, Twenty, and Gatus are all OIDC-
-      // bound to the same Authentik now (ADR-0032 acceleration,
+      // no longer true — Directus and Gatus are both OIDC-bound to
+      // the same Authentik now (ADR-0032 acceleration,
       // 2026-05-20). Forcing re-auth on workspace not only kills
       // silent SSO but — verified against prod 2026-05-20 — leaves
       // the user stuck on the Authentik login page with a
