@@ -24,6 +24,7 @@ When the PR merges, the agent is done.
 
 | Doc | What it gives the agent |
 |---|---|
+| [`docs/product-plan.md`](./product-plan.md) | Strategic 18-month view: vision, surface map (web/Telegram/email/earned), member journey, platform pillars, scaling + enrichment strategy, product menu (hackathons / HRtech / edtech / paid / mentorship), business model evolution, metrics. Read when a strategic question surfaces ("does this fit?", "what comes after?"). |
 | [`docs/community-platform-roadmap.md`](./community-platform-roadmap.md) | §7 lists every feature with deliverables. §1 north-stars, §2.5 3-lane model, §3 actor lifecycles, §6 risks, §7.5 smoke catalog. |
 | [`docs/ux-and-content-guidelines.md`](./ux-and-content-guidelines.md) | All user-visible copy. §9 form structures, §10 task flows, §11 onboarding scripts, §12 notification copy library, §13 microcopy, §15 empty/error states. Verbatim — do not invent. |
 | [`docs/marketing-and-pr-playbook.md`](./marketing-and-pr-playbook.md) | §3 AARRR funnel, §3.5 sponsor pricing, §10 sponsor kit, §11 speaker kit, §13 founder voices, §14 per-event playbook, §15 brand assets, §16 UTM scheme + attribution. |

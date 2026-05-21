@@ -3,6 +3,12 @@
 > **Single source of truth for the next 12 weeks of platform work.** This document combines (a) PM phase planning, (b) senior-architect review with single-VM-constraint adaptation, and (c) BA process / lifecycle / behavioral-risk analysis. Developers should read it end-to-end before starting Sprint 0; thereafter, treat each sprint section as the spec for that sprint.
 >
 > **Drafted 2026-05-19**, four-pass authorship: feature-PM v0 → community-PM v1 → enterprise-architect review v2 → BA process analysis v3 (this version).
+>
+> **Sibling artifacts** (authored after this roadmap, capture the strategic + execution layers around it):
+> - [`product-plan.md`](./product-plan.md) — 18-month strategic view: vision, surface map, member journey, Telegram strategy, scaling, enrichment, product menu (hackathons / HRtech / edtech / paid / mentorship), business model evolution. **Read this for "where is AI Qadam going?" questions; read this roadmap for "what ships next sprint?"**
+> - [`agent-prompts.md`](./agent-prompts.md) — vertical-feature backlog + concurrency rules + kick-off prompts for autonomous agent sessions.
+> - [`ux-and-content-guidelines.md`](./ux-and-content-guidelines.md) — voice, forms, microcopy, notification copy library.
+> - [`marketing-and-pr-playbook.md`](./marketing-and-pr-playbook.md) — funnel, channels, sponsor tiers, UTM scheme.
 
 ---
 
