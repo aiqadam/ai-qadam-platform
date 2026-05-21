@@ -125,4 +125,36 @@ export class MembersService {
     }>(path);
     return res.meta?.filter_count ?? 0;
   }
+
+  /**
+   * Resolve a filter to the matching user IDs — used by AnnounceService
+   * (F-S3.3) to translate a cohort's filter_query into the
+   * dispatcher's audience.userIds[] shape with zero schema translation.
+   *
+   * Hard cap at MAX_DISPATCH_AUDIENCE so a runaway filter doesn't
+   * blast the platform. If the actual cohort exceeds the cap, callers
+   * should split into multiple dispatches OR refine the cohort first.
+   */
+  static readonly MAX_DISPATCH_AUDIENCE = 5000;
+
+  async resolveToUserIds(filter: Record<string, unknown>): Promise<{
+    userIds: string[];
+    truncated: boolean;
+    total: number;
+  }> {
+    const total = await this.count(filter);
+    const truncated = total > MembersService.MAX_DISPATCH_AUDIENCE;
+    const fetchLimit = Math.min(total, MembersService.MAX_DISPATCH_AUDIENCE);
+    if (fetchLimit === 0) {
+      return { userIds: [], truncated: false, total: 0 };
+    }
+    const filterParam = encodeURIComponent(JSON.stringify(filter));
+    const path = `/users?fields=id&filter=${filterParam}&limit=${fetchLimit}`;
+    const res = await this.directus.get<{ data: Array<{ id: string }> }>(path);
+    return {
+      userIds: res.data.map((u) => u.id),
+      truncated,
+      total,
+    };
+  }
 }
