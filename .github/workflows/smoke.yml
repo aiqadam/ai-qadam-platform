@@ -37,6 +37,14 @@ concurrency:
   group: smoke-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  # The scheduled alerting steps below open + comment + close issues
+  # to alert on prod-probe failures (F-S0.11). PR runs don't need
+  # issues:write but having it set per-workflow keeps the job
+  # rerunnable across event types without surprises.
+  issues: write
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -127,3 +135,101 @@ jobs:
           name: playwright-traces-${{ github.run_id }}
           path: apps/e2e/test-results/
           retention-days: 7
+
+      # ─────────── F-S0.11 — Prod-probe alerting ────────────────────────
+      #
+      # On the scheduled cron path only (NOT on PRs — humans see PR
+      # failures inline), alert on smoke failure by:
+      #   1. Emitting a Plausible ops-event (prod_probe_failure) so the
+      #      failure rate is trackable over time in /workspace/analytics.
+      #   2. Opening (or commenting on) an issue labelled
+      #      `prod-probe-failure` so an engineer is paged in their normal
+      #      issue feed. Dedupe via the open-issue check — we don't open
+      #      a fresh issue for every 30-min tick during a multi-hour
+      #      outage.
+      #
+      # When smoke recovers on a subsequent cron run, the recovery step
+      # below closes the open issue with a "resolved by run #N" comment.
+      #
+      # Telegram alerting is deliberately omitted from this PR: the
+      # Telegram alert bot's chat id + token are not yet in this repo's
+      # GH secrets. When they are (HUMAN one-off), add a second step
+      # gated on `if: secrets.TELEGRAM_ALERT_BOT_TOKEN != ''`.
+
+      - name: Alert on scheduled smoke failure (F-S0.11)
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAUSIBLE_HOST: ${{ vars.PLAUSIBLE_OPS_HOST || 'https://analytics.aiqadam.org' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          # 1. Plausible ops-event.
+          curl -sS -X POST "${PLAUSIBLE_HOST}/api/event" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: aiqadam-ci-smoke-probe" \
+            -d "{
+              \"name\": \"prod_probe_failure\",
+              \"url\": \"github://prod-probe/${{ github.run_id }}\",
+              \"domain\": \"aiqadam.org\",
+              \"props\": {
+                \"run_id\": \"${{ github.run_id }}\",
+                \"workflow\": \"smoke\",
+                \"event\": \"schedule\"
+              }
+            }" \
+            || echo "(plausible POST failed; non-blocking)"
+
+          # 2. Issue (open or comment).
+          existing=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label prod-probe-failure \
+            --state open \
+            --json number,title \
+            --jq '.[0].number // empty')
+          body="Scheduled smoke probe failed on run [${{ github.run_id }}](${RUN_URL}).
+
+The workflow ran the prod-health gate + Playwright suite against \`https://aiqadam.org\`. One or both failed.
+
+- **Run:** ${RUN_URL}
+- **Commit on main:** ${{ github.sha }}
+
+If this is the second consecutive cron failure, escalate to [\`security.md\`](../../docs/runbooks/security.md) or [\`auth.md\`](../../docs/runbooks/auth.md) depending on the failing scenario."
+          if [ -n "${existing}" ]; then
+            gh issue comment "${existing}" \
+              --repo "${{ github.repository }}" \
+              --body "${body}"
+            echo "Commented on existing issue #${existing}."
+          else
+            gh issue create \
+              --repo "${{ github.repository }}" \
+              --title "prod-probe-failure: smoke failed on run ${{ github.run_id }}" \
+              --label prod-probe-failure \
+              --body "${body}"
+            echo "Opened new prod-probe-failure issue."
+          fi
+
+      - name: Resolve open prod-probe issue on recovery (F-S0.11)
+        if: ${{ success() && github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          existing=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label prod-probe-failure \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+          if [ -n "${existing}" ]; then
+            gh issue comment "${existing}" \
+              --repo "${{ github.repository }}" \
+              --body "Recovered. Scheduled smoke probe passed on run [${{ github.run_id }}](${RUN_URL}). Closing."
+            gh issue close "${existing}" \
+              --repo "${{ github.repository }}" \
+              --reason completed
+            echo "Closed recovered issue #${existing}."
+          else
+            echo "No open prod-probe-failure issue; nothing to recover."
+          fi
