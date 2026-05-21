@@ -48,6 +48,33 @@ test.describe('S0.10 — public smoke', () => {
     expect(response?.status()).toBe(200);
   });
 
+  test('/press loads + Tier-1 logos + leadership bios + degrades gracefully when no Tier-2 assets', async ({
+    page,
+  }) => {
+    // F-S0.9b: page must render whether or not marketing_assets has
+    // approved+public rows. Tier-1 sections (logos, palette) are
+    // load-bearing — they MUST render every time. Tier-2 sections
+    // (headshots, fact sheet, quarterly digest, press coverage) render
+    // either real content OR the honest empty-state copy per UX §1.4.
+    const response = await page.goto('/press');
+    expect(response?.status()).toBe(200);
+
+    // Founder + COO bio headings (UX §2.1 voice; doesn't depend on Directus).
+    await expect(page.getByRole('heading', { name: /^Binali Rustamov/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Viktor Drukker/ })).toBeVisible();
+
+    // Tier-1 logo download links (3 expected; from /brand/).
+    const logoLinks = page.locator('a[download][href^="/brand/"]');
+    await expect(logoLinks).toHaveCount(3);
+
+    // Press contact is always present (load-bearing for journalists).
+    await expect(page.getByRole('link', { name: 'press@aiqadam.org' }).first()).toBeVisible();
+
+    // Brand color section renders both swatches (palette is in code).
+    await expect(page.getByText('Brand teal (light)')).toBeVisible();
+    await expect(page.getByText('Brand teal (dark)')).toBeVisible();
+  });
+
   test('sitemap.xml is valid XML and references the homepage', async ({ request }) => {
     const response = await request.get('/sitemap.xml');
     expect(response.status()).toBe(200);

@@ -1622,6 +1622,156 @@ ensure "relation event_followups.event -> events.id" \
 echo "[S0.1 — permissions: extend for member graph collections]"
 ensure_perm "perm companies/read" companies read "$COUNTRY_FILTER"
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S0.9b — Brand-asset library (Tier 2 per ADR-0025)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Tier 2 produced brand assets live here. Tier 1 (logos / favicons /
+# brand mark) stays in apps/web/public/brand/ per ADR-0025 Decision §1
+# — engineer-PR'd via the normal git flow; that scope is unchanged.
+#
+# Schema captures: category (the asset class from ADR-0025 §Tier 2),
+# optional bindings (event / sponsor / speaker / subject_user /
+# country) so a single asset row can be filtered for the right
+# surface, the draft→pending_review→approved→archived status machine
+# that enforces Viktor as approval gate, the actual file + a
+# thumbnail, and the ai_prompt transparency field for AI-generated
+# assets.
+#
+# Read shape (F-S0.9b):
+#   /press queries category IN (press-headshot, fact-sheet,
+#     quarterly-digest, press-coverage) WHERE visibility=public AND
+#     status=approved
+#   /events/[id] recap queries event=<id> WHERE visibility=public AND
+#     status=approved (once F-S3.4 cabinet exposes the upload UX)
+#   F-S3.5 partner cabinet queries sponsor=<id> WHERE visibility IN
+#     (public, sponsors)
+#   Operator-only assets use visibility=operators_only and never
+#     surface to members.
+
+echo "[marketing_assets]"
+ensure "collection marketing_assets" \
+  "${DIRECTUS_URL}/collections/marketing_assets" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"marketing_assets",
+    "schema":{"name":"marketing_assets"},
+    "meta":{
+      "icon":"photo_library",
+      "note":"Tier 2 brand assets per ADR-0025. status enforces Viktor approval gate; visibility scopes who can read.",
+      "sort_field":"date_updated",
+      "archive_field":"status",
+      "archive_value":"archived",
+      "unarchive_value":"draft"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":200},"meta":{"interface":"input","width":"full","required":true,"note":"e.g. \"Binali Rustamov — founder headshot v2\""}},
+      {"field":"description","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Context for downstream consumers + future Viktor"}},
+      {"field":"category","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Press headshot","value":"press-headshot"},
+          {"text":"Fact sheet","value":"fact-sheet"},
+          {"text":"Press pack (zip)","value":"press-pack"},
+          {"text":"Press coverage","value":"press-coverage"},
+          {"text":"Quarterly digest","value":"quarterly-digest"},
+          {"text":"Social card (event)","value":"social-card-event"},
+          {"text":"Social card (speaker)","value":"social-card-speaker"},
+          {"text":"Social card (quote)","value":"social-card-quote"},
+          {"text":"Social card (recap)","value":"social-card-recap"},
+          {"text":"Event photo","value":"event-photo"},
+          {"text":"Speaker spotlight","value":"speaker-spotlight"},
+          {"text":"Sponsor logo variant","value":"sponsor-logo-variant"},
+          {"text":"Video","value":"video"},
+          {"text":"Other","value":"other"}
+        ]}
+      }},
+      {"field":"visibility","type":"string","schema":{"is_nullable":false,"default_value":"operators_only","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Public","value":"public"},
+          {"text":"Sponsors (per partner_audiences)","value":"sponsors"},
+          {"text":"Operators only","value":"operators_only"},
+          {"text":"Engineers only","value":"engineers_only"}
+        ]},
+        "note":"public = surfaces like /press; operators_only = workspace cabinets only; engineers_only = ad-hoc engineer use"
+      }},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"draft","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Draft","value":"draft"},
+          {"text":"Pending review","value":"pending_review"},
+          {"text":"Approved","value":"approved"},
+          {"text":"Archived","value":"archived"}
+        ]},
+        "note":"Public surfaces filter to status=approved per ADR-0025 approval workflow"
+      }},
+      {"field":"event","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{title}}"},"note":"Bind to an event when the asset is event-specific"}},
+      {"field":"sponsor","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{name}}"},"note":"Bind to a sponsor (companies) for sponsor-recap deliverables"}},
+      {"field":"speaker","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{user.email}}"},"note":"Bind to a speaker for spotlight assets"}},
+      {"field":"subject_user","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"For person-portrait assets (founders, COO, member spotlights)"}},
+      {"field":"country","type":"string","schema":{"is_nullable":true,"max_length":2},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{name}}"},"note":"Country scope; null = global"}},
+      {"field":"file","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"file","width":"full","required":true,"note":"The actual binary"}},
+      {"field":"thumbnail","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file-image","width":"full","note":"Optional small-render for index pages"}},
+      {"field":"ai_prompt","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Per ADR-0025 transparency: when AI-generated, the prompt used. Null = not AI-generated."}},
+      {"field":"uploaded_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"special":["user-created"],"readonly":true}},
+      {"field":"approved_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"Auto-set when status flips to approved (app-enforced)"}},
+      {"field":"approved_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Auto-set when status flips to approved (app-enforced)"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation marketing_assets.event -> events.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"event","related_collection":"events","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation marketing_assets.sponsor -> companies.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/sponsor" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"sponsor","related_collection":"companies","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation marketing_assets.speaker -> speakers.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/speaker" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"speaker","related_collection":"speakers","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation marketing_assets.subject_user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/subject_user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"subject_user","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation marketing_assets.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/marketing_assets/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"country","related_collection":"countries","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation marketing_assets.file -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/file" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"file","related_collection":"directus_files","schema":{"on_delete":"RESTRICT"}}'
+
+ensure "relation marketing_assets.thumbnail -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/thumbnail" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"thumbnail","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation marketing_assets.uploaded_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/uploaded_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"uploaded_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation marketing_assets.approved_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/marketing_assets/approved_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"marketing_assets","field":"approved_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

@@ -1,35 +1,56 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { fetchMarketingAssets } from '../lib/cms';
 
-// Sprint 0.9 — Public press / media kit page.
-// Spec: marketing-and-pr-playbook.md §15.4. The seven required surfaces:
-// logo downloads, brand colors, founder + COO bios with headshots, fact
-// sheet PDF, press contact, quarterly community reports, past coverage.
+// Public press / media kit page. F-S0.9b (Tier-2 wire-up): wired to
+// Directus `marketing_assets` per ADR-0025 for the asset classes that
+// live there (press-headshot, fact-sheet, quarterly-digest,
+// press-coverage). Tier 1 stays in git — logos + palette are still
+// hardcoded below.
 //
-// Some assets are HUMAN-produced (Viktor's Claude Design + ChatGPT pipeline
-// per playbook §15.1) and not yet uploaded — those sections render an
-// honest "coming soon" state per UX §1.4 ("honesty about ambiguity >
-// false certainty") rather than dead download links. The page renders
-// today and gracefully fills out as Viktor drops files into
-// /apps/web/public/press-kit/.
+// Each Tier-2 section gracefully degrades to the "coming soon" empty
+// state per UX §1.4 when 0 approved+public assets exist for that
+// category. The page renders today identically to the prior Potemkin
+// (no assets uploaded yet); the moment Viktor uploads + approves the
+// first headshot / fact-sheet / digest / coverage row, the relevant
+// section lights up.
 //
-// Per agent-prompts §1 row 5: copy verbatim from playbook §15.4 + UX §2.1
-// + UX §1 boilerplate. design-system/ tokens locked — only existing
-// classes and CSS variables.
-//
-// Public page (no auth, no tenant resolution); SSG-friendly.
+// design-system/ tokens locked — only existing classes and CSS
+// variables. SSG-friendly except for the marketing_assets fetch which
+// runs at request time (Directus state changes; we want the page fresh).
 
 const description =
   'AI Qadam media kit — logo, brand assets, founder + COO bios, fact sheet, and press contact for journalists, partners, and event organizers.';
 
-// Logo pack: the three brand marks already shipped in public/brand/.
-// Additional SVG variants listed in playbook §15.3 will land as Viktor
-// produces them; the page picks them up automatically once present.
+// Tier 1 assets (per ADR-0025): logos / favicons / brand mark stay in
+// git at apps/web/public/brand/. Edited only by engineers via PR.
 const logos = [
   { file: '/brand/aiqadam-logo.png', label: 'Full logo (PNG)' },
   { file: '/brand/aiqadam-logo-transparent.png', label: 'Full logo, transparent (PNG)' },
   { file: '/brand/aiqadam-mark.png', label: 'Mark only (PNG)' },
 ];
+
+// Tier 2 assets from Directus marketing_assets. Each call returns an
+// empty array on Directus failure / no approved assets — the empty
+// branches in the markup below handle that with UX §1.4 copy.
+const [headshots, factSheets, quarterlyDigests, pressCoverage] = await Promise.all([
+  fetchMarketingAssets({ category: 'press-headshot', limit: 8 }),
+  fetchMarketingAssets({ category: 'fact-sheet', limit: 1 }),
+  fetchMarketingAssets({ category: 'quarterly-digest', limit: 4 }),
+  fetchMarketingAssets({ category: 'press-coverage', limit: 12 }),
+]);
+
+// Match headshots to leadership by title-prefix. Uploader names assets
+// like "Binali Rustamov — founder headshot" so a startsWith match is
+// robust; if no match, the placeholder card renders instead. Sort in
+// the cms helper is -date_created, so a newer rev replaces an older
+// one automatically.
+function findHeadshot(forName: string): (typeof headshots)[0] | undefined {
+  return headshots.find((h) => h.title.toLowerCase().startsWith(forName.toLowerCase()));
+}
+const binaliHeadshot = findHeadshot('Binali');
+const viktorHeadshot = findHeadshot('Viktor');
+const latestFactSheet = factSheets[0];
 
 // Brand color palette — exact values from design-system/tokens.css. Surfaced
 // here so journalists / sponsors can use brand-correct colors in artwork
@@ -110,12 +131,27 @@ const palette = [
         <article
           style="padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); display: flex; flex-direction: column; gap: 14px;"
         >
-          <div
-            aria-hidden="true"
-            style="height: 200px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase;"
-          >
-            Headshot — coming soon
-          </div>
+          {binaliHeadshot ? (
+            <a
+              href={binaliHeadshot.fileUrl}
+              download
+              style="display: block; height: 200px; border-radius: 8px; background: var(--muted); overflow: hidden;"
+            >
+              <img
+                src={binaliHeadshot.thumbnailUrl ?? binaliHeadshot.fileUrl}
+                alt={binaliHeadshot.title}
+                style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                loading="lazy"
+              />
+            </a>
+          ) : (
+            <div
+              aria-hidden="true"
+              style="height: 200px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase;"
+            >
+              Headshot — coming soon
+            </div>
+          )}
           <div>
             <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0 0 4px;">
               Binali Rustamov
@@ -135,12 +171,27 @@ const palette = [
         <article
           style="padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); display: flex; flex-direction: column; gap: 14px;"
         >
-          <div
-            aria-hidden="true"
-            style="height: 200px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase;"
-          >
-            Headshot — coming soon
-          </div>
+          {viktorHeadshot ? (
+            <a
+              href={viktorHeadshot.fileUrl}
+              download
+              style="display: block; height: 200px; border-radius: 8px; background: var(--muted); overflow: hidden;"
+            >
+              <img
+                src={viktorHeadshot.thumbnailUrl ?? viktorHeadshot.fileUrl}
+                alt={viktorHeadshot.title}
+                style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                loading="lazy"
+              />
+            </a>
+          ) : (
+            <div
+              aria-hidden="true"
+              style="height: 200px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase;"
+            >
+              Headshot — coming soon
+            </div>
+          )}
           <div>
             <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0 0 4px;">
               Viktor Drukker
@@ -249,22 +300,44 @@ const palette = [
       >
         Fact sheet
       </p>
-      <article
-        style="padding: 24px; border: 1px dashed var(--border); border-radius: 12px; background: var(--card);"
-      >
-        <p style="font-size: 15px; margin: 0 0 8px;">
-          One-page PDF — mission, history, numbers — coming with our first
-          quarterly digest.
-        </p>
-        <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
-          Need the numbers sooner? Email <a href="mailto:press@aiqadam.org" style="color: var(--primary);">press@aiqadam.org</a>.
-        </p>
-      </article>
+      {latestFactSheet ? (
+        <article
+          style="padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);"
+        >
+          <p style="font-size: 15px; margin: 0 0 12px;">
+            {latestFactSheet.title}
+          </p>
+          {latestFactSheet.description && (
+            <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 16px;">
+              {latestFactSheet.description}
+            </p>
+          )}
+          <a
+            href={latestFactSheet.fileUrl}
+            download
+            style="display: inline-block; padding: 10px 16px; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); font-size: 14px; text-decoration: none;"
+          >
+            Download fact sheet
+          </a>
+        </article>
+      ) : (
+        <article
+          style="padding: 24px; border: 1px dashed var(--border); border-radius: 12px; background: var(--card);"
+        >
+          <p style="font-size: 15px; margin: 0 0 8px;">
+            One-page PDF — mission, history, numbers — coming with our first
+            quarterly digest.
+          </p>
+          <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+            Need the numbers sooner? Email <a href="mailto:press@aiqadam.org" style="color: var(--primary);">press@aiqadam.org</a>.
+          </p>
+        </article>
+      )}
     </section>
 
-    <!-- Quarterly community reports. Sourced from the same surface as the
-         /community-reports/ public archive (playbook §14.6). First issue
-         ships with the brand asset library + sponsor digest pipeline. -->
+    <!-- Quarterly community reports. Reads from marketing_assets where
+         category=quarterly-digest AND status=approved AND visibility=public.
+         Empty state per UX §1.4 until the first issue lands. -->
     <section style="padding: 32px 48px; border-top: 1px solid var(--border);">
       <p
         class="section-eyebrow"
@@ -272,23 +345,42 @@ const palette = [
       >
         Community reports
       </p>
-      <article
-        style="padding: 24px; border: 1px dashed var(--border); border-radius: 12px; background: var(--card);"
-      >
-        <p style="font-size: 15px; margin: 0 0 8px;">
-          Quarterly digest — numbers, milestones, member stories — lands here
-          when issue one publishes.
-        </p>
-        <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
-          Sponsors receive the digest directly; the public archive opens with
-          the second issue.
-        </p>
-      </article>
+      {quarterlyDigests.length > 0 ? (
+        <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 10px;">
+          {quarterlyDigests.map((digest) => (
+            <li>
+              <a
+                href={digest.fileUrl}
+                download
+                style="display: flex; justify-content: space-between; gap: 16px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); text-decoration: none; color: inherit;"
+              >
+                <span style="font-size: 15px;">{digest.title}</span>
+                <span style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground);">
+                  Download
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <article
+          style="padding: 24px; border: 1px dashed var(--border); border-radius: 12px; background: var(--card);"
+        >
+          <p style="font-size: 15px; margin: 0 0 8px;">
+            Quarterly digest — numbers, milestones, member stories — lands here
+            when issue one publishes.
+          </p>
+          <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+            Sponsors receive the digest directly; the public archive opens with
+            the second issue.
+          </p>
+        </article>
+      )}
     </section>
 
-    <!-- Past press coverage. Empty until we appear in something. We say so
-         straight — UX §1.4 (honesty about ambiguity) outranks marketing
-         self-flattery. -->
+    <!-- Past press coverage. Reads from marketing_assets where
+         category=press-coverage AND status=approved AND visibility=public.
+         Each row's description is the publication + date (free-form). -->
     <section style="padding: 32px 48px 64px; border-top: 1px solid var(--border);">
       <p
         class="section-eyebrow"
@@ -296,18 +388,39 @@ const palette = [
       >
         Press coverage
       </p>
-      <article
-        style="padding: 24px; border: 1px dashed var(--border); border-radius: 12px; background: var(--card);"
-      >
-        <p style="font-size: 15px; margin: 0 0 8px;">
-          We've kept our heads down. First coverage lands when it lands —
-          we'll link it here.
-        </p>
-        <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
-          Writing about us? Email <a href="mailto:press@aiqadam.org" style="color: var(--primary);">press@aiqadam.org</a> and we'll
-          add the link once it's live.
-        </p>
-      </article>
+      {pressCoverage.length > 0 ? (
+        <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 10px;">
+          {pressCoverage.map((item) => (
+            <li
+              style="padding: 16px 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);"
+            >
+              <p style="font-size: 15px; margin: 0 0 6px;">
+                <a href={item.fileUrl} style="color: var(--primary);">
+                  {item.title}
+                </a>
+              </p>
+              {item.description && (
+                <p style="font-size: 13px; color: var(--muted-foreground); margin: 0;">
+                  {item.description}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <article
+          style="padding: 24px; border: 1px dashed var(--border); border-radius: 12px; background: var(--card);"
+        >
+          <p style="font-size: 15px; margin: 0 0 8px;">
+            We've kept our heads down. First coverage lands when it lands —
+            we'll link it here.
+          </p>
+          <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
+            Writing about us? Email <a href="mailto:press@aiqadam.org" style="color: var(--primary);">press@aiqadam.org</a> and we'll
+            add the link once it's live.
+          </p>
+        </article>
+      )}
     </section>
   </main>
 </Layout>

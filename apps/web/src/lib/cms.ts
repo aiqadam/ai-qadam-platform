@@ -119,6 +119,94 @@ export async function fetchPartners(req: Request): Promise<CmsPartner[]> {
   }
 }
 
+// ──────────── marketing_assets (F-S0.9b per ADR-0025) ────────────────
+//
+// Tier 2 brand assets: produced photos / PDFs / videos / press kit items
+// that live in Directus rather than git. Public-only consumers (e.g.
+// /press) filter to status=approved + visibility=public; sponsor or
+// operator surfaces use different visibility scopes.
+//
+// The shape returned here is intentionally narrow — title + file URL +
+// description + ai_prompt + date_created. Callers that need more
+// (sponsor binding, event binding) can extend the fields list.
+
+interface CmsMarketingAssetRow {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  ai_prompt: string | null;
+  file: string;
+  thumbnail: string | null;
+  date_created: string;
+}
+
+export interface CmsMarketingAsset {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  fileUrl: string;
+  thumbnailUrl: string | null;
+  aiPrompt: string | null;
+  dateCreated: string;
+}
+
+// Build a public asset URL. Directus exposes the file binary at
+// /assets/<file-id> on the same CMS_URL we already use; auth not needed
+// since the marketing_assets read permission is bound to the Public
+// policy for status=approved AND visibility=public.
+function assetUrl(fileId: string | null): string | null {
+  if (!fileId) return null;
+  return `${BASE}/assets/${fileId}`;
+}
+
+export interface FetchMarketingAssetsOpts {
+  category: string | string[];
+  country?: string | null;
+  limit?: number;
+}
+
+// Public-only assets. Filters status=approved AND visibility=public on
+// every call so consuming pages never accidentally render a draft or an
+// operators-only file. Empty array on failure so the page degrades to
+// the honest "coming soon" state per UX §1.4.
+export async function fetchMarketingAssets(
+  opts: FetchMarketingAssetsOpts,
+): Promise<CmsMarketingAsset[]> {
+  const categories = Array.isArray(opts.category) ? opts.category : [opts.category];
+  try {
+    const params = new URLSearchParams({
+      'filter[status][_eq]': 'approved',
+      'filter[visibility][_eq]': 'public',
+      'filter[category][_in]': categories.join(','),
+      sort: '-date_created',
+      limit: String(opts.limit ?? 8),
+      fields: 'id,title,description,category,ai_prompt,file,thumbnail,date_created',
+    });
+    if (opts.country) {
+      params.set('filter[_or][0][country][_eq]', opts.country);
+      params.set('filter[_or][1][country][_null]', 'true');
+    }
+    const body = await get<{ data: CmsMarketingAssetRow[] }>(
+      `/items/marketing_assets?${params.toString()}`,
+    );
+    return body.data.map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      fileUrl: assetUrl(row.file) ?? '',
+      thumbnailUrl: assetUrl(row.thumbnail),
+      aiPrompt: row.ai_prompt,
+      dateCreated: row.date_created,
+    }));
+  } catch (err) {
+    console.error('[cms] fetchMarketingAssets failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 // Single event for /events/[id]. Returns null on miss / 403 / wrong country.
 export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
   const country = countryFromHost(req.headers.get('host'));
