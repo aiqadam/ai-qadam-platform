@@ -1,12 +1,9 @@
 # ADR-0021: RBAC manifest — single source of truth for cross-engine roles
 
 ## Status
-Proposed, 2026-05-20
+Accepted, 2026-05-21
 
-> Drafted by Agent-Docs per `docs/community-platform-roadmap.md` §7 Sprint 0.6.
-> PM flips to **Accepted** via the weekly decision-batch process
-> ([ADR-0022 onward — see Sprint 0.12](./)). Until Accepted, no
-> downstream code may rely on this manifest.
+> Drafted 2026-05-20 per `docs/community-platform-roadmap.md` §7 Sprint 0.6. **Refreshed + Accepted 2026-05-21** by Viktor (PM) via the [decision-batch process](../decision-batch-process.md). The refresh reflects: Twenty CRM removal (ADR-0033 / F-S3.0 / PR #134), single-origin cabinet routing (ADR-0031 / F-S3.1 / PR #147), and break-glass admin path now shipped (F-S0.2 / PR #158). F-S2.2 RBAC sync, S2.4 Metabase + country dashboard, S2.5 audit log, S2.6 cross-country dashboard, and the F-#113 `rbac.denied` ops-event hook are now **unblocked** + may proceed against this manifest.
 
 ## Context
 
@@ -89,17 +86,15 @@ Directus is the data plane (collections: `events`, `registrations`, `users`, `sp
 
 Authoritative declaration: `infrastructure/directus/bootstrap.sh` (owned by Agent-Schema — Sprint 0.1 already seeded the `country=demo` policy). The RBAC sync service (Sprint 2.2) **does not** create policies; it only assigns existing policies to users by writing to `directus_users.policies[]` based on group membership.
 
-#### 4.2 Twenty CRM workspace roles
+#### 4.2 Sponsor / partner access — via the member graph, not a CRM
 
-Twenty has workspace-level roles (`MEMBER`, `ADMIN`) plus per-object permission rules. We do **not** propagate every Authentik group; we propagate operator-class only:
+Per [ADR-0033](./0033-community-member-graph.md), sponsor relationship management lives in the Directus member graph — `companies WHERE is_sponsor=true` + `partner_audiences` entitlements + Metabase cohort analytics. There is **no separate sponsor-side engine** to propagate Authentik groups into. Sponsors:
 
-| Authentik group | Twenty workspace role | Twenty workspace tag |
-|---|---|---|
-| `aiqadam-country-lead-<country>` | `ADMIN` | `country:<country>` |
-| `aiqadam-organizer-<country>` | `MEMBER` | `country:<country>` |
-| `aiqadam-super-admin` | `ADMIN` | (none — sees all) |
+| Authentik group | What they see, how they see it |
+|---|---|
+| `aiqadam-sponsor-rep-<org>` | The partner cabinet at `/workspace/partners/<slug>` (F-S3.5, per [ADR-0031](./0031-single-origin-cabinet-routing.md)) renders **cohort-aggregated** analytics scoped to the rep's entitled `partner_audiences` rows. Cabinet UI is built in our codebase; Directus policy `policy.sponsor_rep` on `companies` filters to the rep's bound `companies.rep_user`. No engine outside Directus + Metabase needs a per-sponsor seat. |
 
-Members, speakers, sponsor_reps, and service principals do **not** get Twenty seats. They never log into the CRM directly.
+Members, speakers, and service principals do **not** access the partner cabinet — RBAC enforces this at the cabinet route + at the Directus policy level. The legacy mapping that once propagated to Twenty workspace roles is gone with Twenty (F-S3.0 / PR #134).
 
 #### 4.3 Plausible Analytics site access
 
@@ -147,24 +142,24 @@ Concretely, on every sync (webhook-triggered or poll-triggered):
 
 ### 7. Per-engine state machine + partial-failure handling
 
-Each `rbac.sync` job runs a small state machine, persisted in a new Directus collection `rbac_sync_jobs` (Agent-Schema, Sprint 2.2):
+Each `rbac.sync` job runs a small state machine, persisted in a new Directus collection `rbac_sync_jobs` (F-S2.2):
 
 ```
 fields:
   id               uuid PK
   user_id          fk → directus_users
   triggered_by     enum(webhook | poll | manual_retry | activate_country)
-  expected_state   jsonb            // { directus: {...}, twenty: {...}, plausible: {...} }
+  expected_state   jsonb            // { directus: {...}, plausible: {...} }
   directus_status  enum(pending | applied | failed | skipped)
   directus_error   text
-  twenty_status    enum(pending | applied | failed | skipped)
-  twenty_error     text
   plausible_status enum(pending | applied | failed | skipped)
   plausible_error  text
   attempt          int default 1
   started_at       timestamp
   finished_at      timestamp
 ```
+
+(Originally included `twenty_*` columns — removed 2026-05-21 with Twenty per ADR-0033.)
 
 Status semantics:
 - `pending` — work scheduled, not yet attempted.
@@ -187,15 +182,15 @@ Per-engine status is also surfaced on the user's own `/me/access-log` page (Spri
 
 ### 9. Bootstrap procedure (one-time, before Sprint 2.2 ships code)
 
-1. **Agent-Schema** seeds the eight Directus policies named in §4.1 (`policy.member`, `policy.speaker`, `policy.sponsor_rep`, `policy.organizer`, `policy.country_lead`, `policy.svc_bot`, `policy.svc_worker`) via `infrastructure/directus/bootstrap.sh`. Sprint 0.1 already covered `country=demo`; this extends to the seven role policies.
-2. **Operator (HUMAN)** creates the eight country-agnostic groups in Authentik (`aiqadam-member`, `aiqadam-speaker`, `aiqadam-sponsor-rep`, `aiqadam-super-admin`, `aiqadam-svc-bot`, `aiqadam-svc-worker`) plus per-country pairs for every active country (`uz`, `kz`, `tj`, `demo`): `aiqadam-organizer-<c>`, `aiqadam-country-lead-<c>`. Runbook: `docs/runbooks/rbac-bootstrap.md` (Agent-Docs, follow-up PR).
+1. **F-S2.2 bootstrap append** seeds the seven Directus policies named in §4.1 (`policy.member`, `policy.speaker`, `policy.sponsor_rep`, `policy.organizer`, `policy.country_lead`, `policy.svc_bot`, `policy.svc_worker`) via `infrastructure/directus/bootstrap.sh`. F-S0.1 already covered the `country=xx` demo-tenant isolation policy (renamed from the original `country=demo` per PR #123); this F-S2.2 work extends to the seven role policies.
+2. **Operator (HUMAN)** creates the eight country-agnostic groups in Authentik (`aiqadam-member`, `aiqadam-speaker`, `aiqadam-sponsor-rep`, `aiqadam-super-admin`, `aiqadam-svc-bot`, `aiqadam-svc-worker`) plus per-country pairs for every active country (`uz`, `kz`, `tj`, `xx`): `aiqadam-organizer-<c>`, `aiqadam-country-lead-<c>`. Runbook: `docs/runbooks/rbac-bootstrap.md` (follow-up PR alongside F-S2.2).
 3. **Operator** assigns Viktor to `aiqadam-super-admin`. Validates by signing in and seeing all engines.
-4. **Agent-Infra** (Sprint 2.4) ensures Plausible has per-country sites named `<country>.aiqadam.org`.
-5. **Agent-API** (Sprint 2.2) ships the webhook receiver, the BullMQ sync worker, the state machine, and the nightly poll cron.
+4. **F-S2.4 prerequisite** — Plausible has per-country sites named `<country>.aiqadam.org`.
+5. **F-S2.2** ships the webhook receiver, the BullMQ sync worker, the state machine (Directus + Plausible only; Twenty removed), and the nightly poll cron.
 
 ### 10. Open sub-decisions deferred to ADRs
 
-- **ADR-0032 — break-glass override path for RBAC sync failure** (future): if Authentik is unreachable AND a country activation is in progress, how does a `super_admin` mint a one-shot token bypassing webhooks? Default direction: existing break-glass admin path (Sprint 0.2) is the answer; document explicitly when written.
+- ~~**ADR-0032 — break-glass override path for RBAC sync failure**~~ — **Resolved 2026-05-21 by F-S0.2 (PR #158).** When Authentik is unreachable mid-country-activation OR the sync service itself wedges, a `super_admin` falls back to the cached break-glass credentials at `/tmp/aiqadam-secrets-BREAKGLASS_DIRECTUS_TOKEN` (Directus admin API) or `/tmp/aiqadam-secrets-BREAKGLASS_PG_PASSWORD` (Postgres `aiqadam_breakglass` SUPERUSER role). The two paths together cover schema-level + data-level repair without going through Authentik. Procedure in [`docs/runbooks/break-glass.md`](../runbooks/break-glass.md). The note in §"Consequences" below (Authentik-as-load-bearing) is the failure mode this resolves.
 - **Discourse mapping** (Phase ζ.2): re-open §4.4 when Discourse is provisioned.
 
 ## Rationale
@@ -241,7 +236,13 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
 
 ## Updates / amendments
 
-- 2026-05-20: Initial draft (Proposed). Awaiting decision-batch review.
+- **2026-05-21 (refresh):**
+  - §4.2 — removed Twenty CRM mapping; replaced with the partner-cabinet/Directus-policy path per ADR-0033.
+  - §7 — removed `twenty_*` columns from the `rbac_sync_jobs` state machine; the engine count drops from 3 to 2 (Directus + Plausible).
+  - §9 — `demo` tenant references updated to `xx` per the PR #123 rename; "Agent-X" persona terminology replaced with the F-S2.x feature IDs that own each step.
+  - §10 — break-glass open sub-decision resolved by F-S0.2 (PR #158, with prod activation on 2026-05-21); kept as a struck-through audit trail.
+  - References — added ADR-0031 (cabinet routing), ADR-0032 (SSO-or-embed), ADR-0033 (member graph), break-glass runbook.
+- **2026-05-20:** Initial draft (Proposed). Awaiting decision-batch review.
 
 ## References
 - [`docs/community-platform-roadmap.md` §7 Sprint 0.6 + Sprint 2.2](../community-platform-roadmap.md) — the requirement this implements
@@ -249,5 +250,9 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
 - [`.claude/SECURITY.md` §Authorization](../../.claude/SECURITY.md) — the principle and starting role list
 - [`.claude/GLOSSARY.md`](../../.claude/GLOSSARY.md) — domain terms (Country Admin, Role, Tenant)
 - [`docs/migration-to-directus-centric.md`](../migration-to-directus-centric.md) — why Directus permission policies are the data-plane gate
+- [ADR-0031 — Single-origin cabinet routing](./0031-single-origin-cabinet-routing.md) — Accepted; the routing layer that consumes the JWT claims minted here
+- [ADR-0032 — Operator tools must SSO or embed](./0032-operator-tools-must-sso-or-embed.md) — Accepted; constrains which engines this RBAC manifest needs to propagate to
+- [ADR-0033 — Community member graph](./0033-community-member-graph.md) — Accepted; replaces Twenty CRM with the Directus member graph + partner_audiences entitlements (why §4.2 changed)
 - [ADR-0001](./0001-docs-live-in-claude-folder.md), [ADR-0016 — Auth bootstrap](./0016-auth-bootstrap.md) — format + auth context
+- [`docs/runbooks/break-glass.md`](../runbooks/break-glass.md) — the fallback this ADR's §10 + §Consequences delegates to
 - [Authentik webhook docs](https://docs.goauthentik.io/docs/sys-mgmt/events/notifications)

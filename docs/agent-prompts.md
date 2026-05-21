@@ -127,9 +127,9 @@ Most features are independent. The list of real gates is short. An agent that hi
 
 | Gate | What waits on it | How to resolve |
 |---|---|---|
-| **ADR-0021 RBAC manifest** | All workspace-cabinet features (Sprint 2.x+) | PM decision-batch flips Proposed → Accepted (weekly Monday slot per decision-batch-process.md) |
-| **ADR-0025 brand-asset tooling** | S0.7 operator playbook, S0.9 real brand-asset library | Same decision-batch slot |
-| **ADR-0031 cabinet routing** | Sprint 3.x cabinet features | Drafted as a feature itself, then accepted |
+| ~~**ADR-0021 RBAC manifest**~~ | ~~All workspace-cabinet features (Sprint 2.x+)~~ | ✅ **Accepted 2026-05-21** (refresh + accept). Sprint 2.2 / 2.4 / 2.5 / 2.6 + F-#113 `rbac.denied` hook unblocked. §9 bootstrap steps (role policies + Authentik groups + Plausible sites) executed alongside the acceptance. |
+| ~~**ADR-0025 brand-asset tooling**~~ | ~~S0.7 operator playbook, S0.9 real brand-asset library~~ | ✅ **Accepted 2026-05-21** via decision-batch #1 (#152). |
+| ~~**ADR-0031 cabinet routing**~~ | ~~Sprint 3.x cabinet features~~ | ✅ **Accepted 2026-05-21** via #147. |
 | **PII data-flow map (S3.0)** | Sprint 3.2 sponsor cabinet | Ship as a feature (one-PR doc) |
 | **Metabase deploy (S2.4)** | S2.6 cross-country dashboard, S5.8 marketing dashboard | Ship as feature; HUMAN-only step is the Coolify create |
 | **Authentik group claims (Wave-4 RBAC sync)** | S5.5 bot v0 (account link) | Feature S2.2 ships this |
@@ -167,11 +167,11 @@ F-S1.1a publication broadcast · F-S1.1b speaker_added flow · F-S1.1c post-even
 
 Each is one vertical PR per the template in §2. None depends on another.
 
-### Sprint 2 (5 features, gated 🟡 on ADR-0021 Accepted)
+### Sprint 2 (5 features, **🟢 unblocked 2026-05-21** by ADR-0021 acceptance)
 
 F-S2.1 workspace shell · F-S2.2 RBAC sync · F-S2.3 app launcher · F-S2.4 Metabase + country dashboard · F-S2.5 audit log + /me/access-log · F-S2.6 cross-country dashboard (🔴 on F-S2.4).
 
-> Partial: F-S2.1 workspace shell shipped at `/workspace/*` (#125) with placeholder RBAC. F-S2.3 minimal launcher shipped (#128) with 4 cards. Per-role gates still wait on ADR-0021 Accepted + F-S2.2 RBAC sync.
+> Partial: F-S2.1 workspace shell shipped at `/workspace/*` (#125) with placeholder RBAC. F-S2.3 minimal launcher shipped (#128) with 4 cards. **ADR-0021 Accepted 2026-05-21** (refresh + accept PR) — per-role gates now waiting only on F-S2.2 RBAC sync (the §9 bootstrap prerequisites — role policies + Authentik groups + Plausible sites — landed alongside the acceptance).
 
 ### Sprint 3 — Community member graph + 5 operator cabinets (per ADR-0033)
 
