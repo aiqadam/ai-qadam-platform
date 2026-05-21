@@ -170,9 +170,41 @@ Each is one vertical PR per the template in §2. None depends on another.
 
 F-S2.1 workspace shell · F-S2.2 RBAC sync · F-S2.3 app launcher · F-S2.4 Metabase + country dashboard · F-S2.5 audit log + /me/access-log · F-S2.6 cross-country dashboard (🔴 on F-S2.4).
 
-### Sprint 3 — Phase ζ
+> Partial: F-S2.1 workspace shell shipped at `/workspace/*` (#125) with placeholder RBAC. F-S2.3 minimal launcher shipped (#128) with 4 cards. Per-role gates still wait on ADR-0021 Accepted + F-S2.2 RBAC sync.
 
-Defer detailed slicing until Sprint 2 is well underway. Roadmap §7 has the full list; same template applies.
+### Sprint 3 — Community member graph + 5 operator cabinets (per ADR-0033)
+
+Reshaped 2026-05-20 per [ADR-0033](./adr/0033-community-member-graph.md). Twenty CRM dropped; member relationship management lives in the Directus member graph; operators get 5 purpose-built cabinets that hide Directus admin behind the engineer-only chip.
+
+| ID | Feature | Status | Notes |
+|---|---|---|---|
+| **F-S3.0** | Member graph foundation (bootstrap.sh extensions + 8 new collections + event taxonomy + Twenty Coolify deletion) | 🟢 ready (depends on no other PR; ADR-0033 is the spec) | **Blocks all subsequent Sprint 3 cabinets.** Single vertical PR per ADR-0033 Part 1 schema sketch. ~half day. Coolify deletion of Twenty is in-scope. |
+| **F-S3.1** | Single-origin cabinet routing ADR (ADR-0031) | 🟢 ready | Architecture already implemented via `/workspace/*` per ADR-0032 acceleration; this ADR documents it. ~30 min. |
+| **F-S3.2** | Cabinet #1 — Member directory + cohort builder at `/workspace/members` | 🔴 on F-S3.0 | Highest-leverage cabinet. Search/filter members + live audience preview + save filter as named cohort. ~2 days. |
+| **F-S3.3** | Cabinet #2 — Announcement composer at `/workspace/announce` | 🔴 on F-S3.0 + F-S3.2 | Pick cohort → write → preview → dispatcher. ~1 day. |
+| **F-S3.4** | Cabinet #3 — Event control panel at `/workspace/events/[id]` | 🔴 on F-S3.0 | Pre-event prep, day-of check-in, post-event followups. ~2 days. |
+| **F-S3.5** | Cabinet #4 — Partner/sponsor view at `/workspace/partners/[id]` | 🔴 on F-S3.0 + F-S3.2 + S2.4 Metabase | Cohort-aggregated analytics + kit downloads + auto quarterly digest. NEVER raw member rows. ~1 day. |
+| **F-S3.6** | Cabinet #5 — Member self-service at `/me/profile` | 🔴 on F-S3.0 | Per-purpose consents + interests + employment + visibility. ~1 day. |
+| **F-S3.7** | Operator approval queue | 🟢 once cabinets exist | Workspace tile of pending approvals. ~1 day. |
+| **F-S3.8** | Auto-generated quarterly sponsor digest PDF | 🔴 on F-S3.0 + F-S2.4 Metabase | Template + cron + sponsor cabinet download. ~2 days. |
+| **F-S3.9** | Referral codes schema + API + first-touch/last-touch attribution | 🔴 on F-S3.0 | Per [marketing playbook §16.3](./marketing-and-pr-playbook.md). ~1 day. |
+
+**Sprint 3 critical path:** F-S3.0 → F-S3.2 (members cabinet unlocks cohorts) → F-S3.3 (announce uses cohorts) + F-S3.4 (events) + F-S3.5 (sponsors, also needs Metabase from S2.4) + F-S3.6 (member self-service) in parallel.
+
+**Sprint 3 exit gate** (from roadmap): member graph live; 5 cabinets live; ≥1 country lead manages a real event end-to-end without touching Directus admin; ≥1 sponsor sees aggregated cohort analytics on their cabinet; auto quarterly digest generates for ≥1 sponsor.
+
+### Phase ζ products (all land on the member graph per ADR-0033)
+
+| Product | Schema extension (namespaced) | Cabinet |
+|---|---|---|
+| Hackathons (ζ.3) | `hack_teams`, `hack_submissions`, `hack_judges`, `hack_scores` | extends `/workspace/events/[id]` |
+| HRtech | `hr_jobs`, `hr_applications`, `hr_candidate_feeds` | `/workspace/jobs` + `/workspace/talent` |
+| Edtech | `edu_courses`, `edu_enrollments`, `edu_lesson_progress`, `edu_certifications` | `/workspace/courses` + `/me/learning` |
+| Paid premium | `paid_subscriptions`, `paid_content` | extends `/workspace/announce` + `/me/profile` |
+| Mentorship | `mentor_profiles`, `mentor_matches`, `mentor_sessions` | `/workspace/mentorship` + `/me/mentorship` |
+| Sponsor talent-slice upgrade | (no new collections) | extends `/workspace/partners/[id]` |
+
+Each is 1–2 vertical PRs on top of the graph. Detailed slicing deferred until Sprint 3 wraps.
 
 ---
 
