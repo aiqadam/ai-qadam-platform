@@ -1,0 +1,42 @@
+name: content-quality
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: content-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  voice-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need history to diff against the base branch.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: voice-lint (diff-only)
+        run: node scripts/voice-lint.mjs
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+
+  utm-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: utm-lint (diff-only)
+        run: node scripts/utm-lint.mjs
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
