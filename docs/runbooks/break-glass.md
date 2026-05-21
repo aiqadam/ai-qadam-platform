@@ -24,7 +24,7 @@ If any pre-condition fails, do NOT proceed. The cost of a wrongful break-glass i
 | Secret path | What it gates | Who uses it |
 |---|---|---|
 | `/tmp/aiqadam-secrets-BREAKGLASS_DIRECTUS_TOKEN` | Directus admin API (full schema + items + users access; bypasses Authentik SSO) | Engineer with WSL access OR pulled from the password manager and pasted ad-hoc |
-| `aiqadam_breakglass` Postgres role on the Coolify host (password stored in the team password manager under "Break-Glass / Postgres") | Postgres superuser-ish access to the Coolify-managed cluster; lets you query / repair tables when Directus itself is misbehaving | Engineer via `ssh aiqadam-prod` + `docker exec coolify-db psql -U aiqadam_breakglass` |
+| `aiqadam_breakglass` Postgres role on the **shared-infra pgvector container** (password stored in the team password manager under "Break-Glass / Postgres") | Postgres superuser-ish access to the cluster where Directus + API + Authentik app data lives; lets you query / repair tables when Directus itself is misbehaving | Engineer via `ssh aiqadam-prod` + `sudo docker exec -it <pgvector-container> psql -U aiqadam_breakglass`. Resolve the container name at run time: `sudo docker ps --format '{{.Names}} {{.Image}}' \| grep pgvector` (Coolify-managed name; as of 2026-05-21 it's `rmh626agrz1uiv8cyny47rbb`). |
 
 Both rotate quarterly. The Directus side rotates via [`scripts/provision-break-glass.sh`](../../scripts/provision-break-glass.sh); the Postgres side rotates manually per the "Rotations" section below.
 
@@ -34,7 +34,7 @@ Both rotate quarterly. The Directus side rotates via [`scripts/provision-break-g
 
 2. **Pull the credential you need.** Either:
    - Directus admin API: `export BG=$(cat /tmp/aiqadam-secrets-BREAKGLASS_DIRECTUS_TOKEN)` (or paste from the password manager). Then `curl -H "Authorization: Bearer $BG" https://cms.aiqadam.org/users/me` should return the break-glass user.
-   - Postgres: `ssh aiqadam-prod` → `docker exec -it coolify-db psql -U aiqadam_breakglass -d coolify` (password prompts; paste from the password manager).
+   - Postgres: `ssh aiqadam-prod` → resolve the pgvector container at `PG=$(sudo docker ps --format '{{.Names}} {{.Image}}' \| awk '/pgvector/{print $1; exit}')` then `sudo docker exec -it "$PG" psql -U aiqadam_breakglass -d postgres` (password prompts; paste from the password manager).
 
 3. **Log the invocation manually.** Append a line to `/var/log/aiqadam/break-glass.log` on the host (one engineer's responsibility; do this BEFORE the action, not after):
    ```bash
@@ -70,16 +70,19 @@ The script is idempotent: re-running rotates the token on the existing `aiqadam-
 
 ### Postgres `aiqadam_breakglass` role (quarterly + after every invocation)
 
-Manual, on the prod host:
+Manual, on the prod host. The container is Coolify-managed so its name (a UUID) can change — resolve at runtime:
 
 ```bash
 ssh aiqadam-prod
+# Resolve the pgvector container (where Directus + API + Authentik tables live).
+PG=$(sudo docker ps --format '{{.Names}} {{.Image}}' | awk '/pgvector/{print $1; exit}')
+echo "Targeting container: $PG"
 # New random password — copy to team password manager FIRST.
 NEW_PW=$(openssl rand -base64 24)
 echo "$NEW_PW"
-# Apply on the Coolify-managed cluster.
-docker exec -i coolify-db psql -U postgres -d postgres <<EOF
-DO \$\$
+# Apply.
+sudo docker exec -i "$PG" psql -U postgres -d postgres <<EOF
+DO \$do\$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'aiqadam_breakglass') THEN
     CREATE ROLE aiqadam_breakglass LOGIN SUPERUSER PASSWORD '$NEW_PW';
@@ -87,11 +90,11 @@ BEGIN
     ALTER ROLE aiqadam_breakglass WITH PASSWORD '$NEW_PW';
   END IF;
 END
-\$\$;
+\$do\$;
 EOF
 ```
 
-After rotation: test login with the new password (`docker exec -it coolify-db psql -U aiqadam_breakglass -d coolify`).
+After rotation: test login with the new password (`sudo docker exec -it "$PG" psql -U aiqadam_breakglass -d postgres`).
 
 ## Verification
 
