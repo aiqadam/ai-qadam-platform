@@ -151,15 +151,15 @@ Pick the highest-priority **eligible** feature (its gate is satisfied + nobody e
 
 | ID | Feature | Status | Notes |
 |---|---|---|---|
-| **F-S0.9b** | Real brand-asset library — wire `/press` to Directus `marketing_assets` collection (kills the Potemkin from PR #116) | 🟡 ADR-0025 must be Accepted | Once Accepted: schema + cms.ts helper + page rewrite + smoke spec, single PR |
-| **F-S0.5** | Backup-restore CI test | 🟢 ready | workflow + script + runbook; no gates |
-| **F-S0.14** | Content-quality CI (voice + UTM lint) | 🟢 ready | workflow + scripts/voice-lint.mjs + scripts/utm-lint.mjs |
-| **F-#113** | Plausible ops-events helper (`auth_failure`, `dispatch_failure`, `rbac_denial`) | 🟢 ready | lib + 3 hook insertions; spec |
-| **F-S0.2** | Break-glass admin path | 🟢 ready | bootstrap append + endpoint + runbook |
-| **F-S0.12-batch** | 8 remaining ADR drafts (0022, 0023, 0024, 0026, 0027, 0028, 0029, 0030) | 🟢 ready | each is one ADR file; can ship in one bundled PR or 8 separate |
-| **F-S0.13-runbooks** | 6 runbook scaffolds (security, auth, audit, break-glass, country-lead-activation, rbac-drift) | 🟢 ready | one PR for all scaffolds |
-| **F-S0.11** | Prod-probe smoke (cron in place via PR #120; this adds the scheduled-failure alerting) | 🟢 ready | small workflow extension + ops-event |
-| **F-S0.7** | Operator playbook v0 (9 scaffolds) | 🟡 ADR-0025 | once Accepted: 9 markdown files in one PR |
+| **F-S0.9b** | Real brand-asset library — wire `/press` to Directus `marketing_assets` collection (kills the Potemkin from PR #116) | ✅ shipped (#157) | Tier 1 logos stay in git; Tier 2 (`marketing_assets`) in Directus; cms.ts helper + page rewrite + smoke spec |
+| **F-S0.5** | Backup-restore CI test | ✅ shipped (#155) | Host-side `aiqadam-restore-drill.sh` + monthly systemd timer (`*-*-01 04:30 UTC`) + CI shellcheck + systemd-analyze + dry-run-script; deployed on `aiqadam-prod`, first PASS recorded |
+| **F-S0.14** | Content-quality CI (voice + UTM lint) | ✅ shipped (#150) | `voice-lint.mjs` + `utm-lint.mjs` + `.github/workflows/content-quality.yml`; diff-only against `origin/main` |
+| **F-#113** | Plausible ops-events helper (`auth_failure`, `dispatch_failure`, `rbac_denial`) | ✅ shipped (S0.4 era) | Lib at `apps/api/src/lib/ops-events.ts`; `auth.failed` + `dispatch.failed` hooks wired; `rbac.denied` caller awaits F-S2.2 (no authorization-denial path exists yet — only authentication). Test coverage at `apps/api/test/ops-events.spec.ts`. |
+| **F-S0.2** | Break-glass admin path | ✅ shipped | `scripts/provision-break-glass.sh` (idempotent rotation tooling for the Directus side) + Postgres `aiqadam_breakglass` manual rotation procedure in the runbook + filled-out [`break-glass.md`](./runbooks/break-glass.md). API-endpoint version deferred until F-S2.2 RBAC sync. |
+| **F-S0.12-batch** | 8 remaining ADR drafts (0022, 0023, 0024, 0026, 0027, 0028, 0029, 0030) | ✅ shipped (#149) + ADRs Accepted/Deferred via batch #1 (#152) | All 8 drafted; PM batch-accept landed 2026-05-21 (7 Accepted, 2 to gap list) |
+| **F-S0.13-runbooks** | 6 runbook scaffolds (security, auth, audit, break-glass, country-lead-activation, rbac-drift) | ✅ shipped (#148) | break-glass.md scaffold filled out by F-S0.2; lived-experience fill ongoing |
+| **F-S0.11** | Prod-probe smoke (cron in place via PR #120; this adds the scheduled-failure alerting) | ✅ shipped (#151) | Cron failure emits Plausible `prod_probe_failure` event + opens GH issue (`prod-probe-failure` label); recovery closes the issue |
+| **F-S0.7** | Operator playbook v0 (9 scaffolds) | ✅ shipped (#156) | 9 scaffolds at `docs/operator-playbook/` |
 
 ### Sprint 1 (6 features, fully parallel-independent, all 🟢 once Sprint 0 wraps)
 
