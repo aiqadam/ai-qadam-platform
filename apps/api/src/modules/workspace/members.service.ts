@@ -1,0 +1,128 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { DirectusClient } from '../directus/directus.client';
+
+// F-S3.2 — paginated member search powering /workspace/members.
+//
+// Filter primitives (MVP — 7 of them, per the multi-hat-reviewed scope):
+//   country         — equality on directus_users.country (resolved via
+//                     relation to countries.code; today members have an
+//                     implicit country via registered events; once members
+//                     gain a direct country column this becomes trivial)
+//   seniority       — _in over the seniority enum on directus_users
+//   industry        — _contains over the industry tag array
+//   interests       — _in over member_interests.topic_tag (joined)
+//   employed_at     — _eq over member_employments.employer + is_current=true
+//   attended_min    — denormalised registrations_count threshold; we count
+//                     registrations on the fly via Directus _count
+//   consent         — purpose ∈ member_consents with revoked_at IS NULL
+//
+// Filter language is Directus-native JSON so it stores 1:1 into
+// cohorts.filter_query and can be replayed against the dispatcher's
+// audience resolver without translation.
+//
+// Country scoping: until ADR-0021 RBAC ships, this service runs in
+// super-admin mode (any logged-in operator sees all). The CohortsService
+// + the auto-injected country filter come in S2.2.
+
+export interface MemberRow {
+  id: string;
+  email: string;
+  first_name?: string | null;
+  display_name?: string | null;
+  job_title?: string | null;
+  seniority?: string | null;
+  city?: string | null;
+  industry?: string[] | null;
+  is_student?: boolean | null;
+  appear_in_directory?: boolean | null;
+  state?: string | null;
+}
+
+export interface MemberSearchResult {
+  members: MemberRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+@Injectable()
+export class MembersService {
+  private readonly logger = new Logger(MembersService.name);
+  private static readonly MAX_LIMIT = 200;
+  private static readonly DEFAULT_LIMIT = 50;
+
+  constructor(private readonly directus: DirectusClient) {}
+
+  /**
+   * Search members against an arbitrary Directus filter object.
+   *
+   * The filter shape is Directus-native — same JSON that cohorts.filter_query
+   * stores — so passing a saved cohort's filter to this method renders the
+   * same audience the dispatcher would resolve.
+   */
+  async search(input: {
+    filter?: Record<string, unknown> | undefined;
+    query?: string | undefined;
+    page?: number | undefined;
+    limit?: number | undefined;
+  }): Promise<MemberSearchResult> {
+    const page = Math.max(1, input.page ?? 1);
+    const limit = Math.min(
+      MembersService.MAX_LIMIT,
+      Math.max(1, input.limit ?? MembersService.DEFAULT_LIMIT),
+    );
+    const offset = (page - 1) * limit;
+
+    // Compose the filter: caller's filter ANDed with a directory-visible
+    // gate. Operators see members regardless of appear_in_directory because
+    // they need them for cohort building; that's why operators are role-
+    // gated to begin with. (Sponsors NEVER reach this endpoint.)
+    const effectiveFilter = input.filter ?? {};
+
+    const fields = encodeURIComponent(
+      [
+        'id',
+        'email',
+        'first_name',
+        'display_name',
+        'job_title',
+        'seniority',
+        'city',
+        'industry',
+        'is_student',
+        'appear_in_directory',
+        'state',
+      ].join(','),
+    );
+
+    const filterParam = encodeURIComponent(JSON.stringify(effectiveFilter));
+    const searchParam = input.query ? `&search=${encodeURIComponent(input.query)}` : '';
+    const path = `/users?fields=${fields}&filter=${filterParam}${searchParam}&limit=${limit}&offset=${offset}&meta=filter_count`;
+
+    const res = await this.directus.get<{
+      data: MemberRow[];
+      meta?: { filter_count?: number };
+    }>(path);
+
+    return {
+      members: res.data,
+      total: res.meta?.filter_count ?? res.data.length,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Count members matching a filter. Cheaper than search() — returns
+   * just the meta count, no rows. Used by SaveCohortModal for live
+   * preview.
+   */
+  async count(filter: Record<string, unknown>): Promise<number> {
+    const filterParam = encodeURIComponent(JSON.stringify(filter));
+    const path = `/users?fields=id&filter=${filterParam}&limit=1&meta=filter_count`;
+    const res = await this.directus.get<{
+      meta?: { filter_count?: number };
+    }>(path);
+    return res.meta?.filter_count ?? 0;
+  }
+}

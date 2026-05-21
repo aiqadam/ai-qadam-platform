@@ -10,6 +10,7 @@ import { PreferencesModule } from './modules/preferences/preferences.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module';
     InternalModule,
     InteractionsModule,
     PreferencesModule,
+    WorkspaceModule,
   ],
   controllers: [HealthController],
   providers: [],

@@ -181,8 +181,8 @@ Reshaped 2026-05-20 per [ADR-0033](./adr/0033-community-member-graph.md). Twenty
 |---|---|---|---|
 | **F-S3.0** | Member graph foundation (bootstrap.sh extensions + 8 new collections + event taxonomy + Twenty Coolify deletion) | 🟢 ready (depends on no other PR; ADR-0033 is the spec) | **Blocks all subsequent Sprint 3 cabinets.** Single vertical PR per ADR-0033 Part 1 schema sketch. ~half day. Coolify deletion of Twenty is in-scope. |
 | **F-S3.1** | Single-origin cabinet routing ADR (ADR-0031) | 🟢 ready | Architecture already implemented via `/workspace/*` per ADR-0032 acceleration; this ADR documents it. ~30 min. |
-| **F-S3.2** | Cabinet #1 — Member directory + cohort builder at `/workspace/members` | 🔴 on F-S3.0 | Highest-leverage cabinet. Search/filter members + live audience preview + save filter as named cohort. ~2 days. |
-| **F-S3.3** | Cabinet #2 — Announcement composer at `/workspace/announce` | 🔴 on F-S3.0 + F-S3.2 | Pick cohort → write → preview → dispatcher. ~1 day. |
+| **F-S3.2** | Cabinet #1 — Member directory + cohort builder at `/workspace/members` | ✅ shipped | 7 filter primitives + cohort CRUD with cached count + 7d delta + PII-light sample + runbook with 5 starter cohorts |
+| **F-S3.3** | Cabinet #2 — Announcement composer at `/workspace/announce` | 🟢 ready (gates cleared) | Pick cohort → write → preview → dispatcher. ~1 day. |
 | **F-S3.4** | Cabinet #3 — Event control panel at `/workspace/events/[id]` | 🔴 on F-S3.0 | Pre-event prep, day-of check-in, post-event followups. ~2 days. |
 | **F-S3.5** | Cabinet #4 — Partner/sponsor view at `/workspace/partners/[id]` | 🔴 on F-S3.0 + F-S3.2 + S2.4 Metabase | Cohort-aggregated analytics + kit downloads + auto quarterly digest. NEVER raw member rows. ~1 day. |
 | **F-S3.6** | Cabinet #5 — Member self-service at `/me/profile` | 🔴 on F-S3.0 | Per-purpose consents + interests + employment + visibility. ~1 day. |
