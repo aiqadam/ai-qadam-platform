@@ -105,24 +105,27 @@ Why split: runbooks answer "what do I do when this breaks". The operator playboo
 ### Authentication + auth-adjacent (mixed ownership)
 - [`authentik-local-bootstrap.md`](./authentik-local-bootstrap.md) — Authentik provider setup against a local instance.
 - [`authentik-ropc.md`](./authentik-ropc.md) — retained for the password-reset commands at the bottom; ROPC is no longer used for sign-in (per auth-architecture.md §2).
+- [`auth.md`](./auth.md) — day-2 auth operations (Authentik upgrade, JWT key rotation, RBAC sync failure, OIDC redirect loop).
+- [`security.md`](./security.md) — security-incident triage (credential leak, unauthorized access, abuse report, CVE response).
+- [`audit.md`](./audit.md) — audit-log inspection, member access-log queries, sponsor-PII-boundary checks, quarterly retention sweep.
+- [`break-glass.md`](./break-glass.md) — break-glass admin path (per F-S0.2): when, why, how, and what to clean up after.
+- [`rbac-drift.md`](./rbac-drift.md) — investigating + correcting RBAC drift between Authentik / Directus / Plausible (per [ADR-0021 §5](../adr/0021-rbac-manifest.md)).
+
+### Member graph + community
+- [`member-graph-foundation.md`](./member-graph-foundation.md) — operating + extending the Directus member graph + the sponsor PII boundary (per [ADR-0033](../adr/0033-community-member-graph.md)).
+
+### Country onboarding
+- [`country-lead-activation.md`](./country-lead-activation.md) — engineer-side activation sequence for a newly-identified country lead (per F-S4.3; gated on ADR-0022 acceptance).
 
 ### Email (Agent-Infra / Agent-Marketing crossover)
 - [`operator-email-send-as.md`](./operator-email-send-as.md) — operator email "send as" automation (per ADR-0012).
 
 ### Planned (not yet written — links go to the issues that track them)
 
-Sprint 0.13 scaffolds Agent-Docs owns:
-- `security.md` — security-incident triage (suspected breach, key rotation under duress).
-- `auth.md` — auth-system day-2 operations (Authentik upgrade, token-signing-key rotation, RBAC sync failure).
-- `audit.md` — audit-log inspection + retention compliance + member access-log queries.
-- `break-glass.md` — break-glass admin path (per Sprint 0.2): when, why, how, and what to clean up after.
-- `country-lead-activation.md` — onboarding flow for a new country lead (per Sprint 4.3).
-- `rbac-drift.md` — investigating + correcting RBAC drift detected by the nightly poll (per [ADR-0021 §5](../adr/0021-rbac-manifest.md)).
-
-Sprint 0.7 + 3.2 + 3.5 + 0.9 (Agent-Marketing):
+Sprint 0.7 + 3.5 + 0.9 (Agent-Marketing):
 - `brand-asset-production.md` — Claude Design + ChatGPT pipeline + approval flow (per [ADR-0025](../adr/0025-brand-asset-tooling.md)).
-- `sponsor-pipeline.md` — Twenty pipeline operations + cabinet onboarding.
-- `sponsor-quarterly-digest.md` — generating + sending the quarterly digest.
+- `sponsor-onboarding.md` — sponsor onboarding through the F-S3.5 partner cabinet (post-ADR-0033; supersedes the original Twenty-pipeline runbook).
+- `sponsor-quarterly-digest.md` — generating + sending the quarterly digest (per F-S3.8).
 
 Phase ζ (Agent-Docs):
 - `moderation.md` — handling reported content + member bans.
