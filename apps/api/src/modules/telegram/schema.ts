@@ -1,14 +1,12 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
-  customType,
   index,
   integer,
   jsonb,
   pgTable,
   text,
   timestamp,
-  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -126,69 +124,6 @@ export const outbox = pgTable(
 
 export type OutboxRow = typeof outbox.$inferSelect;
 export type NewOutboxRow = typeof outbox.$inferInsert;
-
-// ─── Telegram bot configuration (R2: encrypted token + bot identity) ────────
-//
-// One row per tenant; `tenant=NULL` is the global default that applies
-// when no tenant-specific row exists. ADR-0034 picks "one bot account
-// for all tenants" (§Q4), so in practice we ship a single global row —
-// the per-tenant column is here so the schema doesn't need a migration
-// the day we revisit that decision.
-//
-// `encrypted_token` stores the BotFather token encrypted at rest via
-// AES-256-GCM (see token-crypto.ts). The encryption key is supplied by
-// env (TG_CONFIG_ENCRYPTION_KEY); rotating the key is an ops procedure
-// documented in docs/runbooks/telegram-token-rotation.md (TODO with R5).
-//
-// Why a `bytea` blob instead of a varchar of base64:
-//   - AES-GCM output is binary; bytea avoids an extra encode/decode pass.
-//   - Postgres compresses bytea when the row enters TOAST storage —
-//     marginal but free.
-//
-// `bot_id` + `bot_username` are captured from Telegram's `getMe` at
-// configure time. They're denormalized here so the /status endpoint can
-// render them without calling Telegram on every poll.
-
-// Drizzle doesn't ship a typed bytea helper out of the box; the customType
-// wrapper turns the column into a `Buffer` at the JS boundary. Driver
-// (postgres-js) handles the actual bytea ↔ Buffer marshalling.
-const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType() {
-    return 'bytea';
-  },
-});
-
-export const tgConfig = pgTable(
-  'tg_config',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    // NULL → global default. NOT NULL → tenant-scoped (uz/kz/tj/xx etc.).
-    // tenants table lives in src/db/schema/tenants.ts; we don't FK here
-    // because tg_config exists in degraded states (operator pre-creates
-    // an entry before the tenants table is fully populated for new
-    // markets).
-    tenant: varchar('tenant', { length: 8 }),
-    encryptedToken: bytea('encrypted_token').notNull(),
-    botId: bigint('bot_id', { mode: 'bigint' }).notNull(),
-    botUsername: varchar('bot_username', { length: 64 }).notNull(),
-    configuredAt: timestamp('configured_at', { withTimezone: true }).notNull().defaultNow(),
-    // FK omitted on purpose: users may be deleted (GDPR) while their
-    // historic config-record audit trail remains. The uuid is stored for
-    // forensics; UI joins lazily.
-    configuredBy: uuid('configured_by').notNull(),
-  },
-  (t) => ({
-    // Postgres treats two NULLs as distinct — so a plain UNIQUE(tenant)
-    // wouldn't reject two NULL-tenant rows. Coalesce to '*' inside a
-    // unique expression index to make the "one global row" invariant
-    // hold. (Postgres 15+ supports `UNIQUE NULLS NOT DISTINCT`; we
-    // target a wider version range with the expression form.)
-    oneRowPerTenant: uniqueIndex('tg_config_tenant_unique_idx').on(sql`coalesce(${t.tenant}, '*')`),
-  }),
-);
-
-export type TgConfigRow = typeof tgConfig.$inferSelect;
-export type NewTgConfigRow = typeof tgConfig.$inferInsert;
 
 // Drizzle's `sql` import keeps tsc happy if migrations reference raw SQL
 // — currently unused but exported for future use without a fresh import.
