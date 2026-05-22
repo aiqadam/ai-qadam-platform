@@ -13,10 +13,14 @@ import { DirectusClient } from '../directus/directus.client';
 //     actor-class × intent — both schemas coexist.
 //   - member_skills add/remove (one row per (member, skill_tag))
 //
-// Out of scope for v1:
-//   - member_interests (similar tag shape; v2 follow-up)
-//   - member_employments (FK to companies; v2 follow-up)
-//   - directus_users.employer FK update (same scope cut as above)
+// F-S3.6b extension:
+//   - member_interests add/remove (topic_tag + intent)
+//   - member_employments add/remove with find-or-create company by slug
+//     (is_employer auto-set on creation; status defaults to pending so
+//     operators can review member-created orgs before they leak elsewhere)
+//   - directus_users.employer FK update — still deferred; the existing
+//     patchProfile covers it once the schema field flips writable, and
+//     "current employer" is derivable from member_employments.is_current
 
 // The 7 purposes from ADR-0033 Part 1 + bootstrap.sh member_consents
 // schema. Adding a new purpose here requires the schema enum to also
@@ -71,6 +75,25 @@ export interface MemberSkill {
   verified_by_event: string | null;
 }
 
+export const INTEREST_INTENTS = ['learn', 'practice', 'mentor', 'discuss'] as const;
+export type InterestIntent = (typeof INTEREST_INTENTS)[number];
+
+export interface MemberInterest {
+  id: string;
+  topic_tag: string;
+  intent: InterestIntent;
+}
+
+export interface MemberEmployment {
+  id: string;
+  employer: { id: string; name: string; slug: string };
+  role: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  is_current: boolean;
+  share_with_sponsors: boolean;
+}
+
 interface DirectusUserRow {
   id: string;
   email: string;
@@ -96,6 +119,37 @@ interface MemberSkillRow {
   skill_tag: string;
   endorsement_count: number | null;
   verified_by_event: string | null;
+}
+
+interface MemberInterestRow {
+  id: string;
+  topic_tag: string;
+  intent: InterestIntent;
+}
+
+interface MemberEmploymentRow {
+  id: string;
+  employer: { id: string; name: string; slug: string };
+  role: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  is_current: boolean;
+  share_with_sponsors: boolean;
+}
+
+interface CompanyRow {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface AddEmploymentInput {
+  employer_name: string;
+  role?: string | null | undefined;
+  started_at?: string | null | undefined;
+  ended_at?: string | null | undefined;
+  is_current?: boolean | undefined;
+  share_with_sponsors?: boolean | undefined;
 }
 
 const PROFILE_FIELDS =
@@ -229,6 +283,132 @@ export class MeProfileService {
     await this.directus.delete(`/items/member_skills/${encodeURIComponent(skillId)}`);
   }
 
+  async listInterests(userId: string): Promise<MemberInterest[]> {
+    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: userId } }));
+    const res = await this.directus.get<{ data: MemberInterestRow[] }>(
+      `/items/member_interests?filter=${filter}&sort=topic_tag&fields=id,topic_tag,intent&limit=200`,
+    );
+    return res.data;
+  }
+
+  async addInterest(
+    userId: string,
+    topicTag: string,
+    intent: InterestIntent,
+  ): Promise<MemberInterest> {
+    // Dedupe on (member, topic_tag, intent) — same intent on the same
+    // topic is meaningless; return existing.
+    const existing = await this.listInterests(userId);
+    const match = existing.find((i) => i.topic_tag === topicTag && i.intent === intent);
+    if (match) return match;
+    const res = await this.directus.post<{ data: MemberInterestRow }>('/items/member_interests', {
+      member: userId,
+      topic_tag: topicTag,
+      intent,
+    });
+    return { id: res.data.id, topic_tag: res.data.topic_tag, intent: res.data.intent };
+  }
+
+  async removeInterest(userId: string, interestId: string): Promise<void> {
+    const filter = encodeURIComponent(
+      JSON.stringify({ id: { _eq: interestId }, member: { _eq: userId } }),
+    );
+    const owned = await this.directus.get<{ data: { id: string }[] }>(
+      `/items/member_interests?filter=${filter}&fields=id&limit=1`,
+    );
+    if (owned.data.length === 0) {
+      throw new NotFoundException('interest not found for this member');
+    }
+    await this.directus.delete(`/items/member_interests/${encodeURIComponent(interestId)}`);
+  }
+
+  async listEmployments(userId: string): Promise<MemberEmployment[]> {
+    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: userId } }));
+    const fields =
+      'id,role,started_at,ended_at,is_current,share_with_sponsors,employer.id,employer.name,employer.slug';
+    const res = await this.directus.get<{ data: MemberEmploymentRow[] }>(
+      `/items/member_employments?filter=${filter}&sort=-is_current,-started_at&fields=${fields}&limit=50`,
+    );
+    return res.data.map((row) => ({
+      id: row.id,
+      employer: row.employer,
+      role: row.role,
+      started_at: row.started_at,
+      ended_at: row.ended_at,
+      is_current: row.is_current,
+      share_with_sponsors: row.share_with_sponsors,
+    }));
+  }
+
+  async addEmployment(userId: string, input: AddEmploymentInput): Promise<MemberEmployment> {
+    const employer = await this.findOrCreateEmployer(input.employer_name);
+    const body: Record<string, unknown> = {
+      member: userId,
+      employer: employer.id,
+      is_current: input.is_current ?? false,
+      share_with_sponsors: input.share_with_sponsors ?? false,
+    };
+    if (input.role !== undefined) body.role = input.role;
+    if (input.started_at !== undefined) body.started_at = input.started_at;
+    if (input.ended_at !== undefined) body.ended_at = input.ended_at;
+    const res = await this.directus.post<{ data: { id: string } }>(
+      '/items/member_employments',
+      body,
+    );
+    // Re-fetch with the employer expansion so the response shape matches list().
+    const single = encodeURIComponent(JSON.stringify({ id: { _eq: res.data.id } }));
+    const fields =
+      'id,role,started_at,ended_at,is_current,share_with_sponsors,employer.id,employer.name,employer.slug';
+    const settled = await this.directus.get<{ data: MemberEmploymentRow[] }>(
+      `/items/member_employments?filter=${single}&fields=${fields}&limit=1`,
+    );
+    const row = settled.data[0];
+    if (!row) throw new NotFoundException('employment created but not retrievable');
+    return {
+      id: row.id,
+      employer: row.employer,
+      role: row.role,
+      started_at: row.started_at,
+      ended_at: row.ended_at,
+      is_current: row.is_current,
+      share_with_sponsors: row.share_with_sponsors,
+    };
+  }
+
+  async removeEmployment(userId: string, employmentId: string): Promise<void> {
+    const filter = encodeURIComponent(
+      JSON.stringify({ id: { _eq: employmentId }, member: { _eq: userId } }),
+    );
+    const owned = await this.directus.get<{ data: { id: string }[] }>(
+      `/items/member_employments?filter=${filter}&fields=id&limit=1`,
+    );
+    if (owned.data.length === 0) {
+      throw new NotFoundException('employment not found for this member');
+    }
+    await this.directus.delete(`/items/member_employments/${encodeURIComponent(employmentId)}`);
+  }
+
+  private async findOrCreateEmployer(rawName: string): Promise<CompanyRow> {
+    const name = rawName.trim();
+    if (!name) throw new NotFoundException('employer name required');
+    const slug = slugifyEmployer(name);
+    const filter = encodeURIComponent(JSON.stringify({ slug: { _eq: slug } }));
+    const existing = await this.directus.get<{ data: CompanyRow[] }>(
+      `/items/companies?filter=${filter}&fields=id,name,slug&limit=1`,
+    );
+    const found = existing.data[0];
+    if (found) return found;
+    // Status=pending so an operator can review member-created orgs
+    // before they appear on /workspace/members aggregations.
+    const created = await this.directus.post<{ data: CompanyRow }>('/items/companies', {
+      name,
+      slug,
+      is_employer: true,
+      status: 'pending',
+    });
+    return created.data;
+  }
+
   private toProfile(row: DirectusUserRow): MemberProfile {
     return {
       id: row.id,
@@ -243,4 +423,14 @@ export class MeProfileService {
       appear_in_directory: row.appear_in_directory ?? false,
     };
   }
+}
+
+function slugifyEmployer(raw: string): string {
+  return (
+    raw
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || `org-${Date.now()}`
+  );
 }

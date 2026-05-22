@@ -91,6 +91,25 @@ interface Skill {
   verified_by_event: string | null;
 }
 
+const INTEREST_INTENTS = ['learn', 'practice', 'mentor', 'discuss'] as const;
+type InterestIntent = (typeof INTEREST_INTENTS)[number];
+
+interface Interest {
+  id: string;
+  topic_tag: string;
+  intent: InterestIntent;
+}
+
+interface Employment {
+  id: string;
+  employer: { id: string; name: string; slug: string };
+  role: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  is_current: boolean;
+  share_with_sponsors: boolean;
+}
+
 type State =
   | { phase: 'loading' }
   | { phase: 'anon' }
@@ -100,6 +119,8 @@ type State =
       profile: Profile;
       consents: Record<Purpose, ConsentSummary>;
       skills: Skill[];
+      interests: Interest[];
+      employments: Employment[];
     }
   | { phase: 'error'; message: string };
 
@@ -115,10 +136,12 @@ async function bootstrap(): Promise<State> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) return { phase: 'anon' };
-  const { profile, consents, skills } = (await res.json()) as {
+  const { profile, consents, skills, interests, employments } = (await res.json()) as {
     profile: Profile;
     consents: ConsentSummary[];
     skills: Skill[];
+    interests: Interest[];
+    employments: Employment[];
   };
   const byPurpose = consents.reduce(
     (acc, c) => {
@@ -127,7 +150,15 @@ async function bootstrap(): Promise<State> {
     },
     {} as Record<Purpose, ConsentSummary>,
   );
-  return { phase: 'authed', accessToken, profile, consents: byPurpose, skills };
+  return {
+    phase: 'authed',
+    accessToken,
+    profile,
+    consents: byPurpose,
+    skills,
+    interests: interests ?? [],
+    employments: employments ?? [],
+  };
 }
 
 async function patchProfile(accessToken: string, patch: Partial<Profile>): Promise<Profile> {
@@ -173,6 +204,74 @@ async function removeSkill(accessToken: string, id: string): Promise<void> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error(`remove skill failed: ${res.status}`);
+}
+
+async function addInterest(
+  accessToken: string,
+  topic_tag: string,
+  intent: InterestIntent,
+): Promise<Interest> {
+  const res = await fetch('/api/v1/me/profile/interests', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ topic_tag, intent }),
+  });
+  if (!res.ok) throw new Error(`add interest failed: ${res.status}`);
+  const { interest } = (await res.json()) as { interest: Interest };
+  return interest;
+}
+
+async function removeInterest(accessToken: string, id: string): Promise<void> {
+  const res = await fetch(`/api/v1/me/profile/interests/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`remove interest failed: ${res.status}`);
+}
+
+interface AddEmploymentInput {
+  employer_name: string;
+  role: string;
+  started_at: string;
+  ended_at: string;
+  is_current: boolean;
+  share_with_sponsors: boolean;
+}
+
+interface EmploymentPostBody {
+  employer_name: string;
+  is_current: boolean;
+  share_with_sponsors: boolean;
+  role?: string;
+  started_at?: string;
+  ended_at?: string;
+}
+
+async function addEmployment(accessToken: string, input: AddEmploymentInput): Promise<Employment> {
+  const body: EmploymentPostBody = {
+    employer_name: input.employer_name,
+    is_current: input.is_current,
+    share_with_sponsors: input.share_with_sponsors,
+    ...(input.role.trim() ? { role: input.role.trim() } : {}),
+    ...(input.started_at ? { started_at: input.started_at } : {}),
+    ...(input.ended_at ? { ended_at: input.ended_at } : {}),
+  };
+  const res = await fetch('/api/v1/me/profile/employments', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`add employment failed: ${res.status}`);
+  const { employment } = (await res.json()) as { employment: Employment };
+  return employment;
+}
+
+async function removeEmployment(accessToken: string, id: string): Promise<void> {
+  const res = await fetch(`/api/v1/me/profile/employments/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`remove employment failed: ${res.status}`);
 }
 
 function nextHere(): string {
@@ -532,6 +631,347 @@ function SkillsEditor({ skills, accessToken, onChange }: SkillsEditorProps): Rea
   );
 }
 
+interface InterestsEditorProps {
+  interests: Interest[];
+  accessToken: string;
+  onChange: (next: Interest[]) => void;
+}
+
+function InterestsEditor({ interests, accessToken, onChange }: InterestsEditorProps): ReactElement {
+  const [topic, setTopic] = useState('');
+  const [intent, setIntent] = useState<InterestIntent>('learn');
+  const [pending, setPending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const onAdd = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    if (topic.trim().length < 2) return;
+    setPending(true);
+    setErr(null);
+    try {
+      const next = await addInterest(accessToken, topic, intent);
+      const exists = interests.find((i) => i.id === next.id);
+      onChange(exists ? interests : [...interests, next]);
+      setTopic('');
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : 'add failed');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const onRemove = async (id: string): Promise<void> => {
+    setErr(null);
+    try {
+      await removeInterest(accessToken, id);
+      onChange(interests.filter((i) => i.id !== id));
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : 'remove failed');
+    }
+  };
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: '0 0 12px' }}>
+        Topics you care about + how you want to engage. Powers member-matching + targeted invites.
+      </p>
+      {interests.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {interests.map((i) => (
+            <span
+              key={i.id}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 8px 4px 10px',
+                borderRadius: 14,
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                fontSize: 12,
+              }}
+            >
+              <span style={{ fontFamily: 'var(--font-mono)' }}>{i.topic_tag}</span>
+              <span
+                style={{
+                  color: 'var(--muted-foreground)',
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {i.intent}
+              </span>
+              <button
+                type="button"
+                onClick={() => void onRemove(i.id)}
+                aria-label={`Remove ${i.topic_tag}`}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--muted-foreground)',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  padding: '0 2px',
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <form onSubmit={(e) => void onAdd(e)} style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="text"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="topic-tag e.g. computer-vision"
+          maxLength={80}
+          disabled={pending}
+          style={{
+            flex: 1,
+            padding: '6px 10px',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            background: 'var(--background)',
+            color: 'var(--foreground)',
+            fontSize: 14,
+          }}
+        />
+        <select
+          value={intent}
+          onChange={(e) => setIntent(e.target.value as InterestIntent)}
+          disabled={pending}
+          style={{
+            padding: '6px 10px',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            background: 'var(--background)',
+            color: 'var(--foreground)',
+            fontSize: 14,
+          }}
+        >
+          {INTEREST_INTENTS.map((it) => (
+            <option key={it} value={it}>
+              {it}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="btn" disabled={pending || topic.trim().length < 2}>
+          Add
+        </button>
+      </form>
+      {err && (
+        <p style={{ fontSize: 12, color: 'var(--destructive, #c00)', margin: '8px 0 0' }}>{err}</p>
+      )}
+    </div>
+  );
+}
+
+interface EmploymentsEditorProps {
+  employments: Employment[];
+  accessToken: string;
+  onChange: (next: Employment[]) => void;
+}
+
+function EmploymentsEditor({
+  employments,
+  accessToken,
+  onChange,
+}: EmploymentsEditorProps): ReactElement {
+  const [draft, setDraft] = useState<AddEmploymentInput>({
+    employer_name: '',
+    role: '',
+    started_at: '',
+    ended_at: '',
+    is_current: false,
+    share_with_sponsors: false,
+  });
+  const [pending, setPending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const onAdd = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    if (draft.employer_name.trim().length < 1) return;
+    setPending(true);
+    setErr(null);
+    try {
+      const next = await addEmployment(accessToken, draft);
+      onChange([next, ...employments]);
+      setDraft({
+        employer_name: '',
+        role: '',
+        started_at: '',
+        ended_at: '',
+        is_current: false,
+        share_with_sponsors: false,
+      });
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : 'add failed');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const onRemove = async (id: string): Promise<void> => {
+    setErr(null);
+    try {
+      await removeEmployment(accessToken, id);
+      onChange(employments.filter((emp) => emp.id !== id));
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : 'remove failed');
+    }
+  };
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: '0 0 12px' }}>
+        Your work history. Per-employment <code>share_with_sponsors</code> defaults off — sponsors
+        only see employers you explicitly opt in for that role.
+      </p>
+      {employments.length > 0 && (
+        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 16px' }}>
+          {employments.map((emp) => (
+            <li
+              key={emp.id}
+              style={{
+                padding: 12,
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                background: 'var(--card)',
+                marginBottom: 8,
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontWeight: 500, fontSize: 14 }}>
+                  {emp.role ? `${emp.role} · ` : ''}
+                  {emp.employer.name}
+                  {emp.is_current && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 10,
+                        color: 'var(--primary)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      current
+                    </span>
+                  )}
+                </p>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted-foreground)' }}>
+                  {[emp.started_at, emp.ended_at ?? (emp.is_current ? 'present' : '—')]
+                    .filter(Boolean)
+                    .join(' → ')}
+                  {emp.share_with_sponsors && ' · shared with sponsors'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void onRemove(emp.id)}
+                style={{ padding: '4px 10px', fontSize: 12 }}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        onSubmit={(e) => void onAdd(e)}
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <input
+            type="text"
+            value={draft.employer_name}
+            onChange={(e) => setDraft({ ...draft, employer_name: e.target.value })}
+            placeholder="Employer name"
+            maxLength={160}
+            required
+            disabled={pending}
+            style={inlineInputStyle}
+          />
+          <input
+            type="text"
+            value={draft.role}
+            onChange={(e) => setDraft({ ...draft, role: e.target.value })}
+            placeholder="Role (optional)"
+            maxLength={160}
+            disabled={pending}
+            style={inlineInputStyle}
+          />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <input
+            type="date"
+            value={draft.started_at}
+            onChange={(e) => setDraft({ ...draft, started_at: e.target.value })}
+            disabled={pending}
+            style={inlineInputStyle}
+          />
+          <input
+            type="date"
+            value={draft.ended_at}
+            onChange={(e) => setDraft({ ...draft, ended_at: e.target.value })}
+            disabled={pending || draft.is_current}
+            style={inlineInputStyle}
+          />
+        </div>
+        <label style={{ fontSize: 13, color: 'var(--foreground)', display: 'flex', gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={draft.is_current}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                is_current: e.target.checked,
+                ended_at: e.target.checked ? '' : draft.ended_at,
+              })
+            }
+            disabled={pending}
+          />
+          This is my current job
+        </label>
+        <label style={{ fontSize: 13, color: 'var(--foreground)', display: 'flex', gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={draft.share_with_sponsors}
+            onChange={(e) => setDraft({ ...draft, share_with_sponsors: e.target.checked })}
+            disabled={pending}
+          />
+          Share this employment with sponsors (default off; opt-in for talent-slice exposure)
+        </label>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={pending || draft.employer_name.trim().length < 1}
+          style={{ alignSelf: 'flex-start' }}
+        >
+          {pending ? 'Adding…' : 'Add employment'}
+        </button>
+      </form>
+      {err && (
+        <p style={{ fontSize: 12, color: 'var(--destructive, #c00)', margin: '8px 0 0' }}>{err}</p>
+      )}
+    </div>
+  );
+}
+
+const inlineInputStyle: React.CSSProperties = {
+  padding: '6px 10px',
+  border: '1px solid var(--border)',
+  borderRadius: 6,
+  background: 'var(--background)',
+  color: 'var(--foreground)',
+  fontSize: 14,
+};
+
 export function MeProfileForm(): ReactElement {
   const [state, setState] = useState<State>({ phase: 'loading' });
 
@@ -560,7 +1000,7 @@ export function MeProfileForm(): ReactElement {
   }
   if (state.phase === 'anon') return <AnonView />;
 
-  const { accessToken, profile, consents, skills } = state;
+  const { accessToken, profile, consents, skills, interests, employments } = state;
 
   return (
     <div>
@@ -587,6 +1027,20 @@ export function MeProfileForm(): ReactElement {
           skills={skills}
           accessToken={accessToken}
           onChange={(next) => setState({ ...state, skills: next })}
+        />
+      </Card>
+      <Card title="Interests">
+        <InterestsEditor
+          interests={interests}
+          accessToken={accessToken}
+          onChange={(next) => setState({ ...state, interests: next })}
+        />
+      </Card>
+      <Card title="Employments">
+        <EmploymentsEditor
+          employments={employments}
+          accessToken={accessToken}
+          onChange={(next) => setState({ ...state, employments: next })}
         />
       </Card>
     </div>
