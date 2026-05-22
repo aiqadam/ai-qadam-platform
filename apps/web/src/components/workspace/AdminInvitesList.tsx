@@ -4,6 +4,15 @@ import { type ReactElement, useEffect, useState } from 'react';
 // for a status filter, renders rows with revoke action. token_prefix
 // shown for support lookup (never the full token).
 
+// Auto-redirects anon to Authentik (matches workspace shell pattern).
+function signInUrl(): string {
+  const next =
+    typeof window === 'undefined'
+      ? '/workspace/admin/users'
+      : window.location.pathname + window.location.search;
+  return `/api/v1/auth/login?next=${encodeURIComponent(next)}`;
+}
+
 type Status = 'pending' | 'consumed' | 'revoked' | 'expired';
 
 interface InviteSummary {
@@ -63,13 +72,14 @@ export default function AdminInvitesList(): ReactElement {
     bootstrap('pending').then(setState);
   }, []);
 
-  if (state.phase === 'bootstrap') return <p style={mutedStyle()}>Loading…</p>;
-  if (state.phase === 'anon')
-    return (
-      <p style={mutedStyle()}>
-        <a href="/api/v1/auth/login">Sign in</a> to continue.
-      </p>
-    );
+  useEffect(() => {
+    if (state.phase === 'anon') {
+      window.location.replace(signInUrl());
+    }
+  }, [state.phase]);
+
+  if (state.phase === 'bootstrap' || state.phase === 'anon')
+    return <p style={mutedStyle()}>Redirecting to sign-in…</p>;
   if (state.phase === 'forbidden')
     return <p style={mutedStyle()}>Admin access only. Ask a super-admin if you need access.</p>;
 

@@ -5,6 +5,15 @@ import { type FormEvent, type ReactElement, useEffect, useState } from 'react';
 // the plaintext token shown ONCE. UX: render the URL in a copy-button
 // success panel; do NOT navigate away.
 
+// Auto-redirects anon to Authentik (matches workspace shell pattern).
+function signInUrl(): string {
+  const next =
+    typeof window === 'undefined'
+      ? '/workspace/admin/users/new'
+      : window.location.pathname + window.location.search;
+  return `/api/v1/auth/login?next=${encodeURIComponent(next)}`;
+}
+
 type Role = 'aiqadam-super-admin' | 'aiqadam-staff';
 // country-lead roles intentionally omitted until ENABLE_COUNTRY_LEAD_INVITES
 // flips per G-1; surface server's 400 country_lead_invites_disabled if
@@ -63,15 +72,14 @@ export default function AdminUserCreateForm(): ReactElement {
     bootstrap().then(setState);
   }, []);
 
-  if (state.phase === 'bootstrap') {
-    return <p style={mutedStyle()}>Loading…</p>;
-  }
-  if (state.phase === 'anon') {
-    return (
-      <p style={mutedStyle()}>
-        You need to <a href="/api/v1/auth/login">sign in</a> first.
-      </p>
-    );
+  useEffect(() => {
+    if (state.phase === 'anon') {
+      window.location.replace(signInUrl());
+    }
+  }, [state.phase]);
+
+  if (state.phase === 'bootstrap' || state.phase === 'anon') {
+    return <p style={mutedStyle()}>Redirecting to sign-in…</p>;
   }
   if (state.phase === 'forbidden') {
     return (
