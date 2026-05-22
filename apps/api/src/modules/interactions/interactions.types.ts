@@ -70,6 +70,12 @@ export type DispatchInput = z.infer<typeof dispatchInputSchema>;
 export interface ResolvedRecipient {
   userId: string;
   email: string | null;
+  // Telegram-link fields, populated by InteractionsService.resolveRecipients
+  // when the recipient's directus_users row has them set. All three are
+  // null when the user hasn't completed /link or has opted out.
+  telegramUserId: string | null;
+  telegramOptedOutAt: string | null;
+  tenant: string | null;
 }
 
 export interface DispatchDeliveryResult {

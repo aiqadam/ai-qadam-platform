@@ -44,6 +44,10 @@ import {
 interface DirectusUser {
   id: string;
   email: string | null;
+  country?: string | null;
+  // Bigints over Directus REST may serialize as string or number.
+  telegram_user_id?: number | string | null;
+  telegram_opted_out_at?: string | null;
 }
 
 @Injectable()
@@ -186,7 +190,10 @@ export class InteractionsService {
     const ids = input.audience.userIds;
     // De-dup defensively — fan-out logic upstream may double-add.
     const unique = Array.from(new Set(ids));
-    const fields = encodeURIComponent('id,email');
+    // Always fetch telegram + tenant fields too — the TelegramAdapter needs
+    // them. Adapters that don't (Email, InApp) just ignore them. One batch
+    // fetch beats per-channel re-queries.
+    const fields = encodeURIComponent('id,email,country,telegram_user_id,telegram_opted_out_at');
     const filter = encodeURIComponent(JSON.stringify({ id: { _in: unique } }));
     const res = await this.directus.get<{ data: DirectusUser[] }>(
       `/users?fields=${fields}&filter=${filter}&limit=${unique.length}`,
@@ -195,7 +202,13 @@ export class InteractionsService {
     return unique
       .map((id) => byId.get(id))
       .filter((u): u is DirectusUser => Boolean(u))
-      .map((u) => ({ userId: u.id, email: u.email ?? null }));
+      .map((u) => ({
+        userId: u.id,
+        email: u.email ?? null,
+        telegramUserId: u.telegram_user_id == null ? null : String(u.telegram_user_id),
+        telegramOptedOutAt: u.telegram_opted_out_at ?? null,
+        tenant: u.country ?? null,
+      }));
   }
 
   private async createInteractionRow(input: DispatchInput, state: 'sending'): Promise<string> {

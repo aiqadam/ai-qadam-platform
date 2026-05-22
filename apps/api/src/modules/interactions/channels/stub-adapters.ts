@@ -6,14 +6,13 @@ import type {
   ResolvedRecipient,
 } from '../interactions.types';
 
-// Sprint 5.5/4 — placeholder adapters for channels we'll wire later.
-// Each returns state='skipped_policy' so the dispatcher records a delivery
-// row that explains WHY this channel didn't fire ("not implemented yet"),
-// instead of silently dropping or 500ing. The dispatcher's fallback chain
-// (5.5/5) will then try the next channel in the chain.
+// Placeholder adapters for channels we'll wire later. Each returns
+// state='skipped_policy' so the dispatcher records a delivery row that
+// explains WHY this channel didn't fire ("not implemented yet"),
+// instead of silently dropping or 500ing.
 //
 // Replaced by real implementations:
-//   - Telegram   → Phase 2 (bot link + sendMessage)
+//   - Telegram   → A6 (this PR). Lives in ./telegram-adapter.ts.
 //   - In-app     → Phase 1 W-stream (notifications drawer)
 //   - Push       → much later, if ever
 //   - CRM        → 5.5/5 wraps the existing CrmController.logActivity flow
@@ -37,11 +36,6 @@ abstract class NotImplementedAdapter implements ChannelAdapter {
       failureReason: `channel ${this.channel} not implemented`,
     };
   }
-}
-
-@Injectable()
-export class TelegramAdapter extends NotImplementedAdapter {
-  readonly channel = 'telegram' as const;
 }
 
 @Injectable()

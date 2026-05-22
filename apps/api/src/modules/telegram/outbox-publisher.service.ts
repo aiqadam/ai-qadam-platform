@@ -21,9 +21,10 @@ export interface OutboxPublishInput {
   payload: Record<string, unknown>;
 }
 
-// Drizzle's tx type matches the top-level Db at the type level, but
-// callers should pass the tx explicitly.
-export type DrizzleTx = Db;
+// Drizzle's tx type — the parameter the callback to db.transaction(...)
+// receives. We extract it from Db so we don't depend on Drizzle's
+// internal generics directly.
+export type DrizzleTx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 @Injectable()
 export class OutboxPublisher {

@@ -33,6 +33,9 @@ import { TELEGRAM_REDIS } from './telegram.tokens';
     OutboxPublisher,
     OutboxRelayService,
   ],
-  exports: [TelegramService, OutboxPublisher],
+  // Export DB so consumers of OutboxPublisher (e.g. TelegramAdapter in
+  // InteractionsModule) can also inject the same DB token for the tx
+  // they pass to OutboxPublisher.publish.
+  exports: [TelegramService, OutboxPublisher, DB],
 })
 export class TelegramModule {}

@@ -108,9 +108,17 @@ describe('InteractionsService.dispatch — happy path', () => {
     expect(dx.post.mock.calls[0]?.[0]).toBe('/items/interactions');
     expect(dx.post.mock.calls[1]?.[0]).toBe('/items/interaction_deliveries');
 
-    // Adapter called with the email recipient
+    // Adapter called with the email recipient (with extended TG fields
+    // — A6 added telegramUserId / telegramOptedOutAt / tenant to
+    // ResolvedRecipient; they're null for unlinked members).
     expect(email.send).toHaveBeenCalledWith({
-      recipient: { userId: USER_A, email: 'a@b.com' },
+      recipient: {
+        userId: USER_A,
+        email: 'a@b.com',
+        telegramUserId: null,
+        telegramOptedOutAt: null,
+        tenant: null,
+      },
       intent: 'smoke',
       payload: { subject: 'hi', text: 'hello' },
     });
