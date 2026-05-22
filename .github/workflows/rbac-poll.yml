@@ -1,0 +1,42 @@
+name: rbac-poll
+
+# F-S2.2-f — nightly RBAC sync poll per ADR-0021 §5 (belt-and-braces
+# backup to the Authentik webhook). Hits POST /v1/internal/rbac/poll
+# which walks every active Authentik user + reconciles drift via the
+# same intakeWebhook path the webhook uses. Idempotent — same user
+# in the same state produces no change.
+
+on:
+  schedule:
+    # 03:30 UTC daily per ADR-0021 §5. Picked off-peak across UZ/KZ/TJ
+    # (08:30 in UZ/KZ Tashkent, 08:30 in TJ Dushanbe).
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST /v1/internal/rbac/poll
+        env:
+          INTERNAL_API_TOKEN: ${{ secrets.INTERNAL_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          response=$(mktemp)
+          http_code=$(curl --silent --show-error \
+            --max-time 240 \
+            --write-out "%{http_code}" \
+            --output "$response" \
+            -X POST \
+            -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{}" \
+            "https://aiqadam.org/api/v1/internal/rbac/poll")
+          echo "HTTP $http_code"
+          cat "$response"
+          echo
+          if [ "$http_code" != "200" ]; then
+            echo "::error::RBAC poll failed with HTTP $http_code"
+            exit 1
+          fi
