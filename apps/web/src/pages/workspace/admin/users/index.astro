@@ -1,0 +1,27 @@
+---
+import AdminInvitesList from '../../../../components/workspace/AdminInvitesList';
+import Layout from '../../../../layouts/Layout.astro';
+
+// F-S2.7 (ADR-0035) — /workspace/admin/users. Lists operator invites
+// (each invite IS an operator record in v1; a "user" = the row in
+// operator_invites + the matching Authentik user it created).
+// SuperAdminGuard on the API enforces who can see this; the page loads
+// for anyone, the list call surfaces 403 if not authorised.
+---
+
+<Layout
+  title="Operators · AI Qadam workspace admin"
+  description="Manage operators: invite, list, revoke."
+>
+  <main style="max-width: 1080px; margin: 0 auto; padding: 40px 32px;">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;"
+    >
+      <h1 style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0;">
+        Operators
+      </h1>
+      <a href="/workspace/admin/users/new" class="btn btn-primary"> + Invite operator </a>
+    </div>
+    <AdminInvitesList client:load />
+  </main>
+</Layout>

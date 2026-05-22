@@ -1,0 +1,26 @@
+---
+import AdminUserCreateForm from '../../../../components/workspace/AdminUserCreateForm';
+import Layout from '../../../../layouts/Layout.astro';
+
+// F-S2.7 (ADR-0035) — /workspace/admin/users/new. Renders the create
+// invite form. Auth is enforced server-side at the API (SuperAdminGuard);
+// the page itself loads for anyone, but the form bootstrap calls
+// /api/v1/auth/refresh and surfaces "you must be super-admin" on 403.
+---
+
+<Layout
+  title="New operator · AI Qadam workspace admin"
+  description="Invite a new operator to the platform."
+>
+  <main style="max-width: 720px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace/admin/users">← Operators</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 24px;"
+    >
+      Invite a new operator
+    </h1>
+    <AdminUserCreateForm client:load />
+  </main>
+</Layout>

@@ -1,0 +1,20 @@
+---
+import OnboardingForm from '../components/OnboardingForm';
+import Layout from '../layouts/Layout.astro';
+
+// F-S2.7 (ADR-0035) — public invitee landing page. No auth — the
+// token IS the credential. The OnboardingForm island calls
+// /v1/onboard/preview to render the invitee's name + role and
+// /v1/onboard/accept to set the password + AUP acknowledgement.
+
+export const prerender = true;
+---
+
+<Layout
+  title="Welcome to AI Qadam · Operator onboarding"
+  description="Set your password and accept the operator agreement to activate your account."
+>
+  <main style="max-width: 640px; margin: 0 auto; padding: 64px 32px;">
+    <OnboardingForm client:load />
+  </main>
+</Layout>
