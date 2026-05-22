@@ -8,8 +8,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { env } from '../../config/env';
+import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
-import { AuthentikClient } from './authentik.client';
+import { AuthentikClient, AuthentikError } from './authentik.client';
 
 // F-S2.7 (ADR-0035): operator-invite state machine. Token plaintext is
 // shown to the admin exactly once at creation; only SHA256 hash + 8-char
@@ -101,19 +102,34 @@ export class AdminInvitesService {
   constructor(
     private readonly directus: DirectusClient,
     private readonly authentik: AuthentikClient,
+    private readonly directusBridge: DirectusUsersBridgeService,
   ) {}
 
   async createInvite(input: CreateInviteInput, callerId: string): Promise<CreateInviteResult> {
     this.validateInput(input);
 
+    // operator_invites.created_by is FK to directus_users.id. Our local
+    // users.id (req.user.sub) is a DIFFERENT uuid — the bridge maps it.
+    // Resolution failure is non-fatal: drop the audit FK and proceed
+    // (Loki log still carries actor_id below).
+    const createdByDirectus = await this.directusBridge.resolveDirectusId(callerId);
+
     // Create Authentik user FIRST so a failure aborts before we have an
-    // orphan invite row. Authentik user has no password yet (consume sets it).
+    // orphan invite row. Authentik 4xx (e.g. email already taken) maps
+    // to 409 Conflict so the caller gets a meaningful status.
     const username = this.usernameFromEmail(input.email);
-    const ak = await this.authentik.createUser({
-      email: input.email,
-      username,
-      name: input.display_name ?? username,
-    });
+    const ak = await this.authentik
+      .createUser({
+        email: input.email,
+        username,
+        name: input.display_name ?? username,
+      })
+      .catch((err: unknown) => {
+        if (err instanceof AuthentikError && err.status >= 400 && err.status < 500) {
+          throw new ConflictException(`authentik_create_failed:${err.status}`);
+        }
+        throw err;
+      });
 
     const tokenPlain = randomBytes(32).toString('base64url');
     const tokenHash = createHash('sha256').update(tokenPlain).digest('hex');
@@ -130,7 +146,7 @@ export class AdminInvitesService {
       token_prefix: tokenPrefix,
       status: 'pending',
       created_at: now.toISOString(),
-      created_by: callerId,
+      created_by: createdByDirectus,
       expires_at: expiresAt.toISOString(),
       authentik_user_id: ak.pk,
       delivery_channel: input.delivery_channel,
@@ -161,11 +177,14 @@ export class AdminInvitesService {
     if (row.status !== 'pending') {
       throw new ConflictException(`invite_${row.status}`);
     }
+    // Same FK consideration as createInvite — resolve local users.id ->
+    // directus_users.id before writing.
+    const revokedByDirectus = await this.directusBridge.resolveDirectusId(callerId);
     const now = new Date().toISOString();
     await this.directus.patch(`/items/operator_invites/${encodeURIComponent(inviteId)}`, {
       status: 'revoked',
       revoked_at: now,
-      revoked_by: callerId,
+      revoked_by: revokedByDirectus,
     });
     // Also disable the Authentik placeholder; tolerate Authentik failures
     // (log divergence) — the Directus side already reflects the operator intent.

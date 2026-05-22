@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminInvitesService } from '../src/modules/admin-invites/admin-invites.service';
+import { AuthentikError } from '../src/modules/admin-invites/authentik.client';
 import type { AuthentikClient } from '../src/modules/admin-invites/authentik.client';
+import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 
 // Unit tests for AdminInvitesService. Mocks DirectusClient + AuthentikClient
@@ -19,9 +21,13 @@ type FakeAuthentik = {
   disableUser: ReturnType<typeof vi.fn>;
   isConfigured: ReturnType<typeof vi.fn>;
 };
+type FakeBridge = {
+  resolveDirectusId: ReturnType<typeof vi.fn>;
+};
 
 let directus: FakeDirectus;
 let authentik: FakeAuthentik;
+let bridge: FakeBridge;
 let svc: AdminInvitesService;
 
 beforeEach(() => {
@@ -45,9 +51,13 @@ beforeEach(() => {
     disableUser: vi.fn().mockResolvedValue(undefined),
     isConfigured: vi.fn().mockReturnValue(true),
   };
+  bridge = {
+    resolveDirectusId: vi.fn().mockResolvedValue('directus-uuid-of-caller'),
+  };
   svc = new AdminInvitesService(
     directus as unknown as DirectusClient,
     authentik as unknown as AuthentikClient,
+    bridge as unknown as DirectusUsersBridgeService,
   );
 });
 
@@ -78,6 +88,11 @@ describe('createInvite — happy path', () => {
     expect(row.role_groups).toEqual(['aiqadam-staff']);
     expect(row.authentik_user_id).toBe(99);
     expect(row.email).toBe('Aigerim.K@aiqadam.org');
+    // created_by must be the BRIDGE-resolved directus uuid, NOT the
+    // raw local users.id — operator_invites.created_by FKs to
+    // directus_users.id (not users.id).
+    expect(row.created_by).toBe('directus-uuid-of-caller');
+    expect(bridge.resolveDirectusId).toHaveBeenCalledWith('caller-uuid');
 
     // Authentik received the email and a slugified username.
     expect(authentik.createUser).toHaveBeenCalledWith({
@@ -111,6 +126,23 @@ describe('createInvite — validation', () => {
       ),
     ).rejects.toThrow(/role_groups_empty/);
     expect(authentik.createUser).not.toHaveBeenCalled();
+  });
+
+  it('maps Authentik 4xx (e.g. email already taken) to 409 ConflictException', async () => {
+    authentik.createUser.mockRejectedValueOnce(
+      new AuthentikError(400, '/api/v3/core/users/', '{"email":["already taken"]}'),
+    );
+    await expect(
+      svc.createInvite(
+        {
+          email: 'dup@aiqadam.org',
+          role_groups: ['aiqadam-staff'],
+          delivery_channel: 'copy_paste',
+        },
+        'caller',
+      ),
+    ).rejects.toMatchObject({ name: 'ConflictException' });
+    expect(directus.post).not.toHaveBeenCalled();
   });
 
   it('rejects country-lead invites when flag is off (default)', async () => {
@@ -149,7 +181,7 @@ describe('revokeInvite', () => {
     await svc.revokeInvite('invite-1', 'caller');
     const patch = directus.patch.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(patch.status).toBe('revoked');
-    expect(patch.revoked_by).toBe('caller');
+    expect(patch.revoked_by).toBe('directus-uuid-of-caller');
     expect(authentik.disableUser).toHaveBeenCalledWith(99);
   });
 
