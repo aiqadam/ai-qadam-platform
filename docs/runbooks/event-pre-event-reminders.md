@@ -2,7 +2,7 @@
 
 **Audience:** engineers wiring the scheduler; operators monitoring delivery.
 **Pre-reading:** [event-publication-broadcast.md](./event-publication-broadcast.md), [interaction-architecture.md](../interaction-architecture.md), [ux-and-content-guidelines.md §13](../ux-and-content-guidelines.md#13-notification-copy-library).
-**Ships:** F-S1.4 (T-2 + T-3h attendee reminders). T-7 speaker brief deferred to F-S1.4b once F-S1.1b adds the speakers schema.
+**Ships:** F-S1.4 (T-2 + T-3h attendee reminders) + **F-S1.4b (T-7 speaker brief, shipped 2026-05-22)**.
 
 ## What this does
 
@@ -101,12 +101,43 @@ Delete the `event_announcements` row for that `(event, kind)` in Directus admin,
 ### "Tick is slow / times out"
 Per-tick cost is small (2 list queries + N events × (1 ledger check + 1 attendee query + 1 dispatch + 1 ledger insert)). With 5-10 active events per tick and ~50 attendees each, expect <2s. If slower, look at Directus latency (the bulk of the time is `MembersService` + `attendeesOf`).
 
+## F-S1.4b — T-7 speaker brief (shipped 2026-05-22)
+
+Separate service + tick endpoint because per-speaker fan-out differs from the per-event reminder pattern:
+
+- **Endpoint:** `POST /v1/internal/event-speaker-briefs/tick` — `InternalAuthGuard`, hourly.
+- **Window:** events in `starts_at` ∈ `[now+156h, now+180h]` (T-7 ± 12h).
+- **Audience:** per `event_speakers` row where `status='confirmed'` — one email per (event, speaker). Each speaker gets a personal "your talk in 7 days" brief covering their `talk_title`, venue, and the current registered audience count.
+- **Idempotency:** reuses `event_announcements` with `kind='reminder_t_minus_7_speaker'` + the `speaker` FK added in F-S1.1b. Tuple `(event, kind, speaker)` — second tick is a no-op per speaker.
+- **Skipped reasons:** `no_user` (event_speakers row points to a speakers row with null user — orphan) or `already_dispatched`.
+- **Wiring:** same options as the attendee-reminders endpoint above (GH Actions cron / Coolify scheduled / systemd timer) — point them at the new path.
+
+Operational SQL:
+
+```sql
+-- recent speaker briefs
+SELECT event, speaker, sent_at, recipient_count
+FROM event_announcements
+WHERE kind='reminder_t_minus_7_speaker'
+ORDER BY sent_at DESC LIMIT 50;
+
+-- events in the T-7 window with confirmed speakers but no brief yet
+SELECT e.id, e.title, e.starts_at,
+       (SELECT COUNT(*) FROM event_speakers es WHERE es.event=e.id AND es.status='confirmed') AS confirmed_count
+FROM events e
+WHERE e.status='published'
+  AND e.starts_at BETWEEN NOW() + INTERVAL '156 hours' AND NOW() + INTERVAL '180 hours';
+```
+
 ## Related
 
-- `apps/api/src/modules/workspace/event-reminders.service.ts` — tick + window logic
+- `apps/api/src/modules/workspace/event-reminders.service.ts` — T-2 + T-3h tick + window logic
 - `apps/api/src/modules/workspace/event-reminders.controller.ts` — POST entry
-- `apps/api/test/event-reminders-service.spec.ts` — 6 unit tests (windowing + dispatch + idempotency + no-audience + attendees filter)
-- `apps/e2e/tests/smoke-event-reminders.spec.ts` — 2 smoke tests
-- `infrastructure/directus/bootstrap.sh` `[event_announcements]` — ledger schema (extended kind enum)
+- `apps/api/src/modules/workspace/event-speaker-briefs.service.ts` — F-S1.4b T-7 speaker brief tick
+- `apps/api/src/modules/workspace/event-speaker-briefs.controller.ts` — POST entry
+- `apps/api/test/event-reminders-service.spec.ts` — 6 unit tests
+- `apps/api/test/event-speaker-briefs-service.spec.ts` — 7 unit tests
+- `apps/e2e/tests/smoke-event-reminders.spec.ts` + `smoke-event-speaker-briefs.spec.ts` — endpoint auth smokes
+- `infrastructure/directus/bootstrap.sh` `[event_announcements]` — ledger schema (kind enum extended in F-S1.4b)
 - UX copy: [`ux-and-content-guidelines.md §13`](../ux-and-content-guidelines.md#13-notification-copy-library) `reminder_72h` + `reminder_3h` rows
-- F-S1.1a (publication) + F-S1.1c (post-event cron) share the same ledger collection.
+- F-S1.1a (publication) + F-S1.1b (speaker_added) + F-S1.1c (post-event cron) share the same ledger collection.

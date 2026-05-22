@@ -2235,7 +2235,8 @@ ensure "collection event_announcements" \
           {"text":"Post-event followup","value":"post_event_followup"},
           {"text":"Reminder T-2 days","value":"reminder_t_minus_2"},
           {"text":"Reminder T-3 hours","value":"reminder_t_minus_3h"},
-          {"text":"Member match T-7 days","value":"member_match_t_minus_7"}
+          {"text":"Member match T-7 days","value":"member_match_t_minus_7"},
+          {"text":"Speaker brief T-7 days","value":"reminder_t_minus_7_speaker"}
         ]}
       }},
       {"field":"speaker","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{user.email}}"},"note":"F-S1.1b: per-speaker scoping for kind=speaker_added — idempotency is (event, kind, speaker). Null for non-speaker kinds."}},

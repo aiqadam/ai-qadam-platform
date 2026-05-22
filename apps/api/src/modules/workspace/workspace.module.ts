@@ -16,6 +16,8 @@ import { EventMatchesController } from './event-matches.controller';
 import { EventMatchesService } from './event-matches.service';
 import { EventRemindersController } from './event-reminders.controller';
 import { EventRemindersService } from './event-reminders.service';
+import { EventSpeakerBriefsController } from './event-speaker-briefs.controller';
+import { EventSpeakerBriefsService } from './event-speaker-briefs.service';
 import { EventSpeakersController } from './event-speakers.controller';
 import { EventSpeakersService } from './event-speakers.service';
 import { EventsController } from './events.controller';
@@ -53,6 +55,11 @@ import { PostEventCronService } from './post-event-cron.service';
 // POST /v1/internal/post-event/tick (InternalAuthGuard) dispatches
 // speaker_thanks_with_referral_ask to confirmed speakers + next_event_teaser
 // to attendees. Idempotent via events.post_event_processed.
+// F-S1.4b — EventSpeakerBriefsService cron entry at
+// POST /v1/internal/event-speaker-briefs/tick (InternalAuthGuard)
+// dispatches one personal speaker_brief per (event, confirmed speaker)
+// in the T-7 window. Idempotent via event_announcements with kind=
+// reminder_t_minus_7_speaker + speaker FK (per-(event, speaker) tuple).
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
@@ -71,6 +78,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventMatchesService,
     EventSpeakersService,
     PostEventCronService,
+    EventSpeakerBriefsService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -85,6 +93,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventMatchesController,
     EventSpeakersController,
     PostEventCronController,
+    EventSpeakerBriefsController,
   ],
   exports: [
     MembersService,
@@ -98,6 +107,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventMatchesService,
     EventSpeakersService,
     PostEventCronService,
+    EventSpeakerBriefsService,
   ],
 })
 export class WorkspaceModule {}
