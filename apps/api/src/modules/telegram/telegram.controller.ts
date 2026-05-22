@@ -5,7 +5,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
@@ -18,6 +20,7 @@ import {
   SEND_OUTCOMES,
   TelegramService,
 } from './telegram.service';
+import { TgConfigService } from './tg-config.service';
 
 // Sync surface (OpenAPI) for the AI Qadam Telegram bot + notifier per
 // ADR-0034. Two controllers on the same path prefix (A1):
@@ -47,6 +50,23 @@ const linkConfirmSchema = z.object({
 const optOutSchema = z.object({
   member_id: z.string().uuid(),
 });
+
+const botTokenQuerySchema = z.object({
+  tenant: z
+    .string()
+    .regex(/^[a-z]{2,8}$/, 'tenant must be 2–8 lowercase letters')
+    .optional(),
+});
+
+// Contract pinned by the Python bot's BotTokenResponse pydantic model
+// (sibling repo: src/aiqadam_telegram_bot/shared/aiqadam_client.py). Do
+// not rename fields without coordinating a cross-repo PR — the bot's
+// contract regression test asserts these exact names.
+interface BotTokenResponse {
+  bot_token: string;
+  bot_id: string; // bigint → string for JSON safety
+  bot_username: string;
+}
 
 // Audit shape mirrors the notifier's Envelope payload — message_id is
 // optional and accepts string-or-number for the bigint round-trip.
@@ -87,11 +107,44 @@ export class TelegramPublicController {
 @Controller('v1/telegram')
 @UseGuards(TelegramAuthGuard)
 export class TelegramController {
-  constructor(private readonly telegram: TelegramService) {}
+  constructor(
+    private readonly telegram: TelegramService,
+    private readonly config: TgConfigService,
+  ) {}
 
   @Get('whoami')
   whoami(): { authenticated: true; module: 'telegram' } {
     return { authenticated: true, module: 'telegram' };
+  }
+
+  // GET /v1/telegram/admin/bot-token?tenant=<code>
+  //   Service-token-gated (TelegramAuthGuard). The BOT is the caller —
+  //   it polls this at boot and after a bot:reload_requested tick to
+  //   pick up a freshly-configured or rotated BotFather token without
+  //   restarting via Coolify env. Path includes "admin/" because it
+  //   shares the configuration namespace with the human-operator admin
+  //   endpoints; gate is the m2m service token, not a session.
+  //
+  //   200: { bot_token, bot_id, bot_username }
+  //   404 { error: 'telegram_not_configured' } — bot interprets this
+  //        as "no row yet; exit clean, docker will restart, try again".
+  //        Use 400/403/422 for other failure modes; 404 is reserved.
+  //   401/503: TelegramAuthGuard (bad/missing service token; degraded).
+  @Get('admin/bot-token')
+  async getBotToken(@Query() query: unknown): Promise<BotTokenResponse> {
+    const parsed = botTokenQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const cfg = await this.config.loadWithDecryptedToken(parsed.data.tenant ?? null);
+    if (cfg === null) {
+      throw new NotFoundException({ error: 'telegram_not_configured' });
+    }
+    return {
+      bot_token: cfg.decryptedToken,
+      bot_id: cfg.botId.toString(),
+      bot_username: cfg.botUsername,
+    };
   }
 
   @Post('link/start')

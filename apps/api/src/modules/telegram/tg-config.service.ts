@@ -178,6 +178,19 @@ export class TgConfigService {
     const key = this.resolveKey();
     return decryptToken(row.encryptedToken, key);
   }
+
+  // Returns metadata + plaintext token in one read. Used by the bot-token
+  // endpoint (the bot fetches both at boot to start polling). Kept
+  // separate from readPlaintextToken so callers don't pay a second DB
+  // round-trip when they need bot identity alongside the secret.
+  async loadWithDecryptedToken(
+    tenant: string | null,
+  ): Promise<(PublicConfig & { decryptedToken: string }) | null> {
+    const row = await this.findRow(tenant);
+    if (!row) return null;
+    const key = this.resolveKey();
+    return { ...rowToPublic(row), decryptedToken: decryptToken(row.encryptedToken, key) };
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
