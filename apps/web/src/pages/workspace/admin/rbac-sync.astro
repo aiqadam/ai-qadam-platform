@@ -1,0 +1,31 @@
+---
+import RbacSyncList from '../../../components/workspace/RbacSyncList';
+import Layout from '../../../layouts/Layout.astro';
+
+// F-S2.2-g (ADR-0021 §7) — admin view of the RBAC sync state machine.
+// Operators see every rbac_sync_jobs row, filter by status, expand a
+// row to inspect the expected-state diff, click Retry on failed/dry-run
+// rows. Auth enforced server-side by SuperAdminGuard; cabinet
+// auto-redirects anon to Authentik.
+---
+
+<Layout
+  title="RBAC sync · AI Qadam workspace admin"
+  description="Review every Authentik → Directus + Plausible permission sync."
+>
+  <main style="max-width: 1280px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace">← Workspace</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      RBAC sync
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Every Authentik group change creates a job. <strong>Dry-run</strong> = diff computed, NOT
+      written. <strong>Applied</strong> = engine updated. Retry re-runs intake.
+    </p>
+    <RbacSyncList client:load />
+  </main>
+</Layout>

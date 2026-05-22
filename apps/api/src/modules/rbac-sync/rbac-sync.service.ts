@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
 import { AuditEventsService } from '../audit/audit-events.service';
@@ -35,6 +35,23 @@ export interface IntakeResult {
 
 interface RbacSyncJobInsertResp {
   data: { id: string };
+}
+
+export type EngineStatus = 'pending' | 'applied' | 'failed' | 'skipped' | 'dry_run';
+
+export interface RbacSyncJobRow {
+  id: string;
+  user: string | null;
+  user_email?: string | null;
+  triggered_by: TriggeredBy;
+  expected_state: ExpectedState;
+  directus_status: EngineStatus;
+  directus_error: string | null;
+  plausible_status: EngineStatus;
+  plausible_error: string | null;
+  attempt: number;
+  started_at: string;
+  finished_at: string | null;
 }
 
 @Injectable()
@@ -212,6 +229,78 @@ export class RbacSyncService {
           `rbac.persist.failed job=${jobId}: ${err instanceof Error ? err.message : err}`,
         );
       });
+  }
+
+  // F-S2.2-g — admin view. Lists rbac_sync_jobs joined with user email
+  // (for the UI table). Filtered by status when provided; otherwise
+  // returns the most recent 200 rows.
+  async listJobs(filter?: {
+    status?: EngineStatus;
+    only_failed?: boolean;
+  }): Promise<RbacSyncJobRow[]> {
+    const fields =
+      'id,user,user.email,triggered_by,expected_state,directus_status,directus_error,plausible_status,plausible_error,attempt,started_at,finished_at';
+    const filterParts: Record<string, unknown> = {};
+    if (filter?.only_failed) {
+      filterParts._or = [
+        { directus_status: { _eq: 'failed' } },
+        { plausible_status: { _eq: 'failed' } },
+      ];
+    } else if (filter?.status) {
+      filterParts._or = [
+        { directus_status: { _eq: filter.status } },
+        { plausible_status: { _eq: filter.status } },
+      ];
+    }
+    const filterQs =
+      Object.keys(filterParts).length > 0
+        ? `&filter=${encodeURIComponent(JSON.stringify(filterParts))}`
+        : '';
+    type RawRow = Omit<RbacSyncJobRow, 'user' | 'user_email'> & {
+      user: { id?: string; email?: string } | string | null;
+    };
+    const res = await this.directus.get<{ data: RawRow[] }>(
+      `/items/rbac_sync_jobs?fields=${fields}&sort=-started_at&limit=200${filterQs}`,
+    );
+    return res.data.map((row) => {
+      const { user, ...rest } = row;
+      let userId: string | null = null;
+      let email: string | null = null;
+      if (typeof user === 'string') {
+        userId = user;
+      } else if (user && typeof user === 'object') {
+        userId = user.id ?? null;
+        email = user.email ?? null;
+      }
+      return { ...rest, user: userId, user_email: email } as RbacSyncJobRow;
+    });
+  }
+
+  // F-S2.2-g — operator retry. Reads the job, re-fetches Authentik
+  // canonical state via intakeWebhook with triggered_by=manual_retry.
+  // Returns the new job id so the UI can highlight the fresh row.
+  async retryJob(jobId: string): Promise<{ new_job_id: string }> {
+    const res = await this.directus.get<{
+      data: { authentik_user_id?: number | null; user?: { external_identifier?: string } | null };
+    }>(
+      `/items/rbac_sync_jobs/${encodeURIComponent(jobId)}?fields=user.external_identifier,expected_state`,
+    );
+    // The original job may not have authentik_user_id stored; we have
+    // the directus_users.email as external_identifier. Resolve to pk by
+    // re-querying Authentik via email.
+    const email = res.data.user?.external_identifier;
+    if (!email) {
+      throw new NotFoundException('job_user_email_missing');
+    }
+    const user = await this.authentik.getUserByEmail(email);
+    if (!user) {
+      throw new NotFoundException('authentik_user_not_found');
+    }
+    const result = await this.intakeWebhook({
+      userPk: user.pk,
+      triggeredBy: 'manual_retry',
+    });
+    return { new_job_id: result.job_id };
   }
 
   // F-S2.2-f — nightly poll. Called by the internal cron endpoint.
