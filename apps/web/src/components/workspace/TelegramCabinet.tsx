@@ -176,6 +176,13 @@ export default function TelegramCabinet(): ReactElement {
       <RefreshBar onRefresh={refresh} refreshing={refreshing} />
       <StatusPanel status={status} />
       <BotIdentity status={status} />
+      <TokenForm
+        accessToken={state.accessToken}
+        configured={status.configured}
+        onSaved={() => {
+          void refresh();
+        }}
+      />
       <RecentDeliveries rows={deliveries} />
       <Footer />
     </div>
@@ -353,8 +360,7 @@ function BotIdentity({ status }: { status: StatusResponse }): ReactElement {
       <section data-testid="bot-identity" style={sectionStyle()}>
         <h2 style={sectionHeadingStyle()}>Bot identity</h2>
         <p style={mutedStyle()}>
-          Not configured yet. Until the configure form ships, set the token via
-          <code style={inlineCodeStyle()}>POST /v1/telegram/admin/configure</code>.
+          Not configured yet. Use the form below to paste a BotFather token.
         </p>
       </section>
     );
@@ -466,6 +472,277 @@ function Footer(): ReactElement {
   );
 }
 
+// ─── Token form (configure / rotate) ────────────────────────────────────────
+//
+// One component, two modes. When `configured === false` it's the
+// first-time configure form: paste the BotFather token, Validate &
+// Save, and on success the parent re-fetches status → the cabinet
+// flips to "configured: true". When `configured === true` it's the
+// rotate form, gated behind a confirmation step so an operator
+// doesn't replace the live token by clicking through too fast.
+//
+// On submit we POST to either /admin/configure or /admin/rotate-token.
+// Both endpoints share the same body schema and the same success
+// shape (ConfigureResponse), so the form handles them uniformly. The
+// API publishes bot:reload_requested + notifier:reload_requested on
+// every save (F-R2.6) — we surface that as a "bot restarts within
+// ~30s" hint.
+//
+// Token format hint: BotFather tokens look like `123456789:AABBCC-…`.
+// We don't validate locally (the API does isBotFatherTokenShape +
+// getMe); we just show the format hint so the operator knows what to
+// paste.
+
+const TOKEN_FORMAT_HINT = '123456789:AABBCC-DD_EEffgg…';
+
+interface TokenFormState {
+  token: string;
+  // 'rotate-confirm' is the "Are you sure?" step before we actually
+  // POST. Hidden in the configure-first-time flow.
+  phase: 'edit' | 'rotate-confirm' | 'submitting' | 'success' | 'error';
+  // Last message shown — green on success, red on error. Kept on the
+  // state so we can render an inline status line without a separate
+  // toast system.
+  message: string | null;
+}
+
+function TokenForm({
+  accessToken,
+  configured,
+  onSaved,
+}: {
+  accessToken: string;
+  configured: boolean;
+  onSaved: () => void;
+}): ReactElement {
+  const [form, setForm] = useState<TokenFormState>({
+    token: '',
+    phase: 'edit',
+    message: null,
+  });
+
+  const isRotating = configured;
+  const endpoint = isRotating
+    ? '/api/v1/telegram/admin/rotate-token'
+    : '/api/v1/telegram/admin/configure';
+  const action = isRotating ? 'Rotate' : 'Validate & Save';
+
+  const submit = useCallback(async (): Promise<void> => {
+    setForm((f) => ({ ...f, phase: 'submitting', message: null }));
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ token: form.token.trim() }),
+      });
+      if (!res.ok) {
+        // Surface the API error string next to the field. The configure
+        // endpoint returns 400 with a Zod-flattened body OR a
+        // BadRequestException with { error: 'getme_failed', detail }
+        // — try both shapes and fall back to the HTTP status text.
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+          detail?: string;
+          message?: string;
+        } | null;
+        const detail = body?.detail ?? body?.error ?? body?.message ?? `HTTP ${res.status}`;
+        setForm({ token: form.token, phase: 'error', message: detail });
+        return;
+      }
+      const ok = (await res.json()) as { bot_username: string };
+      setForm({
+        token: '',
+        phase: 'success',
+        message: `Saved. Bot @${ok.bot_username} will restart within ~30s and pick up the new token.`,
+      });
+      onSaved();
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'network error';
+      setForm({ token: form.token, phase: 'error', message: reason });
+    }
+  }, [accessToken, endpoint, form.token, onSaved]);
+
+  const onClick = useCallback((): void => {
+    if (isRotating && form.phase === 'edit') {
+      setForm((f) => ({ ...f, phase: 'rotate-confirm' }));
+      return;
+    }
+    void submit();
+  }, [form.phase, isRotating, submit]);
+
+  const onCancelConfirm = useCallback((): void => {
+    setForm((f) => ({ ...f, phase: 'edit' }));
+  }, []);
+
+  const disabled =
+    form.phase === 'submitting' ||
+    form.token.trim().length === 0 ||
+    form.phase === 'rotate-confirm';
+
+  return (
+    <section data-testid="token-form" style={sectionStyle()}>
+      <h2 style={sectionHeadingStyle()}>{isRotating ? 'Rotate token' : 'Configure bot token'}</h2>
+      <p style={{ ...mutedStyle(), marginBottom: 12 }}>
+        Paste a BotFather token (format <code style={inlineCodeStyle()}>{TOKEN_FORMAT_HINT}</code>).
+        We validate it against Telegram's <code style={inlineCodeStyle()}>getMe</code> before
+        saving; the encrypted blob lives in <code style={inlineCodeStyle()}>tg_config</code> at
+        rest.
+      </p>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <input
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          data-testid="token-input"
+          placeholder={TOKEN_FORMAT_HINT}
+          value={form.token}
+          onChange={(e) => {
+            setForm((f) => ({ ...f, token: e.target.value, message: null, phase: 'edit' }));
+          }}
+          disabled={form.phase === 'submitting'}
+          style={{
+            flex: 1,
+            minWidth: 280,
+            padding: '8px 12px',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: 'var(--card)',
+            color: 'var(--foreground)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 13,
+          }}
+        />
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          data-testid="token-submit"
+          style={{
+            padding: '8px 16px',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: disabled ? 'transparent' : 'var(--foreground)',
+            color: disabled ? 'var(--muted-foreground)' : 'var(--background)',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          {form.phase === 'submitting' ? 'Saving…' : action}
+        </button>
+      </div>
+      <TokenFormFooter
+        phase={form.phase}
+        message={form.message}
+        onConfirm={() => {
+          void submit();
+        }}
+        onCancel={onCancelConfirm}
+      />
+    </section>
+  );
+}
+
+// Renders the per-phase footer below the input row: rotate-confirm
+// box, success status line, or error status line. Extracted to keep
+// TokenForm's cognitive complexity inside the project's linter budget
+// — the conditional-render tree is the same in either place, the
+// split is purely about which function owns the branches.
+function TokenFormFooter({
+  phase,
+  message,
+  onConfirm,
+  onCancel,
+}: {
+  phase: TokenFormState['phase'];
+  message: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}): ReactElement | null {
+  if (phase === 'rotate-confirm') {
+    return <RotateConfirm onConfirm={onConfirm} onCancel={onCancel} />;
+  }
+  if (phase === 'success' && message) {
+    return (
+      <p data-testid="token-success" style={{ ...statusLineStyle(), color: '#10b981' }}>
+        ✓ {message}
+      </p>
+    );
+  }
+  if (phase === 'error' && message) {
+    return (
+      <p data-testid="token-error" style={{ ...statusLineStyle(), color: '#dc2626' }}>
+        ✗ {message}
+      </p>
+    );
+  }
+  return null;
+}
+
+function RotateConfirm({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}): ReactElement {
+  return (
+    <div
+      data-testid="rotate-confirm"
+      style={{
+        marginTop: 12,
+        padding: 14,
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        background: 'var(--card)',
+      }}
+    >
+      <p style={{ ...mutedStyle(), margin: '0 0 8px' }}>
+        Rotating replaces the live token. The bot will restart within ~30s; any in-flight pollers
+        will reconnect against the new credential. Continue?
+      </p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          type="button"
+          onClick={onConfirm}
+          data-testid="rotate-confirm-yes"
+          style={{
+            padding: '6px 14px',
+            borderRadius: 6,
+            border: '1px solid #dc2626',
+            background: '#dc2626',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          Rotate now
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          data-testid="rotate-confirm-cancel"
+          style={{
+            padding: '6px 14px',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            color: 'var(--foreground)',
+            cursor: 'pointer',
+            fontSize: 13,
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Style helpers ──────────────────────────────────────────────────────────
 
 function sectionStyle(): React.CSSProperties {
@@ -510,6 +787,10 @@ function inlineCodeStyle(): React.CSSProperties {
     fontSize: 12,
     margin: '0 4px',
   };
+}
+
+function statusLineStyle(): React.CSSProperties {
+  return { marginTop: 12, fontSize: 13, fontWeight: 500 };
 }
 
 // Format an ISO-8601 string as `HH:MM:SS` in the operator's local TZ.

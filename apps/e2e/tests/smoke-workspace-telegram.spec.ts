@@ -43,6 +43,22 @@ test.describe('F-R3.0 — /workspace/integrations/telegram', () => {
     expect(res.status()).toBe(401);
   });
 
+  test('API: POST /v1/telegram/admin/configure requires auth (401)', async ({ request }) => {
+    // F-R3.1 — token form posts here. Anon caller must be rejected
+    // before we even look at the body.
+    const res = await request.post('/api/v1/telegram/admin/configure', {
+      data: { token: '123456789:AABBCCDDeeFFggHHiiJJkkLLmmNNooPPqqRRssTTuu' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('API: POST /v1/telegram/admin/rotate-token requires auth (401)', async ({ request }) => {
+    const res = await request.post('/api/v1/telegram/admin/rotate-token', {
+      data: { token: '123456789:AABBCCDDeeFFggHHiiJJkkLLmmNNooPPqqRRssTTuu' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
   test('sidebar on /workspace exposes the Integrations → Telegram link', async ({ page }) => {
     // Anon visitor on /workspace auto-redirects too; we just verify the
     // sidebar HTML carries the link target so a future RBAC change can't
