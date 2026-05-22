@@ -16,7 +16,11 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { SuperAdminGuard } from '../admin-invites/super-admin.guard';
 import { AuthGuard } from '../auth/auth.guard';
-import { type StatusResponse, TelegramAdminService } from './telegram-admin.service';
+import {
+  type RecentDeliveryRow,
+  type StatusResponse,
+  TelegramAdminService,
+} from './telegram-admin.service';
 import { type PublicConfig, TgConfigService } from './tg-config.service';
 
 // R2 (ADR-0034) — operator-facing admin surface for configuring the
@@ -153,5 +157,20 @@ export class TelegramAdminController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.admin.buildStatus(parsed.data.tenant ?? null);
+  }
+
+  // GET /v1/telegram/admin/recent-deliveries?tenant=<code>
+  //   10 most-recent rows from tg_send_log for the cabinet's delivery
+  //   health panel. Operators read this to spot a streak of failures
+  //   without paging or jumping to the audit log. `detail` is
+  //   server-truncated; full text lives in the audit log.
+  @Get('recent-deliveries')
+  async recentDeliveries(@Query() query: unknown): Promise<{ rows: RecentDeliveryRow[] }> {
+    const parsed = tenantQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const rows = await this.admin.recentDeliveries(parsed.data.tenant ?? null);
+    return { rows };
   }
 }

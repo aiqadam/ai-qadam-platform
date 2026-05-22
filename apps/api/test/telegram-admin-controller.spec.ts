@@ -5,9 +5,12 @@ import Redis from 'ioredis';
 import postgres from 'postgres';
 import { afterAll, beforeEach, describe, expect, inject, it, vi } from 'vitest';
 import { HeartbeatReaderService } from '../src/modules/telegram/heartbeat-reader.service';
-import { tgConfig } from '../src/modules/telegram/schema';
+import { tgConfig, tgSendLog } from '../src/modules/telegram/schema';
 import { TelegramAdminController } from '../src/modules/telegram/telegram-admin.controller';
-import { TelegramAdminService } from '../src/modules/telegram/telegram-admin.service';
+import {
+  RECENT_DELIVERIES_LIMIT,
+  TelegramAdminService,
+} from '../src/modules/telegram/telegram-admin.service';
 import { type GetMeFn, TgConfigService } from '../src/modules/telegram/tg-config.service';
 
 const dbUrl = inject('TEST_DATABASE_URL');
@@ -32,6 +35,7 @@ const makeGetMe = (impl: GetMeFn): GetMeFn => vi.fn(impl);
 
 beforeEach(async () => {
   await db.delete(tgConfig);
+  await db.delete(tgSendLog);
 });
 
 function makeController(getMe: GetMeFn): {
@@ -121,6 +125,64 @@ describe('TelegramAdminController.status', () => {
     const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'x' }));
     const { controller } = makeController(getMe);
     await expect(controller.status({ tenant: 'NOT_ALLOWED' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+});
+
+describe('TelegramAdminController.recentDeliveries', () => {
+  it('returns the 10 most-recent rows in DESC order with truncated detail', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'x' }));
+    const { controller } = makeController(getMe);
+    // Insert 12 rows with explicit createdAt so we can assert ordering
+    // deterministically (defaultNow() would tie within the same ms).
+    const envelopeId = randomUUID();
+    const longDetail = 'x'.repeat(300);
+    for (let i = 0; i < 12; i += 1) {
+      await db.insert(tgSendLog).values({
+        deliveryKey: `key-${i.toString().padStart(2, '0')}`,
+        envelopeId,
+        outcome: i % 2 === 0 ? 'sent' : 'blocked',
+        // Older rows = lower index. Newest row (i=11) gets the most
+        // recent timestamp so it sits at the top of the DESC sort.
+        createdAt: new Date(Date.UTC(2026, 0, 1, 0, i, 0)),
+        // Only the newest row gets the long-detail payload, so we can
+        // assert truncation hits exactly one entry.
+        detail: i === 11 ? longDetail : null,
+      });
+    }
+
+    const res = await controller.recentDeliveries({});
+
+    expect(res.rows).toHaveLength(RECENT_DELIVERIES_LIMIT);
+    // Newest first.
+    expect(res.rows[0]?.delivery_key).toBe('key-11');
+    expect(res.rows[res.rows.length - 1]?.delivery_key).toBe('key-02');
+    // Detail truncated with the ellipsis sentinel — full payload was
+    // 300 chars; cap is 200, so truncated string is 201 chars (200 +
+    // "…").
+    const newest = res.rows[0];
+    if (!newest) throw new Error('expected newest row');
+    expect(newest.detail).not.toBeNull();
+    expect(newest.detail).toMatch(/…$/);
+    expect(newest.detail?.length).toBe(201);
+    // Rows without a detail surface as null, not the literal "null".
+    expect(res.rows[1]?.detail).toBeNull();
+    // created_at is ISO-8601.
+    expect(newest.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('returns an empty list when the table is empty', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'x' }));
+    const { controller } = makeController(getMe);
+    const res = await controller.recentDeliveries({});
+    expect(res.rows).toEqual([]);
+  });
+
+  it('rejects badly-formed tenant query', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'x' }));
+    const { controller } = makeController(getMe);
+    await expect(controller.recentDeliveries({ tenant: 'NOT_OK' })).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });

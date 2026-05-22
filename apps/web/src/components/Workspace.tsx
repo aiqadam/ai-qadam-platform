@@ -140,6 +140,8 @@ function ShellFrame({ title, userEmail, children }: ShellFrameProps): ReactEleme
         <SidebarLink href="/workspace/approvals" label="Approvals" />
         {/* Per-role cabinet links visible to everyone until S2.2 RBAC sync
             adds per-role gates. */}
+        <SidebarSectionLabel label="Integrations" />
+        <SidebarLink href="/workspace/integrations/telegram" label="Telegram" />
         <div style={{ flex: 1 }} />
         {userEmail && (
           <p
@@ -178,6 +180,27 @@ function SidebarLink({ href, label }: { href: string; label: string }): ReactEle
     >
       {label}
     </a>
+  );
+}
+
+// Section divider for the sidebar. First introduced for Integrations →
+// Telegram (F-R3.0). Future per-section integration cards (Discord,
+// WhatsApp, …) sit under the same label.
+function SidebarSectionLabel({ label }: { label: string }): ReactElement {
+  return (
+    <p
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 10,
+        color: 'var(--muted-foreground)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        margin: '12px 0 4px',
+        padding: '0 12px',
+      }}
+    >
+      {label}
+    </p>
   );
 }
 

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { count, gt, isNull, sql } from 'drizzle-orm';
+import { count, desc, gt, isNull, sql } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
 import {
   type HeartbeatRead,
@@ -33,6 +33,23 @@ const SEND_LOG_WINDOW_SEC = 24 * 60 * 60;
 // SEND_OUTCOMES (not re-imported to keep status surface free of the
 // existing service's deps).
 const FAILED_OUTCOMES = new Set(['blocked', 'bad_request', 'unknown_error', 'expired']);
+
+export interface RecentDeliveryRow {
+  delivery_key: string;
+  outcome: string;
+  detail: string | null;
+  created_at: string; // ISO-8601
+}
+
+// 10 most-recent rows is the cabinet's "is this working?" window —
+// big enough to spot a streak of failures, small enough to render
+// without paging.
+export const RECENT_DELIVERIES_LIMIT = 10;
+// Cap on `detail` length in the response. Stored details are bounded
+// at 1024 (see telegram.controller audit schema) but the UI truncates
+// to keep the table scannable; full detail is in the audit log for
+// the operator who needs to dig deeper.
+const DETAIL_TRUNCATE_AT = 200;
 
 export interface StatusResponse {
   configured: boolean;
@@ -123,6 +140,40 @@ export class TelegramAdminService {
         [DISPATCH_DLQ_STREAM]: dlqMetrics,
       },
     };
+  }
+
+  // 10 most-recent rows from tg_send_log for the cabinet's delivery
+  // health panel. Order is DESC on created_at so the operator sees the
+  // newest activity first. `detail` is truncated server-side so we
+  // don't ship a 1KB blob the UI just clips anyway.
+  //
+  // Tenancy: tg_send_log has no tenant column — sends are global per
+  // §Q4 of ADR-0034. The `tenant` argument is reserved for future
+  // per-tenant scoping (which would require a schema migration) and is
+  // currently a no-op; we keep it on the signature so the
+  // controller's tenant query plumbing matches the other admin
+  // endpoints.
+  async recentDeliveries(_tenant: string | null): Promise<RecentDeliveryRow[]> {
+    const rows = await this.db
+      .select({
+        deliveryKey: tgSendLog.deliveryKey,
+        outcome: tgSendLog.outcome,
+        detail: tgSendLog.detail,
+        createdAt: tgSendLog.createdAt,
+      })
+      .from(tgSendLog)
+      .orderBy(desc(tgSendLog.createdAt))
+      .limit(RECENT_DELIVERIES_LIMIT);
+
+    return rows.map((r) => ({
+      delivery_key: r.deliveryKey,
+      outcome: r.outcome,
+      detail:
+        r.detail !== null && r.detail.length > DETAIL_TRUNCATE_AT
+          ? `${r.detail.slice(0, DETAIL_TRUNCATE_AT)}…`
+          : r.detail,
+      created_at: r.createdAt.toISOString(),
+    }));
   }
 
   // ─── Internal aggregators ────────────────────────────────────────────────

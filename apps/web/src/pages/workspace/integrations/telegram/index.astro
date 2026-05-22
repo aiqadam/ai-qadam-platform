@@ -1,0 +1,34 @@
+---
+import TelegramCabinet from '../../../../components/workspace/TelegramCabinet';
+import Layout from '../../../../layouts/Layout.astro';
+
+// F-R3.0 — operator cabinet for the Telegram integration. Read-only
+// shell in this PR (status panel + bot identity + recent deliveries).
+// The configure / rotate write surfaces land in F-R3.1 (PR-3b).
+//
+// Gating is handled inside the React component (bootstrap → 401 → anon
+// redirect, 403 → forbidden message). Per ADR-0032 every operator tool
+// SSOs via Authentik; per ADR-0035 super-admin status is checked live
+// at the API guard layer on each request.
+---
+
+<Layout
+  title="Telegram · AI Qadam workspace"
+  description="Operator cabinet for the AI Qadam Telegram bot — status, bot identity, recent deliveries."
+>
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace">← Workspace</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Telegram
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Bot configuration, runtime health, and recent delivery activity for the AI Qadam Telegram
+      bot. Per ADR-0034 we run one bot account across all tenants.
+    </p>
+    <TelegramCabinet client:load />
+  </main>
+</Layout>
