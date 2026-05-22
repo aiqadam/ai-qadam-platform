@@ -16,10 +16,14 @@ import { EventMatchesController } from './event-matches.controller';
 import { EventMatchesService } from './event-matches.service';
 import { EventRemindersController } from './event-reminders.controller';
 import { EventRemindersService } from './event-reminders.service';
+import { EventSpeakersController } from './event-speakers.controller';
+import { EventSpeakersService } from './event-speakers.service';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { MembersController } from './members.controller';
 import { MembersService } from './members.service';
+import { PostEventCronController } from './post-event-cron.controller';
+import { PostEventCronService } from './post-event-cron.service';
 
 // F-S3.2 — workspace cabinet #1: member directory + cohort builder.
 // F-S3.3 — workspace cabinet #2: announcement composer (cohort →
@@ -42,6 +46,13 @@ import { MembersService } from './members.service';
 // POST /v1/internal/event-matches/tick (InternalAuthGuard) dispatches
 // "3 people you might want to meet" to opted-in attendees of events in
 // T-7 window. Idempotent via event_announcements kind=member_match_t_minus_7.
+// F-S1.1b — EventSpeakersService CRUD on event_speakers. Status flip to
+// 'confirmed' fires speaker_added broadcast (idempotent per
+// (event, kind='speaker_added', speaker) via the new event_announcements.speaker FK).
+// F-S1.1c — PostEventCronService cron entry at
+// POST /v1/internal/post-event/tick (InternalAuthGuard) dispatches
+// speaker_thanks_with_referral_ask to confirmed speakers + next_event_teaser
+// to attendees. Idempotent via events.post_event_processed.
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
@@ -58,6 +69,8 @@ import { MembersService } from './members.service';
     EventRemindersService,
     CsatService,
     EventMatchesService,
+    EventSpeakersService,
+    PostEventCronService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -70,6 +83,8 @@ import { MembersService } from './members.service';
     CsatPublicController,
     CsatOperatorController,
     EventMatchesController,
+    EventSpeakersController,
+    PostEventCronController,
   ],
   exports: [
     MembersService,
@@ -81,6 +96,8 @@ import { MembersService } from './members.service';
     EventRemindersService,
     CsatService,
     EventMatchesService,
+    EventSpeakersService,
+    PostEventCronService,
   ],
 })
 export class WorkspaceModule {}

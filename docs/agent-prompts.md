@@ -161,9 +161,9 @@ Pick the highest-priority **eligible** feature (its gate is satisfied + nobody e
 | **F-S0.11** | Prod-probe smoke (cron in place via PR #120; this adds the scheduled-failure alerting) | ✅ shipped (#151) | Cron failure emits Plausible `prod_probe_failure` event + opens GH issue (`prod-probe-failure` label); recovery closes the issue |
 | **F-S0.7** | Operator playbook v0 (9 scaffolds) | ✅ shipped (#156) | 9 scaffolds at `docs/operator-playbook/` |
 
-### Sprint 1 (6 features, fully parallel-independent, all 🟢 once Sprint 0 wraps)
+### Sprint 1 (6/6 features shipped — closed 2026-05-22)
 
-~~F-S1.1a publication broadcast~~ ✅ shipped 2026-05-22 · F-S1.1b speaker_added flow · F-S1.1c post-event cron · ~~F-S1.2+1.3 CSAT capture + operator surface~~ ✅ shipped 2026-05-22 · ~~F-S1.4 pre-event reminders (T-2 + T-3h)~~ ✅ shipped 2026-05-22 · ~~F-S1.5 member matching (T-7)~~ ✅ shipped 2026-05-22 (`POST /v1/internal/event-matches/tick`; interest-tag overlap algorithm; `appear_in_matches` opt-out in /me/profile; T+3 post-registration trigger + job-title overlap deferred to F-S1.5b) · ~~F-S1.6 lead capture~~ ✅ shipped 2026-05-21.
+~~F-S1.1a publication broadcast~~ ✅ shipped 2026-05-22 · ~~F-S1.1b speaker_added flow~~ ✅ shipped 2026-05-22 (event_speakers junction + `PATCH .../speakers/:id` fires `speaker_added` on accepted→confirmed; per-(event, speaker) idempotency in `event_announcements.speaker` FK; OG-image regen + web UI deferred — operator-API + dispatch only) · ~~F-S1.1c post-event cron~~ ✅ shipped 2026-05-22 (`POST /v1/internal/post-event/tick` dispatches `speaker_thanks_with_referral_ask` + `next_event_teaser` then sets `events.post_event_processed=true`; CSAT dispatch deferred until per-recipient template renderer lands) · ~~F-S1.2+1.3 CSAT capture + operator surface~~ ✅ shipped 2026-05-22 · ~~F-S1.4 pre-event reminders (T-2 + T-3h)~~ ✅ shipped 2026-05-22 · ~~F-S1.5 member matching (T-7)~~ ✅ shipped 2026-05-22 (`POST /v1/internal/event-matches/tick`; interest-tag overlap algorithm; `appear_in_matches` opt-out in /me/profile; T+3 post-registration trigger + job-title overlap deferred to F-S1.5b) · ~~F-S1.6 lead capture~~ ✅ shipped 2026-05-21.
 
 Each is one vertical PR per the template in §2. None depends on another.
 

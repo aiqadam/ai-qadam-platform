@@ -2238,12 +2238,91 @@ ensure "collection event_announcements" \
           {"text":"Member match T-7 days","value":"member_match_t_minus_7"}
         ]}
       }},
+      {"field":"speaker","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{user.email}}"},"note":"F-S1.1b: per-speaker scoping for kind=speaker_added — idempotency is (event, kind, speaker). Null for non-speaker kinds."}},
       {"field":"sent_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
       {"field":"dispatched_interaction_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"FK to interactions row (loose; interactions is sometimes archived)"}},
       {"field":"recipient_count","type":"integer","schema":{"is_nullable":false,"default_value":0},"meta":{"interface":"input","width":"half","note":"Audience size at dispatch time (pre-consent filtering)"}},
       {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
     ]
   }'
+
+# F-S1.1b — relation on the new speaker scoping column
+ensure "relation event_announcements.speaker -> speakers.id" \
+  "${DIRECTUS_URL}/relations/event_announcements/speaker" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_announcements","field":"speaker","related_collection":"speakers","schema":{"on_delete":"CASCADE"}}'
+
+# F-S1.1c — events.post_event_processed marks the post-event cron as done
+ensure "field events.post_event_processed" \
+  "${DIRECTUS_URL}/fields/events/post_event_processed" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"post_event_processed",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"F-S1.1c — set TRUE by PostEventCronService after dispatching speaker_thanks + next_event_teaser (+ csat once dispatcher gets template-renderer). Idempotency guard for the cron."
+    }
+  }'
+
+# ════════════════════════════════════════════════════════════════════════
+# F-S1.1b — event_speakers junction (speakers committed to specific events)
+# ════════════════════════════════════════════════════════════════════════
+#
+# One row per (event, speaker) pair. status walks
+#   invited → accepted → confirmed → (declined / cancelled)
+# Transition INTO confirmed fires the speaker_added dispatch to registered
+# attendees (one announcement per (event, speaker) tracked in
+# event_announcements via the new speaker FK).
+
+echo "[event_speakers]"
+ensure "collection event_speakers" \
+  "${DIRECTUS_URL}/collections/event_speakers" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_speakers",
+    "schema":{"name":"event_speakers"},
+    "meta":{
+      "icon":"record_voice_over",
+      "note":"M:N junction between events and speakers. Operator-managed via /workspace/events/[id]. status enum: invited|accepted|confirmed|declined|cancelled.",
+      "sort_field":"order_index"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"speaker","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{user.email}}"}}},
+      {"field":"talk_title","type":"string","schema":{"is_nullable":true,"max_length":200},"meta":{"interface":"input","width":"full"}},
+      {"field":"talk_topic","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"1-3 sentence pitch shown in event_announce / speaker_added emails"}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"invited","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Invited","value":"invited"},
+          {"text":"Accepted","value":"accepted"},
+          {"text":"Confirmed","value":"confirmed"},
+          {"text":"Declined","value":"declined"},
+          {"text":"Cancelled","value":"cancelled"}
+        ]}
+      }},
+      {"field":"confirmed_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","readonly":true,"note":"Set by API on status flip to confirmed"}},
+      {"field":"order_index","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation event_speakers.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_speakers/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_speakers","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation event_speakers.speaker -> speakers.id" \
+  "${DIRECTUS_URL}/relations/event_speakers/speaker" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_speakers","field":"speaker","related_collection":"speakers","schema":{"on_delete":"RESTRICT"}}'
 
 ensure "relation event_announcements.event -> events.id" \
   "${DIRECTUS_URL}/relations/event_announcements/event" \
