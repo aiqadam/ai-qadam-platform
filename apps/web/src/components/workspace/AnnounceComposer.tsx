@@ -157,6 +157,13 @@ function Shell({ children }: { children: ReactElement }): ReactElement {
         >
           Announce
         </a>
+        <a
+          href="/workspace/events"
+          className="app-nav-link"
+          style={{ display: 'block', padding: '8px 12px' }}
+        >
+          Events
+        </a>
       </aside>
       <main style={{ flex: 1, padding: '32px 48px', maxWidth: 880 }}>{children}</main>
     </div>

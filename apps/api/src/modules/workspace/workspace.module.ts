@@ -6,20 +6,24 @@ import { AnnounceController } from './announce.controller';
 import { AnnounceService } from './announce.service';
 import { CohortsController } from './cohorts.controller';
 import { CohortsService } from './cohorts.service';
+import { EventsController } from './events.controller';
+import { EventsService } from './events.service';
 import { MembersController } from './members.controller';
 import { MembersService } from './members.service';
 
 // F-S3.2 — workspace cabinet #1: member directory + cohort builder.
 // F-S3.3 — workspace cabinet #2: announcement composer (cohort →
 // dispatcher).
+// F-S3.4 — workspace cabinet #3: event control panel (event metadata +
+// registration counts + followup checklist).
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
 
 @Module({
   imports: [DirectusModule, AuthModule, InteractionsModule],
-  providers: [MembersService, CohortsService, AnnounceService],
-  controllers: [MembersController, CohortsController, AnnounceController],
-  exports: [MembersService, CohortsService, AnnounceService],
+  providers: [MembersService, CohortsService, AnnounceService, EventsService],
+  controllers: [MembersController, CohortsController, AnnounceController, EventsController],
+  exports: [MembersService, CohortsService, AnnounceService, EventsService],
 })
 export class WorkspaceModule {}

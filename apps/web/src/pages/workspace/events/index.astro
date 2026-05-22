@@ -1,0 +1,11 @@
+---
+import EventsListPanel from '../../../components/workspace/EventsListPanel';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Events · AI Qadam workspace"
+  description="Operator event control panel: list events, see registration counts, drill into a single event to edit metadata and track followups."
+>
+  <EventsListPanel client:load />
+</Layout>

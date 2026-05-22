@@ -134,8 +134,11 @@ function ShellFrame({ title, userEmail, children }: ShellFrameProps): ReactEleme
           {title}
         </p>
         <SidebarLink href="/workspace" label="Dashboard" />
-        {/* Per-role cabinet links land here when S2.2 RBAC sync ships;
-            until then we expose only the launcher + dashboard. */}
+        <SidebarLink href="/workspace/members" label="Members" />
+        <SidebarLink href="/workspace/announce" label="Announce" />
+        <SidebarLink href="/workspace/events" label="Events" />
+        {/* Per-role cabinet links visible to everyone until S2.2 RBAC sync
+            adds per-role gates. */}
         <div style={{ flex: 1 }} />
         {userEmail && (
           <p

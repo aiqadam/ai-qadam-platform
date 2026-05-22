@@ -1,0 +1,19 @@
+---
+import EventControlPanel from '../../../components/workspace/EventControlPanel';
+import Layout from '../../../layouts/Layout.astro';
+
+// F-S3.4 — dynamic per-event cabinet. Astro hybrid mode SSR.
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) {
+  return Astro.redirect('/workspace/events');
+}
+---
+
+<Layout
+  title="Event control panel · AI Qadam workspace"
+  description="Edit event metadata, monitor registration counts, work through the post-event followup checklist."
+>
+  <EventControlPanel eventId={id} client:load />
+</Layout>
