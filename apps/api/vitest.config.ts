@@ -31,6 +31,7 @@ export default defineConfig({
       DIRECTUS_TOKEN: 'test-directus-token-placeholder',
       TELEGRAM_BOT_SERVICE_TOKEN: 'test-telegram-bot-service-token-at-least-32-chars-pad',
       AUTHENTIK_ADMIN_TOKEN: 'test-authentik-admin-token-placeholder',
+      AUTHENTIK_WEBHOOK_SECRET: 'test-authentik-webhook-secret-32+chars-padding-pad-pad',
     },
     coverage: {
       provider: 'v8',

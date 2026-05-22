@@ -99,6 +99,18 @@ export class AuthentikClient {
     return res.results[0] ?? null;
   }
 
+  // Lookup by integer pk — used by the RBAC sync webhook (F-S2.2-b)
+  // which receives the pk in the Authentik notification payload. The
+  // detail endpoint returns groups_obj with resolved names.
+  async getUserById(pk: number): Promise<AuthentikUser | null> {
+    try {
+      return await this.request<AuthentikUser>('GET', `/api/v3/core/users/${pk}/`);
+    } catch (err) {
+      if (err instanceof AuthentikError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
   // Resolve a list of group names (e.g. "aiqadam-super-admin") to their
   // pk UUIDs. Authentik's user-update endpoint takes pks, not slugs.
   async resolveGroupNames(names: string[]): Promise<AuthentikGroup[]> {

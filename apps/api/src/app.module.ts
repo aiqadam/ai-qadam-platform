@@ -10,6 +10,7 @@ import { LeadsModule } from './modules/leads/leads.module';
 import { MeProfileModule } from './modules/me-profile/me-profile.module';
 import { PointsModule } from './modules/points/points.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
+import { RbacSyncModule } from './modules/rbac-sync/rbac-sync.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
@@ -34,6 +35,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     MeProfileModule,
     ReferralsModule,
     AdminInvitesModule,
+    RbacSyncModule,
   ],
   controllers: [HealthController],
   providers: [],
