@@ -8,6 +8,7 @@ import { ApprovalsController } from './approvals.controller';
 import { ApprovalsService } from './approvals.service';
 import { CohortsController } from './cohorts.controller';
 import { CohortsService } from './cohorts.service';
+import { EventBroadcastService } from './event-broadcast.service';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { MembersController } from './members.controller';
@@ -20,13 +21,22 @@ import { MembersService } from './members.service';
 // registration counts + followup checklist).
 // F-S3.7 — workspace cabinet #4: operator approval queue (empty shell
 // v1; sources plug in as F-S3.5 / F-S4.x / dispatcher-flag land).
+// F-S1.1a — EventBroadcastService dispatches event_announce on the
+// draft → published transition (idempotent via event_announcements).
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
 
 @Module({
   imports: [DirectusModule, AuthModule, InteractionsModule],
-  providers: [MembersService, CohortsService, AnnounceService, EventsService, ApprovalsService],
+  providers: [
+    MembersService,
+    CohortsService,
+    AnnounceService,
+    EventsService,
+    ApprovalsService,
+    EventBroadcastService,
+  ],
   controllers: [
     MembersController,
     CohortsController,
@@ -34,6 +44,13 @@ import { MembersService } from './members.service';
     EventsController,
     ApprovalsController,
   ],
-  exports: [MembersService, CohortsService, AnnounceService, EventsService, ApprovalsService],
+  exports: [
+    MembersService,
+    CohortsService,
+    AnnounceService,
+    EventsService,
+    ApprovalsService,
+    EventBroadcastService,
+  ],
 })
 export class WorkspaceModule {}

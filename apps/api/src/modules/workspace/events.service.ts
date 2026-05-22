@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
+import { EventBroadcastService } from './event-broadcast.service';
 
 // F-S3.4 — operator-side event control panel data.
 //
@@ -68,7 +69,10 @@ function isFollowupKind(value: string): value is FollowupKind {
 export class EventsService {
   private readonly logger = new Logger(EventsService.name);
 
-  constructor(private readonly directus: DirectusClient) {}
+  constructor(
+    private readonly directus: DirectusClient,
+    private readonly broadcast: EventBroadcastService,
+  ) {}
 
   async list(): Promise<EventListItem[]> {
     const res = await this.directus.get<{ data: EventRow[] }>(
@@ -99,7 +103,33 @@ export class EventsService {
   }
 
   async patch(id: string, body: PatchEventInput): Promise<EventDetail> {
+    // F-S1.1a — detect draft → published flip to fire the event_announce
+    // dispatch. We snapshot the prior status BEFORE the patch so the
+    // broadcast only fires on a true transition (re-saving an already-
+    // published event with the same status is a no-op).
+    let priorStatus: EventRow['status'] | null = null;
+    if (body.status === 'published') {
+      const prior = await this.directus
+        .get<{ data: { status: EventRow['status'] } }>(
+          `/items/events/${encodeURIComponent(id)}?fields=status`,
+        )
+        .catch(() => null);
+      priorStatus = prior?.data?.status ?? null;
+    }
+
     await this.directus.patch(`/items/events/${encodeURIComponent(id)}`, body);
+
+    if (body.status === 'published' && priorStatus !== 'published') {
+      // Best-effort: never let a broadcast failure block the patch
+      // response. EventBroadcastService itself is idempotent on
+      // (event, kind='published') via the event_announcements row.
+      this.broadcast.broadcastPublication(id).catch((err) => {
+        this.logger.warn(
+          `publication broadcast failed event=${id}: ${err instanceof Error ? err.message : 'unknown'}`,
+        );
+      });
+    }
+
     return this.getById(id);
   }
 

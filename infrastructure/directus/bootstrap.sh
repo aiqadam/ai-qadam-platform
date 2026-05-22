@@ -2168,6 +2168,57 @@ ensure "field registrations.acquisition_source" \
     }
   }'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S1.1a — Event lifecycle automation: publication-broadcast tracker
+# ════════════════════════════════════════════════════════════════════════
+#
+# Idempotency ledger for state-driven dispatches on events. One row per
+# (event, kind). Today `kind='published'` is the only writer (operator
+# flips events.status=draft→published in /workspace/events → API fires
+# the event_announce dispatch). Future kinds: 'speaker_added' (F-S1.1b),
+# 'post_event_followup' (F-S1.1c).
+#
+# Read-side: the workspace cabinet shows the dispatch state (sent /
+# pending / failed) per event so an operator knows whether the cohort
+# was notified without grepping logs.
+
+echo "[event_announcements]"
+ensure "collection event_announcements" \
+  "${DIRECTUS_URL}/collections/event_announcements" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_announcements",
+    "schema":{"name":"event_announcements"},
+    "meta":{
+      "icon":"campaign",
+      "note":"State-driven dispatch ledger for event lifecycle (F-S1.1a/b/c). One row per (event, kind) — uniqueness enforced in the service.",
+      "sort_field":"sent_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"kind","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Published (event_announce)","value":"published"},
+          {"text":"Speaker added","value":"speaker_added"},
+          {"text":"Post-event followup","value":"post_event_followup"}
+        ]}
+      }},
+      {"field":"sent_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"dispatched_interaction_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"FK to interactions row (loose; interactions is sometimes archived)"}},
+      {"field":"recipient_count","type":"integer","schema":{"is_nullable":false,"default_value":0},"meta":{"interface":"input","width":"half","note":"Audience size at dispatch time (pre-consent filtering)"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation event_announcements.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_announcements/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_announcements","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
