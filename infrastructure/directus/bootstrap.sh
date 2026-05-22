@@ -2250,6 +2250,74 @@ ensure "relation event_announcements.event -> events.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"event_announcements","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S2.5 — Audit events collection
+# ════════════════════════════════════════════════════════════════════════
+#
+# Cross-feature audit log: every admin / sync / consent / state-change
+# event that needs an indelible record beyond Loki retention.
+#
+# Initial writers (Sprint 2 + 3):
+#   - F-S2.7 invite.* events (currently in Loki only; PR F-S2.5-b
+#     dual-emits to this collection then deprecates the Loki-only path)
+#   - F-S2.2 rbac.sync.{computed,applied,failed,skipped} per-engine
+#     diffs (ADR-0021 §7)
+#   - F-S2.5-c /me/access-log "who looked at my record" (read-side
+#     emissions, added incrementally as each PII consumer lands)
+#
+# Schema is event-agnostic — payload_json holds the per-event shape.
+# Severity follows the audit/security-incident scale: info (routine),
+# high (privilege grants, partial sync failures), critical (security
+# violation, mass-deletion, broken invariant).
+#
+# 1-year retention is enforced by a future cron (Sprint 2.5 follow-up);
+# this PR ships the collection only.
+
+echo "[F-S2.5 — audit_events]"
+ensure "collection audit_events" \
+  "${DIRECTUS_URL}/collections/audit_events" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"audit_events",
+    "schema":{"name":"audit_events"},
+    "meta":{
+      "icon":"history",
+      "note":"Append-only audit log. event = dot-namespaced action (e.g. invite.created, rbac.sync.applied). Severity drives alerting + retention exceptions.",
+      "sort_field":"ts",
+      "archive_field":null
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"string","schema":{"is_nullable":false,"max_length":120},"meta":{"interface":"input","width":"half","required":true,"note":"Dot-namespaced action, e.g. invite.created · rbac.sync.applied · access.read"}},
+      {"field":"severity","type":"string","schema":{"is_nullable":false,"default_value":"info","max_length":12},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Info","value":"info"},
+          {"text":"High","value":"high"},
+          {"text":"Critical","value":"critical"}
+        ]},
+        "display":"labels",
+        "display_options":{"choices":[
+          {"text":"Info","value":"info","foreground":"#ffffff","background":"#6b7280"},
+          {"text":"High","value":"high","foreground":"#ffffff","background":"#f59e0b"},
+          {"text":"Critical","value":"critical","foreground":"#ffffff","background":"#dc2626"}
+        ]}
+      }},
+      {"field":"actor_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"Null for system / cron / unauthenticated events."}},
+      {"field":"target_kind","type":"string","schema":{"is_nullable":true,"max_length":40},"meta":{"interface":"input","width":"half","note":"e.g. invite · member · event · rbac_job · directus_policy"}},
+      {"field":"target_id","type":"string","schema":{"is_nullable":true,"max_length":120},"meta":{"interface":"input","width":"half","note":"UUID or external id. String, not FK, so audit survives target deletion."}},
+      {"field":"country","type":"string","schema":{"is_nullable":true,"max_length":4},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"uz","value":"uz"},{"text":"kz","value":"kz"},{"text":"tj","value":"tj"},{"text":"xx","value":"xx"}]},"note":"Tenant scope of the event when applicable."}},
+      {"field":"payload_json","type":"json","schema":{"is_nullable":true},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","note":"Event-specific shape. Keep small; full payload belongs in Loki."}},
+      {"field":"ts","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"width":"half"}}
+    ]
+  }'
+
+ensure "relation audit_events.actor_id -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/audit_events/actor_id" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"audit_events","field":"actor_id","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
