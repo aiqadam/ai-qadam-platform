@@ -78,6 +78,33 @@ const envSchema = z.object({
   // /workspace/integrations/telegram, planned). When set, must be ≥32
   // chars so timing-safe compare in the guard is meaningful.
   TELEGRAM_BOT_SERVICE_TOKEN: z.string().min(32).optional(),
+
+  // F-S2.7 (ADR-0035) Authentik admin API — creating operator users,
+  // setting passwords on invite consumption, group assignment, status
+  // changes. Distinct from the OIDC_* group which is for end-user
+  // sign-in flows. The admin token comes from an Authentik User Token
+  // for an admin-class user; never set this to a non-admin token.
+  //
+  // **Optional**: when unset, the AuthentikClient still constructs but
+  // admin-only routes (PR-3+) return 503 `authentik_admin_not_configured`.
+  // Same degraded-mode pattern as TELEGRAM_BOT_SERVICE_TOKEN.
+  AUTHENTIK_ADMIN_URL: z.string().url().default('https://auth.aiqadam.org'),
+  AUTHENTIK_ADMIN_TOKEN: z.string().min(20).optional(),
+
+  // Feature flag (ADR-0035 Part 4 + G-1 deferral): country-lead invites
+  // scaffold + ready but invisible while compensation is unresolved.
+  // Flip to true only after G-1 is closed and an AUP §7 review.
+  ENABLE_COUNTRY_LEAD_INVITES: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+
+  // Base URL the invitee opens (e.g. https://workspace.aiqadam.org). The
+  // /onboard route lives on the web app, so this typically equals
+  // WEB_BASE_URL — kept separate so the link channel can be swapped
+  // (workspace.aiqadam.org vs aiqadam.org) without touching auth.
+  INVITE_URL_BASE: z.string().url().default('https://workspace.aiqadam.org'),
+  INVITE_TTL_DAYS: z.coerce.number().int().positive().max(30).default(7),
 });
 
 const parsed = envSchema.safeParse(process.env);

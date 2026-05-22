@@ -30,6 +30,7 @@ export default defineConfig({
       DIRECTUS_URL: 'http://placeholder.invalid',
       DIRECTUS_TOKEN: 'test-directus-token-placeholder',
       TELEGRAM_BOT_SERVICE_TOKEN: 'test-telegram-bot-service-token-at-least-32-chars-pad',
+      AUTHENTIK_ADMIN_TOKEN: 'test-authentik-admin-token-placeholder',
     },
     coverage: {
       provider: 'v8',
