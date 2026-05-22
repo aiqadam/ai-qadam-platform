@@ -1,0 +1,38 @@
+---
+import { MeProfileForm } from '../../components/MeProfileForm';
+import Layout from '../../layouts/Layout.astro';
+
+// F-S3.6 — Member self-service cabinet at /me/profile (ADR-0033
+// cabinet #5).
+//
+// Surfaces:
+//   - Profile core (job_title, seniority, industry_tags, is_student,
+//     bio_md, appear_in_directory)
+//   - Per-purpose consents (member_consents, 7 purposes from
+//     ADR-0033 Part 1)
+//   - Skills (add/remove tags)
+//
+// Out of scope for v1 (follow-up):
+//   - Interests (similar shape to skills)
+//   - Employments + employer FK
+---
+
+<Layout title="Profile · AI Qadam">
+  <main style="max-width: 720px; margin: 0 auto; padding: 40px 48px;">
+    <p
+      style="margin: 0 0 8px; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase;"
+    >
+      Account
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin: 0 0 12px;"
+    >
+      Your profile
+    </h1>
+    <p style="margin: 0 0 32px; font-size: 15px; color: var(--muted-foreground); line-height: 1.55;">
+      What you share here shapes how other members find you and what we send your way.
+      You're in charge of every field. Consents default off — opt in for the ones that fit.
+    </p>
+    <MeProfileForm client:load />
+  </main>
+</Layout>
