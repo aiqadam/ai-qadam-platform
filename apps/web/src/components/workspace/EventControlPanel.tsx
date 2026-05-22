@@ -142,6 +142,7 @@ function Panel({ accessToken, initial, onChange }: PanelProps): ReactElement {
       <EventHeader event={initial} phase={phase} />
       <CountsRow counts={initial.counts} capacity={initial.capacity} />
       <EditForm event={initial} accessToken={accessToken} onSaved={onChange} />
+      {phase === 'post' && <CsatSummaryCard eventId={initial.id} accessToken={accessToken} />}
       <FollowupsList
         event={initial}
         accessToken={accessToken}
@@ -149,6 +150,190 @@ function Panel({ accessToken, initial, onChange }: PanelProps): ReactElement {
           onChange({ ...initial, followups: mergeFollowup(initial.followups, next) })
         }
       />
+    </div>
+  );
+}
+
+interface CsatSummary {
+  eventId: string;
+  count: number;
+  delivered: number;
+  responseRate: number;
+  avg: number | null;
+  distribution: Record<'1' | '2' | '3' | '4' | '5', number>;
+  comments: Array<{ rating: number; comment: string; receivedAt: string }>;
+}
+
+async function loadCsatSummary(eventId: string, accessToken: string): Promise<CsatSummary> {
+  const r = await fetch(`/api/v1/workspace/events/${encodeURIComponent(eventId)}/csat`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!r.ok) throw new Error(`csat: ${r.status}`);
+  const { csat } = (await r.json()) as { csat: CsatSummary };
+  return csat;
+}
+
+function CsatSummaryCard({
+  eventId,
+  accessToken,
+}: { eventId: string; accessToken: string }): ReactElement {
+  const [summary, setSummary] = useState<CsatSummary | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadCsatSummary(eventId, accessToken)
+      .then((csat) => {
+        if (!cancelled) setSummary(csat);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setErr(e instanceof Error ? e.message : 'csat load failed');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, accessToken]);
+
+  return (
+    <Section title="Post-event CSAT">
+      {err && <p style={{ color: 'var(--muted-foreground)' }}>Couldn't load CSAT: {err}</p>}
+      {summary && summary.count === 0 && (
+        <p style={{ color: 'var(--muted-foreground)', margin: 0 }}>
+          No responses yet.{' '}
+          {summary.delivered === 0
+            ? 'No CSAT email has been dispatched for this event.'
+            : `${summary.delivered} surveys delivered — responses arrive over the next few days.`}
+        </p>
+      )}
+      {summary && summary.count > 0 && <CsatPanel summary={summary} />}
+      {!summary && !err && <p style={{ color: 'var(--muted-foreground)' }}>Loading…</p>}
+    </Section>
+  );
+}
+
+function CsatPanel({ summary }: { summary: CsatSummary }): ReactElement {
+  const rateLabel = summary.delivered > 0 ? `${(summary.responseRate * 100).toFixed(0)}%` : '—';
+  return (
+    <div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <Stat label="Avg score" value={summary.avg != null ? summary.avg.toFixed(2) : '—'} />
+        <Stat
+          label="Responses"
+          value={summary.count.toString()}
+          hint={`of ${summary.delivered} delivered`}
+        />
+        <Stat label="Response rate" value={rateLabel} />
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <p
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--muted-foreground)',
+            margin: '0 0 8px',
+          }}
+        >
+          Distribution
+        </p>
+        {(['5', '4', '3', '2', '1'] as const).map((r) => {
+          const count = summary.distribution[r];
+          const pct = summary.count > 0 ? (count / summary.count) * 100 : 0;
+          return (
+            <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, width: 16 }}>{r}</span>
+              <div
+                style={{
+                  flex: 1,
+                  height: 8,
+                  background: 'var(--muted)',
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${pct}%`,
+                    height: '100%',
+                    background: 'var(--primary)',
+                  }}
+                />
+              </div>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 12,
+                  color: 'var(--muted-foreground)',
+                  width: 32,
+                  textAlign: 'right',
+                }}
+              >
+                {count}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {summary.comments.length > 0 && (
+        <div>
+          <p
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--muted-foreground)',
+              margin: '0 0 8px',
+            }}
+          >
+            Comments ({summary.comments.length})
+          </p>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            {summary.comments.map((c) => (
+              <li
+                key={`${c.receivedAt}-${c.rating}`}
+                style={{
+                  padding: 12,
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  background: 'var(--background)',
+                }}
+              >
+                <p
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    color: 'var(--muted-foreground)',
+                    margin: '0 0 4px',
+                  }}
+                >
+                  Rating {c.rating}
+                </p>
+                <p style={{ margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{c.comment}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: '12px 0 0' }}>
+        Responses are anonymous — payload rows carry no member id; only the event link.
+      </p>
     </div>
   );
 }
@@ -259,7 +444,7 @@ function Stat({
   label,
   value,
   hint,
-}: { label: string; value: number; hint?: string | null }): ReactElement {
+}: { label: string; value: number | string; hint?: string | null }): ReactElement {
   return (
     <div
       style={{

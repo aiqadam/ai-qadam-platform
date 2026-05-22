@@ -9,6 +9,8 @@ import { ApprovalsController } from './approvals.controller';
 import { ApprovalsService } from './approvals.service';
 import { CohortsController } from './cohorts.controller';
 import { CohortsService } from './cohorts.service';
+import { CsatOperatorController, CsatPublicController } from './csat.controller';
+import { CsatService } from './csat.service';
 import { EventBroadcastService } from './event-broadcast.service';
 import { EventRemindersController } from './event-reminders.controller';
 import { EventRemindersService } from './event-reminders.service';
@@ -30,6 +32,10 @@ import { MembersService } from './members.service';
 // POST /v1/internal/event-reminders/tick (InternalAuthGuard) dispatches
 // T-2 and T-3h reminders to registered attendees. Idempotent via
 // event_announcements kind=reminder_t_minus_2/_3h.
+// F-S1.2 + F-S1.3 — CsatService anonymous response capture
+// (POST /v1/feedback/csat, token-gated public) + operator surface
+// (GET /v1/workspace/events/:id/csat). Response rows have no user_id;
+// per-delivery responded_at handles idempotency.
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
@@ -44,6 +50,7 @@ import { MembersService } from './members.service';
     ApprovalsService,
     EventBroadcastService,
     EventRemindersService,
+    CsatService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -53,6 +60,8 @@ import { MembersService } from './members.service';
     EventsController,
     ApprovalsController,
     EventRemindersController,
+    CsatPublicController,
+    CsatOperatorController,
   ],
   exports: [
     MembersService,
@@ -62,6 +71,7 @@ import { MembersService } from './members.service';
     ApprovalsService,
     EventBroadcastService,
     EventRemindersService,
+    CsatService,
   ],
 })
 export class WorkspaceModule {}

@@ -744,9 +744,16 @@ ensure "collection interaction_responses" \
       {"field":"delivery","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{channel}} → {{state}}"}}},
       {"field":"response_intent","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"CSAT score","value":"csat_score"},{"text":"eNPS score","value":"enps_score"},{"text":"Sponsor interest","value":"sponsor_interest"},{"text":"Speaker question","value":"speaker_question"},{"text":"Unsubscribe","value":"unsubscribe"},{"text":"RSVP","value":"rsvp"},{"text":"Other","value":"other"}]}}},
       {"field":"payload","type":"json","schema":{"is_nullable":false,"default_value":"{}"},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","note":"e.g. {\"rating\":8,\"comment\":\"...\"} | {\"answer\":\"yes\"}"}},
-      {"field":"received_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}}
+      {"field":"received_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{title}}"},"note":"F-S1.2: cohort-level FK for fast CSAT-by-event aggregation. Set on csat_score responses; null otherwise."}}
     ]
   }'
+
+# F-S1.2 — relation on the new event field
+ensure "relation interaction_responses.event -> events.id" \
+  "${DIRECTUS_URL}/relations/interaction_responses/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"interaction_responses","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
 
 ensure "relation interaction_responses.delivery -> interaction_deliveries.id" \
   "${DIRECTUS_URL}/relations/interaction_responses/delivery" \

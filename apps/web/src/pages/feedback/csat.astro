@@ -1,0 +1,19 @@
+---
+import CsatForm from '../../components/CsatForm';
+import Layout from '../../layouts/Layout.astro';
+
+// F-S1.2 — public CSAT page. Visitor lands via tokenized link in the
+// post-event email. No auth — the token (?t=) is the only credential.
+export const prerender = false;
+
+const token = new URL(Astro.request.url).searchParams.get('t') ?? '';
+---
+
+<Layout
+  title="How was the event? · AI Qadam"
+  description="Quick one-question feedback so the next event lands closer to what you actually wanted."
+>
+  <main style="max-width: 560px; margin: 0 auto; padding: 80px 32px;">
+    <CsatForm token={token} client:load />
+  </main>
+</Layout>
