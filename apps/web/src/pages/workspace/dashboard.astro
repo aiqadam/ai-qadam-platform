@@ -1,0 +1,31 @@
+---
+import OperatorDashboard from '../../components/workspace/OperatorDashboard';
+import Layout from '../../layouts/Layout.astro';
+
+// F-S2.4 — country-scoped operator dashboard. Per ADR-0033 Part 3
+// cabinet pattern; data sourced from /v1/workspace/dashboard/* (built
+// directly from Directus collections, no Metabase iframe in v1 —
+// Metabase container deployment deferred to Phase 4 when ad-hoc query
+// needs surface). Closes Sprint-2 exit gate: "country lead sees only
+// {their} country's events / registrations / CSAT trend".
+---
+
+<Layout
+  title="Dashboard · AI Qadam workspace"
+  description="Country-scoped events, registrations, attendance, and CSAT."
+>
+  <main style="max-width: 1280px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace">← Workspace</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Dashboard
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Events, registrations, attendance, and CSAT per country. Defaults to the last 30 days.
+    </p>
+    <OperatorDashboard client:load />
+  </main>
+</Layout>

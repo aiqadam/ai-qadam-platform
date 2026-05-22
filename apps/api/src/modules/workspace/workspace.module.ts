@@ -11,6 +11,8 @@ import { CohortsController } from './cohorts.controller';
 import { CohortsService } from './cohorts.service';
 import { CsatOperatorController, CsatPublicController } from './csat.controller';
 import { CsatService } from './csat.service';
+import { DashboardController } from './dashboard.controller';
+import { DashboardService } from './dashboard.service';
 import { EventBroadcastService } from './event-broadcast.service';
 import { EventMatchesController } from './event-matches.controller';
 import { EventMatchesService } from './event-matches.service';
@@ -79,6 +81,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventSpeakersService,
     PostEventCronService,
     EventSpeakerBriefsService,
+    DashboardService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -94,6 +97,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventSpeakersController,
     PostEventCronController,
     EventSpeakerBriefsController,
+    DashboardController,
   ],
   exports: [
     MembersService,
