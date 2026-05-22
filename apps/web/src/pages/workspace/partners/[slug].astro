@@ -1,0 +1,18 @@
+---
+import PartnerView from '../../../components/workspace/PartnerView';
+import Layout from '../../../layouts/Layout.astro';
+
+const { slug } = Astro.params;
+---
+
+<Layout
+  title="Partner · AI Qadam workspace"
+  description="Partner entitlements, audiences, and kit downloads."
+>
+  <main style="max-width: 1080px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace/partners">← Partners</a>
+    </p>
+    <PartnerView slug={slug ?? ''} client:load />
+  </main>
+</Layout>

@@ -1,0 +1,28 @@
+---
+import PartnersList from '../../../components/workspace/PartnersList';
+import Layout from '../../../layouts/Layout.astro';
+
+// F-S3.5 (ADR-0033 cabinet #4) — sponsor cabinet entry point. Lists
+// active sponsors / employers / product partners; click through to
+// per-partner view.
+---
+
+<Layout
+  title="Partners · AI Qadam workspace"
+  description="Sponsors, employers, and product partners."
+>
+  <main style="max-width: 1080px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace">← Workspace</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Partners
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Sponsors, employers, and product partners. Click a partner to see entitlements + kit downloads.
+    </p>
+    <PartnersList client:load />
+  </main>
+</Layout>

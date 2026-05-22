@@ -26,6 +26,8 @@ import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { MembersController } from './members.controller';
 import { MembersService } from './members.service';
+import { PartnersController } from './partners.controller';
+import { PartnersService } from './partners.service';
 import { PostEventCronController } from './post-event-cron.controller';
 import { PostEventCronService } from './post-event-cron.service';
 
@@ -82,6 +84,7 @@ import { PostEventCronService } from './post-event-cron.service';
     PostEventCronService,
     EventSpeakerBriefsService,
     DashboardService,
+    PartnersService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -98,6 +101,7 @@ import { PostEventCronService } from './post-event-cron.service';
     PostEventCronController,
     EventSpeakerBriefsController,
     DashboardController,
+    PartnersController,
   ],
   exports: [
     MembersService,
