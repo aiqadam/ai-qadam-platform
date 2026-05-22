@@ -1,6 +1,7 @@
 ---
 import EventsGrid from '../components/EventsGrid.astro';
 import EventsTimeline from '../components/EventsTimeline.astro';
+import { LeadCaptureForm } from '../components/LeadCaptureForm';
 import Layout from '../layouts/Layout.astro';
 import { fetchUpcomingEvents } from '../lib/cms';
 import { getLocale, makeT } from '../lib/i18n';
@@ -87,5 +88,11 @@ const tabInactive = `${tabBase} color: var(--muted-foreground);`;
     ) : (
       <EventsGrid events={events} locale={locale} />
     )}
+
+    <section style="margin-top: 64px; padding-top: 48px; border-top: 1px solid var(--border);">
+      <div style="max-width: 540px; margin: 0 auto;">
+        <LeadCaptureForm client:load />
+      </div>
+    </section>
   </main>
 </Layout>

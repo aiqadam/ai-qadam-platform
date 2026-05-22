@@ -1,0 +1,29 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// F-S1.6 — standalone thank-you page. Reachable by direct link or as a
+// fallback target. The lead form itself shows an inline SuccessPanel
+// without navigating, so this is mainly for share-able links.
+export const prerender = true;
+---
+
+<Layout title="Check your inbox · AI Qadam">
+  <main style="max-width: 640px; margin: 0 auto; padding: 80px 32px; text-align: center;">
+    <div
+      style="padding: 40px; border: 1px solid var(--border); border-radius: 16px; background: var(--card);"
+    >
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 28px; margin: 0 0 12px;"
+      >
+        Check your inbox
+      </h1>
+      <p style="font-size: 15px; color: var(--muted-foreground); margin: 0 0 24px;">
+        We just sent a confirmation link. Click it to start receiving event updates. The link is
+        valid for 30 days.
+      </p>
+      <a class="btn btn-primary" href="/events" style="text-decoration: none;">
+        Browse upcoming events →
+      </a>
+    </div>
+  </main>
+</Layout>

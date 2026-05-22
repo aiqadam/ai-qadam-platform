@@ -1890,6 +1890,120 @@ ensure "policy.svc_worker" \
     enforce_tfa:false
   }')"
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S1.6 — Lead capture + nurture
+# ════════════════════════════════════════════════════════════════════════
+#
+# Members enter the funnel two ways: registering for an event (existing)
+# or giving "tell me about events in {city}" via POST /v1/leads (new).
+# All fields append-only on directus_users; existing rows default safely
+# (state='member' since they got in via Authentik signup).
+
+echo "[F-S1.6 — directus_users.state]"
+ensure "field directus_users.state" \
+  "${DIRECTUS_URL}/fields/directus_users/state" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"state",
+    "type":"string",
+    "schema":{"is_nullable":false,"default_value":"member","max_length":20},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"Lead (no Authentik account yet)","value":"lead"},
+        {"text":"Member (Authentik signed up)","value":"member"},
+        {"text":"Active (attended >=1 event)","value":"active"},
+        {"text":"Inactive (no events in 90d)","value":"inactive"},
+        {"text":"Churned (no events in 365d)","value":"churned"}
+      ]},
+      "note":"Lead capture (F-S1.6) inserts state=lead. Authentik signup upgrades lead->member. Active/inactive/churned derived later by cron."
+    }
+  }'
+
+echo "[F-S1.6 — directus_users.email_verified]"
+ensure "field directus_users.email_verified" \
+  "${DIRECTUS_URL}/fields/directus_users/email_verified" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"email_verified",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"Leads start false; verified by HMAC link click. Authentik-signup users auto-verified. Gates T+3/T+7 nurture sends."
+    }
+  }'
+
+echo "[F-S1.6 — directus_users.email_verified_at]"
+ensure "field directus_users.email_verified_at" \
+  "${DIRECTUS_URL}/fields/directus_users/email_verified_at" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"email_verified_at",
+    "type":"timestamp",
+    "schema":{"is_nullable":true},
+    "meta":{"interface":"datetime","width":"half","readonly":true}
+  }'
+
+echo "[F-S1.6 — directus_users.city]"
+ensure "field directus_users.city" \
+  "${DIRECTUS_URL}/fields/directus_users/city" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"city",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":80},
+    "meta":{"interface":"input","width":"half","note":"Self-reported. Datalist on lead form covers UZ/KZ/TJ majors; free text otherwise."}
+  }'
+
+echo "[F-S1.6 — directus_users.interest_topics]"
+ensure "field directus_users.interest_topics" \
+  "${DIRECTUS_URL}/fields/directus_users/interest_topics" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"interest_topics",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"tags",
+      "special":["cast-json"],
+      "width":"full",
+      "options":{"presets":["AI/ML","LLMs","fintech","robotics","devtools","infra","data","computer-vision","nlp","mlops","hands-on-builder"]},
+      "note":"Captured at lead form OR /me/profile edit. Feeds cohort builder + T+7 event personalisation."
+    }
+  }'
+
+echo "[F-S1.6 — directus_users.source_url]"
+ensure "field directus_users.source_url" \
+  "${DIRECTUS_URL}/fields/directus_users/source_url" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"source_url",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":500},
+    "meta":{"interface":"input","width":"full","note":"First-touch landing URL where the lead form was submitted. Audit trail."}
+  }'
+
+echo "[F-S1.6 — directus_users.acquisition_source]"
+ensure "field directus_users.acquisition_source" \
+  "${DIRECTUS_URL}/fields/directus_users/acquisition_source" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"acquisition_source",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json"},
+      "special":["cast-json"],
+      "width":"full",
+      "note":"UTM first-touch + last-touch (F-S3.9 referral codes compatible). Shape: { first_touch: { utm_source, utm_medium, utm_campaign, ts }, last_touch: {...} }"
+    }
+  }'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

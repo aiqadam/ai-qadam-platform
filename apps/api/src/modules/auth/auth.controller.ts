@@ -14,6 +14,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { env } from '../../config/env';
 import { track } from '../../lib/ops-events';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
+import { LeadsService } from '../leads/leads.service';
 import { UsersService } from '../users/users.service';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
@@ -69,6 +70,7 @@ export class AuthController {
     private readonly jwt: JwtService,
     private readonly revocations: JtiRevocationService,
     private readonly directusBridge: DirectusUsersBridgeService,
+    private readonly leads: LeadsService,
   ) {}
 
   // GET /v1/auth/login?next=/somewhere — top-level browser navigation, NOT
@@ -127,11 +129,23 @@ export class AuthController {
     // Sprint 4.5: mirror into directus_users so member-side proxy
     // endpoints (regs, leaderboard) can reference this user. Bridge
     // internally catches its own errors — never blocks sign-in.
-    await this.directusBridge.ensureLinked({
+    const directusUserId = await this.directusBridge.ensureLinked({
       userId: user.id,
       email: user.email,
       displayName: user.displayName,
     });
+
+    // F-S1.6 — if this email belongs to an existing lead, upgrade
+    // their state to 'member' + dispatch the conversion email.
+    // Best-effort: failures don't block sign-in (logged + swallowed
+    // inside the service).
+    if (directusUserId) {
+      this.leads.convertLeadToMember(directusUserId, user.email).catch((err) => {
+        // Already-logged inside the service; this catch just keeps
+        // the promise rejection from bubbling to the OIDC flow.
+        void err;
+      });
+    }
 
     const session = await this.auth.mintSession({
       userId: user.id,

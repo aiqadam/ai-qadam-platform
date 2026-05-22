@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EulaModule } from './modules/eula/eula.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
 import { InternalModule } from './modules/internal/internal.module';
+import { LeadsModule } from './modules/leads/leads.module';
 import { PointsModule } from './modules/points/points.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
@@ -24,6 +25,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     InteractionsModule,
     PreferencesModule,
     WorkspaceModule,
+    LeadsModule,
   ],
   controllers: [HealthController],
   providers: [],

@@ -1,5 +1,6 @@
 ---
 import HomeHero from '../components/HomeHero.astro';
+import { LeadCaptureForm } from '../components/LeadCaptureForm';
 import UpcomingEventsGrid from '../components/UpcomingEventsGrid.astro';
 import Layout from '../layouts/Layout.astro';
 import { fetchPartners, fetchUpcomingEvents } from '../lib/cms';
@@ -72,6 +73,12 @@ const grid = events.slice(1, 4);
         </div>
       </section>
     )}
+
+    <section style="padding: 48px; border-top: 1px solid var(--border);">
+      <div style="max-width: 540px; margin: 0 auto;">
+        <LeadCaptureForm client:load />
+      </div>
+    </section>
 
     <section style="padding: 48px; border-top: 1px solid var(--border);">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">

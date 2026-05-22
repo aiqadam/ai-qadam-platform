@@ -1,0 +1,28 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// F-S1.6 — landing page when the verify-link is missing, invalid, or
+// expired. /api/v1/leads/verify?token=... redirects here on failure.
+export const prerender = true;
+---
+
+<Layout title="Verification link expired · AI Qadam">
+  <main style="max-width: 640px; margin: 0 auto; padding: 80px 32px; text-align: center;">
+    <div
+      style="padding: 40px; border: 1px solid var(--border); border-radius: 16px; background: var(--card);"
+    >
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 28px; margin: 0 0 12px;"
+      >
+        That link didn't work
+      </h1>
+      <p style="font-size: 15px; color: var(--muted-foreground); margin: 0 0 24px;">
+        Verification links are valid for 30 days. Either this one expired, was already used, or
+        was tampered with. Re-submit the form to get a fresh link.
+      </p>
+      <a class="btn btn-primary" href="/" style="text-decoration: none;">
+        Back to home →
+      </a>
+    </div>
+  </main>
+</Layout>
