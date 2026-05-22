@@ -186,7 +186,7 @@ Reshaped 2026-05-20 per [ADR-0033](./adr/0033-community-member-graph.md). Twenty
 | **F-S3.4** | Cabinet #3 — Event control panel at `/workspace/events/[id]` | ✅ shipped | List view + detail view; phase-aware (pre/live/post); editable metadata (title/description/status/capacity/location); registration counts + check-in rate; 4-row followup checklist with markdown notes |
 | **F-S3.5** | Cabinet #4 — Partner/sponsor view at `/workspace/partners/[id]` | 🔴 on F-S3.0 + F-S3.2 + S2.4 Metabase | Cohort-aggregated analytics + kit downloads + auto quarterly digest. NEVER raw member rows. ~1 day. |
 | **F-S3.6** | Cabinet #5 — Member self-service at `/me/profile` | ✅ v1 shipped 2026-05-22 | Profile core + 7-purpose `member_consents` + skills. Interests + employments deferred to F-S3.6b. |
-| **F-S3.7** | Operator approval queue | 🟢 once cabinets exist | Workspace tile of pending approvals. ~1 day. |
+| **F-S3.7** | Operator approval queue | ✅ empty-shell v1 shipped | Cabinet at `/workspace/approvals` with 3 pluggable source slots — none ready in v1 (sponsor / speaker / operator-assisted-Interaction sources land later). Each source plugs in via `approvals.service.ts` SOURCES registry when its feature ships. |
 | **F-S3.8** | Auto-generated quarterly sponsor digest PDF | 🔴 on F-S3.0 + F-S2.4 Metabase | Template + cron + sponsor cabinet download. ~2 days. |
 | **F-S3.9** | Referral codes schema + API + first-touch/last-touch attribution | 🔴 on F-S3.0 | Per [marketing playbook §16.3](./marketing-and-pr-playbook.md). ~1 day. |
 

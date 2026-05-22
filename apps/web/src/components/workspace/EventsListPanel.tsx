@@ -122,6 +122,7 @@ function Shell({ children }: { children: ReactNode }): ReactElement {
         <NavLink href="/workspace/members" label="Members" />
         <NavLink href="/workspace/announce" label="Announce" />
         <NavLink href="/workspace/events" label="Events" active />
+        <NavLink href="/workspace/approvals" label="Approvals" />
       </aside>
       <main style={{ flex: 1, padding: '32px 48px', maxWidth: 1180 }}>{children}</main>
     </div>

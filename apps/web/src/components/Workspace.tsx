@@ -137,6 +137,7 @@ function ShellFrame({ title, userEmail, children }: ShellFrameProps): ReactEleme
         <SidebarLink href="/workspace/members" label="Members" />
         <SidebarLink href="/workspace/announce" label="Announce" />
         <SidebarLink href="/workspace/events" label="Events" />
+        <SidebarLink href="/workspace/approvals" label="Approvals" />
         {/* Per-role cabinet links visible to everyone until S2.2 RBAC sync
             adds per-role gates. */}
         <div style={{ flex: 1 }} />
