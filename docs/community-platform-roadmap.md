@@ -515,6 +515,7 @@ Depends on Sprint 0.6 RBAC manifest ADR.
 | **2.4 — Country-scoped operator dashboard** | "This week in {country}" widget: events count, registrations delta, CSAT trend, sponsor activity, **pending operator tasks** (lapsed members queue from §4.1 T+7 flow, speaker abstract reviews from §4.2, sponsor renewal nudges from §4.3, operator-assisted Interactions awaiting approval). Built on Metabase queries against `bi.*` SQL views (architecture doc §8). Metabase deploys here, ahead of original Phase 4 schedule. | 2 PRs + Metabase deploy |
 | **2.5 — Audit log integration** | Directus `directus_activity` enabled with 1-year retention. Our API emits audit events to same shape. Workspace surfaces "last 50 admin actions" per user. **Member-facing transparency:** `/me` shows the member their own data-access log (who looked at their record, when). | 1 PR |
 | **2.6 — Cross-country comparison dashboard** (BA addition) | Workspace view: events count, attendance, CSAT, sponsor count, speaker pipeline depth — country-over-country. "Top experiments to replicate" surface based on tags on `event_retrospective` field (Sprint 1.1). Healthy competition + knowledge transfer. **Marketing addition: cohort retention curves per country + K-factor (referrals per attendee × conversion rate)** per [marketing playbook §3.3, §3.4](./marketing-and-pr-playbook.md#33-retention--they-come-back). | 1 PR + extensions |
+| **2.7 — Operator invite cabinet** (added 2026-05-22 per [ADR-0035](./adr/0035-admin-cabinet-and-invite-link-onboarding.md)) | Single-place admin UI for operator management at `/workspace/admin/users/*`. Mints an invite link (SHA256 token, 7-day expiry, single-use, revocable); `/onboard?token=` lets invitee set own password + accept AUP ([v0.1 placeholder](./policies/aup-v0.md)) in-flow. Email/Telegram/copy-paste delivery. Country-lead invites scaffolded but feature-flagged off via `ENABLE_COUNTRY_LEAD_INVITES=false` until G-1 resolved. v1 audit via structured Loki logs; migrates to `audit_events` collection when 2.5 lands. | 3 PRs (ADR+schema · API · web) |
 
 **Sprint-2 exit gate:** Viktor adds test user to Authentik `country_lead_kz` group. On their next staging login, they see only KZ events/contacts/analytics across all 4 cards. They publish a test KZ event. RBAC sync log shows ✓ across all engines. Cross-country view shows demo + uz side-by-side.
 
@@ -740,6 +741,7 @@ These must be resolved before the named sprint can ship. **Decision-batch #1 clo
 | Date | Outcome | Reference |
 |---|---|---|
 | 2026-05-21 | Batch #1 closed: 7 ADRs Accepted (0023 Phase-1-only · 0024 · 0025 · 0026 · 0027 · 0029 override-to-Option-C · 0030 · 0031); 2 ADRs Deferred to [gap list](./business-process-gaps.md) (0022 · 0028) under the zero-recurring-spend filter | This PR |
+| 2026-05-22 | [ADR-0035](./adr/0035-admin-cabinet-and-invite-link-onboarding.md) Accepted — single-place admin UI + invite-link operator onboarding. Adds Sprint 2.7. | F-S2.7 PR-1 |
 
 ---
 

@@ -2004,6 +2004,93 @@ ensure "field directus_users.acquisition_source" \
     }
   }'
 
+# ──────────── F-S2.7 — operator_invites ─────────────────────────────────
+#
+# Invite-link onboarding per ADR-0035. One row per invite. Plaintext
+# token shown ONCE at creation; only SHA256 hash + 8-char prefix
+# persist. Single-use, 7-day default expiry, revocable. Consumption
+# stamps consumed_at + AUP version. See docs/adr/0035-admin-cabinet-
+# and-invite-link-onboarding.md §3 for the security posture.
+
+echo "[F-S2.7 — operator_invites]"
+ensure "collection operator_invites" \
+  "${DIRECTUS_URL}/collections/operator_invites" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"operator_invites",
+    "schema":{"name":"operator_invites"},
+    "meta":{
+      "icon":"mail",
+      "note":"Invite-link onboarding per ADR-0035. token_hash = SHA256(plaintext). Status machine: pending -> consumed | revoked | expired.",
+      "sort_field":"created_at",
+      "archive_field":"status",
+      "archive_value":"consumed",
+      "unarchive_value":"pending"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"email","type":"string","schema":{"is_nullable":false,"max_length":254},"meta":{"interface":"input","width":"half","required":true,"note":"Invitee email. Convention first.last@aiqadam.org for staff."}},
+      {"field":"display_name","type":"string","schema":{"is_nullable":true,"max_length":120},"meta":{"interface":"input","width":"half"}},
+      {"field":"role_groups","type":"json","schema":{"is_nullable":false,"default_value":"[]"},"meta":{"interface":"tags","special":["cast-json"],"width":"full","required":true,"note":"Authentik group slugs to assign on consume (e.g. aiqadam-staff, country_lead_kz)."}},
+      {"field":"country","type":"string","schema":{"is_nullable":true,"max_length":4},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Uzbekistan","value":"uz"},{"text":"Kazakhstan","value":"kz"},{"text":"Tajikistan","value":"tj"},{"text":"Demo / cross-country","value":"xx"}]},"note":"Required for country-lead roles when ENABLE_COUNTRY_LEAD_INVITES=true."}},
+      {"field":"token_hash","type":"string","schema":{"is_nullable":false,"max_length":64},"meta":{"interface":"input","readonly":true,"width":"full","note":"SHA256 hex of plaintext token. Plaintext is shown ONCE at creation, never stored."}},
+      {"field":"token_prefix","type":"string","schema":{"is_nullable":false,"max_length":8},"meta":{"interface":"input","readonly":true,"width":"half","note":"First 8 chars of plaintext token for support lookup."}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"pending","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Pending","value":"pending"},
+          {"text":"Consumed","value":"consumed"},
+          {"text":"Revoked","value":"revoked"},
+          {"text":"Expired","value":"expired"}
+        ]},
+        "display":"labels",
+        "display_options":{"choices":[
+          {"text":"Pending","value":"pending","foreground":"#ffffff","background":"#3b82f6"},
+          {"text":"Consumed","value":"consumed","foreground":"#ffffff","background":"#10b981"},
+          {"text":"Revoked","value":"revoked","foreground":"#ffffff","background":"#6b7280"},
+          {"text":"Expired","value":"expired","foreground":"#ffffff","background":"#f59e0b"}
+        ]}
+      }},
+      {"field":"created_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"width":"half"}},
+      {"field":"created_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"Super-admin who minted the invite."}},
+      {"field":"expires_at","type":"timestamp","schema":{"is_nullable":false},"meta":{"interface":"datetime","width":"half","note":"Default created_at + 7 days; enforced server-side at /api/onboard/accept."}},
+      {"field":"consumed_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"revoked_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"revoked_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"target_user","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"directus_users row created when invite was minted; populated immediately so the placeholder exists before consume."}},
+      {"field":"authentik_user_id","type":"integer","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"Authentik internal user pk (returned by POST /api/v3/core/users/)."}},
+      {"field":"aup_accepted_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"aup_version","type":"string","schema":{"is_nullable":true,"max_length":60},"meta":{"interface":"input","width":"half","readonly":true,"note":"Version string of the AUP text accepted (e.g. v0.1-placeholder-2026-05-22)."}},
+      {"field":"delivery_channel","type":"string","schema":{"is_nullable":true,"max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Email","value":"email"},
+          {"text":"Telegram","value":"telegram"},
+          {"text":"Copy-paste (admin handles)","value":"copy_paste"}
+        ]},
+        "note":"Channel admin chose at creation. copy_paste = admin returns link to invitee out-of-band."
+      }},
+      {"field":"notes","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Free-text admin note, e.g. role expectations or context. Not shown to invitee."}}
+    ]
+  }'
+
+ensure "relation operator_invites.created_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/operator_invites/created_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"operator_invites","field":"created_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation operator_invites.revoked_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/operator_invites/revoked_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"operator_invites","field":"revoked_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation operator_invites.target_user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/operator_invites/target_user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"operator_invites","field":"target_user","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

@@ -167,11 +167,11 @@ F-S1.1a publication broadcast · F-S1.1b speaker_added flow · F-S1.1c post-even
 
 Each is one vertical PR per the template in §2. None depends on another.
 
-### Sprint 2 (5 features, gated 🟡 on ADR-0021 Accepted)
+### Sprint 2 (7 features, 🟢 since ADR-0021 Accepted 2026-05-21)
 
-F-S2.1 workspace shell · F-S2.2 RBAC sync · F-S2.3 app launcher · F-S2.4 Metabase + country dashboard · F-S2.5 audit log + /me/access-log · F-S2.6 cross-country dashboard (🔴 on F-S2.4).
+F-S2.1 workspace shell · F-S2.2 RBAC sync · F-S2.3 app launcher · F-S2.4 Metabase + country dashboard · F-S2.5 audit log + /me/access-log · F-S2.6 cross-country dashboard (🔴 on F-S2.4) · **F-S2.7 operator invite cabinet** (3 sub-PRs per [ADR-0035](./adr/0035-admin-cabinet-and-invite-link-onboarding.md): PR-1 ADR+schema · PR-2 API · PR-3 web).
 
-> Partial: F-S2.1 workspace shell shipped at `/workspace/*` (#125) with placeholder RBAC. F-S2.3 minimal launcher shipped (#128) with 4 cards. Per-role gates still wait on ADR-0021 Accepted + F-S2.2 RBAC sync.
+> Partial: F-S2.1 workspace shell shipped at `/workspace/*` (#125) with placeholder RBAC. F-S2.3 minimal launcher shipped (#128) with 4 cards. Per-role gates still wait on F-S2.2 RBAC sync.
 
 ### Sprint 3 — Community member graph + 5 operator cabinets (per ADR-0033)
 
