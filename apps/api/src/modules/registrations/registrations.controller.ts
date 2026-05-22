@@ -70,12 +70,17 @@ export class RegistrationsController {
     const userId = requireUserId(req);
     const tenantCode = requireTenant(req);
     const acceptance = parseAcceptance(body, req);
+    const attribution = parseAttribution(body);
     try {
       const row = await this.registrations.register({
         userId,
         eventId,
         countryCode: tenantCode,
         ...(acceptance ? { acceptance } : {}),
+        ...(attribution.referredBy ? { referredBy: attribution.referredBy } : {}),
+        ...(attribution.acquisitionSource
+          ? { acquisitionSource: attribution.acquisitionSource }
+          : {}),
       });
       return {
         id: row.id,
@@ -185,4 +190,27 @@ function requireTenant(req: Request): string {
     throw new NotFoundException('tenant not resolved');
   }
   return req.tenant.code;
+}
+
+// F-S3.9 — referral + UTM attribution captured into the request body by
+// the client (cookie-resolved via the public POST /v1/referrals/resolve
+// flow). Both fields are optional + permissive (the client controls them,
+// so server-side just stores what it's given, except for self-referral
+// guard inside the service).
+const attributionSchema = z.object({
+  referredBy: z.string().uuid().optional(),
+  acquisitionSource: z.record(z.string(), z.unknown()).optional(),
+});
+
+function parseAttribution(body: unknown): {
+  referredBy?: string;
+  acquisitionSource?: Record<string, unknown>;
+} {
+  if (body == null) return {};
+  const parsed = attributionSchema.safeParse(body);
+  if (!parsed.success) return {};
+  return {
+    ...(parsed.data.referredBy ? { referredBy: parsed.data.referredBy } : {}),
+    ...(parsed.data.acquisitionSource ? { acquisitionSource: parsed.data.acquisitionSource } : {}),
+  };
 }

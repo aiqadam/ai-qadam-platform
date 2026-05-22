@@ -2091,6 +2091,83 @@ ensure "relation operator_invites.target_user -> directus_users.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"operator_invites","field":"target_user","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S3.9 — Referral codes + attribution (per marketing playbook §16.3)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Every member can issue a short code. Visitors landing via ?ref=CODE
+# resolve the code to owner_user via POST /v1/referrals/redeem; the
+# resolved owner_user is stamped onto registrations.referred_by at
+# registration time. UTM first-touch + last-touch are persisted on
+# registrations.acquisition_source alongside referred_by. K-factor +
+# top-referrer analytics read both fields (Sprint 2.6).
+
+echo "[referral_codes]"
+ensure "collection referral_codes" \
+  "${DIRECTUS_URL}/collections/referral_codes" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"referral_codes",
+    "schema":{"name":"referral_codes"},
+    "meta":{
+      "icon":"share",
+      "note":"Member-issued referral codes. owner_user mints + receives credit on registrations.referred_by.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"code","type":"string","schema":{"is_nullable":false,"is_unique":true,"max_length":24},"meta":{"interface":"input","width":"half","required":true,"note":"Short, lowercase, hyphen-safe; used as ?ref=<code> URL parameter"}},
+      {"field":"owner_user","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"valid_until","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Optional expiry. Null = perpetual."}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation referral_codes.owner_user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/referral_codes/owner_user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"referral_codes","field":"owner_user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+echo "[F-S3.9 — registrations.referred_by]"
+ensure "field registrations.referred_by" \
+  "${DIRECTUS_URL}/fields/registrations/referred_by" \
+  "${DIRECTUS_URL}/fields/registrations" \
+  '{
+    "field":"referred_by",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"half",
+      "display":"related-values",
+      "display_options":{"template":"{{email}}"},
+      "note":"Resolved owner_user from the referral code the visitor arrived with. Null = no referral."
+    }
+  }'
+
+ensure "relation registrations.referred_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/registrations/referred_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"registrations","field":"referred_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+echo "[F-S3.9 — registrations.acquisition_source]"
+ensure "field registrations.acquisition_source" \
+  "${DIRECTUS_URL}/fields/registrations/acquisition_source" \
+  "${DIRECTUS_URL}/fields/registrations" \
+  '{
+    "field":"acquisition_source",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json"},
+      "special":["cast-json"],
+      "width":"full",
+      "note":"UTM first-touch + last-touch per playbook §16.3. Shape: { first_touch: {utm_source, utm_medium, utm_campaign, ts}, last_touch: {...} }"
+    }
+  }'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

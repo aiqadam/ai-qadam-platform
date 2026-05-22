@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from 'react';
+import { readAttribution } from '../lib/attribution';
 
 // Client-side registration sidebar for a single event page. Hydrates by:
 //   1. POST /api/v1/auth/refresh — uses the __Host- cookie to get a fresh
@@ -63,17 +64,33 @@ async function fetchMyStatusFor(
   return null;
 }
 
+interface RegisterBody {
+  referredBy?: string;
+  acquisitionSource?: unknown;
+}
+
 async function postRegister(eventId: string, accessToken: string): Promise<ActiveStatus> {
+  // F-S3.9: include referral + UTM first/last-touch from the
+  // long-lived cookies the landing-page hook captured.
+  const attribution = readAttribution();
+  const body: RegisterBody = {
+    ...(attribution.referredBy ? { referredBy: attribution.referredBy } : {}),
+    ...(attribution.acquisitionSource ? { acquisitionSource: attribution.acquisitionSource } : {}),
+  };
   const res = await fetch(`/api/v1/events/${eventId}/register`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`register failed: HTTP ${res.status}`);
-  const body = (await res.json()) as { status: string };
-  if (body.status !== 'registered' && body.status !== 'waitlisted') {
-    throw new Error(`unexpected status: ${body.status}`);
+  const parsed = (await res.json()) as { status: string };
+  if (parsed.status !== 'registered' && parsed.status !== 'waitlisted') {
+    throw new Error(`unexpected status: ${parsed.status}`);
   }
-  return body.status;
+  return parsed.status;
 }
 
 async function deleteRegister(eventId: string, accessToken: string): Promise<void> {

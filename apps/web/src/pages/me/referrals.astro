@@ -1,0 +1,13 @@
+---
+import MyReferrals from '../../components/MyReferrals';
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Referrals · AI Qadam"
+  description="Your personal referral code — share it; people who register via your link get attributed to you."
+>
+  <main style="max-width: 720px; margin: 0 auto; padding: 40px 32px;">
+    <MyReferrals client:load />
+  </main>
+</Layout>

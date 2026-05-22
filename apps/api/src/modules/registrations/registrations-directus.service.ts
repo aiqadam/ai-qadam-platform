@@ -83,6 +83,8 @@ export class RegistrationsDirectusService {
     eventId: string;
     countryCode: string;
     acceptance?: AcceptanceInput | undefined;
+    referredBy?: string | undefined;
+    acquisitionSource?: Record<string, unknown> | undefined;
   }): Promise<RegistrationView> {
     const directusUserId = await this.requireDirectusUserId(input.userId);
     await this.assertEventInTenant(input.eventId, input.countryCode);
@@ -99,16 +101,28 @@ export class RegistrationsDirectusService {
     // Idempotency: if a non-cancelled row exists, return it instead of
     // creating a duplicate. We do NOT re-write acceptance/consent rows
     // for the idempotent case — the user already accepted on first
-    // registration.
+    // registration. Same with referred_by / acquisition_source — first
+    // touch wins.
     const existing = await this.findActiveByUserEvent(directusUserId, input.eventId);
     if (existing) {
       return toView(existing);
     }
 
-    const created = await this.directus.post<{ data: RegistrationRow }>('/items/registrations', {
+    const insertBody: Record<string, unknown> = {
       user: directusUserId,
       event: input.eventId,
-    });
+    };
+    // F-S3.9: self-referrals discarded (a user can't refer themselves).
+    if (input.referredBy && input.referredBy !== directusUserId) {
+      insertBody.referred_by = input.referredBy;
+    }
+    if (input.acquisitionSource) {
+      insertBody.acquisition_source = input.acquisitionSource;
+    }
+    const created = await this.directus.post<{ data: RegistrationRow }>(
+      '/items/registrations',
+      insertBody,
+    );
 
     if (required && input.acceptance) {
       await this.recordAcceptanceOrThrow({

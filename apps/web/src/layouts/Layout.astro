@@ -91,5 +91,12 @@ const ogImageUrl = ogImage
   <body class="min-h-screen antialiased">
     <Nav />
     <slot />
+    <!-- F-S3.9 attribution capture: resolves ?ref= + stashes UTM into
+         long-lived cookies the registration submit reads. Idempotent;
+         no-op when no params present. Runs after page paint. -->
+    <script>
+      import { captureLandingAttribution } from '../lib/attribution';
+      void captureLandingAttribution();
+    </script>
   </body>
 </html>

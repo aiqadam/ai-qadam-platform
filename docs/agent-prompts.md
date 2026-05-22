@@ -188,7 +188,7 @@ Reshaped 2026-05-20 per [ADR-0033](./adr/0033-community-member-graph.md). Twenty
 | **F-S3.6** | Cabinet #5 — Member self-service at `/me/profile` | ✅ v1 shipped 2026-05-22 | Profile core + 7-purpose `member_consents` + skills. Interests + employments deferred to F-S3.6b. |
 | **F-S3.7** | Operator approval queue | ✅ empty-shell v1 shipped | Cabinet at `/workspace/approvals` with 3 pluggable source slots — none ready in v1 (sponsor / speaker / operator-assisted-Interaction sources land later). Each source plugs in via `approvals.service.ts` SOURCES registry when its feature ships. |
 | **F-S3.8** | Auto-generated quarterly sponsor digest PDF | 🔴 on F-S3.0 + F-S2.4 Metabase | Template + cron + sponsor cabinet download. ~2 days. |
-| **F-S3.9** | Referral codes schema + API + first-touch/last-touch attribution | 🔴 on F-S3.0 | Per [marketing playbook §16.3](./marketing-and-pr-playbook.md). ~1 day. |
+| **F-S3.9** | Referral codes schema + API + first-touch/last-touch attribution | ✅ shipped | `referral_codes` collection + `registrations.referred_by` + `.acquisition_source` jsonb; `/v1/referrals/{issue,mine,resolve}` endpoints; `/me/referrals` member UI; landing-page `captureLandingAttribution()` cookie helper; `RegistrationSidebar` wired to include attribution on register POST. Sprint 5.2/5.3 share UI + points consume this schema. |
 
 **Sprint 3 critical path:** F-S3.0 → F-S3.2 (members cabinet unlocks cohorts) → F-S3.3 (announce uses cohorts) + F-S3.4 (events) + F-S3.5 (sponsors, also needs Metabase from S2.4) + F-S3.6 (member self-service) in parallel.
 
