@@ -31,24 +31,53 @@ The first lever is intentionally opt-OUT (unlike `appear_in_directory` which is 
 
 Both checks compose: even if `appear_in_matches=true`, the dispatcher still skips the delivery if `events` consent is revoked. Net effect: the member sees the toggle in `/me/profile` (F-S1.5 addition) and can flip it without touching the consent ledger.
 
-## Matching algorithm (v1)
+## Matching algorithm (v1 + F-S1.5b job-title overlap)
 
 ```
-my_tags = member_interests.topic_tag for me
+my_tags  = member_interests.topic_tag for me
+my_role  = normalize(my.job_title)            ← lowercased + trimmed
 for each other in attendees (opted in, not me):
-  shared = intersection(my_tags, member_interests.topic_tag for other)
-  rank_score = shared.size      (descending)
-  tiebreak  = other.first_name  (ascending)
-take top 3 → email
+  shared    = intersection(my_tags, other_tags)
+  job_match = normalize(other.job_title) == my_role
+  score     = shared.size * 2  +  (job_match ? 1 : 0)
+rank by score (descending) → tiebreak by first_name (ascending) → top 3
 ```
 
-Zero-overlap candidates are still included if the event has fewer than 3 opted-in attendees with overlapping tags. Better to introduce someone than nobody.
+Zero-overlap candidates are still included if the event has fewer than 3 opted-in attendees with overlapping signal. Better to introduce someone than nobody.
 
-**Deliberate non-features in v1** (revisit when data justifies):
-- No `job_title` overlap (the spec calls for it but the canonical job-title taxonomy hasn't been defined; F-S1.5b)
-- No de-prioritisation of pairs who already met at a prior event (no `member_connections` history queries)
+`job_title` match is exact-string after lowercase + trim — no taxonomy yet. Conservative on purpose: "Founder" / "Co-Founder" stay distinct until a controlled vocabulary lands. Scoring weight is half a tag-overlap (one job match = one shared tag), tuned to make tag signal dominant.
+
+**Deliberate non-features (revisit when data justifies):**
+- No `member_connections` history de-prioritisation (no "you met them last time" filter)
 - No "ask me first" preview before names ship — opted-in by default per spec
 - No Telegram channel routing — `allowedChannels=['email']` only
+- Job-title taxonomy (ML Eng / MLE / Machine Learning Engineer all bucket together) is still a future-iteration
+
+## F-S1.5b — T+3 post-registration trigger (shipped 2026-05-22)
+
+A second cron complements T-7: per-registration follow-up that fires once a user has been registered for ≥ 3 days, on events still > 7 days out.
+
+- **Endpoint:** `POST /v1/internal/event-matches-post-reg/tick` — `InternalAuthGuard`, hourly
+- **Trigger:** `registrations.date_created <= now-3d` AND `status IN (registered, attended)` AND `user.appear_in_matches=true` AND `event.status='published'`
+- **Lead-time guard:** event must be > 7 days out. Closer than that, the T-7 broadcast owns dispatch (otherwise the recipient would get two match emails). T+3 attempts in that range are skipped with reason `event_within_t_minus_7`.
+- **Idempotency:** shared `member_match_dispatches(user, event, kind, ...)` ledger collection. T-7 and T+3 are **mutually exclusive per (user, event)** — whichever cron fires first writes the row; the other checks it before dispatching. The T-7 service also writes per-recipient rows (in addition to its event-level `event_announcements` row) so T+3 sees them.
+
+Operational SQL:
+
+```sql
+-- Recent dispatches by kind (last 7d)
+SELECT kind, COUNT(*) FROM member_match_dispatches
+WHERE sent_at >= NOW() - INTERVAL '7 days' GROUP BY kind;
+
+-- Pending T+3 candidates (would fire on next tick)
+SELECT r.user, r.event, r.date_created, e.starts_at
+FROM registrations r JOIN events e ON e.id = r.event
+WHERE r.status IN ('registered','attended')
+  AND r.date_created <= NOW() - INTERVAL '3 days'
+  AND e.status='published'
+  AND e.starts_at > NOW() + INTERVAL '7 days'
+  AND r.user NOT IN (SELECT user FROM member_match_dispatches WHERE event = r.event);
+```
 
 ## Wiring the external scheduler
 

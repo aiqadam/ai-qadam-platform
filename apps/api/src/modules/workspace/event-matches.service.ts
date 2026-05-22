@@ -1,23 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DirectusClient } from '../directus/directus.client';
 import { InteractionsService } from '../interactions/interactions.service';
+import {
+  type AttendeeForMatch,
+  type MatchPlan,
+  buildMatchPayload,
+  rankCandidates,
+} from './match-algorithm';
 
-// F-S1.5 — pre-event member-to-member matching.
+// F-S1.5 — pre-event member-to-member matching (T-7 broadcast).
 //
 // External scheduler ticks /v1/internal/event-matches/tick once a day
 // (or whenever — idempotent via event_announcements). For each
 // published event with starts_at in the T-7 window, the service finds
 // every opted-in attendee and dispatches a "3 people you might want to
 // meet" email naming three other opted-in attendees with the highest
-// interest-tag overlap.
+// interest-tag + job-title overlap.
+//
+// F-S1.5b made this service write per-(user, event) rows to
+// member_match_dispatches AND filter recipients who already have a row
+// (i.e. T+3 already fired for them). T-7 and T+3 are mutually exclusive
+// per recipient — whichever cron fires first wins.
 //
 // Privacy model:
 //   - sender (recipient_user) MUST be appear_in_matches=true to receive
 //   - candidate (named in payload) MUST be appear_in_matches=true to appear
 //   - default appear_in_matches=true; members opt OUT via /me/profile
-//
-// Per ux-and-content-guidelines §13 there is no canonical "member_match"
-// intent yet — the payload shape here defines it for v1.
 
 export type MatchTickKind = 'member_match_t_minus_7';
 
@@ -49,7 +57,7 @@ interface AnnouncementRow {
   kind: MatchTickKind;
 }
 
-interface AttendeeRow {
+interface AttendeeRow extends AttendeeForMatch {
   user: {
     id: string;
     first_name: string | null;
@@ -62,20 +70,6 @@ interface AttendeeRow {
 interface InterestRow {
   member: string;
   topic_tag: string;
-}
-
-interface MatchCandidate {
-  userId: string;
-  firstName: string | null;
-  jobTitle: string | null;
-  sharedTags: string[];
-}
-
-interface MatchPlan {
-  recipientId: string;
-  eventTitle: string;
-  eventStartsAt: string;
-  matches: MatchCandidate[];
 }
 
 // Window: events whose starts_at falls in [now+6.5d, now+7.5d].
@@ -156,13 +150,14 @@ export class EventMatchesService {
       await this.recordAnnouncement(event.id, null, 0);
       return { kind: 'skipped', eventId: event.id, reason: 'no_eligible_attendees' };
     }
+    const alreadyMatched = await this.alreadyMatchedUserIds(event.id);
     const interestsByMember = await this.interestsByMember(attendees.map((a) => a.user.id));
-    const plans = buildMatchPlans(event, attendees, interestsByMember);
+    const plans = this.buildPlans(event, attendees, interestsByMember, alreadyMatched);
     if (plans.length === 0) {
       await this.recordAnnouncement(event.id, null, 0);
       return { kind: 'skipped', eventId: event.id, reason: 'no_eligible_attendees' };
     }
-    const firstInteractionId = await this.dispatchAll(plans);
+    const firstInteractionId = await this.dispatchAll(plans, event.id);
     await this.recordAnnouncement(event.id, firstInteractionId, plans.length);
     return {
       kind: 'dispatched',
@@ -173,7 +168,30 @@ export class EventMatchesService {
     };
   }
 
-  private async dispatchAll(plans: MatchPlan[]): Promise<string | null> {
+  private buildPlans(
+    event: EventRow,
+    attendees: AttendeeRow[],
+    interestsByMember: Map<string, Set<string>>,
+    alreadyMatched: Set<string>,
+  ): MatchPlan[] {
+    const plans: MatchPlan[] = [];
+    for (const me of attendees) {
+      if (alreadyMatched.has(me.user.id)) continue;
+      const others = attendees.filter((a) => a.user.id !== me.user.id);
+      const myTags = interestsByMember.get(me.user.id) ?? new Set<string>();
+      const ranked = rankCandidates(others, interestsByMember, myTags, me.user.job_title);
+      if (ranked.length === 0) continue;
+      plans.push({
+        recipientId: me.user.id,
+        eventTitle: event.title,
+        eventStartsAt: event.starts_at,
+        matches: ranked.slice(0, MATCHES_PER_RECIPIENT),
+      });
+    }
+    return plans;
+  }
+
+  private async dispatchAll(plans: MatchPlan[], eventId: string): Promise<string | null> {
     let firstInteractionId: string | null = null;
     for (const plan of plans) {
       const dispatchResult = await this.interactions.dispatch({
@@ -185,6 +203,7 @@ export class EventMatchesService {
         consentScope: { purpose: 'events' },
         allowedChannels: ['email'],
       });
+      await this.recordMemberDispatch(plan.recipientId, eventId, dispatchResult.interactionId);
       if (firstInteractionId == null) firstInteractionId = dispatchResult.interactionId;
     }
     return firstInteractionId;
@@ -232,6 +251,27 @@ export class EventMatchesService {
     return out;
   }
 
+  private async alreadyMatchedUserIds(eventId: string): Promise<Set<string>> {
+    const filter = encodeURIComponent(JSON.stringify({ event: { _eq: eventId } }));
+    const res = await this.directus.get<{ data: Array<{ user: string }> }>(
+      `/items/member_match_dispatches?filter=${filter}&fields=user&limit=5000`,
+    );
+    return new Set(res.data.map((r) => r.user));
+  }
+
+  private async recordMemberDispatch(
+    userId: string,
+    eventId: string,
+    interactionId: string,
+  ): Promise<void> {
+    await this.directus.post('/items/member_match_dispatches', {
+      user: userId,
+      event: eventId,
+      kind: 'member_match_t_minus_7',
+      dispatched_interaction_id: interactionId,
+    });
+  }
+
   private async recordAnnouncement(
     eventId: string,
     interactionId: string | null,
@@ -244,79 +284,4 @@ export class EventMatchesService {
       recipient_count: recipientCount,
     });
   }
-}
-
-function rankByOverlap(
-  others: AttendeeRow[],
-  interestsByMember: Map<string, Set<string>>,
-  myTags: Set<string>,
-): MatchCandidate[] {
-  const scored: Array<{ row: AttendeeRow; shared: string[] }> = [];
-  for (const other of others) {
-    const tags = interestsByMember.get(other.user.id) ?? new Set();
-    const shared: string[] = [];
-    for (const tag of tags) {
-      if (myTags.has(tag)) shared.push(tag);
-    }
-    scored.push({ row: other, shared });
-  }
-  // Sort: most-shared-tags first; ties broken by name for determinism.
-  scored.sort((a, b) => {
-    if (b.shared.length !== a.shared.length) return b.shared.length - a.shared.length;
-    const an = a.row.user.first_name ?? '';
-    const bn = b.row.user.first_name ?? '';
-    return an.localeCompare(bn);
-  });
-  // v1: include zero-overlap candidates too — better to introduce SOME
-  // people than nobody. Sort still surfaces overlap-rich candidates first.
-  return scored.map(({ row, shared }) => ({
-    userId: row.user.id,
-    firstName: row.user.first_name,
-    jobTitle: row.user.job_title,
-    sharedTags: shared,
-  }));
-}
-
-function buildMatchPlans(
-  event: EventRow,
-  attendees: AttendeeRow[],
-  interestsByMember: Map<string, Set<string>>,
-): MatchPlan[] {
-  const plans: MatchPlan[] = [];
-  for (const me of attendees) {
-    const others = attendees.filter((a) => a.user.id !== me.user.id);
-    const myTags = interestsByMember.get(me.user.id) ?? new Set();
-    const ranked = rankByOverlap(others, interestsByMember, myTags);
-    if (ranked.length === 0) continue;
-    plans.push({
-      recipientId: me.user.id,
-      eventTitle: event.title,
-      eventStartsAt: event.starts_at,
-      matches: ranked.slice(0, MATCHES_PER_RECIPIENT),
-    });
-  }
-  return plans;
-}
-
-function buildMatchPayload(plan: MatchPlan): Record<string, unknown> {
-  const dateShort = new Date(plan.eventStartsAt).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-  const lines = plan.matches.map((m) => {
-    const name = m.firstName ?? 'A fellow attendee';
-    const role = m.jobTitle ? ` (${m.jobTitle})` : '';
-    const tags =
-      m.sharedTags.length > 0 ? ` — shared interests: ${m.sharedTags.slice(0, 3).join(', ')}` : '';
-    return `• ${name}${role}${tags}`;
-  });
-  const intro = `${plan.eventTitle} is on ${dateShort}. Three other registered attendees you might want to find:`;
-  const outro =
-    'Introduce yourself in the room — or in the Telegram group if you have it. We picked these based on overlapping interest tags from your profile.';
-  const optOut = 'Want out of these match emails? Toggle "Appear in matches" off in /me/profile.';
-  return {
-    subject: `${plan.matches.length} people at ${plan.eventTitle} you might want to meet`,
-    text: `${intro}\n\n${lines.join('\n')}\n\n${outro}\n\n— AI Qadam\n\n${optOut}`,
-  };
 }

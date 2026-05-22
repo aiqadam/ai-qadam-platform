@@ -14,6 +14,8 @@ import { CsatService } from './csat.service';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { EventBroadcastService } from './event-broadcast.service';
+import { EventMatchesPostRegController } from './event-matches-post-reg.controller';
+import { EventMatchesPostRegService } from './event-matches-post-reg.service';
 import { EventMatchesController } from './event-matches.controller';
 import { EventMatchesService } from './event-matches.service';
 import { EventRemindersController } from './event-reminders.controller';
@@ -64,6 +66,11 @@ import { PostEventCronService } from './post-event-cron.service';
 // dispatches one personal speaker_brief per (event, confirmed speaker)
 // in the T-7 window. Idempotent via event_announcements with kind=
 // reminder_t_minus_7_speaker + speaker FK (per-(event, speaker) tuple).
+// F-S1.5b — EventMatchesPostRegService cron entry at
+// POST /v1/internal/event-matches-post-reg/tick (InternalAuthGuard)
+// dispatches T+3 post-registration member_match per opted-in registration
+// when event is still > 7d out. Mutually exclusive with F-S1.5 T-7 per
+// (user, event) via shared member_match_dispatches ledger.
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
@@ -83,6 +90,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventSpeakersService,
     PostEventCronService,
     EventSpeakerBriefsService,
+    EventMatchesPostRegService,
     DashboardService,
     PartnersService,
     InternalAuthGuard,
@@ -100,6 +108,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventSpeakersController,
     PostEventCronController,
     EventSpeakerBriefsController,
+    EventMatchesPostRegController,
     DashboardController,
     PartnersController,
   ],
@@ -116,6 +125,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventSpeakersService,
     PostEventCronService,
     EventSpeakerBriefsService,
+    EventMatchesPostRegService,
   ],
 })
 export class WorkspaceModule {}

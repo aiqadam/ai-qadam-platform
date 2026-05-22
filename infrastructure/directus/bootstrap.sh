@@ -2270,6 +2270,63 @@ ensure "field events.post_event_processed" \
   }'
 
 # ════════════════════════════════════════════════════════════════════════
+# F-S1.5b — Member match dispatch ledger (per-(user, event) idempotency)
+# ════════════════════════════════════════════════════════════════════════
+#
+# F-S1.5 (T-7) only writes one row per event in event_announcements; it
+# can't tell after the fact which users were in the audience. F-S1.5b's
+# T+3 trigger is per-registration, so it needs per-(user, event) dedup.
+#
+# Both services write to this collection. Lookup is "any row for (user, event)"
+# regardless of kind — T+3 and T-7 are mutually exclusive per recipient
+# (whichever fires first wins).
+#
+# kind enum:
+#   member_match_t_minus_7      — T-7 broadcast (F-S1.5)
+#   member_match_t_plus_3       — T+3 per-registration (F-S1.5b)
+
+echo "[F-S1.5b — member_match_dispatches]"
+ensure "collection member_match_dispatches" \
+  "${DIRECTUS_URL}/collections/member_match_dispatches" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"member_match_dispatches",
+    "schema":{"name":"member_match_dispatches"},
+    "meta":{
+      "icon":"people_alt",
+      "note":"F-S1.5 / F-S1.5b per-recipient match ledger. One row per (user, event). Either match cron writes it; both check it before dispatching.",
+      "sort_field":"sent_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"user","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"kind","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"T-7 broadcast","value":"member_match_t_minus_7"},
+          {"text":"T+3 post-registration","value":"member_match_t_plus_3"}
+        ]}
+      }},
+      {"field":"sent_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"dispatched_interaction_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"full","note":"FK to interactions row (loose)"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation member_match_dispatches.user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_match_dispatches/user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_match_dispatches","field":"user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation member_match_dispatches.event -> events.id" \
+  "${DIRECTUS_URL}/relations/member_match_dispatches/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_match_dispatches","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+# ════════════════════════════════════════════════════════════════════════
 # F-S1.1b — event_speakers junction (speakers committed to specific events)
 # ════════════════════════════════════════════════════════════════════════
 #

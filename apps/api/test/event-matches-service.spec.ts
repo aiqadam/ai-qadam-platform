@@ -69,6 +69,7 @@ describe('EventMatchesService.tick — dispatch path', () => {
           attendee('u-d', 'Dilnoza', 'Founder', true),
         ],
       })
+      .mockResolvedValueOnce({ data: [] }) // alreadyMatchedUserIds (F-S1.5b)
       .mockResolvedValueOnce({
         data: [
           { member: 'u-a', topic_tag: 'computer-vision' },
@@ -140,6 +141,7 @@ describe('EventMatchesService.tick — dispatch path', () => {
       .mockResolvedValueOnce({
         data: [attendee('u-a', 'Aigerim', null, true), attendee('u-b', 'Bek', null, true)],
       })
+      .mockResolvedValueOnce({ data: [] }) // alreadyMatchedUserIds (F-S1.5b)
       .mockResolvedValueOnce({
         data: [
           { member: 'u-a', topic_tag: 'computer-vision' },
@@ -160,5 +162,51 @@ describe('EventMatchesService.tick — dispatch path', () => {
     expect(call).toContain('"status":{"_eq":"published"}');
     expect(call).toContain('"starts_at":{"_gte":');
     expect(call).toContain('"starts_at":{"_lte":');
+  });
+
+  it('F-S1.5b — skips recipients already in member_match_dispatches for the event', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: [T7_EVENT] })
+      .mockResolvedValueOnce({ data: [] }) // findAnnouncement
+      .mockResolvedValueOnce({
+        data: [
+          attendee('u-a', 'Aigerim', null, true),
+          attendee('u-b', 'Bek', null, true),
+          attendee('u-c', 'Chyngyz', null, true),
+        ],
+      })
+      .mockResolvedValueOnce({ data: [{ user: 'u-a' }, { user: 'u-b' }] }) // T+3 already fired for u-a, u-b
+      .mockResolvedValueOnce({ data: [] }); // interestsByMember
+    dx.post.mockResolvedValue({ data: { id: 'ann-z' } });
+
+    const result = await svc.tick();
+    // Only u-c gets a plan (u-a and u-b are suppressed)
+    expect(result.dispatched).toHaveLength(1);
+    expect(result.dispatched[0]?.recipientCount).toBe(1);
+    expect(interactions.dispatch).toHaveBeenCalledTimes(1);
+    expect(interactions.dispatch.mock.calls[0]?.[0].audience).toEqual({ userIds: ['u-c'] });
+  });
+
+  it('F-S1.5b — writes per-(user, event) ledger row alongside event-level row', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: [T7_EVENT] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({
+        data: [attendee('u-a', 'Aigerim', null, true), attendee('u-b', 'Bek', null, true)],
+      })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] });
+    dx.post.mockResolvedValue({ data: { id: 'ann-w' } });
+
+    await svc.tick();
+    // 2 recipients × 1 member_match_dispatches row each + 1 event_announcements row = 3 posts
+    expect(dx.post).toHaveBeenCalledTimes(3);
+    const memberDispatchCalls = dx.post.mock.calls
+      .map((c) => ({ path: c[0] as string, body: c[1] as Record<string, unknown> }))
+      .filter((c) => c.path === '/items/member_match_dispatches');
+    expect(memberDispatchCalls).toHaveLength(2);
+    expect(memberDispatchCalls.map((c) => c.body.user).sort()).toEqual(['u-a', 'u-b']);
+    expect(memberDispatchCalls[0]?.body.kind).toBe('member_match_t_minus_7');
+    expect(memberDispatchCalls[0]?.body.event).toBe('evt-1');
   });
 });
