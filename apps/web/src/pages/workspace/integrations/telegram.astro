@@ -1,0 +1,31 @@
+---
+import TelegramStatusPanel from '../../../components/workspace/TelegramStatusPanel';
+import Layout from '../../../layouts/Layout.astro';
+
+// R3 PR-3a (ADR-0034) — /workspace/integrations/telegram cabinet.
+// Read-only status panel for now: heartbeats, outbox, send-log,
+// streams, bot identity. Configure + rotate flows land in PR-3b.
+//
+// Auth posture: page loads for anyone; SuperAdminGuard on
+// /v1/telegram/admin/status returns 403 if the caller isn't a
+// super-admin (the React island handles the redirect + the muted-
+// foreground "ask a super-admin" message). Same pattern as
+// /workspace/admin/users.
+---
+
+<Layout
+  title="Telegram integration · AI Qadam workspace"
+  description="Status + configuration for the AI Qadam Telegram bot integration."
+>
+  <main style="max-width: 1080px; margin: 0 auto; padding: 40px 32px;">
+    <div style="margin-bottom: 24px;">
+      <h1 style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px 0;">
+        Telegram integration
+      </h1>
+      <p style="margin: 0; color: var(--muted-foreground); font-size: 15px;">
+        Live health of the bot, notifier, outbox and dispatch streams. Auto-refreshes every 5 seconds.
+      </p>
+    </div>
+    <TelegramStatusPanel client:load />
+  </main>
+</Layout>
