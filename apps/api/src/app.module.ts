@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import './modules/tenants/tenant.types';
 import { HealthController } from './health/health.controller';
+import { AdminInvitesModule } from './modules/admin-invites/admin-invites.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EulaModule } from './modules/eula/eula.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
@@ -32,6 +33,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     LeadsModule,
     MeProfileModule,
     ReferralsModule,
+    AdminInvitesModule,
   ],
   controllers: [HealthController],
   providers: [],
