@@ -99,14 +99,14 @@ describe('AuthentikClient.setPassword', () => {
   });
 });
 
-describe('AuthentikClient.getUserBySubject', () => {
+describe('AuthentikClient.getUserByEmail', () => {
   it('returns null when no user matches', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse(200, { results: [] }));
-    const user = await client.getUserBySubject('missing-uid');
+    const user = await client.getUserByEmail('nobody@aiqadam.org');
     expect(user).toBeNull();
   });
 
-  it('returns the first result when present', async () => {
+  it('returns the first result with groups_obj resolved', async () => {
     fetchSpy.mockResolvedValueOnce(
       jsonResponse(200, {
         results: [
@@ -117,17 +117,20 @@ describe('AuthentikClient.getUserBySubject', () => {
             name: 'Viktor',
             is_active: true,
             uid: 'viktor-uid',
-            groups: ['aiqadam-super-admin'],
+            groups: ['a1078a27-cc56-49eb-b11e-fa669ca7824b'],
+            groups_obj: [
+              { pk: 'a1078a27-cc56-49eb-b11e-fa669ca7824b', name: 'aiqadam-super-admin' },
+            ],
             attributes: {},
           },
         ],
       }),
     );
-    const user = await client.getUserBySubject('viktor-uid');
+    const user = await client.getUserByEmail('viktor.drukker@aiqadam.org');
     expect(user?.username).toBe('viktor');
-    expect(user?.groups).toEqual(['aiqadam-super-admin']);
+    expect(user?.groups_obj[0]?.name).toBe('aiqadam-super-admin');
     const url = fetchSpy.mock.calls[0]?.[0] as string;
-    expect(url).toContain('uuid=viktor-uid');
+    expect(url).toContain('email=viktor.drukker%40aiqadam.org');
   });
 });
 
@@ -179,7 +182,7 @@ describe('AuthentikClient.setUserGroups + disableUser', () => {
 describe('AuthentikClient — auth + error shape', () => {
   it('uses Bearer token from env on every request', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse(200, { results: [] }));
-    await client.getUserBySubject('anything');
+    await client.getUserByEmail('anything@example.org');
     const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toMatch(/^Bearer .+/);

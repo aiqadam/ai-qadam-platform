@@ -36,6 +36,7 @@ type State =
   | { phase: 'bootstrap' }
   | { phase: 'anon' }
   | { phase: 'forbidden' }
+  | { phase: 'probe_error'; httpStatus: number }
   | { phase: 'ready'; accessToken: string }
   | { phase: 'submitting'; accessToken: string }
   | { phase: 'done'; accessToken: string; result: CreateResult }
@@ -46,16 +47,18 @@ async function bootstrap(): Promise<State> {
     method: 'POST',
     credentials: 'include',
   });
-  if (!refresh.ok) return { phase: 'anon' };
+  if (refresh.status === 401) return { phase: 'anon' };
+  if (!refresh.ok) return { phase: 'probe_error', httpStatus: refresh.status };
   const { accessToken } = (await refresh.json()) as { accessToken: string };
   // Probe authorization by trying the (cheap) list call. 403 = not
-  // super-admin; bail out cleanly instead of showing a form that will
-  // 403 on submit.
+  // super-admin; 5xx = backend issue (don't redirect-loop the user
+  // through a sign-in that already worked).
   const probe = await fetch('/api/v1/admin/invites?status=pending', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (probe.status === 403) return { phase: 'forbidden' };
-  if (!probe.ok) return { phase: 'anon' };
+  if (probe.status === 401) return { phase: 'anon' };
+  if (!probe.ok) return { phase: 'probe_error', httpStatus: probe.status };
   return { phase: 'ready', accessToken };
 }
 
@@ -85,6 +88,14 @@ export default function AdminUserCreateForm(): ReactElement {
     return (
       <p style={mutedStyle()}>
         Your account doesn't have admin permission. Ask a super-admin if you need access.
+      </p>
+    );
+  }
+  if (state.phase === 'probe_error') {
+    return (
+      <p style={mutedStyle()}>
+        Backend error checking admin permission (HTTP {state.httpStatus}). Refresh in a minute, or
+        check API logs.
       </p>
     );
   }

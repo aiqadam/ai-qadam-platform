@@ -33,6 +33,10 @@ export interface AuthentikUser {
   is_active: boolean;
   uid: string;
   groups: string[];
+  // Authentik returns groups_obj alongside groups (UUIDs) by default. The
+  // _obj suffix carries the resolved name + pk; callers check membership
+  // by group name against this field.
+  groups_obj: Array<{ pk: string; name: string; is_superuser?: boolean }>;
   attributes: Record<string, unknown>;
 }
 
@@ -80,11 +84,14 @@ export class AuthentikClient {
     await this.request<unknown>('POST', `/api/v3/core/users/${userPk}/set_password/`, { password });
   }
 
-  // Lookup the calling user by their OIDC subject. The subject claim
-  // from Authentik is the user's `uid` (UUID-shaped) by default — NOT
-  // the integer pk. The /api/v3/core/users/?uuid=... filter resolves it.
-  async getUserBySubject(subject: string): Promise<AuthentikUser | null> {
-    const qs = new URLSearchParams({ uuid: subject });
+  // Lookup the calling user by their email. The OIDC `sub` claim is
+  // Authentik's `hashed_user_id` by default (not the uid attribute, not
+  // the integer pk) and there's no admin-API filter for the hash — so
+  // we route via email. Email is on every OIDC token (required scope)
+  // and is the only identifier guaranteed to be a one-to-one round-trip
+  // with the Authentik user row.
+  async getUserByEmail(email: string): Promise<AuthentikUser | null> {
+    const qs = new URLSearchParams({ email });
     const res = await this.request<{ results: AuthentikUser[] }>(
       'GET',
       `/api/v3/core/users/?${qs.toString()}`,

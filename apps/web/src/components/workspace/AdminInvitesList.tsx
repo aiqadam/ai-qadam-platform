@@ -32,6 +32,7 @@ type State =
   | { phase: 'bootstrap' }
   | { phase: 'anon' }
   | { phase: 'forbidden' }
+  | { phase: 'probe_error'; httpStatus: number }
   | { phase: 'authed'; accessToken: string; invites: InviteSummary[]; status: Status | 'all' };
 
 async function bootstrap(status: Status | 'all'): Promise<State> {
@@ -39,14 +40,16 @@ async function bootstrap(status: Status | 'all'): Promise<State> {
     method: 'POST',
     credentials: 'include',
   });
-  if (!refresh.ok) return { phase: 'anon' };
+  if (refresh.status === 401) return { phase: 'anon' };
+  if (!refresh.ok) return { phase: 'probe_error', httpStatus: refresh.status };
   const { accessToken } = (await refresh.json()) as { accessToken: string };
   const qs = status === 'all' ? '' : `?status=${status}`;
   const res = await fetch(`/api/v1/admin/invites${qs}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (res.status === 403) return { phase: 'forbidden' };
-  if (!res.ok) return { phase: 'anon' };
+  if (res.status === 401) return { phase: 'anon' };
+  if (!res.ok) return { phase: 'probe_error', httpStatus: res.status };
   const { invites } = (await res.json()) as { invites: InviteSummary[] };
   return { phase: 'authed', accessToken, invites, status };
 }
@@ -82,6 +85,12 @@ export default function AdminInvitesList(): ReactElement {
     return <p style={mutedStyle()}>Redirecting to sign-in…</p>;
   if (state.phase === 'forbidden')
     return <p style={mutedStyle()}>Admin access only. Ask a super-admin if you need access.</p>;
+  if (state.phase === 'probe_error')
+    return (
+      <p style={mutedStyle()}>
+        Backend error (HTTP {state.httpStatus}). Refresh in a minute, or check API logs.
+      </p>
+    );
 
   async function setStatus(status: Status | 'all'): Promise<void> {
     setState({ phase: 'bootstrap' });
