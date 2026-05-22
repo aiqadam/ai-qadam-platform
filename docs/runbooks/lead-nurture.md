@@ -33,14 +33,63 @@ Cohorts built in `/workspace/members` (F-S3.2) can already target leads:
 The Announce composer (F-S3.3) sends to any cohort. So the moment a lead
 verifies, an operator can include them in announcement targeting.
 
-## What's deliberately NOT in F-S1.6 (F-S1.6b follow-up)
+## F-S1.6b — nurture cron (shipped 2026-05-22)
 
-- T+3 educational email (no event scheduled in their city)
-- T+7 topic-personalized "here's an event you'd care about"
-- Quarterly "we miss you" re-engagement to `state='churned'`
-- Drip flows driven by Directus cron-flows
+Two automated emails to verified leads still in `state='lead'`:
 
-These need a Directus flow spec; see `infrastructure/directus/flows-bootstrap.sh`.
+| Tick | Intent | Trigger |
+|---|---|---|
+| **T+3** | `lead_nurture_value` | `email_verified_at <= now-3d` AND no prior ledger row |
+| **T+7** | `lead_nurture_next_event` | `email_verified_at <= now-7d` AND no prior ledger row AND there exists a published event with `starts_at > now` |
+
+**Endpoint:** `POST /v1/internal/lead-nurture/tick` — `InternalAuthGuard`
+(`x-internal-auth` header). Called by an external scheduler hourly.
+
+**Idempotency ledger:** `lead_nurture_dispatches` (one row per `(lead, kind)`).
+Service queries the ledger first, then `_nin`s those lead IDs out of the
+candidate query. Conversion (`state='lead' → 'member'`) drops the lead
+out of the candidate filter at the SQL level — no cleanup needed.
+
+**T+7 no-event behavior:** if no upcoming event exists when a T+7 candidate
+is found, the cron skips the dispatch WITHOUT recording a ledger row.
+The next tick re-evaluates. Trade-off: a lead who verified during a
+dry period gets the teaser late (when an event is scheduled), not never.
+
+### Scheduler wiring
+
+Same options as F-S1.4 reminders / F-S1.5 matches:
+
+```bash
+# Coolify scheduled task (recommended — already running for other crons)
+curl -fsS -X POST \
+  -H "x-internal-auth: ${INTERNAL_API_TOKEN}" \
+  https://api.aiqadam.org/v1/internal/lead-nurture/tick
+```
+
+Cadence: hourly. Lower frequency works (the open-ended window self-heals);
+higher frequency wastes API cycles.
+
+### Operational verification
+
+```sql
+-- recent dispatches
+SELECT lead, kind, sent_at, event_referenced
+FROM lead_nurture_dispatches
+ORDER BY sent_at DESC LIMIT 50;
+
+-- leads pending T+3 (would dispatch on next tick)
+SELECT id, email, email_verified_at FROM directus_users
+WHERE state='lead' AND email_verified=true
+  AND email_verified_at <= NOW() - INTERVAL '3 days'
+  AND id NOT IN (SELECT lead FROM lead_nurture_dispatches WHERE kind='lead_nurture_value');
+```
+
+### Still NOT in F-S1.6b (future iterations)
+
+- **Topic-personalised T+7** — current T+7 teases the same upcoming event to everyone; doesn't filter by `interest_topics` overlap.
+- **City scoping** — T+7 picks the globally next event regardless of lead's `city`; a Tashkent lead may get teased an Almaty event.
+- **Quarterly re-engagement to `state='churned'`** — separate cron, separate ledger; needs `state='churned'` to actually be populated by an inactivity job.
+- **Directus cron-flows migration** — current implementation is NestJS; the Phase ζ direction is to move crons into Directus's own flow runner.
 
 ## Failure modes + recovery
 

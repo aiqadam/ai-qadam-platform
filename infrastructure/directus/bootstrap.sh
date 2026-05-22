@@ -2330,6 +2330,56 @@ ensure "relation event_announcements.event -> events.id" \
   '{"collection":"event_announcements","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
 
 # ════════════════════════════════════════════════════════════════════════
+# F-S1.6b — Lead nurture dispatch ledger
+# ════════════════════════════════════════════════════════════════════════
+#
+# Idempotency ledger for the T+3 / T+7 lead-nurture cron. One row per
+# (lead, kind) — second tick is a no-op once the row exists. Lead
+# converting to member (state='member') drops them out of the candidate
+# filter at the service level, so we don't need to clean rows up.
+
+echo "[F-S1.6b — lead_nurture_dispatches]"
+ensure "collection lead_nurture_dispatches" \
+  "${DIRECTUS_URL}/collections/lead_nurture_dispatches" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"lead_nurture_dispatches",
+    "schema":{"name":"lead_nurture_dispatches"},
+    "meta":{
+      "icon":"forward_to_inbox",
+      "note":"F-S1.6b dispatch ledger. One row per (lead, kind). Cron filters out leads with an existing row before dispatching.",
+      "sort_field":"sent_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"lead","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"kind","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"T+3 community value","value":"lead_nurture_value"},
+          {"text":"T+7 next event teaser","value":"lead_nurture_next_event"}
+        ]}
+      }},
+      {"field":"sent_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"dispatched_interaction_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"FK to interactions row (loose)"}},
+      {"field":"event_referenced","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","note":"Set only for kind=lead_nurture_next_event — the event the teaser linked to. Audit / re-targeting."}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation lead_nurture_dispatches.lead -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/lead_nurture_dispatches/lead" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"lead_nurture_dispatches","field":"lead","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation lead_nurture_dispatches.event_referenced -> events.id" \
+  "${DIRECTUS_URL}/relations/lead_nurture_dispatches/event_referenced" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"lead_nurture_dispatches","field":"event_referenced","related_collection":"events","schema":{"on_delete":"SET NULL"}}'
+
+# ════════════════════════════════════════════════════════════════════════
 # F-S2.5 — Audit events collection
 # ════════════════════════════════════════════════════════════════════════
 #
