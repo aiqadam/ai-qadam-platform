@@ -2599,6 +2599,133 @@ ensure "relation rbac_sync_jobs.user -> directus_users.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"rbac_sync_jobs","field":"user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S3.10-a — events page enrichment fields
+# ════════════════════════════════════════════════════════════════════════
+#
+# Adds the fields the UX spec (§9.7 create-event form, §16.1 event
+# descriptions) already calls for but that weren't on the original
+# Sprint 0.1 events schema. Field-by-field appends — collection
+# exists, so we cannot recreate it; each field is added independently
+# via the /fields/<collection> endpoint.
+#
+# Pattern fix from F-S1.2: when the collection already exists, ensure()
+# of a `collection` payload won't apply new fields. Each field needs
+# its own ensure() call.
+
+echo "[F-S3.10-a — events.short_description]"
+ensure "field events.short_description" \
+  "${DIRECTUS_URL}/fields/events/short_description" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"short_description",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":300},
+    "meta":{"interface":"input","width":"full","note":"≤300 char — used in event cards + OG/social cards + email previews."}
+  }'
+
+echo "[F-S3.10-a — events.slug]"
+ensure "field events.slug" \
+  "${DIRECTUS_URL}/fields/events/slug" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"slug",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":120,"is_unique":true},
+    "meta":{"interface":"input","width":"half","note":"URL-friendly title (auto-suggested from title; editable). Public URL future-rewrites /events/<id> → /events/<slug>."}
+  }'
+
+echo "[F-S3.10-a — events.venue]"
+ensure "field events.venue" \
+  "${DIRECTUS_URL}/fields/events/venue" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"venue",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":160},
+    "meta":{"interface":"input","width":"half","note":"Venue name (e.g. \"IT Park Tashkent\"). Split from address per UX §9.7."}
+  }'
+
+echo "[F-S3.10-a — events.address]"
+ensure "field events.address" \
+  "${DIRECTUS_URL}/fields/events/address" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"address",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":255},
+    "meta":{"interface":"input","width":"half","note":"Street address. Combined with venue for the public event page + email templates. Existing `location` field stays as the legacy single-string field; operators dual-write during transition."}
+  }'
+
+echo "[F-S3.10-a — events.map_url]"
+ensure "field events.map_url" \
+  "${DIRECTUS_URL}/fields/events/map_url" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"map_url",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":500},
+    "meta":{"interface":"input","width":"full","note":"Optional Google Maps / Yandex Maps link. Click-through from the public event page."}
+  }'
+
+echo "[F-S3.10-a — events.hero_image]"
+ensure "field events.hero_image" \
+  "${DIRECTUS_URL}/fields/events/hero_image" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"hero_image",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{"interface":"file-image","width":"full","note":"16:9 minimum 1200×675 per UX §11.6. Feeds OG cards (F-S5.4) + public event page hero."}
+  }'
+
+ensure "relation events.hero_image -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/events/hero_image" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"events","field":"hero_image","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+echo "[F-S3.10-a — events.agenda_md]"
+ensure "field events.agenda_md" \
+  "${DIRECTUS_URL}/fields/events/agenda_md" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"agenda_md",
+    "type":"text",
+    "schema":{"is_nullable":true},
+    "meta":{"interface":"input-multiline","width":"full","note":"Markdown agenda. Separate from `description` (which is the narrative) — agenda is the structured schedule. Optional."}
+  }'
+
+echo "[F-S3.10-a — events.visibility_scope]"
+ensure "field events.visibility_scope" \
+  "${DIRECTUS_URL}/fields/events/visibility_scope" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"visibility_scope",
+    "type":"string",
+    "schema":{"is_nullable":false,"default_value":"public","max_length":20},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"Public","value":"public"},
+        {"text":"Members only","value":"members_only"},
+        {"text":"Invite only","value":"invite_only"}
+      ]},
+      "note":"Who can see the public event page. Independent of publication_status — published+invite_only events are accessible only via direct link share."
+    }
+  }'
+
+echo "[F-S3.10-a — events.event_retrospective]"
+ensure "field events.event_retrospective" \
+  "${DIRECTUS_URL}/fields/events/event_retrospective" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"event_retrospective",
+    "type":"text",
+    "schema":{"is_nullable":true},
+    "meta":{"interface":"input-multiline","width":"full","note":"Operator notes captured during post-event close-out (Sprint 1.1c flow). Surfaces in cross-country comparison (Sprint 2.6) as `tags` on top experiments to replicate."}
+  }'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
