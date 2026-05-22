@@ -11,13 +11,16 @@ import {
 import { z } from 'zod';
 import { env } from '../../config/env';
 import { TelegramAuthGuard } from './telegram-auth.guard';
-import { type LinkConfirmResult, type LinkStartResult, TelegramService } from './telegram.service';
+import {
+  type LinkConfirmResult,
+  type LinkStartResult,
+  type RecordSendAuditResult,
+  SEND_OUTCOMES,
+  TelegramService,
+} from './telegram.service';
 
 // Sync surface (OpenAPI) for the AI Qadam Telegram bot + notifier per
-// ADR-0034. Account-link endpoints land in this PR (A2); audit (A4),
-// outbox relay (A5), and adapter (A6) follow.
-//
-// Two controllers on the same path prefix (A1):
+// ADR-0034. Two controllers on the same path prefix (A1):
 //   - TelegramPublicController: ungated GET /health so the bot can
 //     detect the degraded "not configured" state at boot without a
 //     token. Response includes `configured: boolean`.
@@ -25,9 +28,6 @@ import { type LinkConfirmResult, type LinkStartResult, TelegramService } from '.
 
 // ─── DTO schemas ──────────────────────────────────────────────────────────────
 
-// Telegram user IDs are 64-bit signed; over the wire we accept either
-// a number (small IDs) or a string of digits (large IDs). The service
-// works in bigint.
 const tgUserIdSchema = z
   .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
   .transform((v) => BigInt(v));
@@ -48,12 +48,24 @@ const optOutSchema = z.object({
   member_id: z.string().uuid(),
 });
 
+// Audit shape mirrors the notifier's Envelope payload — message_id is
+// optional and accepts string-or-number for the bigint round-trip.
+const auditSchema = z.object({
+  delivery_key: z.string().min(8).max(128),
+  envelope_id: z.string().uuid(),
+  outcome: z.enum(SEND_OUTCOMES),
+  detail: z.string().max(1024).nullable().optional(),
+  message_id: z
+    .union([z.number().int().finite(), z.string().regex(/^-?\d+$/)])
+    .nullable()
+    .optional()
+    .transform((v) => (v == null ? null : BigInt(v))),
+});
+
 // ─── Public controller (ungated) ──────────────────────────────────────────────
 
 @Controller('v1/telegram')
 export class TelegramPublicController {
-  // Ungated health probe. The bot hits this at boot to learn whether
-  // the platform considers telegram configured.
   @Get('health')
   health(): {
     ok: true;
@@ -82,7 +94,6 @@ export class TelegramController {
     return { authenticated: true, module: 'telegram' };
   }
 
-  // POST /v1/telegram/link/start — bot's /link FSM step 1.
   @Post('link/start')
   @HttpCode(HttpStatus.OK)
   async linkStart(@Body() body: unknown): Promise<{
@@ -103,7 +114,6 @@ export class TelegramController {
     };
   }
 
-  // POST /v1/telegram/link/confirm — bot's /link FSM step 2.
   @Post('link/confirm')
   @HttpCode(HttpStatus.OK)
   async linkConfirm(@Body() body: unknown): Promise<{
@@ -123,7 +133,33 @@ export class TelegramController {
     return { member_id: result.memberId, tenant: result.tenant };
   }
 
-  // POST /v1/telegram/opt-out — explicit user opt-out from broadcasts.
+  // POST /v1/telegram/audit — notifier writes every send outcome here.
+  // Idempotent on delivery_key.
+  @Post('audit')
+  @HttpCode(HttpStatus.OK)
+  async audit(@Body() body: unknown): Promise<{
+    accepted: true;
+    inserted: boolean;
+    existing_outcome: string | null;
+  }> {
+    const parsed = auditSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const result: RecordSendAuditResult = await this.telegram.recordSendAudit({
+      deliveryKey: parsed.data.delivery_key,
+      envelopeId: parsed.data.envelope_id,
+      outcome: parsed.data.outcome,
+      detail: parsed.data.detail ?? null,
+      messageId: parsed.data.message_id,
+    });
+    return {
+      accepted: true,
+      inserted: result.inserted,
+      existing_outcome: result.existingOutcome,
+    };
+  }
+
   @Post('opt-out')
   @HttpCode(HttpStatus.NO_CONTENT)
   async optOut(@Body() body: unknown): Promise<void> {

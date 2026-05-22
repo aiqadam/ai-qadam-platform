@@ -12,7 +12,7 @@ import { DB, type Db } from '../../db';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
 import { EmailService } from '../email/email.service';
 import { telegramLinkCode } from '../email/templates/telegram-link-code';
-import { tgLinkChallenges } from './schema';
+import { tgLinkChallenges, tgSendLog } from './schema';
 
 // Business logic for the bot's account-link flow per ADR-0034 §"NestJS-side
 // endpoints (the sync surface)". Owns the OTP lifecycle (issue, verify,
@@ -57,6 +57,38 @@ export interface LinkStartResult {
 export interface LinkConfirmResult {
   memberId: string;
   tenant: string;
+}
+
+// Outcomes the notifier reports per ADR-0034 §"Failure modes — the
+// matrix". Kept as a string union (not a TS enum) so it ships over the
+// wire as the same JSON the bot serializes.
+export const SEND_OUTCOMES = [
+  'sent',
+  'opted_out',
+  'blocked',
+  'bad_request',
+  'retry',
+  'expired',
+  'unknown_error',
+] as const;
+export type SendOutcome = (typeof SEND_OUTCOMES)[number];
+
+export interface RecordSendAuditInput {
+  deliveryKey: string;
+  envelopeId: string;
+  outcome: SendOutcome;
+  detail: string | null;
+  messageId: bigint | null;
+}
+
+export interface RecordSendAuditResult {
+  accepted: true;
+  // true on first audit for this delivery_key; false on idempotent replay.
+  inserted: boolean;
+  // When inserted=false, this is the outcome recorded by the first
+  // (winning) audit. The notifier uses this to detect cases where its
+  // retry took a different path than the original attempt.
+  existingOutcome: SendOutcome | null;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -235,6 +267,52 @@ export class TelegramService {
       await this.bumpAttempts(challengeId);
       throw new BadRequestException('link_write_failed');
     }
+  }
+
+  // ─── /audit ────────────────────────────────────────────────────────────────
+
+  // Notifier-side audit. Called from POST /v1/telegram/audit after every
+  // send attempt (success or terminal failure).
+  //
+  // Idempotency: tg_send_log.delivery_key has a UNIQUE constraint (per
+  // A3). We INSERT ... ON CONFLICT DO NOTHING, then read back the row.
+  // First-audit-wins semantics: a notifier retry that took a different
+  // outcome path (e.g. first attempt errored mid-send, second attempt
+  // succeeded) finds the original row and is rejected at this layer.
+  //
+  // Notifier-side dedupe via Redis SET NX is the first line of defense;
+  // this DB constraint is the belt-and-braces line for the rare case
+  // where Redis dedupe loses state (eviction, replica swap).
+  async recordSendAudit(input: RecordSendAuditInput): Promise<RecordSendAuditResult> {
+    const inserted = await this.db
+      .insert(tgSendLog)
+      .values({
+        deliveryKey: input.deliveryKey,
+        envelopeId: input.envelopeId,
+        outcome: input.outcome,
+        detail: input.detail,
+        messageId: input.messageId,
+      })
+      .onConflictDoNothing({ target: tgSendLog.deliveryKey })
+      .returning({ id: tgSendLog.id });
+
+    if (inserted.length > 0) {
+      return { accepted: true, inserted: true, existingOutcome: null };
+    }
+
+    // Conflict — fetch the existing outcome so the notifier sees what
+    // the first audit recorded. Useful for divergent-retry diagnostics.
+    const [existing] = await this.db
+      .select({ outcome: tgSendLog.outcome })
+      .from(tgSendLog)
+      .where(eq(tgSendLog.deliveryKey, input.deliveryKey))
+      .limit(1);
+
+    return {
+      accepted: true,
+      inserted: false,
+      existingOutcome: (existing?.outcome as SendOutcome) ?? null,
+    };
   }
 
   // ─── /opt-out ──────────────────────────────────────────────────────────────
