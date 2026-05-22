@@ -52,6 +52,7 @@ const profilePatchSchema = z
     is_student: z.boolean().optional(),
     bio_md: z.string().max(8000).nullable().optional(),
     appear_in_directory: z.boolean().optional(),
+    appear_in_matches: z.boolean().optional(),
   })
   .strict();
 

@@ -12,6 +12,8 @@ import { CohortsService } from './cohorts.service';
 import { CsatOperatorController, CsatPublicController } from './csat.controller';
 import { CsatService } from './csat.service';
 import { EventBroadcastService } from './event-broadcast.service';
+import { EventMatchesController } from './event-matches.controller';
+import { EventMatchesService } from './event-matches.service';
 import { EventRemindersController } from './event-reminders.controller';
 import { EventRemindersService } from './event-reminders.service';
 import { EventsController } from './events.controller';
@@ -36,6 +38,10 @@ import { MembersService } from './members.service';
 // (POST /v1/feedback/csat, token-gated public) + operator surface
 // (GET /v1/workspace/events/:id/csat). Response rows have no user_id;
 // per-delivery responded_at handles idempotency.
+// F-S1.5 — EventMatchesService cron entry at
+// POST /v1/internal/event-matches/tick (InternalAuthGuard) dispatches
+// "3 people you might want to meet" to opted-in attendees of events in
+// T-7 window. Idempotent via event_announcements kind=member_match_t_minus_7.
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
@@ -51,6 +57,7 @@ import { MembersService } from './members.service';
     EventBroadcastService,
     EventRemindersService,
     CsatService,
+    EventMatchesService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -62,6 +69,7 @@ import { MembersService } from './members.service';
     EventRemindersController,
     CsatPublicController,
     CsatOperatorController,
+    EventMatchesController,
   ],
   exports: [
     MembersService,
@@ -72,6 +80,7 @@ import { MembersService } from './members.service';
     EventBroadcastService,
     EventRemindersService,
     CsatService,
+    EventMatchesService,
   ],
 })
 export class WorkspaceModule {}

@@ -58,6 +58,7 @@ export interface MemberProfile {
   is_student: boolean;
   bio_md: string | null;
   appear_in_directory: boolean;
+  appear_in_matches: boolean;
 }
 
 export interface MemberConsentSummary {
@@ -105,6 +106,7 @@ interface DirectusUserRow {
   is_student: boolean | null;
   bio_md: string | null;
   appear_in_directory: boolean | null;
+  appear_in_matches: boolean | null;
 }
 
 interface MemberConsentRow {
@@ -153,7 +155,7 @@ export interface AddEmploymentInput {
 }
 
 const PROFILE_FIELDS =
-  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory';
+  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory,appear_in_matches';
 
 @Injectable()
 export class MeProfileService {
@@ -180,6 +182,7 @@ export class MeProfileService {
       is_student?: boolean | undefined;
       bio_md?: string | null | undefined;
       appear_in_directory?: boolean | undefined;
+      appear_in_matches?: boolean | undefined;
     },
   ): Promise<MemberProfile> {
     // Pass through exactly the fields the caller set; PATCHing
@@ -421,6 +424,7 @@ export class MeProfileService {
       is_student: row.is_student ?? false,
       bio_md: row.bio_md,
       appear_in_directory: row.appear_in_directory ?? false,
+      appear_in_matches: row.appear_in_matches ?? true,
     };
   }
 }

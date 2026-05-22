@@ -1091,6 +1091,27 @@ ensure "field directus_users.bio_md" \
     "meta":{"interface":"input-rich-text-md","width":"full","note":"Member-managed bio (markdown). Public only if appear_in_directory=true."}
   }'
 
+echo "[directus_users.appear_in_matches]"
+# F-S1.5 — gates appearance in another member's pre-event matching email.
+# Default true — members opt OUT (vs appear_in_directory which is opt IN).
+# Reason: matching email is per-event, recipient-only — much smaller blast
+# radius than a public directory listing. The trade-off favors discovery
+# while keeping the kill switch on the member side.
+ensure "field directus_users.appear_in_matches" \
+  "${DIRECTUS_URL}/fields/directus_users/appear_in_matches" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"appear_in_matches",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":true},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"F-S1.5 — opt-out for pre-event member-to-member match emails. Default TRUE (opt-out, not opt-in). When false, this member is never named in another member match email AND never receives one."
+    }
+  }'
+
 echo "[directus_users.appear_in_directory]"
 ensure "field directus_users.appear_in_directory" \
   "${DIRECTUS_URL}/fields/directus_users/appear_in_directory" \
@@ -2213,7 +2234,8 @@ ensure "collection event_announcements" \
           {"text":"Speaker added","value":"speaker_added"},
           {"text":"Post-event followup","value":"post_event_followup"},
           {"text":"Reminder T-2 days","value":"reminder_t_minus_2"},
-          {"text":"Reminder T-3 hours","value":"reminder_t_minus_3h"}
+          {"text":"Reminder T-3 hours","value":"reminder_t_minus_3h"},
+          {"text":"Member match T-7 days","value":"member_match_t_minus_7"}
         ]}
       }},
       {"field":"sent_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},

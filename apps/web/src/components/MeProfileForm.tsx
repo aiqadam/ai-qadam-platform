@@ -76,6 +76,7 @@ interface Profile {
   is_student: boolean;
   bio_md: string | null;
   appear_in_directory: boolean;
+  appear_in_matches: boolean;
 }
 
 interface ConsentSummary {
@@ -352,6 +353,7 @@ function ProfileEditor({ profile, accessToken, onSaved }: ProfileEditorProps): R
   const [isStudent, setIsStudent] = useState(profile.is_student);
   const [bioMd, setBioMd] = useState(profile.bio_md ?? '');
   const [appearInDirectory, setAppearInDirectory] = useState(profile.appear_in_directory);
+  const [appearInMatches, setAppearInMatches] = useState(profile.appear_in_matches);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -371,6 +373,7 @@ function ProfileEditor({ profile, accessToken, onSaved }: ProfileEditorProps): R
         is_student: isStudent,
         bio_md: bioMd.trim() === '' ? null : bioMd,
         appear_in_directory: appearInDirectory,
+        appear_in_matches: appearInMatches,
       });
       onSaved(next);
     } catch (err) {
@@ -448,6 +451,22 @@ function ProfileEditor({ profile, accessToken, onSaved }: ProfileEditorProps): R
           <br />
           <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
             Off by default. Sponsors NEVER see this — they see cohort-aggregated metrics only.
+          </span>
+        </span>
+      </label>
+      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <input
+          type="checkbox"
+          checked={appearInMatches}
+          onChange={(e) => setAppearInMatches(e.target.checked)}
+          style={{ marginTop: 3 }}
+        />
+        <span style={{ fontSize: 14 }}>
+          Appear in pre-event "people you might want to meet" emails
+          <br />
+          <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+            On by default. When off, you neither receive these emails nor get named in someone
+            else's. Matched on overlapping interest tags from your profile.
           </span>
         </span>
       </label>

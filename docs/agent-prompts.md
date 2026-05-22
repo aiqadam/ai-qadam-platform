@@ -163,7 +163,7 @@ Pick the highest-priority **eligible** feature (its gate is satisfied + nobody e
 
 ### Sprint 1 (6 features, fully parallel-independent, all 🟢 once Sprint 0 wraps)
 
-~~F-S1.1a publication broadcast~~ ✅ shipped 2026-05-22 · F-S1.1b speaker_added flow · F-S1.1c post-event cron · ~~F-S1.2+1.3 CSAT capture + operator surface~~ ✅ shipped 2026-05-22 (CsatService HMAC token + public `POST /v1/feedback/csat` + operator `GET /v1/workspace/events/:id/csat` + CSAT card on EventControlPanel; anonymity discipline doc'd in runbook) · ~~F-S1.4 pre-event reminders (T-2 + T-3h)~~ ✅ shipped 2026-05-22 · F-S1.5 member matching · ~~F-S1.6 lead capture~~ ✅ shipped 2026-05-21.
+~~F-S1.1a publication broadcast~~ ✅ shipped 2026-05-22 · F-S1.1b speaker_added flow · F-S1.1c post-event cron · ~~F-S1.2+1.3 CSAT capture + operator surface~~ ✅ shipped 2026-05-22 · ~~F-S1.4 pre-event reminders (T-2 + T-3h)~~ ✅ shipped 2026-05-22 · ~~F-S1.5 member matching (T-7)~~ ✅ shipped 2026-05-22 (`POST /v1/internal/event-matches/tick`; interest-tag overlap algorithm; `appear_in_matches` opt-out in /me/profile; T+3 post-registration trigger + job-title overlap deferred to F-S1.5b) · ~~F-S1.6 lead capture~~ ✅ shipped 2026-05-21.
 
 Each is one vertical PR per the template in §2. None depends on another.
 
