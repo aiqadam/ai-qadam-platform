@@ -54,6 +54,8 @@ Redis Streams; the notifier in the separate repo delivers.
 | OutboxPublisher + relay loop | **aiqadam** — `apps/api/src/modules/telegram/{outbox-publisher,outbox-relay}.service.ts` |
 | Bot config (encrypted token + identity) | **aiqadam** — `apps/api/src/modules/telegram/tg-config.service.ts` (R2) |
 | Admin endpoints (`/v1/telegram/admin/configure`, `/rotate-token`, `/status`) | **aiqadam** — `apps/api/src/modules/telegram/telegram-admin.controller.ts` (R2) |
+| Status aggregator (getMe cache, outbox + send-log stats) | **aiqadam** — `apps/api/src/modules/telegram/telegram-admin.service.ts` (R2 PR-2) |
+| Heartbeat reader (`bot:heartbeat`, `notifier:heartbeat`, XLEN, XPENDING) | **aiqadam** — `apps/api/src/modules/telegram/heartbeat-reader.service.ts` (R2 PR-2) |
 | Member-link fields (`directus_users.telegram_*`) | **Directus** (operator-managed; not in code) |
 | aiogram long-poll, inbound user flows (`/start`, `/link`, …) | **aiqadam-telegram-bot** — `src/aiqadam_telegram_bot/bot/` |
 | Outbound send loop, per-chat rate-limit, audit posts | **aiqadam-telegram-bot** — `src/aiqadam_telegram_bot/notifier/` |
