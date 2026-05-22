@@ -10,11 +10,21 @@ import { TELEGRAM_REDIS } from './telegram.tokens';
 //   HEARTBEAT_BOT       = "bot:heartbeat"
 //   HEARTBEAT_NOTIFIER  = "notifier:heartbeat"
 //   HEARTBEAT_TTL_SEC   = 30
+//   RELOAD_BOT          = "bot:reload_requested"
+//   RELOAD_NOTIFIER     = "notifier:reload_requested"
 //
 // The bot/notifier each run a 10s loop that writes "1" with TTL 30s.
 // Two missed ticks → stale=true → status panel shows red. The TTL
 // gives the SET NX cleanup for free (a crashed process stops
 // refreshing → key expires → stale flips).
+//
+// The RELOAD_* keys are write-only from this side (TgConfigService
+// publishes a Unix-seconds float on configure / rotate). The bot's
+// heartbeat loop reads the key and triggers a clean exit (docker
+// restart) when the stored timestamp is newer than the boot time —
+// see the bot's reload_supervisor.py. Value is `time.time()`-style
+// float in seconds (NOT milliseconds; the bot does
+// `float(reload_ts_raw)` and compares against `time.time()`).
 //
 // Why we don't poll Telegram from here: getMe is the bot's job (or
 // the configure endpoint's at write time); per HANDOFF "the bot
@@ -23,6 +33,8 @@ import { TELEGRAM_REDIS } from './telegram.tokens';
 
 export const HEARTBEAT_KEY_BOT = 'bot:heartbeat';
 export const HEARTBEAT_KEY_NOTIFIER = 'notifier:heartbeat';
+export const RELOAD_KEY_BOT = 'bot:reload_requested';
+export const RELOAD_KEY_NOTIFIER = 'notifier:reload_requested';
 // Aligns with the bot's HEARTBEAT_TTL_SEC. The bot's loop writes
 // every 10s, so a fresh tick brings the TTL back to 30. We consider
 // the heartbeat stale when the key is missing OR ttl < 0 (Redis

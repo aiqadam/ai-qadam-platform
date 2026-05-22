@@ -38,7 +38,7 @@ function makeController(getMe: GetMeFn): {
   controller: TelegramAdminController;
   config: TgConfigService;
 } {
-  const config = new TgConfigService(db, getMe);
+  const config = new TgConfigService(db, getMe, redis);
   const hb = new HeartbeatReaderService(redis);
   const admin = new TelegramAdminService(db, config, hb, getMe);
   const controller = new TelegramAdminController(config, admin);

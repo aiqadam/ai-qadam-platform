@@ -59,7 +59,7 @@ function makeAdmin(getMeImpl?: GetMeFn): {
   const getMe = makeGetMe(
     getMeImpl ?? (async () => ({ botId: 12345n, botUsername: 'aiqadam_bot' })),
   );
-  const config = new TgConfigService(db, getMe);
+  const config = new TgConfigService(db, getMe, redis);
   const hb = new HeartbeatReaderService(redis);
   const admin = new TelegramAdminService(db, config, hb, getMe);
   return { admin, config, getMe };
@@ -142,7 +142,7 @@ describe('TelegramAdminService.buildStatus — configured + healthy', () => {
       if (callIdx === 1) return { botId: 12345n, botUsername: 'aiqadam_bot' };
       throw new Error('telegram_401: Unauthorized');
     });
-    const config = new TgConfigService(db, getMe);
+    const config = new TgConfigService(db, getMe, redis);
     const hb = new HeartbeatReaderService(redis);
     const admin = new TelegramAdminService(db, config, hb, getMe);
     await config.configure({

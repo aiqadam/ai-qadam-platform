@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import Redis from 'ioredis';
 import postgres from 'postgres';
 import { afterAll, beforeEach, describe, expect, inject, it, vi } from 'vitest';
 import { tgConfig } from '../src/modules/telegram/schema';
@@ -21,12 +22,15 @@ import { type GetMeFn, TgConfigService } from '../src/modules/telegram/tg-config
 // of these fields breaks the bot's boot path.
 
 const dbUrl = inject('TEST_DATABASE_URL');
+const redisUrl = inject('TEST_REDIS_URL');
 
 const client = postgres(dbUrl, { max: 4 });
 const db = drizzle(client);
+const redis = new Redis(redisUrl, { lazyConnect: false, maxRetriesPerRequest: 3 });
 
 afterAll(async () => {
   await client.end();
+  await redis.quit();
 });
 
 const SAMPLE_TOKEN = '987654321:AABBCCDDeeFFggHHiiJJkkLLmmNNooPPqqRRssTTuu';
@@ -41,7 +45,7 @@ function makeController(getMe: GetMeFn): {
   controller: TelegramController;
   config: TgConfigService;
 } {
-  const config = new TgConfigService(db, getMe);
+  const config = new TgConfigService(db, getMe, redis);
   // The bot-token endpoint never touches TelegramService — pass a stub
   // typed as the real class to satisfy DI without standing up its deps.
   const telegram = {} as unknown as TelegramService;

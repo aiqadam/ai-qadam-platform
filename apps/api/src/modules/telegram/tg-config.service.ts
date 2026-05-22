@@ -7,9 +7,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { eq, isNull } from 'drizzle-orm';
+import type Redis from 'ioredis';
 import { env } from '../../config/env';
 import { DB, type Db } from '../../db';
+import { RELOAD_KEY_BOT, RELOAD_KEY_NOTIFIER } from './heartbeat-reader.service';
 import { type NewTgConfigRow, type TgConfigRow, tgConfig } from './schema';
+import { TELEGRAM_REDIS } from './telegram.tokens';
 import { decryptToken, encryptToken, parseEncryptionKey } from './token-crypto';
 
 // R2 (ADR-0034) — owns the lifecycle of the tg_config row:
@@ -72,6 +75,7 @@ export class TgConfigService {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(TG_GET_ME) private readonly getMe: GetMeFn,
+    @Inject(TELEGRAM_REDIS) private readonly redis: Redis,
   ) {}
 
   // ─── Public API ────────────────────────────────────────────────────────────
@@ -99,7 +103,40 @@ export class TgConfigService {
       botUsername: me.botUsername,
       configuredBy: input.configuredBy,
     });
+    await this.publishReload();
     return rowToPublic(row);
+  }
+
+  // Fires on every successful upsert (first-time configure AND rotation
+  // — rotate-token delegates to configure()). The bot and notifier
+  // heartbeat loops compare this timestamp to their boot time; a newer
+  // value triggers a clean exit, Docker restarts them, and they fetch
+  // the freshly-saved token from /v1/telegram/admin/bot-token.
+  //
+  // Failure mode: if Redis is briefly unavailable, the DB write has
+  // already committed (the token IS saved). We log a warning and let
+  // the configure() call succeed — the operator can manually restart
+  // the bot via Coolify as a fallback. The R3 cabinet's status panel
+  // will surface a stale bot heartbeat so the operator notices.
+  // Failing the request here would leave the DB and the operator's UI
+  // disagreeing about whether the save took.
+  private async publishReload(): Promise<void> {
+    // Unix-seconds float — matches the bot's `float(reload_ts_raw)`
+    // parser. Don't switch to milliseconds without updating both bot
+    // and notifier reload_supervisor.py.
+    const tsSeconds = (Date.now() / 1000).toString();
+    try {
+      // Pipeline so both keys land from the same observed moment and
+      // we make one round-trip to Redis.
+      await this.redis
+        .pipeline()
+        .set(RELOAD_KEY_BOT, tsSeconds)
+        .set(RELOAD_KEY_NOTIFIER, tsSeconds)
+        .exec();
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`tg-config reload publish failed: ${reason}`);
+    }
   }
 
   // ─── Internal ──────────────────────────────────────────────────────────────

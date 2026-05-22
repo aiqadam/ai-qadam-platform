@@ -1,19 +1,27 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import Redis from 'ioredis';
 import postgres from 'postgres';
 import { afterAll, beforeEach, describe, expect, inject, it, vi } from 'vitest';
+import {
+  RELOAD_KEY_BOT,
+  RELOAD_KEY_NOTIFIER,
+} from '../src/modules/telegram/heartbeat-reader.service';
 import { tgConfig } from '../src/modules/telegram/schema';
 import { type GetMeFn, TgConfigService } from '../src/modules/telegram/tg-config.service';
 import { decryptToken, parseEncryptionKey } from '../src/modules/telegram/token-crypto';
 
 const dbUrl = inject('TEST_DATABASE_URL');
+const redisUrl = inject('TEST_REDIS_URL');
 
 const client = postgres(dbUrl, { max: 4 });
 const db = drizzle(client);
+const redis = new Redis(redisUrl, { lazyConnect: false, maxRetriesPerRequest: 3 });
 
 afterAll(async () => {
   await client.end();
+  await redis.quit();
 });
 
 const KEY_HEX = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -28,7 +36,7 @@ beforeEach(async () => {
 describe('TgConfigService.configure — happy path', () => {
   it('validates the token via getMe, encrypts it, and inserts a global row', async () => {
     const getMe = makeGetMe(async () => ({ botId: 12345n, botUsername: 'aiqadam_bot' }));
-    const svc = new TgConfigService(db, getMe);
+    const svc = new TgConfigService(db, getMe, redis);
 
     const result = await svc.configure({
       tenant: null,
@@ -57,7 +65,7 @@ describe('TgConfigService.configure — happy path', () => {
       botId: t === SAMPLE_TOKEN ? 12345n : 67890n,
       botUsername: t === SAMPLE_TOKEN ? 'aiqadam_bot' : 'aiqadam_v2',
     }));
-    const svc = new TgConfigService(db, getMe);
+    const svc = new TgConfigService(db, getMe, redis);
     const userA = randomUUID();
     const userB = randomUUID();
 
@@ -85,7 +93,7 @@ describe('TgConfigService.configure — happy path', () => {
 
   it('allows distinct rows for different tenants', async () => {
     const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'bot' }));
-    const svc = new TgConfigService(db, getMe);
+    const svc = new TgConfigService(db, getMe, redis);
     const by = randomUUID();
     await svc.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: by });
     await svc.configure({ tenant: 'uz', botToken: SAMPLE_TOKEN, configuredBy: by });
@@ -103,7 +111,7 @@ describe('TgConfigService.configure — bad input', () => {
     const getMe = makeGetMe(async () => {
       throw new Error('should not be called');
     });
-    const svc = new TgConfigService(db, getMe);
+    const svc = new TgConfigService(db, getMe, redis);
 
     await expect(
       svc.configure({
@@ -121,7 +129,7 @@ describe('TgConfigService.configure — bad input', () => {
     const getMe = makeGetMe(async () => {
       throw new Error('telegram_401: Unauthorized');
     });
-    const svc = new TgConfigService(db, getMe);
+    const svc = new TgConfigService(db, getMe, redis);
     try {
       await svc.configure({
         tenant: null,
@@ -144,6 +152,7 @@ describe('TgConfigService.load + readPlaintextToken', () => {
     const svc = new TgConfigService(
       db,
       makeGetMe(async () => ({ botId: 1n, botUsername: 'bot' })),
+      redis,
     );
     expect(await svc.load(null)).toBeNull();
     expect(await svc.readPlaintextToken(null)).toBeNull();
@@ -153,6 +162,7 @@ describe('TgConfigService.load + readPlaintextToken', () => {
     const svc = new TgConfigService(
       db,
       makeGetMe(async () => ({ botId: 42n, botUsername: 'aiqadam_bot' })),
+      redis,
     );
     const by = randomUUID();
     await svc.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: by });
@@ -182,6 +192,7 @@ describe('TgConfigService — key missing', () => {
       const svc = new mod.TgConfigService(
         db,
         makeGetMe(async () => ({ botId: 1n, botUsername: 'bot' })),
+        redis,
       );
       try {
         await svc.configure({
@@ -202,5 +213,54 @@ describe('TgConfigService — key missing', () => {
         process.env.TG_CONFIG_ENCRYPTION_KEY = stashed;
       }
     }
+  });
+});
+
+describe('TgConfigService.configure — reload publish', () => {
+  beforeEach(async () => {
+    // Clear stale keys from prior tests so we can assert on a clean slate.
+    await redis.del(RELOAD_KEY_BOT, RELOAD_KEY_NOTIFIER);
+  });
+
+  it('publishes Unix-seconds floats to both reload keys after a successful save', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 42n, botUsername: 'aiqadam_bot' }));
+    const svc = new TgConfigService(db, getMe, redis);
+
+    const tBefore = Date.now() / 1000;
+    await svc.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: randomUUID() });
+    const tAfter = Date.now() / 1000;
+
+    const botVal = await redis.get(RELOAD_KEY_BOT);
+    const notifierVal = await redis.get(RELOAD_KEY_NOTIFIER);
+    expect(botVal).not.toBeNull();
+    expect(notifierVal).not.toBeNull();
+    // Same observed moment for both — pipeline puts them in one round-trip.
+    expect(botVal).toBe(notifierVal);
+    // Parses as a float in [tBefore, tAfter]. Anything else (e.g. ms,
+    // ISO string, ms*1000) breaks the bot's float(reload_ts_raw) parser.
+    const parsed = Number.parseFloat(String(botVal));
+    expect(Number.isFinite(parsed)).toBe(true);
+    expect(parsed).toBeGreaterThanOrEqual(tBefore - 1);
+    expect(parsed).toBeLessThanOrEqual(tAfter + 1);
+  });
+
+  it('publishes again on a second configure (rotation flow uses the same path)', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 42n, botUsername: 'aiqadam_bot' }));
+    const svc = new TgConfigService(db, getMe, redis);
+    const by = randomUUID();
+
+    await svc.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: by });
+    const first = await redis.get(RELOAD_KEY_BOT);
+    // Tick the clock past Redis's second-level resolution so the second
+    // write is guaranteed observably newer. The bot compares strictly
+    // greater than its boot time, so a stale value would let it skip
+    // the restart.
+    await new Promise<void>((resolve) => setTimeout(resolve, 1100));
+    await svc.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: by });
+    const second = await redis.get(RELOAD_KEY_BOT);
+
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(Number.parseFloat(String(second))).toBeGreaterThan(Number.parseFloat(String(first)));
   });
 });
