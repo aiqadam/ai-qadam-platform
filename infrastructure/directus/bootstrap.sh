@@ -105,6 +105,126 @@ seed_country uz "Uzbekistan" "Узбекистан" "Asia/Tashkent"
 seed_country kz "Kazakhstan" "Казахстан"   "Asia/Almaty"
 seed_country tj "Tajikistan" "Таджикистан" "Asia/Dushanbe"
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S4.5 — Country profile fields (locale, currency, holidays, channel pref)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Per-country defaults that shape operator UX + downstream services.
+# Lives on the same row as the existing countries collection (1:1 with
+# tenant; a separate profile table would be over-modelling). Defaults
+# are sensible enough that provisioning a new country (Sprint 4.1/4.2)
+# can write blanks and let the country lead tune in-cabinet later.
+#
+# Editing surface: /workspace/admin/countries (super_admin only).
+# Read surface: any signed-in operator (these are not secrets).
+
+echo "[F-S4.5 — countries.default_locale]"
+ensure "field countries.default_locale" \
+  "${DIRECTUS_URL}/fields/countries/default_locale" \
+  "${DIRECTUS_URL}/fields/countries" \
+  '{
+    "field":"default_locale",
+    "type":"string",
+    "schema":{"is_nullable":false,"default_value":"en","max_length":12},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"English","value":"en"},
+        {"text":"Russian","value":"ru"},
+        {"text":"Kazakh","value":"kk"},
+        {"text":"Uzbek (Latin)","value":"uz-Latn"},
+        {"text":"Uzbek (Cyrillic)","value":"uz-Cyrl"},
+        {"text":"Tajik","value":"tg"}
+      ]},
+      "note":"Default page locale on this country subdomain when the visitor has no aiqadam-locale cookie. Per-user choice still wins."
+    }
+  }'
+
+echo "[F-S4.5 — countries.currency_code]"
+ensure "field countries.currency_code" \
+  "${DIRECTUS_URL}/fields/countries/currency_code" \
+  "${DIRECTUS_URL}/fields/countries" \
+  '{
+    "field":"currency_code",
+    "type":"string",
+    "schema":{"is_nullable":false,"default_value":"USD","max_length":3},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"USD — US Dollar","value":"USD"},
+        {"text":"UZS — Uzbek Som","value":"UZS"},
+        {"text":"KZT — Kazakhstani Tenge","value":"KZT"},
+        {"text":"KGS — Kyrgyzstani Som","value":"KGS"},
+        {"text":"TJS — Tajikistani Somoni","value":"TJS"},
+        {"text":"EUR — Euro","value":"EUR"}
+      ]},
+      "note":"Default currency for sponsor invoices + budget displays in this country cabinet. ISO 4217."
+    }
+  }'
+
+echo "[F-S4.5 — countries.public_holidays]"
+ensure "field countries.public_holidays" \
+  "${DIRECTUS_URL}/fields/countries/public_holidays" \
+  "${DIRECTUS_URL}/fields/countries" \
+  '{
+    "field":"public_holidays",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"list",
+      "special":["cast-json"],
+      "width":"full",
+      "options":{"template":"{{date}} — {{label}}","fields":[
+        {"field":"date","type":"string","meta":{"interface":"datetime","options":{"includeTime":false}}},
+        {"field":"label","type":"string","meta":{"interface":"input"}}
+      ]},
+      "note":"YYYY-MM-DD entries — event scheduling UI warns when a draft event lands on one. Country lead maintains."
+    }
+  }'
+
+echo "[F-S4.5 — countries.default_reminder_channel]"
+ensure "field countries.default_reminder_channel" \
+  "${DIRECTUS_URL}/fields/countries/default_reminder_channel" \
+  "${DIRECTUS_URL}/fields/countries" \
+  '{
+    "field":"default_reminder_channel",
+    "type":"string",
+    "schema":{"is_nullable":false,"default_value":"email","max_length":20},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"Email first","value":"email"},
+        {"text":"Telegram first (fallback email)","value":"telegram"}
+      ]},
+      "note":"Channel preference for service-level reminders in this country. Per-user opt-out still wins. Telegram routing lands with F-S5.5."
+    }
+  }'
+
+# Backfill the existing three countries with country-appropriate defaults.
+# PATCH is idempotent; re-running bootstrap is safe.
+set_country_profile() {
+  local code="$1" locale="$2" currency="$3" channel="$4" holidays="$5"
+  curl -fsS -X PATCH \
+    -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    "${DIRECTUS_URL}/items/countries/${code}" \
+    -d "$(jq -nc --arg l "$locale" --arg c "$currency" --arg ch "$channel" --argjson h "$holidays" \
+      '{default_locale:$l,currency_code:$c,default_reminder_channel:$ch,public_holidays:$h}')" \
+    > /dev/null && echo "[F-S4.5] backfilled ${code}"
+}
+
+# Public holidays are a subset (major civic + cultural); country lead
+# maintains the canonical list via /workspace/admin/countries.
+set_country_profile uz "uz-Latn" "UZS" "telegram" \
+  '[{"date":"2026-01-01","label":"New Year"},{"date":"2026-03-21","label":"Navruz"},{"date":"2026-09-01","label":"Independence Day"},{"date":"2026-12-08","label":"Constitution Day"}]'
+set_country_profile kz "ru" "KZT" "telegram" \
+  '[{"date":"2026-01-01","label":"New Year"},{"date":"2026-03-22","label":"Nauryz"},{"date":"2026-05-09","label":"Victory Day"},{"date":"2026-12-16","label":"Independence Day"}]'
+set_country_profile tj "tg" "TJS" "telegram" \
+  '[{"date":"2026-01-01","label":"New Year"},{"date":"2026-03-21","label":"Navruz"},{"date":"2026-09-09","label":"Independence Day"},{"date":"2026-11-06","label":"Constitution Day"}]'
+
 # ──────────── event_types ───────────────────────────────────────────────
 
 echo "[event_types]"

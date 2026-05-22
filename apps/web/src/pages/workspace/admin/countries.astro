@@ -1,0 +1,31 @@
+---
+import CountriesAdmin from '../../../components/workspace/CountriesAdmin';
+import Layout from '../../../layouts/Layout.astro';
+
+// F-S4.5 — super-admin cabinet for tenant profile defaults.
+// Read by any signed-in operator, edits gated on super_admin via the
+// API. Auth-aware island handles the 401/403 paths.
+---
+
+<Layout
+  title="Countries · AI Qadam workspace admin"
+  description="Per-country defaults: locale, currency, public holidays, reminder channel."
+>
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace">← Workspace</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Countries
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Per-country defaults applied when there's no per-user override:
+      page locale, sponsor invoice currency, public holidays (used to warn
+      on draft event scheduling), reminder channel preference.
+      Read open to all operators; edits require super-admin.
+    </p>
+    <CountriesAdmin client:load />
+  </main>
+</Layout>
