@@ -31,6 +31,11 @@ export default defineConfig({
       DIRECTUS_TOKEN: 'test-directus-token-placeholder',
       TELEGRAM_BOT_SERVICE_TOKEN: 'test-telegram-bot-service-token-at-least-32-chars-pad',
       AUTHENTIK_ADMIN_TOKEN: 'test-authentik-admin-token-placeholder',
+      // Deterministic 32-byte (64-hex) key for the tg_config encryption
+      // tests. Reusing one key across the suite is fine — encryption
+      // uses a fresh random IV per call, so deterministic key + fresh
+      // IV doesn't compromise ciphertext indistinguishability.
+      TG_CONFIG_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     },
     coverage: {
       provider: 'v8',

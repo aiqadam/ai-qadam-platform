@@ -304,6 +304,46 @@ In the **aiqadam repo**:
 - 📝 Bot is currently a Python anomaly in a TypeScript stack. Acceptable
   because aiogram + Python has no TS-side equivalent at this maturity.
 
+## Addendum 2026-05-22 (R2): encryption-at-rest for tg_config
+
+R2 (PR-1) introduces a new `tg_config` table to replace the
+`TELEGRAM_BOT_SERVICE_TOKEN` env-only path with an operator-configurable
+row, populated via `POST /v1/telegram/admin/configure` (super-admin
+only) from the workspace cabinet (R3). The BotFather token stored in
+that row is encrypted at rest.
+
+**Algorithm**: AES-256-GCM via Node's `node:crypto` (no new dependency).
+
+**Key handling**: 32-byte symmetric key in `TG_CONFIG_ENCRYPTION_KEY`
+(hex-encoded). The key is per-environment, never reused; generation:
+
+```
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+The key is **optional in dev** (configure/rotate/status return 503
+`telegram_config_key_missing` when unset, but the existing
+env-fallback /v1/telegram/* surface keeps working) and **required in
+prod**. Coolify is the source of truth.
+
+**Wire format**: `version(1) | iv(12) | tag(16) | ciphertext(N)` in a
+single `bytea` column. The version byte reserves room for an algorithm
+swap without schema churn; decrypt refuses unknown versions.
+
+**Why not Vault/KMS**: out of scope for Phase 1 (zero-recurring-spend
+filter per `docs/business-process-gaps.md`). Adopting a managed KMS
+becomes load-bearing when (a) we run more than one secret of this
+class, OR (b) per-tenant encryption keys are needed (currently NULL =
+global default per §Q4).
+
+**Key rotation**: documented at `docs/runbooks/telegram-token-rotation.md`
+(stub in PR-1; full procedure with R5). Out of scope for R2.
+
+**What this addendum does NOT change** from the original ADR: the
+service token (bot ↔ API `Authorization: Bearer`) is still env-driven
+in PR-1; PR-2 will introduce a DB column for it alongside the rotate
+endpoint.
+
 ## References
 
 - [ADR-0015](./0015-bot-scope-and-web-authoring-split.md) — bot scope split

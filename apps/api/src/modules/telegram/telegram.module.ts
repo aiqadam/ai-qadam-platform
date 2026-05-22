@@ -2,13 +2,17 @@ import { Module } from '@nestjs/common';
 import Redis from 'ioredis';
 import { env } from '../../config/env';
 import { DB, db } from '../../db';
+import { AuthentikModule } from '../admin-invites/authentik.module';
+import { AuthModule } from '../auth/auth.module';
 import { DirectusModule } from '../directus/directus.module';
 import { EmailModule } from '../email/email.module';
 import { OutboxPublisher } from './outbox-publisher.service';
 import { OutboxRelayService } from './outbox-relay.service';
+import { TelegramAdminController } from './telegram-admin.controller';
 import { TelegramController, TelegramPublicController } from './telegram.controller';
 import { TelegramService } from './telegram.service';
 import { TELEGRAM_REDIS } from './telegram.tokens';
+import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
 
 // Owns the lifecycle of ONE Redis connection for telegram-side traffic
 // (outbox relay publishing to Streams). Other modules with Redis needs
@@ -17,8 +21,11 @@ import { TELEGRAM_REDIS } from './telegram.tokens';
 // hard to reason about.
 
 @Module({
-  imports: [DirectusModule, EmailModule],
-  controllers: [TelegramPublicController, TelegramController],
+  // AuthModule provides AuthGuard (JWT validation).
+  // AuthentikModule provides SuperAdminGuard (live Authentik group
+  // check) — the admin controller composes both.
+  imports: [AuthModule, AuthentikModule, DirectusModule, EmailModule],
+  controllers: [TelegramPublicController, TelegramController, TelegramAdminController],
   providers: [
     { provide: DB, useValue: db },
     {
@@ -29,13 +36,18 @@ import { TELEGRAM_REDIS } from './telegram.tokens';
           maxRetriesPerRequest: 3,
         }),
     },
+    // Telegram getMe is swappable in tests. Production uses the real
+    // HTTP call to api.telegram.org; specs inject a fake via the same
+    // token.
+    { provide: TG_GET_ME, useValue: realGetMe },
     TelegramService,
+    TgConfigService,
     OutboxPublisher,
     OutboxRelayService,
   ],
   // Export DB so consumers of OutboxPublisher (e.g. TelegramAdapter in
   // InteractionsModule) can also inject the same DB token for the tx
   // they pass to OutboxPublisher.publish.
-  exports: [TelegramService, OutboxPublisher, DB],
+  exports: [TelegramService, TgConfigService, OutboxPublisher, DB],
 })
 export class TelegramModule {}

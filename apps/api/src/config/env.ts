@@ -77,7 +77,35 @@ const envSchema = z.object({
   // operator configures the token via the workspace cabinet later (see
   // /workspace/integrations/telegram, planned). When set, must be ≥32
   // chars so timing-safe compare in the guard is meaningful.
+  //
+  // **R2 status (ADR-0034)**: this env var is now a *fallback* used only
+  // when no row exists in `tg_config`. The DB is the source of truth;
+  // env stays as a last-resort path for local dev where running
+  // migrations + POSTing /admin/configure is more friction than setting
+  // a string. Don't add a non-null assertion here — the Boolean(...)
+  // coercion in /v1/telegram/health expects this to be optional.
   TELEGRAM_BOT_SERVICE_TOKEN: z.string().min(32).optional(),
+
+  // R2 (ADR-0034 §"Encryption at rest"): symmetric key for AES-256-GCM
+  // encryption of the BotFather token in tg_config.encrypted_token.
+  // Hex-encoded 32 bytes (64 hex chars). Generated once per environment
+  // via `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+  //
+  // **Optional in dev**: when unset, the tg_config table is unusable
+  // (configure/rotate/status endpoints return 503
+  // `telegram_config_key_missing`). The /v1/telegram/* sync surface
+  // still works via the legacy TELEGRAM_BOT_SERVICE_TOKEN env fallback,
+  // so existing flows aren't blocked by this key being absent in CI.
+  //
+  // **Required in prod**: operators MUST set this before configuring a
+  // bot token via the workspace cabinet. Rotation of THIS key is a
+  // separate ops procedure that requires decrypting all rows with the
+  // old key and re-encrypting with the new one — runbook lives at
+  // docs/runbooks/telegram-token-rotation.md (TODO, ships with R5).
+  TG_CONFIG_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, 'must be 64 hex chars (32 bytes)')
+    .optional(),
 
   // F-S2.7 (ADR-0035) Authentik admin API — creating operator users,
   // setting passwords on invite consumption, group assignment, status

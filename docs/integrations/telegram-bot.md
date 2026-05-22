@@ -50,12 +50,15 @@ Redis Streams; the notifier in the separate repo delivers.
 | Concern | Repo / path |
 |---|---|
 | HTTP API (`/v1/interactions/dispatch`, `/v1/telegram/*`) | **aiqadam** — `apps/api/src/modules/{interactions,telegram}/` |
-| Drizzle schema (`tg_link_challenges`, `tg_send_log`, `outbox`) | **aiqadam** — `apps/api/src/modules/telegram/schema.ts` |
+| Drizzle schema (`tg_link_challenges`, `tg_send_log`, `outbox`, `tg_config`) | **aiqadam** — `apps/api/src/modules/telegram/schema.ts` |
 | OutboxPublisher + relay loop | **aiqadam** — `apps/api/src/modules/telegram/{outbox-publisher,outbox-relay}.service.ts` |
+| Bot config (encrypted token + identity) | **aiqadam** — `apps/api/src/modules/telegram/tg-config.service.ts` (R2) |
+| Admin endpoints (`/v1/telegram/admin/configure`, `/rotate-token`, `/status`) | **aiqadam** — `apps/api/src/modules/telegram/telegram-admin.controller.ts` (R2) |
 | Member-link fields (`directus_users.telegram_*`) | **Directus** (operator-managed; not in code) |
 | aiogram long-poll, inbound user flows (`/start`, `/link`, …) | **aiqadam-telegram-bot** — `src/aiqadam_telegram_bot/bot/` |
 | Outbound send loop, per-chat rate-limit, audit posts | **aiqadam-telegram-bot** — `src/aiqadam_telegram_bot/notifier/` |
 | Envelope schema (source of truth) | **aiqadam-telegram-bot** — [`docs/asyncapi.yaml`](https://github.com/viktordrukker/aiqadam-telegram-bot/blob/main/docs/asyncapi.yaml) |
+| Heartbeat keys (`bot:heartbeat`, `notifier:heartbeat`, TTL 30s) | **Redis** (bot writes; aiqadam API reads via `/admin/status`, R2 PR-2) |
 
 ## Quick references
 
