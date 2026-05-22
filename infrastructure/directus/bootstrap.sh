@@ -2204,7 +2204,9 @@ ensure "collection event_announcements" \
         "options":{"choices":[
           {"text":"Published (event_announce)","value":"published"},
           {"text":"Speaker added","value":"speaker_added"},
-          {"text":"Post-event followup","value":"post_event_followup"}
+          {"text":"Post-event followup","value":"post_event_followup"},
+          {"text":"Reminder T-2 days","value":"reminder_t_minus_2"},
+          {"text":"Reminder T-3 hours","value":"reminder_t_minus_3h"}
         ]}
       }},
       {"field":"sent_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},

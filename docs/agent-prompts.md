@@ -163,7 +163,7 @@ Pick the highest-priority **eligible** feature (its gate is satisfied + nobody e
 
 ### Sprint 1 (6 features, fully parallel-independent, all 🟢 once Sprint 0 wraps)
 
-~~F-S1.1a publication broadcast~~ ✅ shipped 2026-05-22 (`event_announcements` ledger + `EventBroadcastService.broadcastPublication()` hook from `EventsService.patch()` on draft→published transition) · F-S1.1b speaker_added flow · F-S1.1c post-event cron · F-S1.2+1.3 CSAT capture + operator surface (bundled) · F-S1.4 pre-event reminders · F-S1.5 member matching · ~~F-S1.6 lead capture~~ ✅ shipped 2026-05-21 (capture + verify + convert; F-S1.6b nurture cron flows still pending).
+~~F-S1.1a publication broadcast~~ ✅ shipped 2026-05-22 · F-S1.1b speaker_added flow · F-S1.1c post-event cron · F-S1.2+1.3 CSAT capture + operator surface (bundled) · ~~F-S1.4 pre-event reminders (T-2 + T-3h)~~ ✅ shipped 2026-05-22 (`POST /v1/internal/event-reminders/tick`; T-7 speaker brief deferred to F-S1.4b once F-S1.1b adds speakers) · F-S1.5 member matching · ~~F-S1.6 lead capture~~ ✅ shipped 2026-05-21 (capture + verify + convert; F-S1.6b nurture cron flows still pending).
 
 Each is one vertical PR per the template in §2. None depends on another.
 

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DirectusModule } from '../directus/directus.module';
 import { InteractionsModule } from '../interactions/interactions.module';
+import { InternalAuthGuard } from '../internal/internal-auth.guard';
 import { AnnounceController } from './announce.controller';
 import { AnnounceService } from './announce.service';
 import { ApprovalsController } from './approvals.controller';
@@ -9,6 +10,8 @@ import { ApprovalsService } from './approvals.service';
 import { CohortsController } from './cohorts.controller';
 import { CohortsService } from './cohorts.service';
 import { EventBroadcastService } from './event-broadcast.service';
+import { EventRemindersController } from './event-reminders.controller';
+import { EventRemindersService } from './event-reminders.service';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { MembersController } from './members.controller';
@@ -23,6 +26,10 @@ import { MembersService } from './members.service';
 // v1; sources plug in as F-S3.5 / F-S4.x / dispatcher-flag land).
 // F-S1.1a — EventBroadcastService dispatches event_announce on the
 // draft → published transition (idempotent via event_announcements).
+// F-S1.4 — EventRemindersService cron entry at
+// POST /v1/internal/event-reminders/tick (InternalAuthGuard) dispatches
+// T-2 and T-3h reminders to registered attendees. Idempotent via
+// event_announcements kind=reminder_t_minus_2/_3h.
 // Per ADR-0033 Part 3: operators NEVER touch Directus admin; every
 // operator workflow lives in /workspace/<concern> cabinets that proxy
 // Directus via our API with our auth + audit layered on.
@@ -36,6 +43,8 @@ import { MembersService } from './members.service';
     EventsService,
     ApprovalsService,
     EventBroadcastService,
+    EventRemindersService,
+    InternalAuthGuard,
   ],
   controllers: [
     MembersController,
@@ -43,6 +52,7 @@ import { MembersService } from './members.service';
     AnnounceController,
     EventsController,
     ApprovalsController,
+    EventRemindersController,
   ],
   exports: [
     MembersService,
@@ -51,6 +61,7 @@ import { MembersService } from './members.service';
     EventsService,
     ApprovalsService,
     EventBroadcastService,
+    EventRemindersService,
   ],
 })
 export class WorkspaceModule {}
