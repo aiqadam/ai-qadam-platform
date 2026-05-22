@@ -2318,6 +2318,100 @@ ensure "relation audit_events.actor_id -> directus_users.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"audit_events","field":"actor_id","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S2.2-a — RBAC sync jobs (ADR-0021 §7 state machine)
+# ════════════════════════════════════════════════════════════════════════
+#
+# One row per sync attempt. Authentik webhook (F-S2.2-b) enqueues a row
+# in pending state; BullMQ worker (F-S2.2-c) drives per-engine state
+# (Directus + Plausible — Twenty was dropped per ADR-0033). Workspace UI
+# (F-S2.2-g) surfaces rows with any *_status='failed' for operator retry.
+#
+# Status semantics per engine (ADR-0021 §7):
+#   pending  — work scheduled, not yet attempted
+#   applied  — engine acknowledges desired state
+#   failed   — engine returned 4xx/5xx or timed out 3 times
+#   skipped  — manifest does not require this engine for this user
+#   dry_run  — RBAC_SYNC_WRITE_ENABLED=false, diff computed but not written
+
+echo "[F-S2.2-a — rbac_sync_jobs]"
+ensure "collection rbac_sync_jobs" \
+  "${DIRECTUS_URL}/collections/rbac_sync_jobs" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"rbac_sync_jobs",
+    "schema":{"name":"rbac_sync_jobs"},
+    "meta":{
+      "icon":"sync",
+      "note":"Per ADR-0021 §7. One row per sync attempt. Failed rows surface as a banner in the workspace dashboard with a retry button.",
+      "sort_field":"started_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"user","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"triggered_by","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Webhook","value":"webhook"},
+          {"text":"Nightly poll","value":"poll"},
+          {"text":"Manual retry","value":"manual_retry"},
+          {"text":"Activate country","value":"activate_country"}
+        ]}
+      }},
+      {"field":"expected_state","type":"json","schema":{"is_nullable":false,"default_value":"{}"},"meta":{"interface":"input-code","options":{"language":"json"},"special":["cast-json"],"width":"full","note":"{ directus: {...}, plausible: {...} } derived from Authentik group membership."}},
+      {"field":"directus_status","type":"string","schema":{"is_nullable":false,"default_value":"pending","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Pending","value":"pending"},
+          {"text":"Applied","value":"applied"},
+          {"text":"Failed","value":"failed"},
+          {"text":"Skipped","value":"skipped"},
+          {"text":"Dry-run","value":"dry_run"}
+        ]},
+        "display":"labels",
+        "display_options":{"choices":[
+          {"text":"Pending","value":"pending","foreground":"#ffffff","background":"#3b82f6"},
+          {"text":"Applied","value":"applied","foreground":"#ffffff","background":"#10b981"},
+          {"text":"Failed","value":"failed","foreground":"#ffffff","background":"#dc2626"},
+          {"text":"Skipped","value":"skipped","foreground":"#ffffff","background":"#6b7280"},
+          {"text":"Dry-run","value":"dry_run","foreground":"#ffffff","background":"#a78bfa"}
+        ]}
+      }},
+      {"field":"directus_error","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full"}},
+      {"field":"plausible_status","type":"string","schema":{"is_nullable":false,"default_value":"pending","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Pending","value":"pending"},
+          {"text":"Applied","value":"applied"},
+          {"text":"Failed","value":"failed"},
+          {"text":"Skipped","value":"skipped"},
+          {"text":"Dry-run","value":"dry_run"}
+        ]},
+        "display":"labels",
+        "display_options":{"choices":[
+          {"text":"Pending","value":"pending","foreground":"#ffffff","background":"#3b82f6"},
+          {"text":"Applied","value":"applied","foreground":"#ffffff","background":"#10b981"},
+          {"text":"Failed","value":"failed","foreground":"#ffffff","background":"#dc2626"},
+          {"text":"Skipped","value":"skipped","foreground":"#ffffff","background":"#6b7280"},
+          {"text":"Dry-run","value":"dry_run","foreground":"#ffffff","background":"#a78bfa"}
+        ]}
+      }},
+      {"field":"plausible_error","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full"}},
+      {"field":"attempt","type":"integer","schema":{"is_nullable":false,"default_value":1},"meta":{"interface":"input","width":"half","note":"1..3 — third failure flips status to failed; operator retry enqueues a fresh job."}},
+      {"field":"started_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"finished_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","readonly":true}}
+    ]
+  }'
+
+ensure "relation rbac_sync_jobs.user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/rbac_sync_jobs/user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"rbac_sync_jobs","field":"user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

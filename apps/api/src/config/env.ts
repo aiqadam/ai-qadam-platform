@@ -105,6 +105,26 @@ const envSchema = z.object({
   // (workspace.aiqadam.org vs aiqadam.org) without touching auth.
   INVITE_URL_BASE: z.string().url().default('https://workspace.aiqadam.org'),
   INVITE_TTL_DAYS: z.coerce.number().int().positive().max(30).default(7),
+
+  // F-S2.2 (ADR-0021) RBAC sync. Authentik notification transport signs
+  // POSTs to /v1/internal/rbac/authentik-webhook with HMAC-SHA256 of the
+  // raw body using this shared secret. ≥32 chars to make timing-safe
+  // compare meaningful.
+  //
+  // **Optional**: when unset, the webhook endpoint returns 503
+  // `rbac_webhook_not_configured`. Allows the API to boot cleanly in CI
+  // and during the bootstrap window before the Authentik side is wired.
+  AUTHENTIK_WEBHOOK_SECRET: z.string().min(32).optional(),
+
+  // F-S2.2 dry-run safety flag. When false (default), the RBAC sync
+  // worker computes the diff + writes rbac_sync_jobs rows + emits to
+  // audit_events but DOES NOT touch Directus policies or Plausible
+  // memberships. Flip to true only after replaying a few real Authentik
+  // changes and verifying the diffs in the workspace UI.
+  RBAC_SYNC_WRITE_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 const parsed = envSchema.safeParse(process.env);
