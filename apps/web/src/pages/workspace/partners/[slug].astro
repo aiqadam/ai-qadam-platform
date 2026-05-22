@@ -2,6 +2,10 @@
 import PartnerView from '../../../components/workspace/PartnerView';
 import Layout from '../../../layouts/Layout.astro';
 
+// Server-rendered: slug param resolved at request time, not at build
+// (so we skip getStaticPaths). Matches /workspace/events/[id].astro.
+export const prerender = false;
+
 const { slug } = Astro.params;
 ---
 
