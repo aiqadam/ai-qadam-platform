@@ -242,6 +242,11 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
   - §9 — `demo` tenant references updated to `xx` per the PR #123 rename; "Agent-X" persona terminology replaced with the F-S2.x feature IDs that own each step.
   - §10 — break-glass open sub-decision resolved by F-S0.2 (PR #158, with prod activation on 2026-05-21); kept as a struck-through audit trail.
   - References — added ADR-0031 (cabinet routing), ADR-0032 (SSO-or-embed), ADR-0033 (member graph), break-glass runbook.
+- **2026-05-22 (F-S2.2-c amendment — BullMQ deferred):**
+  - §5 originally specified BullMQ as the apply-side queue between webhook intake and per-engine state machine. At the scale we are sizing for (Authentik webhooks fire on the order of N per day, not per second), the queue adds infra surface without clear benefit: retry semantics are already covered by the `triggered_by=manual_retry` row pattern + the nightly poll, and partial-failure visibility already happens in `rbac_sync_jobs` + the workspace dashboard.
+  - **Revised apply path**: the webhook handler synchronously runs the per-engine state machine (Directus first, then Plausible) inside the request lifecycle. Total apply time is bounded by Authentik's webhook-timeout default (~5s) — comfortably within our two-engine-call budget. The `rbac_sync_jobs` table itself becomes the de-facto queue: any row with `directus_status=pending OR plausible_status=pending` is fair game for an operator-initiated retry.
+  - **Trigger to revisit**: if webhook timeouts surface as a real problem (Loki alert on >2s apply time, or Authentik dropping events), introduce BullMQ then. The data model is unchanged — adding a worker consumer that reads `rbac_sync_jobs WHERE *_status='pending'` is a small follow-up PR.
+  - Other ADR text unchanged.
 - **2026-05-20:** Initial draft (Proposed). Awaiting decision-batch review.
 
 ## References

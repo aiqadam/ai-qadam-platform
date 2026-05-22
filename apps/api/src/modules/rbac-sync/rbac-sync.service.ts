@@ -4,6 +4,7 @@ import { AuthentikClient } from '../admin-invites/authentik.client';
 import { AuditEventsService } from '../audit/audit-events.service';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
+import { DirectusPolicyApplier } from './directus-policy-applier';
 import { type ExpectedState, computeExpectedState } from './group-mapping';
 
 // F-S2.2 RBAC sync service. In this PR (F-S2.2-b) the surface is:
@@ -45,6 +46,7 @@ export class RbacSyncService {
     private readonly directus: DirectusClient,
     private readonly directusBridge: DirectusUsersBridgeService,
     private readonly audit: AuditEventsService,
+    private readonly directusApplier: DirectusPolicyApplier,
   ) {}
 
   async intakeWebhook(input: IntakeInput): Promise<IntakeResult> {
@@ -136,6 +138,13 @@ export class RbacSyncService {
       dry_run: dryRun,
     });
 
+    // F-S2.2-c: per-engine apply runs synchronously inside the webhook
+    // handler (ADR-0021 §5 amendment 2026-05-22). When dryRun, skip
+    // the engine call — the row stays as 'dry_run' for review.
+    if (!dryRun) {
+      await this.applyEngines(inserted.data.id, directusUserId, expectedState);
+    }
+
     return {
       job_id: inserted.data.id,
       user_email: user.email,
@@ -143,6 +152,46 @@ export class RbacSyncService {
       expected_state: expectedState,
       dry_run: dryRun,
     };
+  }
+
+  // F-S2.2-c — runs each engine in sequence, persisting per-engine
+  // status + finished_at after the last call. Engine failures DO NOT
+  // throw — they flip the per-engine status to 'failed' and the
+  // workspace UI surfaces the row for operator retry (F-S2.2-g).
+  // Plausible engine lands in F-S2.2-d; this PR stamps it 'pending'
+  // so the next PR's applier picks it up.
+  private async applyEngines(
+    jobId: string,
+    directusUserId: string,
+    expected: ExpectedState,
+  ): Promise<void> {
+    // Directus engine
+    const directusOutcome = await this.directusApplier.apply(directusUserId, expected.directus);
+    await this.audit.emit({
+      event: directusOutcome.status === 'applied' ? 'rbac.sync.applied' : 'rbac.sync.failed',
+      severity: directusOutcome.status === 'failed' ? 'high' : 'info',
+      targetKind: 'rbac_job',
+      targetId: jobId,
+      payload: {
+        engine: 'directus',
+        outcome: directusOutcome,
+        expected: expected.directus,
+      },
+    });
+
+    // Persist status. Plausible stays 'pending' until F-S2.2-d ships.
+    const patch: Record<string, unknown> = {
+      directus_status: directusOutcome.status,
+      directus_error: directusOutcome.error ?? null,
+      finished_at: new Date().toISOString(),
+    };
+    await this.directus
+      .patch(`/items/rbac_sync_jobs/${encodeURIComponent(jobId)}`, patch)
+      .catch((err) => {
+        this.logger.warn(
+          `rbac.persist.failed job=${jobId}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
   }
 
   // The bridge's ensureLinked needs our local users.id; the webhook
