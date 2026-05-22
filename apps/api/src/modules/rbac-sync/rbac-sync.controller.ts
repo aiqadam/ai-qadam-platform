@@ -5,18 +5,13 @@ import { RbacSyncService } from './rbac-sync.service';
 import { RbacWebhookGuard } from './rbac-webhook.guard';
 
 // F-S2.2-b (ADR-0021 §5) — Authentik notification transport POSTs here
-// on Group.users model_updated events. HMAC verified upstream by
-// RbacWebhookGuard.
+// on Group.users model_updated events. Auth via URL-path secret
+// (RbacWebhookGuard) — Authentik's Generic Webhook transport can't add
+// custom auth headers, so the secret rides in the URL path.
 //
-// Authentik notification payload shape (simplified — Authentik nests
-// the actual change inside a notification envelope; the relevant bits
-// we care about are the affected user pk + the action verb):
-//   { user_pk: number, action: "model_updated" | "model_created" | ... }
-//
-// Authentik's notification transport supports a custom JSON body
-// template; the runbook (follow-up to F-S2.2-b) configures the template
-// to send `{ "user_pk": {{ user.pk }}, "action": "{{ model.action }}" }`
-// so the API receives a stable shape.
+// Authentik notification body template (configured in the notification
+// transport's webhook_mapping):
+//   { "user_pk": {{ event.user.pk }}, "action": "{{ model.action }}" }
 
 const webhookPayloadSchema = z
   .object({
@@ -29,7 +24,11 @@ const webhookPayloadSchema = z
 export class RbacSyncController {
   constructor(private readonly rbac: RbacSyncService) {}
 
-  @Post('authentik-webhook')
+  // URL contains the shared secret as the last path segment per the
+  // RbacWebhookGuard contract. Operators configure the full URL once
+  // in Authentik's notification transport; rotation = update env +
+  // Authentik URL in lockstep.
+  @Post('authentik-webhook/:secret')
   @UseGuards(RbacWebhookGuard)
   @HttpCode(202)
   async webhook(@Body() body: unknown): Promise<{ accepted: true; job_id: string }> {

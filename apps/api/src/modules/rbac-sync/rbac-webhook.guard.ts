@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 import {
   type CanActivate,
   type ExecutionContext,
@@ -9,19 +9,18 @@ import {
 import type { Request } from 'express';
 import { env } from '../../config/env';
 
-// F-S2.2 (ADR-0021 §5) — HMAC-SHA256 verification for the Authentik
-// webhook. Signature must arrive as `X-Aiqadam-Signature: sha256=<hex>`
-// computed over the raw request body using AUTHENTIK_WEBHOOK_SECRET.
+// F-S2.2 (ADR-0021 §5) — webhook auth via URL-path secret.
 //
-// When the secret is unset, the endpoint returns 503 — this lets the
-// API boot cleanly in CI / during the Authentik-side configuration
-// window without making the webhook a hard prerequisite.
-
-const SIG_HEADER = 'x-aiqadam-signature';
-
-interface RawBodyRequest extends Request {
-  rawBody?: Buffer;
-}
+// Original PR #201 used HMAC-SHA256 over the raw body. That approach
+// required the upstream to set an Authorization header — but
+// Authentik's Generic Webhook transport (the only mode available in
+// CE 2026.x) exposes only { url, body template, content-type }. It
+// cannot inject custom headers. Switched to URL-path secret (Slack/
+// GitHub-style: caller knows the URL, the URL itself is the credential).
+// Timing-safe compare on the path segment.
+//
+// Same env var (AUTHENTIK_WEBHOOK_SECRET) — operators rotate it by
+// changing the env + updating Authentik's webhook URL in lockstep.
 
 @Injectable()
 export class RbacWebhookGuard implements CanActivate {
@@ -29,27 +28,18 @@ export class RbacWebhookGuard implements CanActivate {
     if (!env.AUTHENTIK_WEBHOOK_SECRET) {
       throw new ServiceUnavailableException('rbac_webhook_not_configured');
     }
-    const req = context.switchToHttp().getRequest<RawBodyRequest>();
-    const raw = req.rawBody;
-    if (!raw || raw.length === 0) {
-      throw new UnauthorizedException('missing_body');
+    const req = context.switchToHttp().getRequest<Request>();
+    const provided = req.params?.secret;
+    if (typeof provided !== 'string' || provided.length === 0) {
+      throw new UnauthorizedException('missing_secret');
     }
-    const provided = req.header(SIG_HEADER);
-    if (!provided) {
-      throw new UnauthorizedException('missing_signature');
-    }
-    const match = /^sha256=([0-9a-f]{64})$/i.exec(provided);
-    if (!match) {
-      throw new UnauthorizedException('signature_format_invalid');
-    }
-    const expected = createHmac('sha256', env.AUTHENTIK_WEBHOOK_SECRET).update(raw).digest('hex');
-    const providedBuf = Buffer.from(match[1] ?? '', 'hex');
-    const expectedBuf = Buffer.from(expected, 'hex');
+    const providedBuf = Buffer.from(provided);
+    const expectedBuf = Buffer.from(env.AUTHENTIK_WEBHOOK_SECRET);
     if (providedBuf.length !== expectedBuf.length) {
-      throw new UnauthorizedException('signature_mismatch');
+      throw new UnauthorizedException('secret_mismatch');
     }
     if (!timingSafeEqual(providedBuf, expectedBuf)) {
-      throw new UnauthorizedException('signature_mismatch');
+      throw new UnauthorizedException('secret_mismatch');
     }
     return true;
   }
