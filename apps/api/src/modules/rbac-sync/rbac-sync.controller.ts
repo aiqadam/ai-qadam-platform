@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
+import { InternalAuthGuard } from '../internal/internal-auth.guard';
 import { RbacSyncService } from './rbac-sync.service';
 import { RbacWebhookGuard } from './rbac-webhook.guard';
 
@@ -44,5 +45,15 @@ export class RbacSyncController {
       triggeredBy: 'webhook',
     });
     return { accepted: true, job_id: result.job_id };
+  }
+
+  // F-S2.2-f — nightly poll entrypoint. External scheduler (GH Actions
+  // cron or host systemd timer) POSTs once per night to catch missed
+  // webhooks + hand-edits per ADR-0021 §5.
+  @Post('poll')
+  @UseGuards(InternalAuthGuard)
+  @HttpCode(200)
+  async poll(): Promise<{ scanned: number; jobs_created: number; errors: number }> {
+    return this.rbac.pollAllUsers();
   }
 }

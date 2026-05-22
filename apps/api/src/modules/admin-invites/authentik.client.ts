@@ -111,6 +111,19 @@ export class AuthentikClient {
     }
   }
 
+  // List active users — used by the F-S2.2-f nightly poll. At our scale
+  // (≤100 operators in the foreseeable future) one page is enough; we
+  // hardcode page_size=500. When the operator count exceeds that, add
+  // pagination via the `next` URL Authentik returns in pagination meta.
+  async listActiveUsers(): Promise<AuthentikUser[]> {
+    const qs = new URLSearchParams({ is_active: 'true', page_size: '500' });
+    const res = await this.request<{ results: AuthentikUser[] }>(
+      'GET',
+      `/api/v3/core/users/?${qs.toString()}`,
+    );
+    return res.results;
+  }
+
   // Resolve a list of group names (e.g. "aiqadam-super-admin") to their
   // pk UUIDs. Authentik's user-update endpoint takes pks, not slugs.
   async resolveGroupNames(names: string[]): Promise<AuthentikGroup[]> {

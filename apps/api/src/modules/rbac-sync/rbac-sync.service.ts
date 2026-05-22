@@ -214,6 +214,37 @@ export class RbacSyncService {
       });
   }
 
+  // F-S2.2-f — nightly poll. Called by the internal cron endpoint.
+  // Walks every active Authentik user + runs intakeWebhook(triggered_by:
+  // 'poll') for each. Catches drift from missed webhooks + hand-edits.
+  async pollAllUsers(): Promise<{ scanned: number; jobs_created: number; errors: number }> {
+    const start = Date.now();
+    const users = await this.authentik.listActiveUsers();
+    let jobsCreated = 0;
+    let errors = 0;
+    for (const user of users) {
+      try {
+        const r = await this.intakeWebhook({ userPk: user.pk, triggeredBy: 'poll' });
+        if (r.job_id) jobsCreated += 1;
+      } catch (err) {
+        errors += 1;
+        this.logger.warn(
+          `rbac.poll.user_failed pk=${user.pk}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+    const summary = { scanned: users.length, jobs_created: jobsCreated, errors };
+    await this.audit.emit({
+      event: 'rbac.sync.poll_completed',
+      severity: errors > 0 ? 'high' : 'info',
+      targetKind: 'rbac_poll',
+      targetId: new Date().toISOString(),
+      payload: { ...summary, duration_ms: Date.now() - start },
+    });
+    this.logger.log({ event: 'rbac.sync.poll_completed', ...summary });
+    return summary;
+  }
+
   // The bridge's ensureLinked needs our local users.id; the webhook
   // path only knows the Authentik side. We look the user up in
   // directus_users by email directly. We deliberately do NOT auto-
