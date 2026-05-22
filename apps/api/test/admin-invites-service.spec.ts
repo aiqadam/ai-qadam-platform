@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminInvitesService } from '../src/modules/admin-invites/admin-invites.service';
 import { AuthentikError } from '../src/modules/admin-invites/authentik.client';
 import type { AuthentikClient } from '../src/modules/admin-invites/authentik.client';
+import { CloudflareRoutingError } from '../src/modules/admin-invites/cloudflare-routing.client';
+import type { CloudflareRoutingClient } from '../src/modules/admin-invites/cloudflare-routing.client';
+import { ResendAdminError } from '../src/modules/admin-invites/resend-admin.client';
+import type { ResendAdminClient } from '../src/modules/admin-invites/resend-admin.client';
 import type { AuditEventsService } from '../src/modules/audit/audit-events.service';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
@@ -28,11 +32,21 @@ type FakeBridge = {
 type FakeAudit = {
   emit: ReturnType<typeof vi.fn>;
 };
+type FakeCloudflare = {
+  isConfigured: ReturnType<typeof vi.fn>;
+  createRoutingRule: ReturnType<typeof vi.fn>;
+};
+type FakeResendAdmin = {
+  isConfigured: ReturnType<typeof vi.fn>;
+  createPerOperatorKey: ReturnType<typeof vi.fn>;
+};
 
 let directus: FakeDirectus;
 let authentik: FakeAuthentik;
 let bridge: FakeBridge;
 let audit: FakeAudit;
+let cloudflare: FakeCloudflare;
+let resendAdmin: FakeResendAdmin;
 let svc: AdminInvitesService;
 
 beforeEach(() => {
@@ -62,11 +76,23 @@ beforeEach(() => {
   audit = {
     emit: vi.fn().mockResolvedValue(undefined),
   };
+  cloudflare = {
+    isConfigured: vi.fn().mockReturnValue(true),
+    createRoutingRule: vi.fn().mockResolvedValue({ rule_id: 'cf-rule-1', already_existed: false }),
+  };
+  resendAdmin = {
+    isConfigured: vi.fn().mockReturnValue(true),
+    createPerOperatorKey: vi
+      .fn()
+      .mockResolvedValue({ id: 'rsk_abc', token: 're_plaintextxxxxxxxxxxxxxxxx' }),
+  };
   svc = new AdminInvitesService(
     directus as unknown as DirectusClient,
     authentik as unknown as AuthentikClient,
     bridge as unknown as DirectusUsersBridgeService,
     audit as unknown as AuditEventsService,
+    cloudflare as unknown as CloudflareRoutingClient,
+    resendAdmin as unknown as ResendAdminClient,
   );
 });
 
@@ -200,5 +226,175 @@ describe('revokeInvite', () => {
     });
     await expect(svc.revokeInvite('invite-x', 'caller')).rejects.toThrow(/invite_consumed/);
     expect(directus.patch).not.toHaveBeenCalled();
+  });
+});
+
+// ---- F-S2.8: Cloudflare + Resend per-operator key automation -------
+
+describe('createInvite — F-S2.8 email automation', () => {
+  it('runs CF + Resend when destination_gmail set + email is @aiqadam.org', async () => {
+    const res = await svc.createInvite(
+      {
+        email: 'binali.rustamov@aiqadam.org',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+        destination_gmail: 'binali.personal@gmail.com',
+      },
+      'caller',
+    );
+    expect(cloudflare.createRoutingRule).toHaveBeenCalledWith({
+      alias: 'binali.rustamov@aiqadam.org',
+      destination: 'binali.personal@gmail.com',
+    });
+    expect(resendAdmin.createPerOperatorKey).toHaveBeenCalledWith({
+      operatorEmail: 'binali.rustamov@aiqadam.org',
+    });
+    expect(res.email_automation).toBeDefined();
+    expect(res.email_automation?.cf_rule_id).toBe('cf-rule-1');
+    expect(res.email_automation?.resend_key_id).toBe('rsk_abc');
+    expect(res.email_automation?.resend_key_plaintext).toBe('re_plaintextxxxxxxxxxxxxxxxx');
+    expect(res.email_automation?.partial_failures).toEqual([]);
+  });
+
+  it('skips automation when destination_gmail is omitted', async () => {
+    const res = await svc.createInvite(
+      {
+        email: 'binali.rustamov@aiqadam.org',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+      },
+      'caller',
+    );
+    expect(cloudflare.createRoutingRule).not.toHaveBeenCalled();
+    expect(resendAdmin.createPerOperatorKey).not.toHaveBeenCalled();
+    expect(res.email_automation).toBeUndefined();
+  });
+
+  it('skips automation when email is not @aiqadam.org', async () => {
+    const res = await svc.createInvite(
+      {
+        email: 'volunteer@gmail.com',
+        role_groups: ['aiqadam-staff'],
+        delivery_channel: 'copy_paste',
+        destination_gmail: 'volunteer@gmail.com',
+      },
+      'caller',
+    );
+    expect(cloudflare.createRoutingRule).not.toHaveBeenCalled();
+    expect(resendAdmin.createPerOperatorKey).not.toHaveBeenCalled();
+    expect(res.email_automation).toBeUndefined();
+  });
+
+  it('records partial_failures when Cloudflare throws — invite still created', async () => {
+    cloudflare.createRoutingRule.mockRejectedValueOnce(
+      new CloudflareRoutingError(403, '/zones/x/email/routing/rules', '{"error":"forbidden"}'),
+    );
+    const res = await svc.createInvite(
+      {
+        email: 'binali.rustamov@aiqadam.org',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+        destination_gmail: 'binali.personal@gmail.com',
+      },
+      'caller',
+    );
+    // Invite itself succeeded.
+    expect(res.invite_id).toBe('invite-uuid-1');
+    expect(directus.post).toHaveBeenCalled();
+    // Resend still ran.
+    expect(res.email_automation?.resend_key_id).toBe('rsk_abc');
+    // CF failure recorded.
+    expect(res.email_automation?.cf_rule_id).toBeUndefined();
+    expect(res.email_automation?.partial_failures.some((f) => f.startsWith('cloudflare:'))).toBe(
+      true,
+    );
+  });
+
+  it('records partial_failures when Resend throws — invite still created', async () => {
+    resendAdmin.createPerOperatorKey.mockRejectedValueOnce(
+      new ResendAdminError(401, '/api-keys', '{"name":"missing_api_key"}'),
+    );
+    const res = await svc.createInvite(
+      {
+        email: 'binali.rustamov@aiqadam.org',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+        destination_gmail: 'binali.personal@gmail.com',
+      },
+      'caller',
+    );
+    expect(res.email_automation?.cf_rule_id).toBe('cf-rule-1');
+    expect(res.email_automation?.resend_key_id).toBeUndefined();
+    expect(res.email_automation?.partial_failures.some((f) => f.startsWith('resend:'))).toBe(true);
+  });
+
+  it('records not_configured when isConfigured returns false', async () => {
+    cloudflare.isConfigured.mockReturnValueOnce(false);
+    resendAdmin.isConfigured.mockReturnValueOnce(false);
+    const res = await svc.createInvite(
+      {
+        email: 'binali.rustamov@aiqadam.org',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+        destination_gmail: 'binali.personal@gmail.com',
+      },
+      'caller',
+    );
+    expect(cloudflare.createRoutingRule).not.toHaveBeenCalled();
+    expect(resendAdmin.createPerOperatorKey).not.toHaveBeenCalled();
+    expect(res.email_automation?.partial_failures).toEqual(
+      expect.arrayContaining(['cloudflare:not_configured', 'resend:not_configured']),
+    );
+  });
+
+  it('CF + Resend run in parallel even when one fails', async () => {
+    // Both promises start before either resolves — verify by checking
+    // both mocks were CALLED before either resolution.
+    let cfStarted = false;
+    let resendStarted = false;
+    cloudflare.createRoutingRule.mockImplementationOnce(async () => {
+      cfStarted = true;
+      // After this returns, Resend mock should already have been called.
+      expect(resendStarted).toBe(true);
+      throw new CloudflareRoutingError(502, '/', 'gateway');
+    });
+    resendAdmin.createPerOperatorKey.mockImplementationOnce(async () => {
+      resendStarted = true;
+      return { id: 'rsk_p', token: 're_p' };
+    });
+    const res = await svc.createInvite(
+      {
+        email: 'binali.rustamov@aiqadam.org',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+        destination_gmail: 'binali.personal@gmail.com',
+      },
+      'caller',
+    );
+    expect(cfStarted).toBe(true);
+    expect(resendStarted).toBe(true);
+    expect(res.email_automation?.resend_key_id).toBe('rsk_p');
+    expect(res.email_automation?.cf_rule_id).toBeUndefined();
+  });
+
+  it('does NOT log the plaintext Resend key to console', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await svc.createInvite(
+      {
+        email: 'binali.rustamov@aiqadam.org',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+        destination_gmail: 'binali.personal@gmail.com',
+      },
+      'caller',
+    );
+    const calls = [...consoleSpy.mock.calls, ...errSpy.mock.calls, ...warnSpy.mock.calls].flat();
+    const joined = calls.map((a) => String(a)).join(' ');
+    expect(joined).not.toContain('re_plaintextxxxxxxxxxxxxxxxx');
+    consoleSpy.mockRestore();
+    errSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });

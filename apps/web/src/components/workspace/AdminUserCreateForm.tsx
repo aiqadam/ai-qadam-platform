@@ -30,6 +30,16 @@ interface CreateResult {
   invite_url: string;
   token_prefix: string;
   expires_at: string;
+  // F-S2.8 — present when destination_gmail was supplied + the
+  // invitee is @aiqadam.org. cf_rule_id / resend_key_* are absent
+  // when the corresponding partial failure prevented that step.
+  email_automation?: {
+    cf_rule_id?: string;
+    cf_rule_already_existed?: boolean;
+    resend_key_id?: string;
+    resend_key_plaintext?: string;
+    partial_failures: string[];
+  };
 }
 
 type State =
@@ -69,7 +79,14 @@ export default function AdminUserCreateForm(): ReactElement {
   const [role, setRole] = useState<Role>('aiqadam-staff');
   const [deliveryChannel, setDeliveryChannel] = useState<'email' | 'copy_paste'>('copy_paste');
   const [notes, setNotes] = useState('');
+  const [destinationGmail, setDestinationGmail] = useState('');
   const [copied, setCopied] = useState(false);
+  const [keyCopied, setKeyCopied] = useState(false);
+
+  // F-S2.8: the destination_gmail field is only meaningful for
+  // @aiqadam.org invites. Hide for everyone else (volunteers, partners,
+  // anyone with a personal email) so it doesn't confuse the form.
+  const isAiqadamOrg = email.trim().toLowerCase().endsWith('@aiqadam.org');
 
   useEffect(() => {
     bootstrap().then(setState);
@@ -109,19 +126,7 @@ export default function AdminUserCreateForm(): ReactElement {
           <strong>{new Date(state.result.expires_at).toLocaleString()}</strong> and can only be used
           once. <strong>You will NOT see this URL again</strong> — copy it now.
         </p>
-        <div
-          style={{
-            padding: 12,
-            background: 'var(--muted)',
-            borderRadius: 8,
-            wordBreak: 'break-all',
-            fontFamily: 'monospace',
-            fontSize: 13,
-            margin: '16px 0',
-          }}
-        >
-          {state.result.invite_url}
-        </div>
+        <div style={codeBlockStyle()}>{state.result.invite_url}</div>
         <button
           type="button"
           className="btn"
@@ -136,6 +141,17 @@ export default function AdminUserCreateForm(): ReactElement {
         <a className="btn" href="/workspace/admin/users" style={{ marginLeft: 8 }}>
           Back to operators
         </a>
+        {state.result.email_automation && (
+          <EmailAutomationPanel
+            automation={state.result.email_automation}
+            keyCopied={keyCopied}
+            onCopyKey={async (k) => {
+              await navigator.clipboard.writeText(k);
+              setKeyCopied(true);
+              setTimeout(() => setKeyCopied(false), 2000);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -156,6 +172,7 @@ export default function AdminUserCreateForm(): ReactElement {
         role_groups: [role],
         delivery_channel: deliveryChannel,
         notes: notes || undefined,
+        destination_gmail: isAiqadamOrg && destinationGmail ? destinationGmail : undefined,
       }),
     });
     if (!res.ok) {
@@ -229,6 +246,27 @@ export default function AdminUserCreateForm(): ReactElement {
         />
       </label>
 
+      {isAiqadamOrg && (
+        <label style={labelStyle()}>
+          <span>
+            Destination Gmail (forwarding target for <code>{email.trim().toLowerCase()}</code>)
+          </span>
+          <input
+            type="email"
+            value={destinationGmail}
+            onChange={(e) => setDestinationGmail(e.target.value)}
+            maxLength={254}
+            placeholder="binali.personal@gmail.com"
+            style={inputStyle()}
+          />
+          <small style={{ display: 'block', marginTop: 6, color: 'var(--muted-foreground)' }}>
+            Optional. If set, a Cloudflare Email Routing rule and per-operator Resend API key will
+            be provisioned automatically. The Gmail address must already be verified as a Cloudflare
+            destination — the operator gets a one-click confirmation email the first time.
+          </small>
+        </label>
+      )}
+
       {errorMsg && (
         <p style={{ color: 'var(--destructive)', fontSize: 14 }}>
           <code>{errorMsg}</code>
@@ -276,4 +314,99 @@ function inputStyle(): React.CSSProperties {
     color: 'var(--foreground)',
     marginTop: 4,
   };
+}
+function codeBlockStyle(): React.CSSProperties {
+  return {
+    padding: 12,
+    background: 'var(--muted)',
+    borderRadius: 8,
+    wordBreak: 'break-all',
+    fontFamily: 'monospace',
+    fontSize: 13,
+    margin: '16px 0',
+  };
+}
+
+// F-S2.8 — surfaces CF rule + Resend per-operator key + any partial
+// failures. resend_key_plaintext is shown ONCE; the admin must paste
+// it to the operator via secure channel (1Password share, not chat).
+function EmailAutomationPanel({
+  automation,
+  keyCopied,
+  onCopyKey,
+}: {
+  automation: NonNullable<CreateResult['email_automation']>;
+  keyCopied: boolean;
+  onCopyKey: (k: string) => void;
+}): ReactElement {
+  const hasFailures = automation.partial_failures.length > 0;
+  return (
+    <div style={{ ...panelStyle(), marginTop: 24, padding: 24 }}>
+      <h3 style={{ ...h2Style(), fontSize: 18 }}>Email automation</h3>
+      <ul style={{ paddingLeft: 18, margin: '0 0 16px', fontSize: 14, lineHeight: 1.7 }}>
+        <li>
+          Cloudflare rule:{' '}
+          {automation.cf_rule_id ? (
+            <span>
+              ✓ {automation.cf_rule_already_existed ? 'already existed' : 'created'} (
+              <code>{automation.cf_rule_id}</code>)
+            </span>
+          ) : (
+            <span style={{ color: 'var(--destructive)' }}>not created — see failures below</span>
+          )}
+        </li>
+        <li>
+          Resend per-operator key:{' '}
+          {automation.resend_key_id ? (
+            <span>
+              ✓ created (<code>{automation.resend_key_id}</code>)
+            </span>
+          ) : (
+            <span style={{ color: 'var(--destructive)' }}>not created — see failures below</span>
+          )}
+        </li>
+      </ul>
+      {automation.resend_key_plaintext && (
+        <>
+          <p style={mutedStyle()}>
+            <strong>Resend API key (shown once):</strong> paste this into the operator's setup
+            instructions via a SECURE channel (1Password share, not Telegram / unencrypted email).
+            You will NOT see this value again.
+          </p>
+          <div style={codeBlockStyle()}>{automation.resend_key_plaintext}</div>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              const k = automation.resend_key_plaintext;
+              if (k) onCopyKey(k);
+            }}
+          >
+            {keyCopied ? '✓ Copied' : 'Copy Resend key'}
+          </button>
+        </>
+      )}
+      {hasFailures && (
+        <>
+          <p
+            style={{
+              ...mutedStyle(),
+              marginTop: 16,
+              color: 'var(--destructive)',
+              fontWeight: 600,
+            }}
+          >
+            Partial failures — manual setup required for the parts below:
+          </p>
+          <ul style={{ paddingLeft: 18, margin: '0', fontSize: 13, color: 'var(--destructive)' }}>
+            {automation.partial_failures.map((f) => (
+              <li key={f}>
+                <code>{f}</code>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
 }

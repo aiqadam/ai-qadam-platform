@@ -5,7 +5,9 @@ import { DirectusModule } from '../directus/directus.module';
 import { AdminInvitesController } from './admin-invites.controller';
 import { AdminInvitesService } from './admin-invites.service';
 import { AuthentikModule } from './authentik.module';
+import { CloudflareRoutingClient } from './cloudflare-routing.client';
 import { OnboardingController } from './onboarding.controller';
+import { ResendAdminClient } from './resend-admin.client';
 
 // F-S2.7 (ADR-0035). Two controllers in one module:
 //   - AdminInvitesController (super-admin gated) — /v1/admin/invites/*
@@ -19,7 +21,7 @@ import { OnboardingController } from './onboarding.controller';
 
 @Module({
   imports: [DirectusModule, AuthModule, AuthentikModule, AuditModule],
-  providers: [AdminInvitesService],
+  providers: [AdminInvitesService, CloudflareRoutingClient, ResendAdminClient],
   controllers: [AdminInvitesController, OnboardingController],
   exports: [AdminInvitesService],
 })

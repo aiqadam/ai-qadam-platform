@@ -5,6 +5,8 @@ import {
   AdminInvitesService,
 } from '../src/modules/admin-invites/admin-invites.service';
 import type { AuthentikClient } from '../src/modules/admin-invites/authentik.client';
+import type { CloudflareRoutingClient } from '../src/modules/admin-invites/cloudflare-routing.client';
+import type { ResendAdminClient } from '../src/modules/admin-invites/resend-admin.client';
 import type { AuditEventsService } from '../src/modules/audit/audit-events.service';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
@@ -71,11 +73,21 @@ beforeEach(() => {
   };
   bridge = { resolveDirectusId: vi.fn().mockResolvedValue('directus-uuid-of-caller') };
   audit = { emit: vi.fn().mockResolvedValue(undefined) };
+  const cloudflare = {
+    isConfigured: vi.fn().mockReturnValue(false),
+    createRoutingRule: vi.fn(),
+  };
+  const resendAdmin = {
+    isConfigured: vi.fn().mockReturnValue(false),
+    createPerOperatorKey: vi.fn(),
+  };
   svc = new AdminInvitesService(
     directus as unknown as DirectusClient,
     authentik as unknown as AuthentikClient,
     bridge as unknown as DirectusUsersBridgeService,
     audit as unknown as AuditEventsService,
+    cloudflare as unknown as CloudflareRoutingClient,
+    resendAdmin as unknown as ResendAdminClient,
   );
 });
 

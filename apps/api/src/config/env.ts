@@ -153,6 +153,48 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
+
+  // F-S2.8 — Cloudflare Email Routing + Resend admin automation at
+  // invite-creation time. When an admin invites someone at an
+  // @aiqadam.org address AND supplies a destination Gmail, the API
+  // provisions: (1) a CF Email Routing rule forwarding the alias to
+  // the Gmail, (2) a per-operator Resend API key with sending_access.
+  //
+  // Both creds follow the same degraded-mode posture as the rest of
+  // this file: optional in env; when unset the corresponding client's
+  // isConfigured() returns false and createInvite() skips that step,
+  // recording a partial_failures entry so the admin knows manual
+  // setup is still required. Code boots fine without them — meaning
+  // local dev + CI work, and the F-S2.7 invite flow is unaffected.
+  //
+  // **Cloudflare token scope (least-privilege):**
+  //   - Zone → Email Routing Rules → Edit
+  //   - Zone → Email Routing Settings → Read
+  //   - Zone Resources: Include → Specific zone → aiqadam.org
+  // Rotation runbook: docs/runbooks/secret-rotation-cloudflare-resend-admin.md.
+  //
+  // **Resend admin key scope:** Full Access (required to create
+  // sub-keys via /v1/api-keys). Distinct from RESEND_API_KEY which is
+  // the platform sending key. Same rotation runbook.
+  // Empty-string-to-undefined preprocessor: Coolify often stores empty
+  // strings for unset env vars; treat them as "not configured" rather
+  // than failing schema validation on `.min(20)`. Keeps the degraded
+  // mode predictable.
+  CLOUDFLARE_API_TOKEN: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(20).optional(),
+  ),
+  CLOUDFLARE_ZONE_ID: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^[0-9a-f]{32}$/, 'must be 32 hex chars (Cloudflare zone id)')
+      .optional(),
+  ),
+  RESEND_ADMIN_API_KEY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(20).optional(),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);
