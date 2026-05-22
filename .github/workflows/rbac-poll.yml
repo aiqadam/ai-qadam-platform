@@ -29,7 +29,7 @@ jobs:
             --write-out "%{http_code}" \
             --output "$response" \
             -X POST \
-            -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+            -H "X-Internal-Auth: $INTERNAL_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{}" \
             "https://aiqadam.org/api/v1/internal/rbac/poll")
