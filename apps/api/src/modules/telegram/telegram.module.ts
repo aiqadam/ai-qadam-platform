@@ -1,17 +1,14 @@
 import { Module } from '@nestjs/common';
+import { DB, db } from '../../db';
+import { DirectusModule } from '../directus/directus.module';
+import { EmailModule } from '../email/email.module';
 import { TelegramController, TelegramPublicController } from './telegram.controller';
+import { TelegramService } from './telegram.service';
 
-// Module shell. Subsequent PRs add the service layer (link, audit,
-// outbox-relay) per ADR-0034 §"Sequenced PR plan". Kept intentionally
-// thin so the foundation lands without coupling to features that may
-// land out of order during A2–A6.
-//
-// Two controllers on the same path prefix — the public one exposes
-// /health (no auth) so the bot can detect the degraded "not configured"
-// state at boot. Everything else is gated by TelegramAuthGuard.
 @Module({
-  imports: [],
+  imports: [DirectusModule, EmailModule],
   controllers: [TelegramPublicController, TelegramController],
-  providers: [],
+  providers: [{ provide: DB, useValue: db }, TelegramService],
+  exports: [TelegramService],
 })
 export class TelegramModule {}
