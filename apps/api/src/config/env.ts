@@ -127,11 +127,11 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
 
-  // Base URL the invitee opens (e.g. https://workspace.aiqadam.org). The
-  // /onboard route lives on the web app, so this typically equals
-  // WEB_BASE_URL — kept separate so the link channel can be swapped
-  // (workspace.aiqadam.org vs aiqadam.org) without touching auth.
-  INVITE_URL_BASE: z.string().url().default('https://workspace.aiqadam.org'),
+  // Base URL the invitee opens. The /onboard route lives on the web app
+  // and redirects to /workspace after success (see OnboardingForm). Kept
+  // separate from WEB_BASE_URL so the link channel can be swapped without
+  // touching auth.
+  INVITE_URL_BASE: z.string().url().default('https://aiqadam.org'),
   INVITE_TTL_DAYS: z.coerce.number().int().positive().max(30).default(7),
 
   // F-S2.2 (ADR-0021) RBAC sync. Authentik notification transport signs
