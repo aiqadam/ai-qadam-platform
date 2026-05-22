@@ -92,6 +92,13 @@
       "when": 1779386734412,
       "tag": "0012_telegram_a3",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779434541964,
+      "tag": "0013_tg_config",
+      "breakpoints": true
     }
   ]
 }
