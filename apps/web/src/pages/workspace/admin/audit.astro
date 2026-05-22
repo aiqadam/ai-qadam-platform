@@ -1,0 +1,28 @@
+---
+import AuditEventsList from '../../../components/workspace/AuditEventsList';
+import Layout from '../../../layouts/Layout.astro';
+
+// F-S2.5-c — super-admin view of every audit_events row. Severity
+// filter + event-prefix search + country filter. Diff inline via
+// payload_json expand.
+---
+
+<Layout
+  title="Audit log · AI Qadam workspace admin"
+  description="Indelible log of admin + sync + consent events."
+>
+  <main style="max-width: 1280px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace">← Workspace</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Audit log
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Append-only record of admin actions, RBAC syncs, invite lifecycle, and consent changes.
+    </p>
+    <AuditEventsList client:load />
+  </main>
+</Layout>

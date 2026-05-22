@@ -1,0 +1,27 @@
+---
+import MeAccessLog from '../../components/MeAccessLog';
+import Layout from '../../layouts/Layout.astro';
+
+// F-S2.5-c — member-facing transparency. Lists audit_events where the
+// signed-in user is the actor or the target. v1 shows admin actions
+// touching the account; read-access tracking comes later as we
+// instrument PII consumers.
+---
+
+<Layout
+  title="Your access log · AI Qadam"
+  description="A record of actions involving your AI Qadam account."
+>
+  <main style="max-width: 720px; margin: 0 auto; padding: 64px 32px;">
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 28px; margin: 0 0 12px;"
+    >
+      Your access log
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 32px;">
+      Recent admin actions, sync events, and consent changes touching your account. Read access by
+      partners is added as we instrument it.
+    </p>
+    <MeAccessLog client:load />
+  </main>
+</Layout>
