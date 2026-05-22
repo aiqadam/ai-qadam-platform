@@ -3,9 +3,11 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   Param,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -17,6 +19,7 @@ import {
   ALLOWED_ROLE_GROUPS,
   AdminInvitesService,
   type CreateInviteResult,
+  type InviteSummary,
   type RoleGroup,
 } from './admin-invites.service';
 import { SuperAdminGuard } from './super-admin.guard';
@@ -54,6 +57,14 @@ export class AdminInvitesController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.invites.createInvite(parsed.data, callerId);
+  }
+
+  @Get()
+  async list(@Query('status') status?: string): Promise<{ invites: InviteSummary[] }> {
+    const allowed = ['pending', 'consumed', 'revoked', 'expired'] as const;
+    const filter = allowed.find((s) => s === status);
+    const invites = await this.invites.listInvites(filter);
+    return { invites };
   }
 
   @Delete(':id')

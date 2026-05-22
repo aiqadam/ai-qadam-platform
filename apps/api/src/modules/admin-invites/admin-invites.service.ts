@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   Injectable,
   Logger,
   NotFoundException,
@@ -51,8 +52,46 @@ export interface CreateInviteResult {
 }
 
 interface InviteRow {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role_groups: RoleGroup[];
+  country: 'uz' | 'kz' | 'tj' | 'xx' | null;
   status: 'pending' | 'consumed' | 'revoked' | 'expired';
+  token_hash: string;
+  token_prefix: string;
+  created_at: string;
+  expires_at: string;
   authentik_user_id: number | null;
+  delivery_channel: 'email' | 'telegram' | 'copy_paste' | null;
+}
+
+export interface InviteSummary {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role_groups: RoleGroup[];
+  country: 'uz' | 'kz' | 'tj' | 'xx' | null;
+  status: InviteRow['status'];
+  token_prefix: string;
+  created_at: string;
+  expires_at: string;
+  delivery_channel: InviteRow['delivery_channel'];
+}
+
+export interface InvitePreview {
+  email: string;
+  display_name: string | null;
+  role_groups: RoleGroup[];
+  country: 'uz' | 'kz' | 'tj' | 'xx' | null;
+  expires_at: string;
+  aup_version: string;
+}
+
+export interface ConsumeInviteInput {
+  token: string;
+  password: string;
+  aup_accepted: boolean;
 }
 
 @Injectable()
@@ -153,6 +192,89 @@ export class AdminInvitesService {
     );
     if (!res.data) throw new NotFoundException('invite_not_found');
     return res.data;
+  }
+
+  // PR-4: admin list. Excludes token_hash so the API never echoes the
+  // hash even to super-admins. Filter values are clipped to the status
+  // enum at the controller.
+  async listInvites(status?: InviteRow['status']): Promise<InviteSummary[]> {
+    const fields =
+      'id,email,display_name,role_groups,country,status,token_prefix,created_at,expires_at,delivery_channel';
+    const filter = status
+      ? `&filter=${encodeURIComponent(JSON.stringify({ status: { _eq: status } }))}`
+      : '';
+    const res = await this.directus.get<{ data: InviteSummary[] }>(
+      `/items/operator_invites?fields=${fields}&sort=-created_at&limit=200${filter}`,
+    );
+    return res.data;
+  }
+
+  // PR-4: public — invitee opens /onboard?token=... and we surface the
+  // safe shape (no token_hash, no Authentik internals). Token-hash
+  // lookup is constant-time-ish at the DB level (single indexed scan).
+  async previewInvite(plaintextToken: string): Promise<InvitePreview> {
+    const row = await this.lookupByToken(plaintextToken);
+    return {
+      email: row.email,
+      display_name: row.display_name,
+      role_groups: row.role_groups,
+      country: row.country,
+      expires_at: row.expires_at,
+      aup_version: AUP_CURRENT_VERSION,
+    };
+  }
+
+  // PR-4: public — invitee submits new password + AUP acknowledgement.
+  // Sets Authentik password, marks invite consumed. RBAC group
+  // assignment downstream is left to F-S2.2 RBAC sync OR the next
+  // admin action; we do not re-write role_groups to Authentik here
+  // because PR-2 only provided setUserGroups (replace semantics) and
+  // we'd need to merge with existing groups — punt for v1.
+  async consumeInvite(input: ConsumeInviteInput): Promise<{ ok: true }> {
+    if (!input.aup_accepted) {
+      throw new BadRequestException('aup_not_accepted');
+    }
+    if (input.password.length < 12) {
+      throw new BadRequestException('password_too_short');
+    }
+    const row = await this.lookupByToken(input.token);
+    if (row.authentik_user_id == null) {
+      throw new ConflictException('invite_missing_authentik_user');
+    }
+    await this.authentik.setPassword(row.authentik_user_id, input.password);
+    const now = new Date().toISOString();
+    await this.directus.patch(`/items/operator_invites/${encodeURIComponent(row.id)}`, {
+      status: 'consumed',
+      consumed_at: now,
+      aup_accepted_at: now,
+      aup_version: AUP_CURRENT_VERSION,
+    });
+    this.logger.log({
+      event: 'invite.consumed',
+      invite_id: row.id,
+      target_email: row.email,
+      ts: now,
+    });
+    return { ok: true };
+  }
+
+  private async lookupByToken(plaintext: string): Promise<InviteRow> {
+    if (plaintext.length < 16 || plaintext.length > 128) {
+      throw new GoneException('invite_invalid');
+    }
+    const hash = createHash('sha256').update(plaintext).digest('hex');
+    const filter = encodeURIComponent(JSON.stringify({ token_hash: { _eq: hash } }));
+    const res = await this.directus.get<{ data: InviteRow[] }>(
+      `/items/operator_invites?filter=${filter}&limit=1`,
+    );
+    const row = res.data[0];
+    if (!row) throw new GoneException('invite_invalid');
+    if (row.status === 'consumed') throw new GoneException('invite_consumed');
+    if (row.status === 'revoked') throw new GoneException('invite_revoked');
+    if (row.status === 'expired' || new Date(row.expires_at) < new Date()) {
+      throw new GoneException('invite_expired');
+    }
+    return row;
   }
 
   private validateInput(input: CreateInviteInput): void {
