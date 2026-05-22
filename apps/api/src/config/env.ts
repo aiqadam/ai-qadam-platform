@@ -65,6 +65,19 @@ const envSchema = z.object({
   // The helper at apps/api/src/lib/ops-events.ts is fire-and-forget; bad
   // values never break the request path.
   PLAUSIBLE_HOST: z.string().default(''),
+
+  // Shared bearer secret for `/v1/telegram/*` endpoints (ADR-0034). The
+  // AI Qadam Telegram bot + notifier pass this in `Authorization: Bearer`
+  // when calling our API. Must match `AIQADAM_SERVICE_TOKEN` in the
+  // viktordrukker/aiqadam-telegram-bot repo's Coolify env.
+  //
+  // **Optional**: when unset, the telegram surface enters a degraded mode
+  // — endpoints return 503 `telegram_not_configured` and the channel
+  // adapter skips with the same reason. The platform doesn't crash; an
+  // operator configures the token via the workspace cabinet later (see
+  // /workspace/integrations/telegram, planned). When set, must be ≥32
+  // chars so timing-safe compare in the guard is meaningful.
+  TELEGRAM_BOT_SERVICE_TOKEN: z.string().min(32).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

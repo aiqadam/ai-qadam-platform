@@ -10,6 +10,7 @@ import { MeProfileModule } from './modules/me-profile/me-profile.module';
 import { PointsModule } from './modules/points/points.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
@@ -25,6 +26,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     InternalModule,
     InteractionsModule,
     PreferencesModule,
+    TelegramModule,
     WorkspaceModule,
     LeadsModule,
     MeProfileModule,

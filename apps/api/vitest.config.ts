@@ -29,6 +29,7 @@ export default defineConfig({
       INTERNAL_API_TOKEN: 'test-internal-api-token-at-least-32-chars-long-pad-pad',
       DIRECTUS_URL: 'http://placeholder.invalid',
       DIRECTUS_TOKEN: 'test-directus-token-placeholder',
+      TELEGRAM_BOT_SERVICE_TOKEN: 'test-telegram-bot-service-token-at-least-32-chars-pad',
     },
     coverage: {
       provider: 'v8',
