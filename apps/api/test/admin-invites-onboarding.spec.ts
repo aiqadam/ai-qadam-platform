@@ -5,6 +5,8 @@ import {
   AdminInvitesService,
 } from '../src/modules/admin-invites/admin-invites.service';
 import type { AuthentikClient } from '../src/modules/admin-invites/authentik.client';
+import type { AuditEventsService } from '../src/modules/audit/audit-events.service';
+import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 
 // PR-4 onboarding-path unit tests. Covers previewInvite, consumeInvite,
@@ -24,8 +26,13 @@ type FakeAuthentik = {
   isConfigured: ReturnType<typeof vi.fn>;
 };
 
+type FakeBridge = { resolveDirectusId: ReturnType<typeof vi.fn> };
+type FakeAudit = { emit: ReturnType<typeof vi.fn> };
+
 let directus: FakeDirectus;
 let authentik: FakeAuthentik;
+let bridge: FakeBridge;
+let audit: FakeAudit;
 let svc: AdminInvitesService;
 
 const VALID_TOKEN = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG'; // 43 chars
@@ -62,9 +69,13 @@ beforeEach(() => {
     createUser: vi.fn(),
     isConfigured: vi.fn().mockReturnValue(true),
   };
+  bridge = { resolveDirectusId: vi.fn().mockResolvedValue('directus-uuid-of-caller') };
+  audit = { emit: vi.fn().mockResolvedValue(undefined) };
   svc = new AdminInvitesService(
     directus as unknown as DirectusClient,
     authentik as unknown as AuthentikClient,
+    bridge as unknown as DirectusUsersBridgeService,
+    audit as unknown as AuditEventsService,
   );
 });
 

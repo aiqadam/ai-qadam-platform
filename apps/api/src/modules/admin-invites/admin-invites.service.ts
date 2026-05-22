@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { env } from '../../config/env';
+import { AuditEventsService } from '../audit/audit-events.service';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
 import { AuthentikClient, AuthentikError } from './authentik.client';
@@ -103,6 +104,7 @@ export class AdminInvitesService {
     private readonly directus: DirectusClient,
     private readonly authentik: AuthentikClient,
     private readonly directusBridge: DirectusUsersBridgeService,
+    private readonly audit: AuditEventsService,
   ) {}
 
   async createInvite(input: CreateInviteInput, callerId: string): Promise<CreateInviteResult> {
@@ -164,6 +166,22 @@ export class AdminInvitesService {
       ts: now.toISOString(),
     });
 
+    await this.audit.emit({
+      event: 'invite.created',
+      severity: 'high',
+      actorId: callerId,
+      targetKind: 'invite',
+      targetId: created.data.id,
+      country: input.country ?? null,
+      payload: {
+        target_email: input.email,
+        role_groups: input.role_groups,
+        delivery_channel: input.delivery_channel,
+        token_prefix: tokenPrefix,
+      },
+      ts: now.toISOString(),
+    });
+
     return {
       invite_id: created.data.id,
       invite_url: `${env.INVITE_URL_BASE.replace(/\/$/, '')}/onboard?token=${tokenPlain}`,
@@ -201,6 +219,14 @@ export class AdminInvitesService {
       event: 'invite.revoked',
       actor_id: callerId,
       invite_id: inviteId,
+      ts: now,
+    });
+    await this.audit.emit({
+      event: 'invite.revoked',
+      severity: 'high',
+      actorId: callerId,
+      targetKind: 'invite',
+      targetId: inviteId,
       ts: now,
     });
   }
@@ -272,6 +298,23 @@ export class AdminInvitesService {
       event: 'invite.consumed',
       invite_id: row.id,
       target_email: row.email,
+      ts: now,
+    });
+    // No actorId here — consume is a public path (token IS the credential).
+    // The targetId points back to the invite row + the authentik_user_id
+    // landed in payload for join-traceability.
+    await this.audit.emit({
+      event: 'invite.consumed',
+      severity: 'high',
+      actorId: null,
+      targetKind: 'invite',
+      targetId: row.id,
+      country: row.country,
+      payload: {
+        target_email: row.email,
+        authentik_user_id: row.authentik_user_id,
+        aup_version: AUP_CURRENT_VERSION,
+      },
       ts: now,
     });
     return { ok: true };
