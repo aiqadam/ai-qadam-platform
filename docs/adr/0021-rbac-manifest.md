@@ -247,6 +247,11 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
   - **Revised apply path**: the webhook handler synchronously runs the per-engine state machine (Directus first, then Plausible) inside the request lifecycle. Total apply time is bounded by Authentik's webhook-timeout default (~5s) — comfortably within our two-engine-call budget. The `rbac_sync_jobs` table itself becomes the de-facto queue: any row with `directus_status=pending OR plausible_status=pending` is fair game for an operator-initiated retry.
   - **Trigger to revisit**: if webhook timeouts surface as a real problem (Loki alert on >2s apply time, or Authentik dropping events), introduce BullMQ then. The data model is unchanged — adding a worker consumer that reads `rbac_sync_jobs WHERE *_status='pending'` is a small follow-up PR.
   - Other ADR text unchanged.
+- **2026-05-22 (F-S2.2-d amendment — Plausible engine deferred):**
+  - §4.3 specifies Plausible site-membership management as part of the RBAC sync. Plausible CE (the version we run, deployed via Coolify) does not expose a documented membership-management API — site provisioning itself ran via akadmin screen-scrape (PR #166 era). Per-user membership management via screen-scrape is fragile and is not the right v1 cost.
+  - **Revised v1 behaviour**: the apply path stamps `plausible_status='skipped'` with reason `no_membership_api_in_plausible_ce` and emits `audit_events.rbac.sync.skipped`. Operators add Plausible members manually via the akadmin UI until a clean automation path exists.
+  - **Trigger to revisit**: (a) Plausible CE ships a public memberships API, (b) we migrate to Plausible Cloud or a self-hosted fork with API support, or (c) operator burden of manual additions exceeds ~5/week. Until then the sync's Directus-only behaviour is sufficient for the Sprint-2 exit gate ("country lead sees only KZ data across all 4 cards") because the Plausible card itself is operator-added once per role+country, not per individual user.
+  - Other ADR text unchanged.
 - **2026-05-20:** Initial draft (Proposed). Awaiting decision-batch review.
 
 ## References

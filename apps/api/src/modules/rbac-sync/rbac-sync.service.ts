@@ -179,10 +179,30 @@ export class RbacSyncService {
       },
     });
 
-    // Persist status. Plausible stays 'pending' until F-S2.2-d ships.
+    // Plausible engine (F-S2.2-d): SKIPPED for v1. Plausible CE has no
+    // documented membership-management API; site provisioning runs via
+    // akadmin screen-scrape (memory reference_coolify_resources +
+    // 4 per-country sites provisioned 2026-05-22). Per-user membership
+    // management deferred — operators add Plausible members manually
+    // until a clean API surface exists. Status flips to 'skipped' per
+    // ADR-0021 §7 (extending the "engine not required" semantics).
+    await this.audit.emit({
+      event: 'rbac.sync.skipped',
+      severity: 'info',
+      targetKind: 'rbac_job',
+      targetId: jobId,
+      payload: {
+        engine: 'plausible',
+        reason: 'no_membership_api_in_plausible_ce',
+        expected: expected.plausible,
+      },
+    });
+
+    // Persist status: Directus = applied/failed, Plausible = skipped.
     const patch: Record<string, unknown> = {
       directus_status: directusOutcome.status,
       directus_error: directusOutcome.error ?? null,
+      plausible_status: 'skipped',
       finished_at: new Date().toISOString(),
     };
     await this.directus
