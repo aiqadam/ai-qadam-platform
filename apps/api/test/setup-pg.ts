@@ -3,34 +3,47 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testconta
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import type { GlobalSetupContext } from 'vitest/node';
 
-// Vitest globalSetup. Starts ONE Postgres container for the entire test run,
-// applies all migrations, exposes the connection URL to tests via Vitest's
-// `inject()` API. Per CLAUDE.md §4: "Use Testcontainers for tests that need
-// Postgres/Redis — never mock the database."
+// Vitest globalSetup. Starts ONE Postgres container + ONE Redis container
+// for the entire test run, applies all Postgres migrations, exposes both
+// connection URLs to tests via Vitest's `inject()` API. Per CLAUDE.md §4:
+// "Use Testcontainers for tests that need Postgres/Redis — never mock
+// the database."
 //
-// Image: plain postgres:16-alpine, not pgvector/pgvector:pg16. Faster pull on
-// cold CI (~85 MB vs ~470 MB) and no PR-7a code uses vector ops. Switch to
-// the pgvector image when the first vector-using test lands.
+// Images:
+//   - postgres:16-alpine — plain (no pgvector). Faster pull on cold CI
+//     (~85 MB vs ~470 MB for pgvector image). Switch when the first
+//     vector-using test lands.
+//   - redis:7-alpine — matches infrastructure/docker-compose.yml +
+//     prod Coolify Redis version. Used by the outbox relay (A5) +
+//     future Streams consumers.
 
 declare module 'vitest' {
   export interface ProvidedContext {
     TEST_DATABASE_URL: string;
+    TEST_REDIS_URL: string;
   }
 }
 
-let container: StartedPostgreSqlContainer | undefined;
+let pg: StartedPostgreSqlContainer | undefined;
+let redis: StartedTestContainer | undefined;
 
 export async function setup({ provide }: GlobalSetupContext): Promise<() => Promise<void>> {
-  container = await new PostgreSqlContainer('postgres:16-alpine')
+  pg = await new PostgreSqlContainer('postgres:16-alpine')
     .withDatabase('platform_test')
     .withUsername('test')
     .withPassword('test')
     .start();
 
-  const url = container.getConnectionUri();
-  const client = postgres(url, { max: 1 });
+  redis = await new GenericContainer('redis:7-alpine')
+    .withExposedPorts(6379)
+    .withCommand(['redis-server', '--save', '', '--appendonly', 'no'])
+    .start();
+
+  const dbUrl = pg.getConnectionUri();
+  const client = postgres(dbUrl, { max: 1 });
   try {
     const db = drizzle(client);
     await migrate(db, {
@@ -40,10 +53,16 @@ export async function setup({ provide }: GlobalSetupContext): Promise<() => Prom
     await client.end();
   }
 
-  provide('TEST_DATABASE_URL', url);
+  const redisHost = redis.getHost();
+  const redisPort = redis.getMappedPort(6379);
+  const redisUrl = `redis://${redisHost}:${redisPort}/0`;
+
+  provide('TEST_DATABASE_URL', dbUrl);
+  provide('TEST_REDIS_URL', redisUrl);
 
   return async () => {
-    await container?.stop();
-    container = undefined;
+    await Promise.allSettled([pg?.stop(), redis?.stop()]);
+    pg = undefined;
+    redis = undefined;
   };
 }
