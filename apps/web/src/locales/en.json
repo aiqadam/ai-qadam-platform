@@ -67,7 +67,16 @@
     "back": "All events",
     "date": "Date",
     "location": "Location",
-    "about": "About"
+    "venue": "Venue",
+    "address": "Address",
+    "view_map": "Open in maps",
+    "about": "About",
+    "agenda": "Agenda",
+    "speakers": "Speakers",
+    "speakers_confirmed_of": "{{confirmed}} confirmed · {{total}} total",
+    "speakers_none": "Lineup coming soon.",
+    "members_only_title": "Members-only event",
+    "members_only_body": "Sign in with your AI Qadam account to see the full details and register."
   },
   "events_index": {
     "title": "Events",

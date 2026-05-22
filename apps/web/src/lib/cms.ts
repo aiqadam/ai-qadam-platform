@@ -13,7 +13,7 @@
 // don't change. The snake_case → camelCase + country → countryCode
 // translation happens here.
 
-import type { ApiEvent } from './api';
+import type { ApiEvent, EventSpeaker } from './api';
 
 interface CmsEventRow {
   id: string;
@@ -26,6 +26,15 @@ interface CmsEventRow {
   capacity: number | null;
   location: string | null;
   country: string;
+  // F-S3.10-a additions
+  short_description?: string | null;
+  slug?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  map_url?: string | null;
+  hero_image?: string | null;
+  agenda_md?: string | null;
+  visibility_scope?: ApiEvent['visibilityScope'];
 }
 
 const { CMS_URL = 'https://cms.aiqadam.org' } = process.env;
@@ -40,6 +49,7 @@ async function get<T>(path: string): Promise<T> {
 }
 
 function toApiEvent(row: CmsEventRow): ApiEvent {
+  const heroImageUrl = row.hero_image ? `${BASE}/assets/${row.hero_image}` : null;
   return {
     id: row.id,
     title: row.title,
@@ -55,8 +65,19 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
     registeredCount: 0,
     location: row.location,
     countryCode: row.country,
+    shortDescription: row.short_description ?? null,
+    slug: row.slug ?? null,
+    venue: row.venue ?? null,
+    address: row.address ?? null,
+    mapUrl: row.map_url ?? null,
+    heroImageUrl,
+    agendaMd: row.agenda_md ?? null,
+    visibilityScope: row.visibility_scope ?? 'public',
   };
 }
+
+const EVENT_FIELDS =
+  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope';
 
 // Country code from a request's Host header. Mirrors the API's
 // tenant.middleware logic so SSR + API agree on which country to query.
@@ -79,7 +100,7 @@ export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
       'filter[ends_at][_gt]': now,
       sort: 'starts_at',
       limit: '50',
-      fields: 'id,title,description,status,format,starts_at,ends_at,capacity,location,country',
+      fields: EVENT_FIELDS,
     });
     const body = await get<{ data: CmsEventRow[] }>(`/items/events?${params.toString()}`);
     return body.data.map(toApiEvent);
@@ -212,7 +233,7 @@ export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | n
   const country = countryFromHost(req.headers.get('host'));
   try {
     const params = new URLSearchParams({
-      fields: 'id,title,description,status,format,starts_at,ends_at,capacity,location,country',
+      fields: EVENT_FIELDS,
     });
     const body = await get<{ data: CmsEventRow | null }>(
       `/items/events/${encodeURIComponent(id)}?${params.toString()}`,
@@ -223,5 +244,63 @@ export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | n
     return toApiEvent(body.data);
   } catch {
     return null;
+  }
+}
+
+// F-S3.10-b — public speaker lineup for an event. Returns only
+// accepted+confirmed speakers (invited / declined / cancelled hidden
+// from the public page). Joins event_speakers → speakers →
+// directus_users for display name + handle.
+interface CmsEventSpeakerRow {
+  id: string;
+  status: EventSpeaker['status'];
+  talk_title: string | null;
+  order_index: number;
+  speaker: {
+    bio_md?: string | null;
+    user?: {
+      first_name?: string | null;
+      last_name?: string | null;
+      job_title?: string | null;
+    } | null;
+  } | null;
+}
+
+export async function fetchEventSpeakers(eventId: string): Promise<EventSpeaker[]> {
+  try {
+    const filter = encodeURIComponent(
+      JSON.stringify({
+        event: { _eq: eventId },
+        status: { _in: ['accepted', 'confirmed'] },
+      }),
+    );
+    // handle column lives on the local Postgres `users` table, not on
+    // directus_users — surfacing /u/{handle} links per speaker requires
+    // either bridging the column or routing through the API. Deferred to
+    // F-S3.10-c; v1 shows name + role only.
+    const fields =
+      'id,status,talk_title,order_index,speaker.bio_md,speaker.user.first_name,speaker.user.last_name,speaker.user.job_title';
+    const body = await get<{ data: CmsEventSpeakerRow[] }>(
+      `/items/event_speakers?filter=${filter}&fields=${fields}&sort=order_index&limit=50`,
+    );
+    return body.data.map((row): EventSpeaker => {
+      const u = row.speaker?.user ?? null;
+      const first = u?.first_name?.trim() ?? '';
+      const last = u?.last_name?.trim() ?? '';
+      const displayName = `${first} ${last}`.trim() || null;
+      return {
+        id: row.id,
+        displayName,
+        handle: null,
+        jobTitle: u?.job_title ?? null,
+        talkTitle: row.talk_title,
+        bioMd: row.speaker?.bio_md ?? null,
+        status: row.status,
+        orderIndex: row.order_index,
+      };
+    });
+  } catch (err) {
+    console.error('[cms] fetchEventSpeakers failed:', err instanceof Error ? err.message : err);
+    return [];
   }
 }

@@ -1,15 +1,16 @@
 ---
 import { RegistrationSidebar } from '../../components/RegistrationSidebar';
 import Layout from '../../layouts/Layout.astro';
-import { fetchEvent } from '../../lib/cms';
+import { fetchEvent, fetchEventSpeakers } from '../../lib/cms';
 import { getLocale, makeT } from '../../lib/i18n';
 
 // Event detail page per design screen s1-3 (desktop) / s1-4 (mobile).
 //
-// For A3 v1: hero strip, two-column body with main (date / location
-// meta + about) and sticky right registration sidebar. Speakers,
-// agenda, location map deferred until those data models exist
-// (speakers table is not in Phase 1 schema). 404 if event is missing.
+// F-S3.10-b: consume the enrichment fields shipped in F-S3.10-a — hero
+// image, venue+address+map_url, agenda_md, speaker lineup, OG short
+// description, visibility_scope gate. Fields are nullable so events
+// pre-dating the schema upgrade keep rendering with the v1 gradient
+// hero + single-line location.
 export const prerender = false;
 
 const { id } = Astro.params as { id: string };
@@ -18,6 +19,18 @@ const event = await fetchEvent(Astro.request, id);
 if (!event) {
   return Astro.redirect('/events', 302);
 }
+
+// members_only / invite_only: render the gate body and skip the data
+// payload. v1 uses the refresh cookie as the signed-in hint — its
+// presence means the API issued a session; absence means anonymous.
+// We don't enforce membership-level checks server-side yet (that's
+// F-S3.10-c); a logged-in operator-tier visitor sees the full page
+// even for invite_only events. The API will gate registration itself.
+const signedInHint = Astro.cookies.get('aiqadam-refresh')?.value !== undefined;
+const isGated = (event.visibilityScope === 'members_only' || event.visibilityScope === 'invite_only') && !signedInHint;
+
+const speakers = isGated ? [] : await fetchEventSpeakers(event.id);
+const confirmedSpeakers = speakers.filter((s) => s.status === 'confirmed');
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
@@ -39,16 +52,22 @@ const fullDate = new Date(event.startsAt).toLocaleDateString('en-US', {
 const startTime = new Date(event.startsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 const endTime = new Date(event.endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
+// short_description is the social-card-friendly variant (≤300 chars,
+// no markdown). Fall back to the first 300 chars of description so old
+// events still get a non-empty OG preview.
+const ogDescription = event.shortDescription?.trim() || event.description.slice(0, 300);
+
 // M5.1 — JSON-LD Event schema for Google rich results + LinkedIn previews.
-// https://schema.org/Event
 const origin = `${Astro.url.protocol}//${Astro.url.host}`;
 const eventUrl = `${origin}/events/${event.id}`;
-const isOnline = event.format === 'online' || !event.location;
+const isOnline = event.format === 'online' || (!event.venue && !event.location);
+const placeName = event.venue ?? event.location ?? null;
+const placeAddress = event.address ?? event.location ?? null;
 const eventJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Event',
   name: event.title,
-  description: event.description,
+  description: ogDescription,
   startDate: event.startsAt,
   endDate: event.endsAt,
   eventStatus: 'https://schema.org/EventScheduled',
@@ -61,12 +80,12 @@ const eventJsonLd = {
     name: 'AI Qadam',
     url: origin,
   },
-  ...(event.location && !isOnline
+  ...(placeName && !isOnline
     ? {
         location: {
           '@type': 'Place',
-          name: event.location,
-          address: event.location,
+          name: placeName,
+          ...(placeAddress ? { address: placeAddress } : {}),
         },
       }
     : {
@@ -75,15 +94,45 @@ const eventJsonLd = {
           url: eventUrl,
         },
       }),
+  ...(event.heroImageUrl ? { image: [event.heroImageUrl] } : {}),
+};
+
+// Minimal markdown-ish renderer for agenda: split on blank lines into
+// blocks, then on \n into lines. `- ` becomes a list bullet. Bold/italic
+// are not rendered. Full markdown is overkill for what operators put in
+// an agenda block; if it grows we'll swap in `marked`.
+function renderAgenda(md: string): string {
+  const blocks = md.split(/\n\s*\n/);
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return blocks
+    .map((block) => {
+      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) return '';
+      if (lines.every((l) => l.startsWith('- '))) {
+        return `<ul style="margin: 0 0 12px; padding-left: 20px;">${lines
+          .map((l) => `<li>${escapeHtml(l.slice(2))}</li>`)
+          .join('')}</ul>`;
+      }
+      return `<p style="margin: 0 0 12px;">${lines.map(escapeHtml).join('<br />')}</p>`;
+    })
+    .filter(Boolean)
+    .join('');
+}
+const agendaHtml = event.agendaMd ? renderAgenda(event.agendaMd) : null;
+
+// Layout props built conditionally so we omit ogImage entirely when
+// there's no hero — exactOptionalPropertyTypes rejects `ogImage: undefined`.
+const layoutProps = {
+  title: `${event.title} · AI Qadam`,
+  description: ogDescription,
+  ogType: 'event' as const,
+  canonical: eventUrl,
+  ...(event.heroImageUrl ? { ogImage: event.heroImageUrl } : {}),
 };
 ---
 
-<Layout
-  title={`${event.title} · AI Qadam`}
-  description={event.description}
-  ogType="event"
-  canonical={eventUrl}
->
+<Layout {...layoutProps}>
   <script slot="head" is:inline type="application/ld+json" set:html={JSON.stringify(eventJsonLd)} />
   <main>
     <div style="border-bottom: 1px solid var(--border);">
@@ -97,62 +146,152 @@ const eventJsonLd = {
       </div>
     </div>
 
-    <div
-      style="position: relative; height: 280px; overflow: hidden; border-bottom: 1px solid var(--border); background: radial-gradient(ellipse at top right, color-mix(in oklch, var(--primary) 50%, var(--background)) 0%, color-mix(in oklch, var(--primary) 10%, var(--background)) 60%, var(--background) 100%);"
-    >
-      <div style="position: absolute; top: 20px; left: 40px; display: flex; gap: 8px;">
-        <span class="badge mono" style="background: color-mix(in oklch, var(--background) 70%, transparent); backdrop-filter: blur(4px);">
-          {FORMAT_LABEL[event.format] ?? event.format.toUpperCase()}
-        </span>
+    {event.heroImageUrl ? (
+      <div
+        style={`position: relative; height: 320px; overflow: hidden; border-bottom: 1px solid var(--border); background-image: url(${event.heroImageUrl}); background-size: cover; background-position: center;`}
+      >
+        <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%);"></div>
+        <div style="position: absolute; top: 20px; left: 40px; display: flex; gap: 8px;">
+          <span class="badge mono" style="background: color-mix(in oklch, var(--background) 70%, transparent); backdrop-filter: blur(4px);">
+            {FORMAT_LABEL[event.format] ?? event.format.toUpperCase()}
+          </span>
+        </div>
+        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; max-width: 1100px; margin: 0 auto;">
+          <h1
+            style="font-family: var(--font-display); font-weight: 600; font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; margin: 0; max-width: 760px; color: white; text-shadow: 0 2px 16px rgba(0,0,0,0.5);"
+          >
+            {event.title}
+          </h1>
+        </div>
       </div>
-      <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; max-width: 1100px; margin: 0 auto;">
-        <h1
-          style="font-family: var(--font-display); font-weight: 600; font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; margin: 0; max-width: 760px;"
-        >
-          {event.title}
-        </h1>
+    ) : (
+      <div
+        style="position: relative; height: 280px; overflow: hidden; border-bottom: 1px solid var(--border); background: radial-gradient(ellipse at top right, color-mix(in oklch, var(--primary) 50%, var(--background)) 0%, color-mix(in oklch, var(--primary) 10%, var(--background)) 60%, var(--background) 100%);"
+      >
+        <div style="position: absolute; top: 20px; left: 40px; display: flex; gap: 8px;">
+          <span class="badge mono" style="background: color-mix(in oklch, var(--background) 70%, transparent); backdrop-filter: blur(4px);">
+            {FORMAT_LABEL[event.format] ?? event.format.toUpperCase()}
+          </span>
+        </div>
+        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; max-width: 1100px; margin: 0 auto;">
+          <h1
+            style="font-family: var(--font-display); font-weight: 600; font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; margin: 0; max-width: 760px;"
+          >
+            {event.title}
+          </h1>
+        </div>
       </div>
-    </div>
+    )}
 
-    <div
-      style="max-width: 1180px; margin: 0 auto; padding: 32px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px;"
-    >
-      <div>
-        <div
-          style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px;"
+    {isGated ? (
+      <div style="max-width: 720px; margin: 64px auto; padding: 32px; text-align: center;">
+        <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0 0 12px;">
+          {t('event_detail.members_only_title')}
+        </h2>
+        <p style="color: var(--muted-foreground); font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+          {t('event_detail.members_only_body')}
+        </p>
+        <a
+          href={`/auth/sign-in?next=${encodeURIComponent(`/events/${event.id}`)}`}
+          class="btn btn-primary"
+          style="display: inline-block;"
         >
-          <div>
-            <p
-              class="section-eyebrow"
-              style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
-            >
-              {t('event_detail.date')}
-            </p>
-            <p style="font-size: 14px; margin: 0;">{fullDate}</p>
-            <p style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 2px 0 0;">
-              {startTime} — {endTime}
-            </p>
+          {t('nav.sign_in')}
+        </a>
+      </div>
+    ) : (
+      <div
+        style="max-width: 1180px; margin: 0 auto; padding: 32px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px;"
+      >
+        <div>
+          <div
+            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px;"
+          >
+            <div>
+              <p
+                class="section-eyebrow"
+                style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+              >
+                {t('event_detail.date')}
+              </p>
+              <p style="font-size: 14px; margin: 0;">{fullDate}</p>
+              <p style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 2px 0 0;">
+                {startTime} — {endTime}
+              </p>
+            </div>
+            <div>
+              <p
+                class="section-eyebrow"
+                style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+              >
+                {event.venue ? t('event_detail.venue') : t('event_detail.location')}
+              </p>
+              <p style="font-size: 14px; margin: 0;">
+                {event.venue ?? event.location ?? t('home.location_tba')}
+              </p>
+              {event.address && (
+                <p style="font-size: 13px; color: var(--muted-foreground); margin: 2px 0 0;">{event.address}</p>
+              )}
+              {event.mapUrl && (
+                <p style="font-size: 12px; margin: 4px 0 0;">
+                  <a href={event.mapUrl} target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none;">
+                    {t('event_detail.view_map')} →
+                  </a>
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <p
-              class="section-eyebrow"
-              style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
-            >
-              {t('event_detail.location')}
-            </p>
-            <p style="font-size: 14px; margin: 0;">{event.location ?? t('home.location_tba')}</p>
-          </div>
+
+          <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+            {t('event_detail.about')}
+          </h2>
+          <p style="font-size: 15px; line-height: 1.65; color: var(--muted-foreground); margin: 0 0 24px; white-space: pre-line;">
+            {event.description}
+          </p>
+
+          {agendaHtml && (
+            <section style="margin: 0 0 32px;">
+              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                {t('event_detail.agenda')}
+              </h2>
+              <div style="font-size: 14px; line-height: 1.65; color: var(--muted-foreground);" set:html={agendaHtml} />
+            </section>
+          )}
+
+          {speakers.length > 0 && (
+            <section style="margin: 0 0 32px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 16px;">
+                <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0;">
+                  {t('event_detail.speakers')}
+                </h2>
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground);">
+                  {t('event_detail.speakers_confirmed_of', { confirmed: confirmedSpeakers.length, total: speakers.length })}
+                </span>
+              </div>
+              <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
+                {speakers.map((s) => (
+                  <li style="border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                    <p style="font-weight: 600; font-size: 14px; margin: 0 0 2px;">
+                      {s.displayName ?? '—'}
+                    </p>
+                    {s.jobTitle && (
+                      <p style="font-size: 12px; color: var(--muted-foreground); margin: 0 0 8px;">{s.jobTitle}</p>
+                    )}
+                    {s.talkTitle && (
+                      <p style="font-size: 13px; margin: 8px 0 0;"><em>{s.talkTitle}</em></p>
+                    )}
+                    {s.status === 'accepted' && (
+                      <span class="badge mono" style="margin-top: 8px; display: inline-block; font-size: 9px;">PENDING</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
 
-        <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
-          {t('event_detail.about')}
-        </h2>
-        <p style="font-size: 15px; line-height: 1.65; color: var(--muted-foreground); margin: 0 0 12px; white-space: pre-line;">
-          {event.description}
-        </p>
+        <RegistrationSidebar event={event} client:load />
       </div>
-
-      <RegistrationSidebar event={event} client:load />
-    </div>
+    )}
   </main>
 </Layout>

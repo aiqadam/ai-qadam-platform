@@ -23,6 +23,29 @@ export interface ApiEvent {
   registeredCount: number;
   location: string | null;
   countryCode: string;
+  // F-S3.10-a enrichment fields. Optional / nullable — events pre-
+  // dating the schema upgrade have them unset.
+  shortDescription?: string | null;
+  slug?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  mapUrl?: string | null;
+  heroImageUrl?: string | null;
+  agendaMd?: string | null;
+  visibilityScope?: 'public' | 'members_only' | 'invite_only' | null;
+}
+
+// F-S3.10-b — confirmed speakers shown on the public event page.
+// Sourced from event_speakers + speakers + directus_users join.
+export interface EventSpeaker {
+  id: string;
+  displayName: string | null;
+  handle: string | null;
+  jobTitle: string | null;
+  talkTitle: string | null;
+  bioMd: string | null;
+  status: 'invited' | 'accepted' | 'confirmed' | 'declined' | 'cancelled';
+  orderIndex: number;
 }
 
 const { INTERNAL_API_URL = 'http://localhost:3000' } = process.env;
