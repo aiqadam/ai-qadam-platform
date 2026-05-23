@@ -35,6 +35,8 @@ interface CmsEventRow {
   hero_image?: string | null;
   agenda_md?: string | null;
   visibility_scope?: ApiEvent['visibilityScope'];
+  // F-S5.4 — used as the OG-card cache buster on /events/[id]
+  date_updated?: string | null;
 }
 
 const { CMS_URL = 'https://cms.aiqadam.org' } = process.env;
@@ -73,11 +75,12 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
     heroImageUrl,
     agendaMd: row.agenda_md ?? null,
     visibilityScope: row.visibility_scope ?? 'public',
+    updatedAt: row.date_updated ?? null,
   };
 }
 
 const EVENT_FIELDS =
-  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope';
+  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,date_updated';
 
 // Country code from a request's Host header. Mirrors the API's
 // tenant.middleware logic so SSR + API agree on which country to query.

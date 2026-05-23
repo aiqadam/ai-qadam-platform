@@ -122,14 +122,27 @@ function renderAgenda(md: string): string {
 }
 const agendaHtml = event.agendaMd ? renderAgenda(event.agendaMd) : null;
 
-// Layout props built conditionally so we omit ogImage entirely when
-// there's no hero — exactOptionalPropertyTypes rejects `ogImage: undefined`.
+// F-S5.4 — generated OG card. Cache-busted by `v` so a speaker_added or
+// metadata edit invalidates every scraper's cached preview. Public
+// events only — the endpoint 404s for members_only/invite_only.
+// Falls back to hero_image if the event is gated or the card endpoint
+// is disabled.
+const cacheBuster = event.updatedAt ? Date.parse(event.updatedAt) : Date.parse(event.startsAt);
+const isPubliclyShareable =
+  !event.visibilityScope || event.visibilityScope === 'public';
+const ogCardUrl = isPubliclyShareable
+  ? `${origin}/events/${event.id}/og-card.png?v=${cacheBuster}`
+  : (event.heroImageUrl ?? null);
+
+// Layout props built conditionally so we omit ogImage entirely when we
+// have nothing to point at — exactOptionalPropertyTypes rejects
+// `ogImage: undefined`.
 const layoutProps = {
   title: `${event.title} · AI Qadam`,
   description: ogDescription,
   ogType: 'event' as const,
   canonical: eventUrl,
-  ...(event.heroImageUrl ? { ogImage: event.heroImageUrl } : {}),
+  ...(ogCardUrl ? { ogImage: ogCardUrl } : {}),
 };
 ---
 

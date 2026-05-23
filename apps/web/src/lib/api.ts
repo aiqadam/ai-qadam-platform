@@ -33,6 +33,10 @@ export interface ApiEvent {
   heroImageUrl?: string | null;
   agendaMd?: string | null;
   visibilityScope?: 'public' | 'members_only' | 'invite_only' | null;
+  // F-S5.4 — Directus `date_updated`. Used as OG-card cache buster
+  // (`?v=<epoch>`) so a speaker_added / metadata edit invalidates
+  // every scraper's cached preview.
+  updatedAt?: string | null;
 }
 
 // F-S3.10-b — confirmed speakers shown on the public event page.
