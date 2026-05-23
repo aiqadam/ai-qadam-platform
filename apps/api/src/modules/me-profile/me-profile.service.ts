@@ -59,6 +59,9 @@ export interface MemberProfile {
   bio_md: string | null;
   appear_in_directory: boolean;
   appear_in_matches: boolean;
+  appear_on_attendee_list: boolean;
+  appear_on_public_leaderboard: boolean;
+  show_company_on_public_profile: boolean;
 }
 
 export interface MemberConsentSummary {
@@ -107,6 +110,9 @@ interface DirectusUserRow {
   bio_md: string | null;
   appear_in_directory: boolean | null;
   appear_in_matches: boolean | null;
+  appear_on_attendee_list: boolean | null;
+  appear_on_public_leaderboard: boolean | null;
+  show_company_on_public_profile: boolean | null;
 }
 
 interface MemberConsentRow {
@@ -155,7 +161,7 @@ export interface AddEmploymentInput {
 }
 
 const PROFILE_FIELDS =
-  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory,appear_in_matches';
+  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory,appear_in_matches,appear_on_attendee_list,appear_on_public_leaderboard,show_company_on_public_profile';
 
 @Injectable()
 export class MeProfileService {
@@ -183,6 +189,9 @@ export class MeProfileService {
       bio_md?: string | null | undefined;
       appear_in_directory?: boolean | undefined;
       appear_in_matches?: boolean | undefined;
+      appear_on_attendee_list?: boolean | undefined;
+      appear_on_public_leaderboard?: boolean | undefined;
+      show_company_on_public_profile?: boolean | undefined;
     },
   ): Promise<MemberProfile> {
     // Pass through exactly the fields the caller set; PATCHing
@@ -425,6 +434,10 @@ export class MeProfileService {
       bio_md: row.bio_md,
       appear_in_directory: row.appear_in_directory ?? false,
       appear_in_matches: row.appear_in_matches ?? true,
+      // F-S5.6 — defaults match the schema column defaults
+      appear_on_attendee_list: row.appear_on_attendee_list ?? true,
+      appear_on_public_leaderboard: row.appear_on_public_leaderboard ?? true,
+      show_company_on_public_profile: row.show_company_on_public_profile ?? false,
     };
   }
 }

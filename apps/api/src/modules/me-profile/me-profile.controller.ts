@@ -53,6 +53,10 @@ const profilePatchSchema = z
     bio_md: z.string().max(8000).nullable().optional(),
     appear_in_directory: z.boolean().optional(),
     appear_in_matches: z.boolean().optional(),
+    // F-S5.6
+    appear_on_attendee_list: z.boolean().optional(),
+    appear_on_public_leaderboard: z.boolean().optional(),
+    show_company_on_public_profile: z.boolean().optional(),
   })
   .strict();
 

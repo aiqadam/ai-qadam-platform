@@ -1248,6 +1248,77 @@ ensure "field directus_users.appear_in_directory" \
     }
   }'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S5.6 — Member visibility preferences (further fields)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Three additional opt-in/out flags surfaced in /me/profile alongside
+# appear_in_directory + appear_in_matches.
+#
+# Defaults follow the social-proof-friendly side EXCEPT show_company,
+# which is a privacy-first default off — public_profile renderers only
+# print the current employer name when the member explicitly enables it.
+#
+# Consumer status (forward-looking — flags ship before downstream
+# surfaces are universal):
+#   appear_on_attendee_list      — registrations API doesn't yet expose
+#                                  per-attendee names to other attendees;
+#                                  the flag is the gate when that lands.
+#   appear_on_public_leaderboard — /leaderboard today renders avatars+names
+#                                  per F-S3.x; consumer to be added in a
+#                                  follow-up (renderer reads the flag,
+#                                  default-shows by current behavior).
+#   show_company_on_public_profile — public profile pages /u/[handle] gate
+#                                  the current-employer display on this flag.
+
+echo "[F-S5.6 — directus_users.appear_on_attendee_list]"
+ensure "field directus_users.appear_on_attendee_list" \
+  "${DIRECTUS_URL}/fields/directus_users/appear_on_attendee_list" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"appear_on_attendee_list",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":true},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"Member shown by name on event attendee lists visible to other attendees. Default ON — opt OUT. Sponsors NEVER read this; sponsor cabinet is cohort-aggregated only."
+    }
+  }'
+
+echo "[F-S5.6 — directus_users.appear_on_public_leaderboard]"
+ensure "field directus_users.appear_on_public_leaderboard" \
+  "${DIRECTUS_URL}/fields/directus_users/appear_on_public_leaderboard" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"appear_on_public_leaderboard",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":true},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"Name + total points appear on /leaderboard (public). Default ON — opt OUT. When off, member is excluded from the rendered list (still counted in rank arithmetic so ranks are stable)."
+    }
+  }'
+
+echo "[F-S5.6 — directus_users.show_company_on_public_profile]"
+ensure "field directus_users.show_company_on_public_profile" \
+  "${DIRECTUS_URL}/fields/directus_users/show_company_on_public_profile" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"show_company_on_public_profile",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"When appear_in_directory=true, also render the current employer name on public profile. Default OFF — privacy-first. Per-employment share_with_sponsors (on member_employments) governs sponsor exposure separately."
+    }
+  }'
+
 # ──────────── member_skills ─────────────────────────────────────────────
 #
 # Tag-per-row keeps cohort filtering simple. verified_by_event nudges

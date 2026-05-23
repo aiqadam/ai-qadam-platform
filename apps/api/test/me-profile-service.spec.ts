@@ -157,3 +157,83 @@ describe('MeProfileService.removeEmployment', () => {
     expect(dx.delete.mock.calls[0]?.[0]).toBe('/items/member_employments/emp-mine');
   });
 });
+
+// F-S5.6 — visibility preference round-trip on getProfile + patchProfile.
+describe('MeProfileService — F-S5.6 visibility fields', () => {
+  const baseRow = {
+    id: 'u-1',
+    email: 'u@example.com',
+    first_name: 'A',
+    last_name: 'B',
+    job_title: null,
+    seniority: null,
+    industry_tags: null,
+    is_student: false,
+    bio_md: null,
+    appear_in_directory: false,
+    appear_in_matches: true,
+  };
+
+  it('getProfile applies schema-aligned defaults when the new columns are null', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: {
+        ...baseRow,
+        appear_on_attendee_list: null,
+        appear_on_public_leaderboard: null,
+        show_company_on_public_profile: null,
+      },
+    });
+    const p = await svc.getProfile('u-1');
+    expect(p.appear_on_attendee_list).toBe(true); // default ON
+    expect(p.appear_on_public_leaderboard).toBe(true); // default ON
+    expect(p.show_company_on_public_profile).toBe(false); // default OFF (privacy-first)
+  });
+
+  it('getProfile returns stored values when the columns are populated', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: {
+        ...baseRow,
+        appear_on_attendee_list: false,
+        appear_on_public_leaderboard: false,
+        show_company_on_public_profile: true,
+      },
+    });
+    const p = await svc.getProfile('u-1');
+    expect(p.appear_on_attendee_list).toBe(false);
+    expect(p.appear_on_public_leaderboard).toBe(false);
+    expect(p.show_company_on_public_profile).toBe(true);
+  });
+
+  it('patchProfile forwards only the new visibility fields when only those are set', async () => {
+    // patchProfile re-fetches after writing; queue the GET response too.
+    dx.patch.mockResolvedValueOnce({});
+    dx.get.mockResolvedValueOnce({
+      data: {
+        ...baseRow,
+        appear_on_attendee_list: false,
+        appear_on_public_leaderboard: true,
+        show_company_on_public_profile: true,
+      },
+    });
+    const p = await svc.patchProfile('u-1', {
+      appear_on_attendee_list: false,
+      show_company_on_public_profile: true,
+    });
+    const patchBody = dx.patch.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(patchBody).toEqual({
+      appear_on_attendee_list: false,
+      show_company_on_public_profile: true,
+    });
+    expect(p.appear_on_attendee_list).toBe(false);
+    expect(p.show_company_on_public_profile).toBe(true);
+  });
+
+  it('PROFILE_FIELDS includes the three new columns in the GET request', async () => {
+    dx.get.mockResolvedValueOnce({ data: baseRow });
+    await svc.getProfile('u-1');
+    const url = dx.get.mock.calls[0]?.[0] as string;
+    expect(url).toContain('appear_on_attendee_list');
+    expect(url).toContain('appear_on_public_leaderboard');
+    expect(url).toContain('show_company_on_public_profile');
+  });
+});

@@ -77,6 +77,9 @@ interface Profile {
   bio_md: string | null;
   appear_in_directory: boolean;
   appear_in_matches: boolean;
+  appear_on_attendee_list: boolean;
+  appear_on_public_leaderboard: boolean;
+  show_company_on_public_profile: boolean;
 }
 
 interface ConsentSummary {
@@ -354,27 +357,38 @@ function ProfileEditor({ profile, accessToken, onSaved }: ProfileEditorProps): R
   const [bioMd, setBioMd] = useState(profile.bio_md ?? '');
   const [appearInDirectory, setAppearInDirectory] = useState(profile.appear_in_directory);
   const [appearInMatches, setAppearInMatches] = useState(profile.appear_in_matches);
+  const [appearOnAttendeeList, setAppearOnAttendeeList] = useState(profile.appear_on_attendee_list);
+  const [appearOnPublicLeaderboard, setAppearOnPublicLeaderboard] = useState(
+    profile.appear_on_public_leaderboard,
+  );
+  const [showCompanyOnPublicProfile, setShowCompanyOnPublicProfile] = useState(
+    profile.show_company_on_public_profile,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const buildPatch = (): Partial<Profile> => ({
+    job_title: jobTitle.trim() === '' ? null : jobTitle.trim(),
+    seniority: seniority === '' ? null : (seniority as Profile['seniority']),
+    industry_tags: industryTags
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0),
+    is_student: isStudent,
+    bio_md: bioMd.trim() === '' ? null : bioMd,
+    appear_in_directory: appearInDirectory,
+    appear_in_matches: appearInMatches,
+    appear_on_attendee_list: appearOnAttendeeList,
+    appear_on_public_leaderboard: appearOnPublicLeaderboard,
+    show_company_on_public_profile: showCompanyOnPublicProfile,
+  });
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      const tags = industryTags
-        .split(',')
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-      const next = await patchProfile(accessToken, {
-        job_title: jobTitle.trim() === '' ? null : jobTitle.trim(),
-        seniority: seniority === '' ? null : (seniority as Profile['seniority']),
-        industry_tags: tags,
-        is_student: isStudent,
-        bio_md: bioMd.trim() === '' ? null : bioMd,
-        appear_in_directory: appearInDirectory,
-        appear_in_matches: appearInMatches,
-      });
+      const next = await patchProfile(accessToken, buildPatch());
       onSaved(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'save failed');
@@ -467,6 +481,53 @@ function ProfileEditor({ profile, accessToken, onSaved }: ProfileEditorProps): R
           <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
             On by default. When off, you neither receive these emails nor get named in someone
             else's. Matched on overlapping interest tags from your profile.
+          </span>
+        </span>
+      </label>
+      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <input
+          type="checkbox"
+          checked={appearOnAttendeeList}
+          onChange={(e) => setAppearOnAttendeeList(e.target.checked)}
+          style={{ marginTop: 3 }}
+        />
+        <span style={{ fontSize: 14 }}>
+          Show my name on event attendee lists
+          <br />
+          <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+            On by default. Sponsors NEVER see this list — only other registered attendees do.
+          </span>
+        </span>
+      </label>
+      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <input
+          type="checkbox"
+          checked={appearOnPublicLeaderboard}
+          onChange={(e) => setAppearOnPublicLeaderboard(e.target.checked)}
+          style={{ marginTop: 3 }}
+        />
+        <span style={{ fontSize: 14 }}>
+          Show my name + points on the public leaderboard
+          <br />
+          <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+            On by default. When off, you're excluded from the rendered list. Your rank is still
+            counted so other people's ranks stay stable.
+          </span>
+        </span>
+      </label>
+      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <input
+          type="checkbox"
+          checked={showCompanyOnPublicProfile}
+          onChange={(e) => setShowCompanyOnPublicProfile(e.target.checked)}
+          style={{ marginTop: 3 }}
+        />
+        <span style={{ fontSize: 14 }}>
+          Show my current employer on my public profile
+          <br />
+          <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+            Off by default — privacy-first. Only takes effect when "Appear in the member directory"
+            is also on. Per-job "share with sponsors" lives on each employment entry separately.
           </span>
         </span>
       </label>
