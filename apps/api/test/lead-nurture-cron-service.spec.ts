@@ -184,3 +184,99 @@ describe('LeadNurtureCronService.tick', () => {
     expect(interactions.dispatch).not.toHaveBeenCalled();
   });
 });
+
+// F-S1.6b ext — topic-personalised + city-scoped event picker.
+describe('pickEventForLead — per-lead event scoring', () => {
+  // Re-import the export to avoid touching the service singleton.
+  // (vitest will reuse the module across describe blocks.)
+  // Imported dynamically inside each test to keep the existing block's
+  // mock state isolated.
+  const EVENT_TASHKENT_LLMS = {
+    id: 'e-uz-llms',
+    title: 'Tashkent · LLM eval',
+    starts_at: '2026-07-10T18:00:00.000Z',
+    location: 'Workly Tashkent',
+    country: 'uz',
+    topic_tags: ['LLMs', 'mlops'],
+  };
+  const EVENT_ALMATY_CV = {
+    id: 'e-kz-cv',
+    title: 'Almaty · Computer Vision',
+    starts_at: '2026-07-05T18:00:00.000Z',
+    location: 'Astana Hub Almaty',
+    country: 'kz',
+    topic_tags: ['computer-vision'],
+  };
+  const EVENT_TASHKENT_GENERIC = {
+    id: 'e-uz-generic',
+    title: 'Tashkent · Meetup',
+    starts_at: '2026-06-30T18:00:00.000Z',
+    location: 'Workly Tashkent',
+    country: 'uz',
+    topic_tags: null,
+  };
+  const EVENT_TOPIC_ONLY = {
+    id: 'e-tj-mlops',
+    title: 'Dushanbe · MLOps',
+    starts_at: '2026-06-25T18:00:00.000Z',
+    location: 'Innovation Center Dushanbe',
+    country: 'tj',
+    topic_tags: ['mlops', 'devtools'],
+  };
+
+  it('picks city_and_topics when both match (city beats earlier topic-only event)', async () => {
+    const { pickEventForLead } = await import('../src/modules/leads/lead-nurture-cron.service');
+    const lead = { city: 'Tashkent', interest_topics: ['LLMs', 'mlops'] };
+    // EVENT_TOPIC_ONLY is earlier but topic-only (score 2)
+    // EVENT_TASHKENT_LLMS has city + 2 topics (score 12)
+    // EVENT_TASHKENT_GENERIC has city only (score 10)
+    const result = pickEventForLead(lead, [
+      EVENT_TASHKENT_GENERIC,
+      EVENT_TOPIC_ONLY,
+      EVENT_TASHKENT_LLMS,
+    ]);
+    expect(result?.event.id).toBe(EVENT_TASHKENT_LLMS.id);
+    expect(result?.reason).toBe('city_and_topics');
+    expect(result?.sharedTopics).toEqual(['LLMs', 'mlops']);
+  });
+
+  it('picks city-only when lead has no matching topics', async () => {
+    const { pickEventForLead } = await import('../src/modules/leads/lead-nurture-cron.service');
+    const lead = { city: 'Tashkent', interest_topics: ['fintech'] };
+    const result = pickEventForLead(lead, [EVENT_ALMATY_CV, EVENT_TASHKENT_GENERIC]);
+    expect(result?.event.id).toBe(EVENT_TASHKENT_GENERIC.id);
+    expect(result?.reason).toBe('city');
+  });
+
+  it('picks topic-only when lead has no city', async () => {
+    const { pickEventForLead } = await import('../src/modules/leads/lead-nurture-cron.service');
+    const lead = { city: null, interest_topics: ['mlops'] };
+    const result = pickEventForLead(lead, [EVENT_ALMATY_CV, EVENT_TOPIC_ONLY]);
+    expect(result?.event.id).toBe(EVENT_TOPIC_ONLY.id);
+    expect(result?.reason).toBe('topics');
+    expect(result?.sharedTopics).toEqual(['mlops']);
+  });
+
+  it('falls back to earliest event when nothing matches', async () => {
+    const { pickEventForLead } = await import('../src/modules/leads/lead-nurture-cron.service');
+    const lead = { city: 'Bishkek', interest_topics: ['robotics'] };
+    const result = pickEventForLead(lead, [EVENT_TASHKENT_GENERIC, EVENT_ALMATY_CV]);
+    expect(result?.event.id).toBe(EVENT_TASHKENT_GENERIC.id); // earliest
+    expect(result?.reason).toBe('fallback');
+    expect(result?.sharedTopics).toEqual([]);
+  });
+
+  it('returns null when no events at all', async () => {
+    const { pickEventForLead } = await import('../src/modules/leads/lead-nurture-cron.service');
+    const lead = { city: 'Tashkent', interest_topics: ['LLMs'] };
+    expect(pickEventForLead(lead, [])).toBeNull();
+  });
+
+  it('city match is case-insensitive substring', async () => {
+    const { pickEventForLead } = await import('../src/modules/leads/lead-nurture-cron.service');
+    const lead = { city: 'tashkent', interest_topics: null }; // lowercase
+    const result = pickEventForLead(lead, [EVENT_ALMATY_CV, EVENT_TASHKENT_GENERIC]);
+    expect(result?.event.id).toBe(EVENT_TASHKENT_GENERIC.id);
+    expect(result?.reason).toBe('city');
+  });
+});

@@ -2893,6 +2893,25 @@ ensure "field events.post_event_processed" \
     }
   }'
 
+# F-S1.6b ext — events.topic_tags drives topic-personalised lead-nurture
+# T+7 teaser. Tag presets mirror directus_users.interest_topics so a
+# direct intersection is meaningful. Operator-managed via /workspace/events.
+ensure "field events.topic_tags" \
+  "${DIRECTUS_URL}/fields/events/topic_tags" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"topic_tags",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"tags",
+      "special":["cast-json"],
+      "width":"full",
+      "options":{"presets":["AI/ML","LLMs","fintech","robotics","devtools","infra","data","computer-vision","nlp","mlops","hands-on-builder"]},
+      "note":"F-S1.6b ext — array of topic tags. Drives lead-nurture T+7 event matching against directus_users.interest_topics."
+    }
+  }'
+
 # ════════════════════════════════════════════════════════════════════════
 # F-S1.5b — Member match dispatch ledger (per-(user, event) idempotency)
 # ════════════════════════════════════════════════════════════════════════

@@ -45,6 +45,7 @@ interface LeadRow {
   email: string;
   city: string | null;
   email_verified_at: string;
+  interest_topics: string[] | null;
 }
 
 interface EventRow {
@@ -53,6 +54,16 @@ interface EventRow {
   starts_at: string;
   location: string | null;
   country: string;
+  topic_tags: string[] | null;
+}
+
+// F-S1.6b ext — per-lead event scoring + match metadata for copy variation.
+export type EventMatchReason = 'city_and_topics' | 'city' | 'topics' | 'fallback';
+
+interface RankedEvent {
+  event: EventRow;
+  reason: EventMatchReason;
+  sharedTopics: string[];
 }
 
 interface NurtureWindow {
@@ -83,6 +94,11 @@ const NURTURE_WINDOWS: NurtureWindow[] = [
 // the Directus connection if the ledger somehow fell behind.
 const CANDIDATE_LIMIT_PER_TICK = 500;
 
+// F-S1.6b ext — how many upcoming events we fetch up-front for per-lead
+// scoring. ~3-6 months of cadence is enough for personalisation; beyond
+// that the city or topics that matter today may not match tomorrow.
+const UPCOMING_EVENTS_FETCH_LIMIT = 50;
+
 @Injectable()
 export class LeadNurtureCronService {
   private readonly logger = new Logger(LeadNurtureCronService.name);
@@ -107,26 +123,27 @@ export class LeadNurtureCronService {
     const candidates = await this.candidatesFor(window);
     result.evaluated += candidates.length;
     if (candidates.length === 0) return;
-    const upcomingEvent = window.requiresUpcomingEvent ? await this.nextUpcomingEvent() : null;
-    if (window.requiresUpcomingEvent && !upcomingEvent) {
+    const upcomingEvents = window.requiresUpcomingEvent ? await this.upcomingEvents() : [];
+    if (window.requiresUpcomingEvent && upcomingEvents.length === 0) {
       for (const lead of candidates) {
         result.skipped.push({ leadId: lead.id, kind: window.kind, reason: 'no_upcoming_event' });
       }
       return;
     }
     for (const lead of candidates) {
-      await this.dispatchSafely(lead, window, upcomingEvent, result);
+      await this.dispatchSafely(lead, window, upcomingEvents, result);
     }
   }
 
   private async dispatchSafely(
     lead: LeadRow,
     window: NurtureWindow,
-    upcomingEvent: EventRow | null,
+    upcomingEvents: EventRow[],
     result: TickResult,
   ): Promise<void> {
     try {
-      result.dispatched.push(await this.dispatchOne(lead, window, upcomingEvent));
+      const ranked = window.requiresUpcomingEvent ? pickEventForLead(lead, upcomingEvents) : null;
+      result.dispatched.push(await this.dispatchOne(lead, window, ranked));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown';
       this.logger.warn(
@@ -152,7 +169,7 @@ export class LeadNurtureCronService {
       });
     }
     const filter = encodeURIComponent(JSON.stringify(filterObj));
-    const fields = 'id,email,city,email_verified_at';
+    const fields = 'id,email,city,email_verified_at,interest_topics';
     const res = await this.directus.get<{ data: LeadRow[] }>(
       `/users?filter=${filter}&fields=${fields}&limit=${CANDIDATE_LIMIT_PER_TICK}&sort=email_verified_at`,
     );
@@ -171,29 +188,32 @@ export class LeadNurtureCronService {
     return res.data.map((r) => r.lead);
   }
 
-  private async nextUpcomingEvent(): Promise<EventRow | null> {
+  // F-S1.6b ext — fetches the next batch of upcoming events for per-lead
+  // scoring (city / topic match). Sorted by starts_at so the tiebreak
+  // among equal-scoring events naturally picks the soonest.
+  private async upcomingEvents(): Promise<EventRow[]> {
     const now = new Date().toISOString();
     const filter = encodeURIComponent(
       JSON.stringify({
         _and: [{ status: { _eq: 'published' } }, { starts_at: { _gt: now } }],
       }),
     );
-    const fields = 'id,title,starts_at,location,country';
+    const fields = 'id,title,starts_at,location,country,topic_tags';
     const res = await this.directus.get<{ data: EventRow[] }>(
-      `/items/events?filter=${filter}&fields=${fields}&sort=starts_at&limit=1`,
+      `/items/events?filter=${filter}&fields=${fields}&sort=starts_at&limit=${UPCOMING_EVENTS_FETCH_LIMIT}`,
     );
-    return res.data[0] ?? null;
+    return res.data;
   }
 
   private async dispatchOne(
     lead: LeadRow,
     window: NurtureWindow,
-    upcomingEvent: EventRow | null,
+    ranked: RankedEvent | null,
   ): Promise<TickResult['dispatched'][number]> {
     const payload =
       window.kind === 'lead_nurture_value'
         ? buildValuePayload(lead)
-        : buildNextEventPayload(lead, upcomingEvent as EventRow);
+        : buildNextEventPayload(lead, ranked as RankedEvent);
     const { interactionId } = await this.interactions.dispatch({
       initiatorActor: 'system',
       audience: { userIds: [lead.id] },
@@ -203,7 +223,7 @@ export class LeadNurtureCronService {
       allowedChannels: ['email'],
     });
     const eventReferenced =
-      window.kind === 'lead_nurture_next_event' ? (upcomingEvent?.id ?? null) : null;
+      window.kind === 'lead_nurture_next_event' ? (ranked?.event.id ?? null) : null;
     await this.recordDispatch(lead.id, window.kind, interactionId, eventReferenced);
     return { leadId: lead.id, kind: window.kind, interactionId, eventReferenced };
   }
@@ -232,21 +252,88 @@ function buildValuePayload(lead: LeadRow): Record<string, unknown> {
   };
 }
 
-function buildNextEventPayload(lead: LeadRow, event: EventRow): Record<string, unknown> {
+function buildNextEventIntro(lead: LeadRow, ranked: RankedEvent): string {
+  const cityLabel = lead.city ?? 'your city';
+  const topicLabel = ranked.sharedTopics.slice(0, 2).join(' + ');
+  switch (ranked.reason) {
+    case 'city_and_topics':
+      return `Hi,\n\nWe lined up something in ${cityLabel} that touches the topics you flagged — ${topicLabel}:`;
+    case 'city':
+      return `Hi,\n\nNew AI Qadam event in ${cityLabel}:`;
+    case 'topics':
+      return `Hi,\n\nThe next AI Qadam meetup overlaps with what you're into (${topicLabel}):`;
+    default:
+      return 'Hi,\n\nThe next AI Qadam meetup is happening:';
+  }
+}
+
+function buildNextEventCityNote(lead: LeadRow, event: EventRow, reason: EventMatchReason): string {
+  if (reason !== 'fallback' || !lead.city || !event.location) return '';
+  if (event.location.toLowerCase().includes(lead.city.toLowerCase())) return '';
+  return `\n\nNot in ${lead.city} — but the talks are worth the trip if you can make it.`;
+}
+
+function buildNextEventPayload(lead: LeadRow, ranked: RankedEvent): Record<string, unknown> {
+  const event = ranked.event;
   const dateShort = formatDateShort(event.starts_at);
   const venue = event.location ?? 'venue TBA';
   const link = `https://aiqadam.org/events/${event.id}`;
-  const cityNote =
-    lead.city && event.location && !event.location.toLowerCase().includes(lead.city.toLowerCase())
-      ? `\n\nNot in ${lead.city} — but the talks are worth the trip if you can make it.`
-      : '';
+  const intro = buildNextEventIntro(lead, ranked);
+  const cityNote = buildNextEventCityNote(lead, event, ranked.reason);
   return {
     subject: `${event.title} — ${dateShort}`,
-    text: `Hi,\n\nThe next AI Qadam meetup is happening:\n\n${event.title}\n${dateShort} · ${venue}\n\n${link}${cityNote}\n\nSeats are limited — register early if you want to come.\n\n— AI Qadam`,
+    text: `${intro}\n\n${event.title}\n${dateShort} · ${venue}\n\n${link}${cityNote}\n\nSeats are limited — register early if you want to come.\n\n— AI Qadam`,
   };
 }
 
 function formatDateShort(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// F-S1.6b ext — score each upcoming event for this lead, return the
+// highest-scoring + the reason. Scoring:
+//   +10 if event.location contains lead.city (case-insensitive substring)
+//   +1 per overlapping interest_topic ↔ event.topic_tag
+// Tiebreak: earliest starts_at (preserved by the input sort).
+// Fallback (no event scores > 0): the first event in the list (earliest).
+export function pickEventForLead(
+  lead: { city: string | null; interest_topics: string[] | null },
+  events: EventRow[],
+): RankedEvent | null {
+  if (events.length === 0) return null;
+  const cityLower = lead.city ? lead.city.trim().toLowerCase() : null;
+  const leadTopics = new Set(lead.interest_topics ?? []);
+  let best: RankedEvent | null = null;
+  let bestScore = 0;
+  for (const event of events) {
+    const scored = scoreEventForLead(event, cityLower, leadTopics);
+    if (scored.score > bestScore) {
+      bestScore = scored.score;
+      best = { event, reason: scored.reason, sharedTopics: scored.shared };
+    }
+  }
+  if (best) return best;
+  return { event: events[0] as EventRow, reason: 'fallback', sharedTopics: [] };
+}
+
+interface ScoredEvent {
+  score: number;
+  reason: EventMatchReason;
+  shared: string[];
+}
+
+function scoreEventForLead(
+  event: EventRow,
+  cityLower: string | null,
+  leadTopics: Set<string>,
+): ScoredEvent {
+  const cityMatch = Boolean(
+    cityLower && event.location && event.location.toLowerCase().includes(cityLower),
+  );
+  const shared = (event.topic_tags ?? []).filter((t) => leadTopics.has(t));
+  const score = (cityMatch ? 10 : 0) + shared.length;
+  const reason: EventMatchReason =
+    cityMatch && shared.length > 0 ? 'city_and_topics' : cityMatch ? 'city' : 'topics';
+  return { score, reason, shared };
 }
