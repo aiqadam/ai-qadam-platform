@@ -73,7 +73,10 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
   </div>
 </header>
 
-<style>
+<style is:global>
+  /* Global so React islands mounted inside this <nav> (NavUserBadge)
+     inherit the same chrome as the Astro-rendered links. Without
+     is:global Astro hashes the class and the island misses out. */
   .app-nav-link {
     display: inline-flex;
     align-items: center;
@@ -87,6 +90,12 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
   .app-nav-link:hover {
     color: var(--foreground);
     background: color-mix(in oklch, var(--muted) 60%, transparent);
+  }
+  /* Inline-mounted hydration islands inside flex/grid containers must
+     pass through to their parent's layout — otherwise their children
+     stop participating in the parent's gap + alignment. */
+  astro-island {
+    display: contents;
   }
 </style>
 
