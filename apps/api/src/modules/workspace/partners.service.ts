@@ -38,6 +38,10 @@ export interface KitAsset {
   category: string;
   title: string;
   file_url: string | null;
+  // F-S3.5-b — true when marketing_assets.sponsor = this partner.id
+  // (exclusive co-marketing piece); false when the asset is part of
+  // the shared sponsor pool (sponsor IS NULL).
+  is_partner_exclusive: boolean;
   // Categories defined in ADR-0025 / F-S0.9b marketing_assets schema.
 }
 
@@ -113,26 +117,40 @@ export class PartnersService {
       };
     });
 
-    // Kit assets — marketing_assets approved + visible to sponsors or
-    // public (per ADR-0025 visibility enum). Per-partner asset scoping
-    // (e.g. exclusive co-marketing pieces) lands when partner.kit_assets
-    // m2m exists (F-S3.5-b follow-up).
+    const kit_assets = await this.fetchKitAssets(partner.id);
+    return { ...partner, audiences, kit_assets };
+  }
+
+  // F-S3.5-b kit-assets scoping. Two tiers:
+  //   1. Partner-exclusive: marketing_assets.sponsor = partner.id
+  //      (co-marketing pieces commissioned for this sponsor).
+  //   2. Shared sponsor pool: sponsor IS NULL + visibility IN
+  //      (public, sponsors). Brand pack, fact sheet, generic headshots
+  //      — anything ops produced for any sponsor.
+  // Other partners' exclusive assets are explicitly excluded.
+  private async fetchKitAssets(partnerId: string): Promise<KitAsset[]> {
     type AssetRaw = {
       id: string;
       category: string;
       title: string;
       file: { id?: string } | string | null;
+      sponsor: string | null;
     };
     const kitFilter = encodeURIComponent(
       JSON.stringify({
         status: { _eq: 'approved' },
-        visibility: { _in: ['public', 'sponsors'] },
+        _or: [
+          { sponsor: { _eq: partnerId } },
+          {
+            _and: [{ sponsor: { _null: true } }, { visibility: { _in: ['public', 'sponsors'] } }],
+          },
+        ],
       }),
     );
     const kitRes = await this.directus.get<{ data: AssetRaw[] }>(
-      `/items/marketing_assets?filter=${kitFilter}&fields=id,category,title,file.id&sort=-date_created&limit=50`,
+      `/items/marketing_assets?filter=${kitFilter}&fields=id,category,title,file.id,sponsor&sort=-date_created&limit=50`,
     );
-    const kit_assets = kitRes.data.map((a): KitAsset => {
+    return kitRes.data.map((a): KitAsset => {
       const fileId =
         typeof a.file === 'string'
           ? a.file
@@ -144,9 +162,8 @@ export class PartnersService {
         category: a.category,
         title: a.title,
         file_url: fileId ? `/api/assets/${fileId}` : null,
+        is_partner_exclusive: a.sponsor === partnerId,
       };
     });
-
-    return { ...partner, audiences, kit_assets };
   }
 }

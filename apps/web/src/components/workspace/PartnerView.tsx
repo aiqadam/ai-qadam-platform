@@ -20,6 +20,7 @@ interface KitAsset {
   category: string;
   title: string;
   file_url: string | null;
+  is_partner_exclusive: boolean;
 }
 
 interface PartnerDetail {
@@ -147,8 +148,10 @@ export default function PartnerView({ slug }: { slug: string }): ReactElement {
       <section style={section()}>
         <h2 style={h2()}>Co-marketing kit</h2>
         <p style={muted()}>
-          Approved press + brand assets visible to sponsors. Quarterly digest PDF arrives via F-S3.8
-          once shipped.
+          Approved assets scoped to {p.name}. Items tagged{' '}
+          <span style={exclusiveBadgeInline()}>EXCLUSIVE</span> are commissioned for this sponsor;
+          others are shared across all sponsors. Quarterly digest PDF arrives via F-S3.8 once
+          shipped.
         </p>
         {p.kit_assets.length === 0 ? (
           <p style={muted()}>No published kit assets yet.</p>
@@ -165,13 +168,25 @@ export default function PartnerView({ slug }: { slug: string }): ReactElement {
                 key={a.id}
                 style={{
                   padding: 12,
-                  border: '1px solid var(--border)',
+                  border: a.is_partner_exclusive
+                    ? '1px solid var(--primary)'
+                    : '1px solid var(--border)',
                   borderRadius: 8,
                   background: 'var(--card)',
                 }}
               >
-                <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginBottom: 4 }}>
-                  {a.category}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    marginBottom: 4,
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
+                    {a.category}
+                  </span>
+                  {a.is_partner_exclusive && <span style={exclusiveBadge()}>EXCLUSIVE</span>}
                 </div>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{a.title}</div>
                 {a.file_url ? (
@@ -215,4 +230,18 @@ function th(): React.CSSProperties {
 }
 function td(): React.CSSProperties {
   return { padding: '10px 12px', verticalAlign: 'top' };
+}
+function exclusiveBadge(): React.CSSProperties {
+  return {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 9,
+    letterSpacing: '0.06em',
+    color: 'var(--primary)',
+    border: '1px solid var(--primary)',
+    borderRadius: 4,
+    padding: '1px 6px',
+  };
+}
+function exclusiveBadgeInline(): React.CSSProperties {
+  return { ...exclusiveBadge(), display: 'inline-block', verticalAlign: 'baseline' };
 }
