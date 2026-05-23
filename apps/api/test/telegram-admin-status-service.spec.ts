@@ -90,6 +90,29 @@ describe('TelegramAdminService.buildStatus — empty/fresh install', () => {
     });
     expect(status.streams[STREAM]).toEqual({ stream: STREAM, length: 0, pending_ack: 0 });
     expect(status.streams[DLQ]).toEqual({ stream: DLQ, length: 0, pending_ack: 0 });
+    // R3 PR-b — service token unset when neither DB row nor env exists.
+    // Test env has TELEGRAM_BOT_SERVICE_TOKEN set (see vitest setup),
+    // so source should be 'env'. Plaintext NEVER in the response.
+    expect(status.service_token.source).toBe('env');
+    expect(status.service_token.rotated_at).toBeNull();
+    expect(status.service_token.rotated_by).toBeNull();
+  });
+});
+
+describe('TelegramAdminService.buildStatus — service token in DB (R3 PR-b)', () => {
+  it('reports source=db + rotation metadata after rotateServiceToken', async () => {
+    const { admin, config } = makeAdmin();
+    const op = randomUUID();
+    await config.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: op });
+    await config.rotateServiceToken(null, op);
+
+    const status = await admin.buildStatus(null);
+
+    expect(status.service_token.source).toBe('db');
+    expect(status.service_token.rotated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(status.service_token.rotated_by).toBe(op);
+    // Plaintext token never bleeds into the status response.
+    expect(JSON.stringify(status)).not.toMatch(/[0-9a-f]{64}/);
   });
 });
 

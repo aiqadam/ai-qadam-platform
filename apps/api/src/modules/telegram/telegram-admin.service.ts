@@ -72,6 +72,15 @@ export interface StatusResponse {
     last_24h_opted_out: number;
   };
   streams: Record<string, StreamMetrics>;
+  // R3 PR-b — service-token rotation metadata. Source indicator nudges
+  // operators to migrate from env fallback to DB once R2 PR-3 is in
+  // place. The plaintext token is NEVER in this payload — only the
+  // rotation audit fields.
+  service_token: {
+    source: 'db' | 'env' | 'unset';
+    rotated_at: string | null; // ISO-8601
+    rotated_by: string | null; // uuid
+  };
 }
 
 interface GetMeCacheEntry {
@@ -101,16 +110,25 @@ export class TelegramAdminService {
     // optional getMe call don't depend on each other for the status
     // payload's contents.
     const cfg = await this.config.load(tenant);
-    const [botHb, notifierHb, outboxStats, sendLogStats, streamMetrics, dlqMetrics, lastGetMeOk] =
-      await Promise.all([
-        this.heartbeats.readBot(),
-        this.heartbeats.readNotifier(),
-        this.outboxStats(),
-        this.sendLogStats(),
-        this.heartbeats.readStream(DISPATCH_STREAM),
-        this.heartbeats.readStream(DISPATCH_DLQ_STREAM),
-        this.lastGetMeOk(tenant, cfg !== null),
-      ]);
+    const [
+      botHb,
+      notifierHb,
+      outboxStats,
+      sendLogStats,
+      streamMetrics,
+      dlqMetrics,
+      lastGetMeOk,
+      serviceTokenMeta,
+    ] = await Promise.all([
+      this.heartbeats.readBot(),
+      this.heartbeats.readNotifier(),
+      this.outboxStats(),
+      this.sendLogStats(),
+      this.heartbeats.readStream(DISPATCH_STREAM),
+      this.heartbeats.readStream(DISPATCH_DLQ_STREAM),
+      this.lastGetMeOk(tenant, cfg !== null),
+      this.config.getServiceTokenMeta(tenant),
+    ]);
 
     return {
       configured: cfg !== null,
@@ -138,6 +156,11 @@ export class TelegramAdminService {
       streams: {
         [DISPATCH_STREAM]: streamMetrics,
         [DISPATCH_DLQ_STREAM]: dlqMetrics,
+      },
+      service_token: {
+        source: serviceTokenMeta.source,
+        rotated_at: serviceTokenMeta.rotatedAt ? serviceTokenMeta.rotatedAt.toISOString() : null,
+        rotated_by: serviceTokenMeta.rotatedBy,
       },
     };
   }

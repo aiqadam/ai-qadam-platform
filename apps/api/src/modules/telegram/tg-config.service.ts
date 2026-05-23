@@ -287,6 +287,27 @@ export class TgConfigService {
     const key = this.resolveKey();
     return decryptToken(row.encryptedServiceToken, key);
   }
+
+  // Status-panel metadata only — never returns the plaintext. The
+  // cabinet uses this to show "configured + rotated 2 days ago" or
+  // "still on env fallback, please rotate". No decryption happens so
+  // a missing encryption key doesn't block the status render.
+  async getServiceTokenMeta(
+    tenant: string | null,
+  ): Promise<{ source: 'db' | 'env' | 'unset'; rotatedAt: Date | null; rotatedBy: string | null }> {
+    const row = await this.findRow(tenant);
+    if (row?.encryptedServiceToken) {
+      return {
+        source: 'db',
+        rotatedAt: row.serviceTokenRotatedAt ?? null,
+        rotatedBy: row.serviceTokenRotatedBy ?? null,
+      };
+    }
+    if (env.TELEGRAM_BOT_SERVICE_TOKEN) {
+      return { source: 'env', rotatedAt: null, rotatedBy: null };
+    }
+    return { source: 'unset', rotatedAt: null, rotatedBy: null };
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

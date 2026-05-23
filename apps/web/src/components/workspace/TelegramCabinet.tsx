@@ -45,6 +45,13 @@ interface StatusResponse {
     last_24h_opted_out: number;
   };
   streams: Record<string, StreamMetrics>;
+  // R3 PR-b — service-token rotation metadata. Plaintext never lives
+  // here; only the source indicator + rotation audit fields.
+  service_token: {
+    source: 'db' | 'env' | 'unset';
+    rotated_at: string | null;
+    rotated_by: string | null;
+  };
 }
 
 interface RecentDeliveryRow {
@@ -180,6 +187,14 @@ export default function TelegramCabinet(): ReactElement {
         accessToken={state.accessToken}
         configured={status.configured}
         onSaved={() => {
+          void refresh();
+        }}
+      />
+      <ServiceTokenSection
+        accessToken={state.accessToken}
+        meta={status.service_token}
+        configured={status.configured}
+        onRotated={() => {
           void refresh();
         }}
       />
@@ -470,6 +485,269 @@ function Footer(): ReactElement {
       </p>
     </section>
   );
+}
+
+// ─── Service token (R3 PR-b) ────────────────────────────────────────────────
+//
+// Bot ↔ API auth token. Distinct from the BotFather token (which the
+// bot uses to talk to Telegram). R2 PR-3 moved this off the env var
+// into an encrypted column on tg_config. The cabinet surfaces:
+//
+//   - source indicator: db / env / unset
+//   - rotation audit metadata (when source = db)
+//   - "Rotate service token" button → confirmation → POST → one-shot
+//     plaintext display with copy-to-clipboard + clear-on-close.
+//
+// The plaintext is in state ONLY for the time the operator sees the
+// modal. It never round-trips through the status endpoint or any
+// other GET; rotation is the sole way to obtain it.
+
+interface ServiceTokenSectionProps {
+  accessToken: string;
+  meta: StatusResponse['service_token'];
+  configured: boolean;
+  onRotated: () => void;
+}
+
+type ServiceTokenState =
+  | { phase: 'idle' }
+  | { phase: 'confirm' }
+  | { phase: 'submitting' }
+  | { phase: 'shown'; plaintext: string; rotatedAt: string }
+  | { phase: 'error'; message: string };
+
+function ServiceTokenSection({
+  accessToken,
+  meta,
+  configured,
+  onRotated,
+}: ServiceTokenSectionProps): ReactElement {
+  const [state, setState] = useState<ServiceTokenState>({ phase: 'idle' });
+  const [copied, setCopied] = useState(false);
+
+  const rotate = useCallback(async (): Promise<void> => {
+    setState({ phase: 'submitting' });
+    try {
+      const res = await fetch('/api/v1/telegram/admin/rotate-service-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+          message?: string;
+        } | null;
+        const detail = body?.error ?? body?.message ?? `HTTP ${res.status}`;
+        setState({ phase: 'error', message: detail });
+        return;
+      }
+      const ok = (await res.json()) as { plaintext: string; rotated_at: string };
+      setState({ phase: 'shown', plaintext: ok.plaintext, rotatedAt: ok.rotated_at });
+      setCopied(false);
+      onRotated();
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'network error';
+      setState({ phase: 'error', message: reason });
+    }
+  }, [accessToken, onRotated]);
+
+  const onCopy = useCallback((): void => {
+    if (state.phase !== 'shown') return;
+    void navigator.clipboard.writeText(state.plaintext).then(() => setCopied(true));
+  }, [state]);
+
+  const onDismiss = useCallback((): void => {
+    setState({ phase: 'idle' });
+    setCopied(false);
+  }, []);
+
+  const sourceLabel: Record<typeof meta.source, { text: string; color: string }> = {
+    db: { text: 'DB (encrypted)', color: 'var(--primary)' },
+    env: { text: 'env fallback', color: '#f59e0b' },
+    unset: { text: 'NOT SET', color: '#ef4444' },
+  };
+  const src = sourceLabel[meta.source];
+
+  return (
+    <section data-testid="service-token-section" style={sectionStyle()}>
+      <h2 style={sectionHeadingStyle()}>Service token</h2>
+      <p style={{ ...mutedStyle(), marginBottom: 12 }}>
+        The bot uses this token in <code style={inlineCodeStyle()}>Authorization: Bearer</code> when
+        calling the API. Rotate when an operator leaves or you suspect compromise.
+      </p>
+
+      <div style={{ ...statusLineStyle(), marginBottom: 8 }}>
+        <span style={mutedStyle()}>Source: </span>
+        <span style={{ color: src.color, fontWeight: 600 }} data-testid="service-token-source">
+          {src.text}
+        </span>
+        {meta.source === 'env' && (
+          <span style={{ ...mutedStyle(), marginLeft: 8, fontSize: 12 }}>
+            (rotate to migrate into encrypted DB storage)
+          </span>
+        )}
+      </div>
+
+      {meta.rotated_at && (
+        <div style={{ ...statusLineStyle(), marginBottom: 12 }}>
+          <span style={mutedStyle()}>Last rotated: </span>
+          <code style={inlineCodeStyle()}>{shortClock(meta.rotated_at)}</code>
+          {meta.rotated_by && (
+            <span style={{ ...mutedStyle(), marginLeft: 8 }}>
+              by <code style={inlineCodeStyle()}>{meta.rotated_by.slice(0, 8)}…</code>
+            </span>
+          )}
+        </div>
+      )}
+
+      {state.phase === 'idle' && (
+        <button
+          type="button"
+          onClick={() => setState({ phase: 'confirm' })}
+          disabled={!configured}
+          data-testid="service-token-rotate"
+          style={primaryButtonStyle(!configured)}
+        >
+          Rotate service token
+        </button>
+      )}
+
+      {!configured && (
+        <p style={{ ...mutedStyle(), marginTop: 8, fontSize: 12 }}>
+          Configure the BotFather token first; the bot must exist before its service token can
+          rotate.
+        </p>
+      )}
+
+      {state.phase === 'confirm' && (
+        <div data-testid="service-token-confirm" style={confirmBoxStyle()}>
+          <p style={{ margin: '0 0 8px' }}>
+            <strong>Confirm rotation.</strong> The current service token will stop working
+            immediately after this. You must paste the new token into the bot's environment within
+            ~30s, then the bot will restart and reconnect.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => {
+                void rotate();
+              }}
+              data-testid="service-token-confirm-rotate"
+              style={primaryButtonStyle(false)}
+            >
+              Yes, rotate now
+            </button>
+            <button
+              type="button"
+              onClick={() => setState({ phase: 'idle' })}
+              style={secondaryButtonStyle()}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state.phase === 'submitting' && <p style={mutedStyle()}>Minting + persisting token…</p>}
+
+      {state.phase === 'shown' && (
+        <div data-testid="service-token-shown" style={confirmBoxStyle()}>
+          <p style={{ margin: '0 0 8px' }}>
+            <strong>New service token (copy now — won't be shown again):</strong>
+          </p>
+          <code
+            data-testid="service-token-plaintext"
+            style={{
+              display: 'block',
+              padding: 12,
+              background: 'var(--background)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+              wordBreak: 'break-all',
+              marginBottom: 8,
+            }}
+          >
+            {state.plaintext}
+          </code>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={onCopy}
+              style={primaryButtonStyle(false)}
+              data-testid="service-token-copy"
+            >
+              {copied ? 'Copied ✓' : 'Copy to clipboard'}
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              style={secondaryButtonStyle()}
+              data-testid="service-token-dismiss"
+            >
+              I've saved it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state.phase === 'error' && (
+        <div
+          data-testid="service-token-error"
+          style={{ ...confirmBoxStyle(), borderColor: '#ef4444' }}
+        >
+          <p style={{ margin: 0, color: '#ef4444' }}>Rotation failed: {state.message}</p>
+          <button
+            type="button"
+            onClick={() => setState({ phase: 'idle' })}
+            style={{ ...secondaryButtonStyle(), marginTop: 8 }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function primaryButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '8px 14px',
+    fontSize: 13,
+    borderRadius: 6,
+    border: '1px solid var(--primary)',
+    background: 'var(--primary)',
+    color: 'var(--primary-foreground)',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+  };
+}
+
+function secondaryButtonStyle(): React.CSSProperties {
+  return {
+    padding: '8px 14px',
+    fontSize: 13,
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--foreground)',
+    cursor: 'pointer',
+  };
+}
+
+function confirmBoxStyle(): React.CSSProperties {
+  return {
+    padding: 12,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--card)',
+    marginTop: 8,
+  };
 }
 
 // ─── Token form (configure / rotate) ────────────────────────────────────────
