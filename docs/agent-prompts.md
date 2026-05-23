@@ -88,6 +88,32 @@ If two open PRs both modify the same hot file, whichever merges first wins. The 
 
 ## 2. Feature template
 
+### 2.0 Layer triage (do this BEFORE anything else)
+
+Per [ADR-0037](./adr/0037-three-tier-architecture.md), every feature is designed by first identifying which of the three architectural layers it touches. Run this triage in the feature spec / PR description **before any layer-specific work**:
+
+```
+Feature: <feature-id> — <one-line summary>
+
+Layer triage (tick each that applies; can be multiple):
+  [ ] Engineering — new identity/auth/role/policy, infra control, engineer tool, break-glass path?
+  [ ] Operational — new cabinet/control inside /workspace, business audit event, operator KPI?
+  [ ] Customer-facing — new member-visible surface, customer-facing message, bot interaction?
+
+For each ticked layer: 1 paragraph of intent + 1-bullet user story.
+
+Cross-layer contracts (only required when >1 layer ticked):
+  - SSO/role-gating enforced by engineering (which Authentik group / Directus policy)
+  - Business event emitted by operational (which audit_events row / Plausible event)
+  - Customer-visible artifact + the data feed producing it (which page/island/bot command)
+```
+
+A single-layer feature ships cleanly through that layer's owner. Multi-layer features must spell out the contract at each boundary — the contract lives in this PR description, not implicitly inside one of the touched layers.
+
+If the feature is in the [ADR-0037 defer-list](./adr/0037-three-tier-architecture.md#defer-list--work-paused-pending-the-rewire), the agent **exits** and surfaces the wait — don't kick it off until the listed re-trigger condition is met.
+
+### 2.1 The PR shape
+
 Every feature PR ships the same shape. Cargo-cult this list:
 
 ```

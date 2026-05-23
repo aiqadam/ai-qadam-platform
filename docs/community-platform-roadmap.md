@@ -447,6 +447,8 @@ Designing for the median actor is easy; designing for the misuse case is the BA'
 
 Each sprint includes: items with effort estimates, exit gate, and rationale ties back to lifecycles / flows / risks above.
 
+> **2026-05-23 — Three-tier rewire active.** Per [ADR-0037](./adr/0037-three-tier-architecture.md): the platform is being reframed as three layers (engineering / operational / customer-facing). **Sprint 4 + all of Phase ζ + Sprint 1 follow-ups are DEFERRED — pending three-tier rewire**, with re-trigger conditions documented per item below. Already-shipped sprints stay shipped; bug fixes always continue. New work runs through the [layer triage](./agent-prompts.md#20-layer-triage-do-this-before-anything-else) in `agent-prompts.md` §2.0.
+
 ### Sprint 0 — Foundation (week 1–2)
 
 **Goal:** the platform is operable by more than one person, recovers from incidents, and refuses to ship code that introduces known vulnerabilities.
@@ -558,6 +560,8 @@ Depends on Sprint 2's RBAC + the **PII data-flow map** (concurrent work — must
 
 **Open decision blocking sprint:** compensation model for country leads (see [§10](#10-open-decisions-blocking-issues)).
 
+> **DEFERRED 2026-05-23 — pending three-tier rewire ([ADR-0037](./adr/0037-three-tier-architecture.md)) + G-1 country-lead compensation gap.** Sprint 4 touches both engineering (Authentik OIDC URI provisioning, RBAC group bootstrap) and operational (provisioning wizard cabinet); the layers must settle in Phase A + B before this can ship coherently. Re-trigger: G-1 closed AND Phase A done.
+
 | Item | Output | Effort |
 |---|---|---|
 | **4.1 — Country provisioning service** — **PR-a (framework) + PR-b (authentik_oidc) SHIPPED 2026-05-23** | State-machine-backed (per architect review). On super-admin trigger, sequentially: register Authentik OIDC redirect URI → create Directus permission policy (member-graph-aware per ADR-0033) → create Plausible site → register Coolify FQDN. Each step idempotent + retriable. State persisted in `countries.provisioning_state` JSON. **PR-a**: framework — schema column + `CountryProvisioningService` with 4-step state machine + `POST/GET /v1/admin/countries/:code/provisioning*` (super-admin gated) + 9 unit tests. **PR-b**: real `authentik_oidc` runner — reads new `AUTHENTIK_OIDC_PROVIDER_NAME` env, fetches the OAuth2/OIDC provider via 2 new `AuthentikClient` methods (`getOauthProviderByName`, `setOauthProviderRedirectUris`), appends `https://<country>.aiqadam.org/api/v1/auth/callback` if not already present, PATCHes back. Idempotent (URI present → no PATCH). Clear errors: `authentik_admin_not_configured` / `authentik_oidc_provider_not_configured` / `authentik_oidc_provider_not_found` / `authentik_patch_failed status=N`. 5 new unit tests. `directus_policy`, `plausible_site`, `coolify_fqdn` remain stubs (PR-c/-d). | 4 PRs (2 of 4 shipped — framework + authentik; directus + plausible + coolify pending) |
@@ -595,6 +599,8 @@ Depends on Sprint 2's RBAC + the **PII data-flow map** (concurrent work — must
 ### Sprint 6+ (Phase ζ) — Content + community-to-community layer (week 13+)
 
 **Goal:** content library + member-to-member layer + hackathon teams + full discovery surface + full bot command suite + crisis-response framework.
+
+> **DEFERRED 2026-05-23 — pending three-tier rewire ([ADR-0037](./adr/0037-three-tier-architecture.md)).** Every ζ.* feature touches operational + customer-facing (and ζ.2 Discourse + ζ.6 i18n touch engineering too). The rewire establishes where each piece lives; building them on the current namespace would create more cross-layer mess. Re-trigger varies per item (Phase A done unblocks ζ.2; Phase B done unblocks ζ.1/ζ.3/ζ.5/ζ.7/ζ.8 + win-back; Phase C done unblocks ζ.4; full A+B+C unblocks ζ.6). See [ADR-0037 defer-list](./adr/0037-three-tier-architecture.md#defer-list--work-paused-pending-the-rewire) for per-item re-triggers.
 
 | Item | Output | Effort |
 |---|---|---|
