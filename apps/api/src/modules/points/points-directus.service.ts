@@ -38,12 +38,22 @@ export class PointsDirectusService {
   // points). Same applies to legacy point_awards rows whose user_id no
   // longer exists in platform.users (orphan after the schema drop in
   // S4.5/4 — won't apply once that lands).
+  //
+  // F-S5.6 — `appear_on_public_leaderboard` is an opt-out on directus_users
+  // (default ON). The relational filter `_neq:false` includes users where
+  // the column is true OR null (legacy rows that haven't been backfilled),
+  // and excludes users who explicitly opted out. Per F-S5.6 spec the rank
+  // arithmetic stays "stable" — we drop opted-out users from the rendered
+  // list, not the underlying sort, so ranks 1, 2, 4 remain as such when
+  // rank 3 opted out. (limit may yield fewer rows than requested if many
+  // users opt out; acceptable for v1.)
   async leaderboard(input: { countryCode: string; limit: number }): Promise<LeaderboardEntry[]> {
     if (input.limit <= 0 || input.limit > 100) {
       throw new Error('limit must be between 1 and 100');
     }
     const params = new URLSearchParams({
       'filter[country][_eq]': input.countryCode,
+      'filter[user][appear_on_public_leaderboard][_neq]': 'false',
       'aggregate[sum]': 'points',
       groupBy: 'user',
       sort: '-sum.points',

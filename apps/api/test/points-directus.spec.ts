@@ -93,6 +93,11 @@ describe('PointsDirectusService.leaderboard', () => {
     expect(call).toContain('groupBy=user');
     expect(call).toContain('sort=-sum.points');
     expect(call).toContain('limit=20');
+    // F-S5.6 — excludes users with appear_on_public_leaderboard=false.
+    // _neq:false keeps users where the flag is true OR null (legacy rows).
+    expect(decodeURIComponent(call)).toContain(
+      'filter[user][appear_on_public_leaderboard][_neq]=false',
+    );
   });
 
   it('silently drops aggregate rows for users not yet linked in platform.users', async () => {
