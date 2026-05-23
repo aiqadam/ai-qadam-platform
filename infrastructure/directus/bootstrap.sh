@@ -869,6 +869,78 @@ ensure "relation event_types.default_eula_id -> eulas.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"event_types","field":"default_eula_id","related_collection":"eulas","schema":{"on_delete":"SET NULL"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# events.registration_schema + registration_open + online_meeting_url
+# (Phase Bot-B PR-1.2a — schema-driven activation per ADR-0034 acquisition rewrite)
+# ════════════════════════════════════════════════════════════════════════
+#
+# The bot's /register_<slug> FSM (sibling repo #20) is schema-driven:
+# it fetches per-event field definitions from
+# GET /v1/telegram/events/{slug}/registration-schema and renders
+# whatever shape aiqadam returns. No bot deploy needed when an operator
+# adds a "company size" or "dietary preferences" field — it's an
+# admin-UI operation on the events row.
+#
+# registration_schema stores the full RegistrationSchema JSON shape
+# (see apps/api/src/modules/telegram/telegram-registration-schema.service.ts).
+# When null, the schema endpoint returns a hardcoded minimum-viable
+# default (name + email + events consent) so newly-published events
+# get a working bot flow before the operator opens the cabinet editor.
+#
+# registration_open is a toggle independent of status=published — lets
+# operators close registration for a sold-out event without unpublishing
+# the event page.
+#
+# online_meeting_url is for virtual events (Zoom/Meet/Hop.in/etc.).
+# Surfaced in the confirmation push + the public event page.
+
+echo "[events.registration_schema]"
+ensure "field events.registration_schema" \
+  "${DIRECTUS_URL}/fields/events/registration_schema" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"registration_schema",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json"},
+      "width":"full",
+      "note":"Schema-driven registration form rendered by the bot. Null → bot uses the minimum-viable default (name+email+events consent). Edit via the schema-editor cabinet (PR-1.2c)."
+    }
+  }'
+
+echo "[events.registration_open]"
+ensure "field events.registration_open" \
+  "${DIRECTUS_URL}/fields/events/registration_open" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"registration_open",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":true},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"Toggle to close registration without unpublishing the event (e.g. sold-out). Independent of status=published."
+    }
+  }'
+
+echo "[events.online_meeting_url]"
+ensure "field events.online_meeting_url" \
+  "${DIRECTUS_URL}/fields/events/online_meeting_url" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"online_meeting_url",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":512},
+    "meta":{
+      "interface":"input",
+      "width":"half",
+      "note":"Zoom/Meet/Hop.in URL for virtual events. Surfaced in the confirmation push + the public event page."
+    }
+  }'
+
 # ──────────── interactions (Sprint 5.5/3) ───────────────────────────────
 #
 # The architectural unit. Every outbound message in the platform — email,
