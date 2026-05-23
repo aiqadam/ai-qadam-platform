@@ -321,11 +321,16 @@ export class TelegramController {
   // to `tg.bot.*` / `tg.notifier.*` so a compromised bot can't forge
   // signals like `auth.failed`.
   //
+  // Path is `admin/event` because it shares the configuration namespace
+  // with the other bot-facing admin endpoints (`admin/bot-token`); the
+  // bot client's `track_event` calls /v1/telegram/admin/event verbatim
+  // (sibling repo PR #10). Gate is the m2m service token, not a session.
+  //
   //   200/202: event accepted (Plausible call is fire-and-forget per
   //            the ops-events contract — never throws, never blocks).
   //   400: invalid name or props shape.
   //   401/503: TelegramAuthGuard (bad service token / not configured).
-  @Post('event')
+  @Post('admin/event')
   @HttpCode(HttpStatus.ACCEPTED)
   async event(@Body() body: unknown): Promise<{ accepted: true }> {
     const parsed = eventSchema.safeParse(body);
