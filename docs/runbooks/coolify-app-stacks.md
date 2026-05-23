@@ -155,12 +155,55 @@ Open `https://auth.aiqadam.org/if/admin/`, log in as `akadmin` with the bootstra
 
 Note the **Client ID** + **Client Secret** — paste into the API stack env in Step 4.
 
+## Git source — choose SSH deploy key over GitHub App for private repos
+
+> Added 2026-05-23 after the `aiqadam-telegram-bot` GitHub-App source
+> went stale and silently broke deploys for ~9 days. Symptom in the
+> deploy log: `remote: Repository not found. fatal: repository
+> 'https://github.com/<REDACTED>:viktordrukker/...'`. No Coolify-side
+> error chip; just the cryptic "not found".
+
+For **private repos** prefer the SSH-deploy-key source:
+
+1. Generate a dedicated key per repo:
+   `ssh-keygen -t ed25519 -C "coolify-deploy-<repo>" -f /tmp/<repo>_deploy -N ""`
+2. Register the public side on the repo as a GitHub **Deploy Key**
+   (Settings → Deploy keys → Add key; read-only is enough).
+3. Upload the private side to Coolify as a private key
+   (`Coolify admin → Security → Keys`, OR
+   `POST /api/v1/security/keys` with `{name, description, private_key}`).
+4. When creating the application, choose **Private Key** as the source
+   and pick that key. URL must be the raw SSH form:
+   `git@github.com:owner/repo.git`.
+
+For **public repos** the HTTPS form via the Coolify GitHub App is also
+fine — token expiry is harmless because public clones don't need auth.
+
+**Why not the GitHub App for private repos**: the App's installation
+token can be revoked or expire (Coolify-side or GitHub-side) without
+notice. The Coolify v4 REST API does NOT let you swap source type on
+an existing application — `PATCH /applications/<uuid>` rejects
+`private_key_uuid`, `source_id`, `source_type` with `"This field is
+not allowed."` (verified 2026-05-23). Recovery is either:
+
+- **Coolify UI flip**: Configuration → General → Source → switch to
+  "Private Key" → select key → save. ~1 min.
+- **Delete + recreate via API**: `DELETE /applications/<uuid>` then
+  `POST /applications/dockercompose` (or `private-deploy-key`) with
+  `private_key_uuid`. Loses env vars + deploy history; the bot repo's
+  `scripts/r5_deploy.py` does this for unattended setup.
+
+Reference: `aiqadam-api` (uuid `h5m7cpzfamualvdblupy3yy3`) was created
+SSH-style from day one and has been deploying cleanly. The
+`aiqadam-telegram-bot` resource was originally App-style; required a
+recreate on 2026-05-23 to fix.
+
 ## Step 3 — Provision Web
 
 In Coolify: **+ New Resource → Application**.
 
 - **Name:** `aiqadam-web`
-- **Source:** GitHub → connect the `viktordrukker/aiqadam` repo, branch `main`
+- **Source:** GitHub → connect the `viktordrukker/aiqadam` repo, branch `main` (SSH deploy key per the section above)
 - **Build pack:** Dockerfile
 - **Dockerfile location:** `apps/web/Dockerfile`
 - **Build context:** `.` (repo root, NOT `apps/web` — the Dockerfile copies from the workspace root)
