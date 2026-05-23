@@ -59,6 +59,18 @@ export interface LinkConfirmResult {
   tenant: string;
 }
 
+// Phase Bot-B PR-2 — bot resolves a tg_user_id to a member when the
+// user runs /stop or the bot needs to render "you're already linked"
+// without asking for an email. Wire shape pinned to the sibling repo's
+// MemberByTgResponse pydantic model.
+export interface MemberByTgResult {
+  member_id: string;
+  tenant: string;
+  display_name: string;
+  telegram_user_id: number;
+  telegram_opted_out_at: string | null;
+}
+
 // Outcomes the notifier reports per ADR-0034 §"Failure modes — the
 // matrix". Kept as a string union (not a TS enum) so it ships over the
 // wire as the same JSON the bot serializes.
@@ -374,6 +386,64 @@ export class TelegramService {
     );
     return lookup.data[0] ?? null;
   }
+
+  // Phase Bot-B PR-2 — reverse lookup tg_user_id → member.
+  //
+  // Used by the bot's /stop flow (resolves the caller's member_id without
+  // asking for their email) and by `/start` to render "welcome back,
+  // {name}" vs treating the user as anonymous.
+  //
+  // Throws NotFoundException when no member has this tg_user_id.
+  // Returns the wire shape directly so the controller is a pass-through.
+  async resolveMemberByTgUserId(tgUserId: bigint): Promise<MemberByTgResult> {
+    // Directus stores telegram_user_id as bigInteger; the JSON wire
+    // round-trips via string to avoid 2^53 precision loss.
+    const filter = encodeURIComponent(tgUserId.toString());
+    const lookup = await this.directus.get<{
+      data: Array<{
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        email: string;
+        country: string | null;
+        telegram_user_id: string | number;
+        telegram_username: string | null;
+        telegram_opted_out_at: string | null;
+      }>;
+    }>(
+      `/users?filter[telegram_user_id][_eq]=${filter}&fields=id,first_name,last_name,email,country,telegram_user_id,telegram_username,telegram_opted_out_at&limit=1`,
+    );
+    const row = lookup.data[0];
+    if (!row) {
+      throw new NotFoundException('member_not_found');
+    }
+    return {
+      member_id: row.id,
+      tenant: row.country ?? '',
+      display_name: formatDisplayName({
+        first_name: row.first_name,
+        last_name: row.last_name,
+        telegram_username: row.telegram_username,
+        email: row.email,
+      }),
+      telegram_user_id: Number(row.telegram_user_id),
+      telegram_opted_out_at: row.telegram_opted_out_at,
+    };
+  }
+}
+
+// Visible for unit tests. Falls back through first/last → handle → email
+// so the bot always has SOMETHING to render — never empty string.
+export function formatDisplayName(parts: {
+  first_name: string | null;
+  last_name: string | null;
+  telegram_username: string | null;
+  email: string;
+}): string {
+  const full = [parts.first_name, parts.last_name].filter(Boolean).join(' ').trim();
+  if (full.length > 0) return full;
+  if (parts.telegram_username) return `@${parts.telegram_username}`;
+  return parts.email;
 }
 
 // ─── Standalone helpers (exported for tests) ────────────────────────────────

@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Param,
   Post,
   Query,
   UseGuards,
@@ -18,11 +19,19 @@ import { type EventSummary, TelegramEventsService } from './telegram-events.serv
 import {
   type LinkConfirmResult,
   type LinkStartResult,
+  type MemberByTgResult,
   type RecordSendAuditResult,
   SEND_OUTCOMES,
   TelegramService,
 } from './telegram.service';
 import { TgConfigService } from './tg-config.service';
+
+// Phase Bot-B PR-2 path param — TG user ids are int64; we accept the
+// digit-string form and convert via BigInt for the service.
+const tgUserIdParamSchema = z
+  .string()
+  .regex(/^[1-9]\d*$/, 'tg_user_id must be a positive integer string')
+  .transform((v) => BigInt(v));
 
 const eventsQuerySchema = z.object({
   tenant: z
@@ -170,6 +179,27 @@ export class TelegramController {
   @Get('whoami')
   whoami(): { authenticated: true; module: 'telegram' } {
     return { authenticated: true, module: 'telegram' };
+  }
+
+  // GET /v1/telegram/members/by-tg/:id
+  //   Phase Bot-B PR-2. Reverse-resolves a Telegram user id to the
+  //   linked AI Qadam member. Used by the bot's /stop opt-out flow (so
+  //   the bot doesn't need the member's email) and by /start to render
+  //   "welcome back, {name}".
+  //
+  //   200: { member_id, tenant, display_name, telegram_user_id,
+  //          telegram_opted_out_at }
+  //   400: tg_user_id not a positive integer
+  //   404: no member with this tg_user_id (caller decides UX —
+  //        unlinked-user path vs. error)
+  //   401/503: TelegramAuthGuard (bad service token / not configured)
+  @Get('members/by-tg/:id')
+  async memberByTg(@Param('id') id: string): Promise<MemberByTgResult> {
+    const parsed = tgUserIdParamSchema.safeParse(id);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegram.resolveMemberByTgUserId(parsed.data);
   }
 
   // GET /v1/telegram/admin/bot-token?tenant=<code>
