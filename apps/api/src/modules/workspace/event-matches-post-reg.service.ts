@@ -52,6 +52,7 @@ interface RegistrationRow {
     first_name: string | null;
     last_name: string | null;
     job_title: string | null;
+    job_title_canonical: string | null;
     appear_in_matches: boolean;
   };
   event: {
@@ -68,6 +69,7 @@ interface AttendeeRow extends AttendeeForMatch {
     first_name: string | null;
     last_name: string | null;
     job_title: string | null;
+    job_title_canonical: string | null;
     appear_in_matches: boolean;
   };
 }
@@ -142,8 +144,12 @@ export class EventMatchesPostRegService {
       }
       return;
     }
-    const interestsByMember = await this.interestsByMember(allAttendees.map((a) => a.user.id));
-    const alreadyMatched = await this.alreadyMatchedUserIdsFor(eventId);
+    const userIds = allAttendees.map((a) => a.user.id);
+    const [interestsByMember, alreadyMatched, connectionsByMember] = await Promise.all([
+      this.interestsByMember(userIds),
+      this.alreadyMatchedUserIdsFor(eventId),
+      this.connectionsByMember(userIds),
+    ]);
     for (const reg of candidateRegs) {
       await this.dispatchSafely(
         reg,
@@ -151,6 +157,7 @@ export class EventMatchesPostRegService {
         allAttendees,
         interestsByMember,
         alreadyMatched,
+        connectionsByMember,
         result,
       );
     }
@@ -162,6 +169,7 @@ export class EventMatchesPostRegService {
     allAttendees: AttendeeRow[],
     interestsByMember: Map<string, Set<string>>,
     alreadyMatched: Set<string>,
+    connectionsByMember: Map<string, Set<string>>,
     result: PostRegTickResult,
   ): Promise<void> {
     if (alreadyMatched.has(reg.user.id)) {
@@ -170,7 +178,11 @@ export class EventMatchesPostRegService {
     }
     const myTags = interestsByMember.get(reg.user.id) ?? new Set<string>();
     const others = allAttendees.filter((a) => a.user.id !== reg.user.id);
-    const ranked = rankCandidates(others, interestsByMember, myTags, reg.user.job_title);
+    const ranked = rankCandidates(others, interestsByMember, myTags, {
+      myJobTitle: reg.user.job_title,
+      myJobTitleCanonical: reg.user.job_title_canonical ?? null,
+      alreadyConnected: connectionsByMember.get(reg.user.id) ?? new Set<string>(),
+    });
     if (ranked.length === 0) {
       result.skipped.push({ userId: reg.user.id, eventId: event.id, reason: 'no_eligible_peers' });
       return;
@@ -221,7 +233,7 @@ export class EventMatchesPostRegService {
       }),
     );
     const fields =
-      'id,date_created,user.id,user.first_name,user.last_name,user.job_title,user.appear_in_matches,event.id,event.title,event.starts_at,event.status';
+      'id,date_created,user.id,user.first_name,user.last_name,user.job_title,user.job_title_canonical,user.appear_in_matches,event.id,event.title,event.starts_at,event.status';
     const res = await this.directus.get<{ data: RegistrationRow[] }>(
       `/items/registrations?filter=${filter}&fields=${fields}&limit=${CANDIDATE_LIMIT_PER_TICK}&sort=date_created`,
     );
@@ -238,7 +250,8 @@ export class EventMatchesPostRegService {
         ],
       }),
     );
-    const fields = 'user.id,user.first_name,user.last_name,user.job_title,user.appear_in_matches';
+    const fields =
+      'user.id,user.first_name,user.last_name,user.job_title,user.job_title_canonical,user.appear_in_matches';
     const res = await this.directus.get<{ data: AttendeeRow[] }>(
       `/items/registrations?filter=${filter}&fields=${fields}&limit=2000`,
     );
@@ -256,6 +269,29 @@ export class EventMatchesPostRegService {
       const set = out.get(row.member) ?? new Set<string>();
       set.add(row.topic_tag);
       out.set(row.member, set);
+    }
+    return out;
+  }
+
+  // F-S1.5b ext — see EventMatchesService.connectionsByMember; same shape.
+  private async connectionsByMember(memberIds: string[]): Promise<Map<string, Set<string>>> {
+    const out = new Map<string, Set<string>>();
+    if (memberIds.length === 0) return out;
+    const filter = encodeURIComponent(
+      JSON.stringify({
+        _or: [{ member_a: { _in: memberIds } }, { member_b: { _in: memberIds } }],
+      }),
+    );
+    const res = await this.directus.get<{ data: Array<{ member_a: string; member_b: string }> }>(
+      `/items/member_connections?filter=${filter}&fields=member_a,member_b&limit=10000`,
+    );
+    for (const edge of res.data) {
+      const a = out.get(edge.member_a) ?? new Set<string>();
+      a.add(edge.member_b);
+      out.set(edge.member_a, a);
+      const b = out.get(edge.member_b) ?? new Set<string>();
+      b.add(edge.member_a);
+      out.set(edge.member_b, b);
     }
     return out;
   }

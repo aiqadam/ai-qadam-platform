@@ -63,6 +63,7 @@ interface AttendeeRow extends AttendeeForMatch {
     first_name: string | null;
     last_name: string | null;
     job_title: string | null;
+    job_title_canonical: string | null;
     appear_in_matches: boolean;
   };
 }
@@ -151,8 +152,18 @@ export class EventMatchesService {
       return { kind: 'skipped', eventId: event.id, reason: 'no_eligible_attendees' };
     }
     const alreadyMatched = await this.alreadyMatchedUserIds(event.id);
-    const interestsByMember = await this.interestsByMember(attendees.map((a) => a.user.id));
-    const plans = this.buildPlans(event, attendees, interestsByMember, alreadyMatched);
+    const userIds = attendees.map((a) => a.user.id);
+    const [interestsByMember, connectionsByMember] = await Promise.all([
+      this.interestsByMember(userIds),
+      this.connectionsByMember(userIds),
+    ]);
+    const plans = this.buildPlans(
+      event,
+      attendees,
+      interestsByMember,
+      alreadyMatched,
+      connectionsByMember,
+    );
     if (plans.length === 0) {
       await this.recordAnnouncement(event.id, null, 0);
       return { kind: 'skipped', eventId: event.id, reason: 'no_eligible_attendees' };
@@ -173,13 +184,18 @@ export class EventMatchesService {
     attendees: AttendeeRow[],
     interestsByMember: Map<string, Set<string>>,
     alreadyMatched: Set<string>,
+    connectionsByMember: Map<string, Set<string>>,
   ): MatchPlan[] {
     const plans: MatchPlan[] = [];
     for (const me of attendees) {
       if (alreadyMatched.has(me.user.id)) continue;
       const others = attendees.filter((a) => a.user.id !== me.user.id);
       const myTags = interestsByMember.get(me.user.id) ?? new Set<string>();
-      const ranked = rankCandidates(others, interestsByMember, myTags, me.user.job_title);
+      const ranked = rankCandidates(others, interestsByMember, myTags, {
+        myJobTitle: me.user.job_title,
+        myJobTitleCanonical: me.user.job_title_canonical ?? null,
+        alreadyConnected: connectionsByMember.get(me.user.id) ?? new Set<string>(),
+      });
       if (ranked.length === 0) continue;
       plans.push({
         recipientId: me.user.id,
@@ -229,7 +245,8 @@ export class EventMatchesService {
         ],
       }),
     );
-    const fields = 'user.id,user.first_name,user.last_name,user.job_title,user.appear_in_matches';
+    const fields =
+      'user.id,user.first_name,user.last_name,user.job_title,user.job_title_canonical,user.appear_in_matches';
     const res = await this.directus.get<{ data: AttendeeRow[] }>(
       `/items/registrations?filter=${filter}&fields=${fields}&limit=2000`,
     );
@@ -247,6 +264,32 @@ export class EventMatchesService {
       const set = out.get(row.member) ?? new Set<string>();
       set.add(row.topic_tag);
       out.set(row.member, set);
+    }
+    return out;
+  }
+
+  // F-S1.5b ext — pre-fetch all member_connections rows touching any of
+  // the event's attendees so the ranker can demote pairs the recipient
+  // has already met. Returns Map<userId, Set<other user IDs>> with both
+  // directions of each edge written (edges are undirected logically).
+  private async connectionsByMember(memberIds: string[]): Promise<Map<string, Set<string>>> {
+    const out = new Map<string, Set<string>>();
+    if (memberIds.length === 0) return out;
+    const filter = encodeURIComponent(
+      JSON.stringify({
+        _or: [{ member_a: { _in: memberIds } }, { member_b: { _in: memberIds } }],
+      }),
+    );
+    const res = await this.directus.get<{ data: Array<{ member_a: string; member_b: string }> }>(
+      `/items/member_connections?filter=${filter}&fields=member_a,member_b&limit=10000`,
+    );
+    for (const edge of res.data) {
+      const a = out.get(edge.member_a) ?? new Set<string>();
+      a.add(edge.member_b);
+      out.set(edge.member_a, a);
+      const b = out.get(edge.member_b) ?? new Set<string>();
+      b.add(edge.member_a);
+      out.set(edge.member_b, b);
     }
     return out;
   }

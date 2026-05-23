@@ -79,7 +79,8 @@ describe('EventMatchesService.tick — dispatch path', () => {
           { member: 'u-c', topic_tag: 'computer-vision' },
           { member: 'u-d', topic_tag: 'fintech' },
         ],
-      });
+      })
+      .mockResolvedValueOnce({ data: [] }); // connectionsByMember (F-S1.5b ext)
     dx.post.mockResolvedValue({ data: { id: 'ann-1' } });
 
     const result = await svc.tick();
@@ -147,7 +148,8 @@ describe('EventMatchesService.tick — dispatch path', () => {
           { member: 'u-a', topic_tag: 'computer-vision' },
           { member: 'u-b', topic_tag: 'fintech' }, // no overlap
         ],
-      });
+      })
+      .mockResolvedValueOnce({ data: [] }); // connectionsByMember (F-S1.5b ext)
     dx.post.mockResolvedValue({ data: { id: 'ann-y' } });
 
     const result = await svc.tick();
@@ -176,7 +178,8 @@ describe('EventMatchesService.tick — dispatch path', () => {
         ],
       })
       .mockResolvedValueOnce({ data: [{ user: 'u-a' }, { user: 'u-b' }] }) // T+3 already fired for u-a, u-b
-      .mockResolvedValueOnce({ data: [] }); // interestsByMember
+      .mockResolvedValueOnce({ data: [] }) // interestsByMember
+      .mockResolvedValueOnce({ data: [] }); // connectionsByMember (F-S1.5b ext)
     dx.post.mockResolvedValue({ data: { id: 'ann-z' } });
 
     const result = await svc.tick();
@@ -195,7 +198,8 @@ describe('EventMatchesService.tick — dispatch path', () => {
         data: [attendee('u-a', 'Aigerim', null, true), attendee('u-b', 'Bek', null, true)],
       })
       .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] });
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] }); // connectionsByMember (F-S1.5b ext)
     dx.post.mockResolvedValue({ data: { id: 'ann-w' } });
 
     await svc.tick();

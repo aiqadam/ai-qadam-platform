@@ -1331,6 +1331,41 @@ ensure "field directus_users.job_title" \
     "meta":{"interface":"input","width":"half","note":"Self-reported current role; member edits via /me/profile"}
   }'
 
+# F-S1.5b ext — controlled-vocab canonical job title for cross-member
+# matching. Coexists with the free-text job_title above (which stays
+# the public-facing label). Members pick a bucket via /me/profile;
+# match-algorithm uses canonical-vs-canonical equality as a stronger
+# signal than raw-string equality. 12 buckets covering ~80% of CA tech
+# roles as of 2026-05.
+echo "[F-S1.5b ext — directus_users.job_title_canonical]"
+ensure "field directus_users.job_title_canonical" \
+  "${DIRECTUS_URL}/fields/directus_users/job_title_canonical" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"job_title_canonical",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":40},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"ML / AI Engineer","value":"ml_engineer"},
+        {"text":"Software Engineer (backend/frontend/fullstack)","value":"software_engineer"},
+        {"text":"Data Engineer","value":"data_engineer"},
+        {"text":"Data Scientist / Analyst","value":"data_scientist"},
+        {"text":"DevOps / Platform / SRE","value":"platform_engineer"},
+        {"text":"Engineering Manager","value":"engineering_manager"},
+        {"text":"Product Manager","value":"product_manager"},
+        {"text":"Designer (product/UX/UI)","value":"designer"},
+        {"text":"Founder / CEO / CTO","value":"founder"},
+        {"text":"Researcher (academic/applied)","value":"researcher"},
+        {"text":"Student","value":"student"},
+        {"text":"Other","value":"other"}
+      ]},
+      "note":"F-S1.5b ext — controlled-vocab for matching. Free-text job_title (above) stays the public label."
+    }
+  }'
+
 echo "[directus_users.employer]"
 ensure "field directus_users.employer" \
   "${DIRECTUS_URL}/fields/directus_users/employer" \

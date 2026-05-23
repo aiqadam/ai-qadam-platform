@@ -89,7 +89,8 @@ describe('EventMatchesPostRegService.tick', () => {
         ],
       })
       .mockResolvedValueOnce({ data: [] }) // interestsByMember
-      .mockResolvedValueOnce({ data: [] }); // alreadyMatchedUserIds
+      .mockResolvedValueOnce({ data: [] }) // alreadyMatchedUserIds
+      .mockResolvedValueOnce({ data: [] }); // F-S1.5b ext — connectionsByMember
 
     const result = await svc.tick();
 
@@ -130,7 +131,8 @@ describe('EventMatchesPostRegService.tick', () => {
         data: [attendee('u-a', 'Aigerim', null), attendee('u-b', 'Bek', null)],
       })
       .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [{ user: 'u-a' }] }); // u-a already matched by T-7
+      .mockResolvedValueOnce({ data: [{ user: 'u-a' }] }) // u-a already matched by T-7
+      .mockResolvedValueOnce({ data: [] }); // F-S1.5b ext — connectionsByMember
 
     const result = await svc.tick();
     expect(result.skipped).toEqual([
@@ -168,7 +170,8 @@ describe('EventMatchesPostRegService.tick', () => {
         data: [attendee('u-a', 'Aigerim', null), attendee('u-b', 'Bek', null)],
       })
       .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] });
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] }); // F-S1.5b ext — connectionsByMember
     interactions.dispatch.mockRejectedValueOnce(new Error('Resend 503'));
 
     const result = await svc.tick();
@@ -193,14 +196,15 @@ describe('EventMatchesPostRegService.tick', () => {
         ],
       })
       .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] });
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] }); // F-S1.5b ext — connectionsByMember
 
     const result = await svc.tick();
     // Both u-a and u-b dispatched
     expect(result.dispatched).toHaveLength(2);
     expect(interactions.dispatch).toHaveBeenCalledTimes(2);
-    // Per-event fetches happened once each (4 total GETs: candidates,
-    // attendees, interests, alreadyMatched)
-    expect(dx.get).toHaveBeenCalledTimes(4);
+    // Per-event fetches happened once each (5 total GETs: candidates,
+    // attendees, interests, alreadyMatched, connections)
+    expect(dx.get).toHaveBeenCalledTimes(5);
   });
 });
