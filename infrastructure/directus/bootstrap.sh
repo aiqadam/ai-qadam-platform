@@ -446,6 +446,55 @@ ensure "relation partners.logo -> directus_files.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"partners","field":"logo","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S5.9 — Campaign landing pages
+# ════════════════════════════════════════════════════════════════════════
+#
+# Per-campaign tailored landing pages at /welcome/{slug} consumed by paid
+# traffic + influencer/partner deeplinks. Schema is intentionally thin
+# (marketing playbook §4.3): title + body + a single CTA. UTM/ref
+# attribution piggy-backs on the existing F-S3.9 capture layer on the
+# common Astro shell — landing pages do not need their own attribution
+# code.
+#
+# slug is the URL fragment (unique). Drafts + archived rows are excluded
+# from the public render at the Astro fetch layer.
+
+echo "[F-S5.9 — landing_pages]"
+ensure "collection landing_pages" \
+  "${DIRECTUS_URL}/collections/landing_pages" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"landing_pages",
+    "schema":{"name":"landing_pages"},
+    "meta":{
+      "icon":"campaign",
+      "note":"Per-campaign landing pages at /welcome/{slug}. Owned by marketing.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":64,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"URL fragment — /welcome/{slug}. Lowercase + hyphens; never renamed once shipped (kills attribution)."}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"draft","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Draft (not served)","value":"draft"},
+          {"text":"Published","value":"published"},
+          {"text":"Archived (not served)","value":"archived"}
+        ]}
+      }},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":160},"meta":{"interface":"input","width":"full","required":true,"note":"H1 + meta title. Campaign-specific headline."}},
+      {"field":"subtitle","type":"string","schema":{"is_nullable":true,"max_length":280},"meta":{"interface":"input","width":"full","note":"Dek under the H1. Optional."}},
+      {"field":"body_md","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-rich-text-md","width":"full","note":"Body content (markdown). Rendered as HTML."}},
+      {"field":"cta_label","type":"string","schema":{"is_nullable":false,"default_value":"See upcoming events","max_length":80},"meta":{"interface":"input","width":"half","required":true}},
+      {"field":"cta_url","type":"string","schema":{"is_nullable":false,"default_value":"/events","max_length":255},"meta":{"interface":"input","width":"half","required":true,"note":"Relative path (/events) or absolute URL. UTM params are preserved client-side from the inbound query string."}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
 # ──────────── homepage_hero (one row per country) ───────────────────────
 
 echo "[homepage_hero]"

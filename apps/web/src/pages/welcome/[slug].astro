@@ -1,0 +1,115 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { fetchLandingPage } from '../../lib/cms';
+
+// F-S5.9 — campaign landing pages.
+//
+// Per-campaign tailored landing at /welcome/{slug}. Driven by the
+// Directus `landing_pages` collection (one row per campaign). Drafts +
+// archived rows 404. UTM/ref attribution is captured by the common
+// Astro shell from F-S3.9 — no special handling here.
+//
+// Body uses the same minimal markdown shape as event agenda renderers
+// (paragraphs + bullet lists). Rich content (links, bold) deferred to
+// a follow-up if marketing needs it.
+
+export const prerender = false;
+
+const { slug } = Astro.params as { slug: string };
+if (!slug) {
+  return new Response(null, { status: 404 });
+}
+const page = await fetchLandingPage(slug);
+if (!page) {
+  return new Response(null, { status: 404 });
+}
+
+function renderBody(md: string): string {
+  const escape = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const blocks = md.split(/\n\s*\n/);
+  return blocks
+    .map((block) => {
+      const lines = block
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length === 0) return '';
+      if (lines.every((l) => l.startsWith('- '))) {
+        return `<ul style="margin: 0 0 16px; padding-left: 22px;">${lines
+          .map((l) => `<li style="margin: 0 0 6px;">${escape(l.slice(2))}</li>`)
+          .join('')}</ul>`;
+      }
+      return `<p style="margin: 0 0 16px;">${lines.map(escape).join('<br />')}</p>`;
+    })
+    .filter(Boolean)
+    .join('');
+}
+
+const bodyHtml = page.bodyMd ? renderBody(page.bodyMd) : null;
+---
+
+<Layout
+  title={page.title}
+  description={page.subtitle ?? page.title}
+>
+  <main style="max-width: 720px; margin: 0 auto; padding: 64px 32px 96px;">
+    <p
+      class="section-eyebrow"
+      style="margin-bottom: 8px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+    >
+      AI Qadam
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 36px; letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 16px;"
+    >
+      {page.title}
+    </h1>
+    {page.subtitle && (
+      <p style="font-size: 18px; line-height: 1.5; color: var(--muted-foreground); margin: 0 0 32px;">
+        {page.subtitle}
+      </p>
+    )}
+    {bodyHtml && (
+      <div
+        style="font-size: 16px; line-height: 1.65; color: var(--foreground); margin: 0 0 40px;"
+        set:html={bodyHtml}
+      />
+    )}
+    <a
+      class="btn btn-primary btn-lg"
+      data-landing-cta
+      href={page.ctaUrl}
+      style="display: inline-flex; align-items: center; gap: 8px;"
+    >
+      {page.ctaLabel}
+    </a>
+  </main>
+
+  <script is:inline>
+    // F-S5.9 — preserve inbound UTM + ref query params onto the CTA href
+    // so attribution from the campaign carries through to the destination.
+    // Only patches RELATIVE URLs (absolute CTA URLs are off-platform and
+    // typically don't want our internal params).
+    (function () {
+      const cta = document.querySelector('[data-landing-cta]');
+      if (!cta) return;
+      const href = cta.getAttribute('href') || '';
+      if (!href.startsWith('/')) return;
+      const inbound = new URLSearchParams(window.location.search);
+      const carry = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'ref'];
+      const dest = new URL(href, window.location.origin);
+      let mutated = false;
+      for (const key of carry) {
+        const value = inbound.get(key);
+        if (value && !dest.searchParams.has(key)) {
+          dest.searchParams.set(key, value);
+          mutated = true;
+        }
+      }
+      if (mutated) {
+        cta.setAttribute('href', dest.pathname + dest.search + dest.hash);
+      }
+    })();
+  </script>
+</Layout>
