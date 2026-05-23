@@ -1,17 +1,23 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { DB, type Db } from '../../db';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
+import { OutboxPublisher } from './outbox-publisher.service';
 import {
   DEFAULT_REGISTRATION_CONSENTS,
   DEFAULT_REGISTRATION_FIELDS,
   type RegistrationConsent,
   type RegistrationField,
 } from './telegram-registration-schema.service';
+
+const TELEGRAM_STREAM = 'tg.dispatch.v1';
 
 // Phase Bot-B PR-1.3b — Telegram-as-IdP activation per ADR-0034
 // acquisition rewrite. The bot's /register_<slug> FSM POSTs here once
@@ -70,6 +76,7 @@ interface EventRow {
   title: string;
   starts_at: string;
   country: string;
+  location: string | null;
   status: string;
   visibility_scope: string | null;
   registration_open?: boolean | null;
@@ -111,7 +118,11 @@ const CONSENT_KEY_TO_PURPOSE: Record<string, string> = {
 export class TelegramRegistrationsService {
   private readonly logger = new Logger(TelegramRegistrationsService.name);
 
-  constructor(private readonly directus: DirectusClient) {}
+  constructor(
+    private readonly directus: DirectusClient,
+    private readonly outbox: OutboxPublisher,
+    @Inject(DB) private readonly db: Db,
+  ) {}
 
   // ─── GET /members/lookup-by-email/:email ───────────────────────────────────
   //
@@ -225,6 +236,21 @@ export class TelegramRegistrationsService {
     // the consents jsonb as the auditable source of truth.
     await this.recordConsents(memberId, input.consents);
 
+    // Bundle 2 MVP — fire the registration_confirmed push. Fire-and-forget
+    // semantics: a failure to enqueue the envelope MUST NOT fail the
+    // registration response (the user has already been registered). The
+    // outbox publish is itself idempotent (envelopeId UNIQUE); a future
+    // cron could backfill missed confirmations by scanning registrations
+    // with no corresponding tg_send_log row.
+    await this.dispatchRegistrationConfirmed({
+      memberId,
+      tgUserId: input.telegram_user_id,
+      tenant: event.country,
+      eventTitle: event.title,
+      eventStartsAt: event.starts_at,
+      eventLocation: event.location,
+    });
+
     return {
       registration_id: registrationId,
       member_id: memberId,
@@ -240,7 +266,7 @@ export class TelegramRegistrationsService {
   private async findEventOrThrow(eventId: string): Promise<EventRow> {
     try {
       const res = await this.directus.get<{ data: EventRow }>(
-        `/items/events/${encodeURIComponent(eventId)}?fields=id,slug,title,starts_at,country,status,visibility_scope,registration_open,registration_schema`,
+        `/items/events/${encodeURIComponent(eventId)}?fields=id,slug,title,starts_at,country,location,status,visibility_scope,registration_open,registration_schema`,
       );
       return res.data;
     } catch (err) {
@@ -333,6 +359,80 @@ export class TelegramRegistrationsService {
     return created.data.id;
   }
 
+  // Bundle 2 MVP. Renders the hardcoded registration_confirmed template,
+  // builds a tg.dispatch.v1 envelope matching TelegramAdapter's shape,
+  // and writes it through OutboxPublisher inside a Postgres tx so the
+  // relay loop will publish.
+  //
+  // Fire-and-forget at the caller: a thrown error here is logged + swallowed
+  // (returned as void). Idempotency: envelopeId is a fresh UUID per call;
+  // re-runs can't double-publish because outbox has a UNIQUE constraint.
+  //
+  // Future: this will read from tg_push_templates Directus collection
+  // (Bundle 2 PR-2.1-templates) instead of the inline template. The
+  // envelope shape stays unchanged.
+  private async dispatchRegistrationConfirmed(input: {
+    memberId: string;
+    tgUserId: bigint;
+    tenant: string;
+    eventTitle: string;
+    eventStartsAt: string;
+    eventLocation: string | null;
+  }): Promise<void> {
+    try {
+      const text = renderRegistrationConfirmedTemplate({
+        eventTitle: input.eventTitle,
+        eventStartsAt: input.eventStartsAt,
+        eventLocation: input.eventLocation,
+      });
+      const envelopeId = randomUUID();
+      const correlationId = randomUUID();
+      const envelope = {
+        schema: TELEGRAM_STREAM,
+        id: envelopeId,
+        occurred_at: new Date().toISOString(),
+        correlation_id: correlationId,
+        causation_id: null,
+        producer: 'aiqadam-api',
+        meta: { tenant: input.tenant, intent: 'registration_confirmed' },
+        payload: {
+          kind: 'dm' as const,
+          target: {
+            chat_id: Number(input.tgUserId),
+            member_id: input.memberId,
+            tenant: input.tenant,
+          },
+          template: {
+            text,
+            parse_mode: 'None' as const,
+            disable_web_page_preview: true,
+            media_url: null,
+            media_kind: null,
+            inline_buttons: null,
+          },
+          delivery_key: envelopeId,
+          max_retries: 5,
+          expires_at: null,
+        },
+      };
+      await this.db.transaction(async (tx) => {
+        await this.outbox.publish(tx, {
+          envelopeId,
+          stream: TELEGRAM_STREAM,
+          payload: envelope,
+        });
+      });
+      this.logger.debug(
+        `registration_confirmed dispatch envelope=${envelopeId} member=${input.memberId}`,
+      );
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(
+        `registration_confirmed dispatch failed (registration persisted, push lost) member=${input.memberId} reason=${reason}`,
+      );
+    }
+  }
+
   private async recordConsents(memberId: string, consents: Record<string, boolean>): Promise<void> {
     const now = new Date().toISOString();
     for (const [key, granted] of Object.entries(consents)) {
@@ -414,4 +514,26 @@ export function formatMemberDisplayName(row: {
   const full = [row.first_name, row.last_name].filter(Boolean).join(' ').trim();
   if (full.length > 0) return full;
   return row.email;
+}
+
+// Bundle 2 MVP — hardcoded confirmation template. Moves to
+// tg_push_templates Directus collection in PR-2.1-templates with
+// {{handlebars}} rendering. For now the template is fixed; only the
+// event values vary.
+//
+// starts_at_localized intentionally renders the raw ISO timestamp
+// at first. Locale-aware formatting (per countries.tz from F-S4.5)
+// lands when the cron-based reminders (T-24h / T-1h) need the same
+// helper. Keeping the MVP free of timezone math means no edge cases
+// at confirmation time.
+export function renderRegistrationConfirmedTemplate(input: {
+  eventTitle: string;
+  eventStartsAt: string;
+  eventLocation: string | null;
+}): string {
+  const lines = [`✅ You're registered for ${input.eventTitle}.`, `When: ${input.eventStartsAt}`];
+  if (input.eventLocation && input.eventLocation.trim().length > 0) {
+    lines.push(`Where: ${input.eventLocation}`);
+  }
+  return lines.join('\n');
 }

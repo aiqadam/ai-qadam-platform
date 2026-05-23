@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import type { Db } from '../src/db';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import { DirectusError } from '../src/modules/directus/directus.client';
+import type { OutboxPublisher } from '../src/modules/telegram/outbox-publisher.service';
 import {
   DEFAULT_REGISTRATION_CONSENTS,
   DEFAULT_REGISTRATION_FIELDS,
@@ -9,6 +11,7 @@ import {
 import {
   TelegramRegistrationsService,
   formatMemberDisplayName,
+  renderRegistrationConfirmedTemplate,
   validateConsents,
   validateProfile,
 } from '../src/modules/telegram/telegram-registrations.service';
@@ -27,8 +30,29 @@ function fakeDirectus() {
   };
 }
 
-function makeService(fake: ReturnType<typeof fakeDirectus>): TelegramRegistrationsService {
-  return new TelegramRegistrationsService(fake as unknown as DirectusClient);
+function fakeOutbox() {
+  return { publish: vi.fn().mockResolvedValue(true) };
+}
+
+function fakeDb() {
+  // Minimum mock: transaction(callback) just calls the callback with a fake tx.
+  return {
+    transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb({})),
+  };
+}
+
+function makeService(
+  fakeDir: ReturnType<typeof fakeDirectus>,
+  opts: {
+    outbox?: ReturnType<typeof fakeOutbox>;
+    db?: ReturnType<typeof fakeDb>;
+  } = {},
+): TelegramRegistrationsService {
+  return new TelegramRegistrationsService(
+    fakeDir as unknown as DirectusClient,
+    (opts.outbox ?? fakeOutbox()) as unknown as OutboxPublisher,
+    (opts.db ?? fakeDb()) as unknown as Db,
+  );
 }
 
 const EVENT_ROW = {
@@ -37,6 +61,7 @@ const EVENT_ROW = {
   title: 'AI Meetup',
   starts_at: '2026-06-20T03:00:00.000Z',
   country: 'uz',
+  location: 'IMPACT.T',
   status: 'published',
   visibility_scope: 'public',
   registration_open: true,
@@ -441,5 +466,137 @@ describe('TelegramRegistrationsService.register', () => {
     // Only 'events' wrote; photo_consent skipped
     expect(consentPosts).toHaveLength(1);
     expect((consentPosts[0]?.[1] as Record<string, unknown>).purpose).toBe('events');
+  });
+});
+
+// ─── PR-2.1-MVP — registration_confirmed push ────────────────────────────────
+
+describe('renderRegistrationConfirmedTemplate', () => {
+  it('renders 2 lines when location is null (virtual event)', () => {
+    const out = renderRegistrationConfirmedTemplate({
+      eventTitle: 'AI Meetup',
+      eventStartsAt: '2026-06-20T03:00:00.000Z',
+      eventLocation: null,
+    });
+    expect(out).toContain("You're registered for AI Meetup");
+    expect(out).toContain('When: 2026-06-20T03:00:00.000Z');
+    expect(out).not.toContain('Where:');
+  });
+
+  it('renders 3 lines when location is present', () => {
+    const out = renderRegistrationConfirmedTemplate({
+      eventTitle: 'AI Meetup',
+      eventStartsAt: '2026-06-20T03:00:00.000Z',
+      eventLocation: 'IMPACT.T, Tashkent',
+    });
+    expect(out).toContain('Where: IMPACT.T, Tashkent');
+  });
+
+  it('skips Where line when location is empty whitespace', () => {
+    const out = renderRegistrationConfirmedTemplate({
+      eventTitle: 'A',
+      eventStartsAt: '2026-06-20T03:00:00.000Z',
+      eventLocation: '   ',
+    });
+    expect(out).not.toContain('Where:');
+  });
+});
+
+describe('register — dispatches tg.dispatch.v1 envelope after successful registration', () => {
+  function setupHappyPath() {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_ROW })
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] });
+    fake.post
+      .mockResolvedValueOnce({ data: { id: 'reg-99' } })
+      .mockResolvedValueOnce({ data: { id: 'consent-1' } });
+    return fake;
+  }
+
+  it('publishes a tg.dispatch.v1 envelope through the outbox', async () => {
+    const fakeDir = setupHappyPath();
+    const outbox = fakeOutbox();
+    const db = fakeDb();
+    const svc = makeService(fakeDir, { outbox, db });
+
+    await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(8888),
+      telegram_username: 'viktor',
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    expect(outbox.publish).toHaveBeenCalledTimes(1);
+    const call = outbox.publish.mock.calls[0];
+    const publishInput = call?.[1] as Record<string, unknown>;
+    expect(publishInput.stream).toBe('tg.dispatch.v1');
+    expect(typeof publishInput.envelopeId).toBe('string');
+
+    const envelope = publishInput.payload as Record<string, unknown>;
+    expect(envelope.schema).toBe('tg.dispatch.v1');
+    expect(envelope.producer).toBe('aiqadam-api');
+    expect((envelope.meta as Record<string, string>).intent).toBe('registration_confirmed');
+    expect((envelope.meta as Record<string, string>).tenant).toBe('uz');
+
+    const payload = envelope.payload as Record<string, unknown>;
+    const target = payload.target as Record<string, unknown>;
+    expect(target.chat_id).toBe(8888);
+    expect(target.member_id).toBe('mem-1');
+
+    const template = payload.template as Record<string, unknown>;
+    expect(template.text).toContain('AI Meetup');
+    expect(template.text).toContain('IMPACT.T');
+    expect(template.parse_mode).toBe('None');
+  });
+
+  it('swallows outbox publish errors (registration still succeeds)', async () => {
+    const fakeDir = setupHappyPath();
+    const outbox = fakeOutbox();
+    outbox.publish.mockRejectedValueOnce(new Error('redis exploded'));
+    const db = fakeDb();
+    const svc = makeService(fakeDir, { outbox, db });
+
+    // Must NOT throw — registration was already persisted in Directus.
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(1),
+      telegram_username: null,
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    expect(out.registration_id).toBe('reg-99');
+  });
+
+  it('uses event.location from the row, defaults to null when missing', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: { ...EVENT_ROW, location: null } })
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] });
+    fake.post
+      .mockResolvedValueOnce({ data: { id: 'reg-100' } })
+      .mockResolvedValueOnce({ data: { id: 'consent-2' } });
+    const outbox = fakeOutbox();
+    const svc = makeService(fake, { outbox });
+
+    await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(1),
+      telegram_username: null,
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    const envelope = (outbox.publish.mock.calls[0]?.[1] as Record<string, unknown>)
+      .payload as Record<string, unknown>;
+    const template = (envelope.payload as Record<string, unknown>).template as Record<
+      string,
+      unknown
+    >;
+    expect(template.text).not.toContain('Where:');
   });
 });
