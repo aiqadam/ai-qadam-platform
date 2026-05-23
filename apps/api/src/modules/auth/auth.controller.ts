@@ -59,6 +59,17 @@ interface RefreshResponse {
   expiresIn: number;
 }
 
+interface SignOutResponse {
+  // OIDC RP-Initiated Logout URL the client must navigate the BROWSER
+  // to. Authentik kills the IdP session and 302s back to
+  // /auth/signed-out. null when no id_token_hint is available — caller
+  // navigates to /auth/signed-out directly and accepts that the
+  // Authentik session lingers (degraded mode; only happens for refresh
+  // rows that predate the id_token column or when the issuer doesn't
+  // advertise end_session_endpoint).
+  logoutUrl: string | null;
+}
+
 interface MeResponse {
   id: string;
   email: string;
@@ -106,9 +117,10 @@ export class AuthController {
     let sub: string;
     let email: string;
     let displayName: string | undefined;
+    let idToken: string | undefined;
     let next: string;
     try {
-      ({ sub, email, displayName, next } = await this.auth.completeAuthorization({
+      ({ sub, email, displayName, idToken, next } = await this.auth.completeAuthorization({
         flowToken,
         callbackParams: req.query as Record<string, string | undefined>,
       }));
@@ -155,6 +167,7 @@ export class AuthController {
       userId: user.id,
       authentikSubject: user.authentikSubject,
       email: user.email,
+      idToken: idToken ?? null,
     });
 
     res.clearCookie(FLOW_COOKIE, COOKIE_BASE);
@@ -163,25 +176,47 @@ export class AuthController {
       ...COOKIE_BASE,
       expires: session.refreshExpiresAt,
     });
-    res.redirect(this.auth.postLogoutRedirectUrl(next));
+    res.redirect(this.auth.postLoginRedirectUrl(next));
   }
 
-  // POST /v1/auth/sign-out — XHR from the app. Revokes the refresh row
-  // (replay-detected => whole family killed), deny-lists the access JWT's
-  // jti in Redis for its remaining lifetime, clears both new + legacy
-  // cookies on .aiqadam.org and on the current host.
+  // POST /v1/auth/sign-out — XHR from the app. Three responsibilities,
+  // in order:
+  //   1. Look up the id_token from the current refresh row (read-only)
+  //      so we can build an OIDC RP-Initiated Logout URL.
+  //   2. Tear down our local session: revoke the refresh family
+  //      (replay-protected — entire chain killed), deny-list the
+  //      access JWT's jti in Redis for its remaining lifetime, clear
+  //      both new + legacy cookies on .aiqadam.org.
+  //   3. Return the Authentik end_session URL so the client can drive
+  //      the browser through it. THIS is what makes sign-out a real
+  //      logout instead of a local-only clear — SSO ⇒ SLO. Without it
+  //      the IdP session lingers and the next /login silently SSO's
+  //      the user back in (security regression — confirmed in prod
+  //      2026-05-23). Returns `logoutUrl: null` when no id_token is
+  //      available; client falls back to /auth/signed-out.
   @Post('sign-out')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async signOut(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
+  @HttpCode(HttpStatus.OK)
+  async signOut(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SignOutResponse> {
     const refreshToken =
       (req.cookies?.[REFRESH_COOKIE] as string | undefined) ??
       (req.cookies?.[LEGACY_REFRESH_COOKIE] as string | undefined);
+    let logoutUrl: string | null = null;
     if (typeof refreshToken === 'string' && refreshToken.length > 0) {
+      // Peek BEFORE consume: consume() marks usedAt — the row still
+      // carries the id_token afterwards, but reading first keeps the
+      // logout-URL construction independent of the revoke result. If
+      // consume throws (replay, expired, already revoked) we still
+      // want to surface a logout URL when we have a hint.
+      const idToken = await this.refreshTokens.peekIdToken(refreshToken).catch(() => null);
+      logoutUrl = this.auth.buildLogoutUrl(idToken);
       try {
         const { familyId } = await this.refreshTokens.consume(refreshToken);
         await this.refreshTokens.revokeFamily(familyId);
       } catch {
-        // already invalid — clearing the cookie is still the right move
+        // already invalid — local clear + IdP logout still need to run
       }
     }
     const bearer = extractBearer(req);
@@ -196,6 +231,7 @@ export class AuthController {
       }
     }
     clearRefreshCookies(res);
+    return { logoutUrl };
   }
 
   // POST /v1/auth/refresh — XHR. Rotates the refresh cookie + returns a
@@ -237,6 +273,9 @@ export class AuthController {
       authentikSubject: user.authentikSubject,
       email: user.email,
       familyId: consumed.familyId,
+      // Carry the id_token forward unchanged so the next /sign-out can
+      // still build an RP-Initiated Logout URL after N rotations.
+      idToken: consumed.idToken,
     });
     res.cookie(REFRESH_COOKIE, session.refreshToken, {
       ...COOKIE_BASE,

@@ -120,6 +120,50 @@ describe('RefreshTokenService.consume', () => {
   });
 });
 
+describe('RefreshTokenService — id_token carriage (SLO)', () => {
+  beforeEach(async () => {
+    await db.delete(refreshTokens);
+    await db.delete(users);
+  });
+
+  it('persists idToken on issue and returns it from consume', async () => {
+    const userId = await makeUser();
+    const idToken = 'fake.authentik.idtoken.value';
+
+    const issued = await service.issue({ userId, idToken });
+    const consumed = await service.consume(issued.token);
+
+    expect(consumed.idToken).toBe(idToken);
+  });
+
+  it('peekIdToken returns the row idToken without marking the row used', async () => {
+    const userId = await makeUser();
+    const idToken = 'peekable.idtoken';
+    const issued = await service.issue({ userId, idToken });
+
+    const peeked = await service.peekIdToken(issued.token);
+    expect(peeked).toBe(idToken);
+
+    // Row still consumable — peek did not mark usedAt.
+    const consumed = await service.consume(issued.token);
+    expect(consumed.userId).toBe(userId);
+  });
+
+  it('returns null idToken for rows issued without it (legacy/back-compat)', async () => {
+    const userId = await makeUser();
+    const issued = await service.issue({ userId });
+
+    expect(await service.peekIdToken(issued.token)).toBeNull();
+    const consumed = await service.consume(issued.token);
+    expect(consumed.idToken).toBeNull();
+  });
+
+  it('peekIdToken returns null for unrecognized tokens (no throw)', async () => {
+    expect(await service.peekIdToken('not-a-real-token')).toBeNull();
+    expect(await service.peekIdToken('')).toBeNull();
+  });
+});
+
 describe('RefreshTokenService.revokeAllForUser', () => {
   beforeEach(async () => {
     await db.delete(refreshTokens);

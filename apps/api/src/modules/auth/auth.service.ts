@@ -104,8 +104,9 @@ export class AuthService {
   }
 
   // Step 2: read the flow cookie, validate state, exchange the code for
-  // an id_token. Returns the identity claims + the `next` URL the caller
-  // should redirect to.
+  // an id_token. Returns the identity claims, the raw id_token (kept for
+  // RP-Initiated Logout — id_token_hint to Authentik's end_session
+  // endpoint), and the `next` URL the caller should redirect to.
   async completeAuthorization(input: {
     flowToken: string | undefined;
     callbackParams: Record<string, string | undefined>;
@@ -113,6 +114,7 @@ export class AuthService {
     sub: string;
     email: string;
     displayName: string | undefined;
+    idToken: string | undefined;
     next: string;
   }> {
     if (!input.flowToken) {
@@ -121,7 +123,7 @@ export class AuthService {
     const flowClaims = await this.verifyFlowToken(input.flowToken);
     const tokenSet = await this.exchangeCode(input.callbackParams, flowClaims);
     const identity = extractIdentityClaims(tokenSet.claims());
-    return { ...identity, next: flowClaims.next };
+    return { ...identity, idToken: tokenSet.id_token, next: flowClaims.next };
   }
 
   private async verifyFlowToken(flowToken: string): Promise<FlowClaims> {
@@ -152,36 +154,64 @@ export class AuthService {
     }
   }
 
-  // Where /sign-out sends the browser. We don't hit Authentik's
-  // end_session_endpoint — its built-in invalidation flow shows a consent
-  // page (clunky UX). To kill the IdP session, hit
-  // OIDC_END_SESSION_URL with the id_token_hint; for our needs the local
-  // session kill + JWT deny-list + refresh revoke is enough.
-  postLogoutRedirectUrl(next: string | undefined): string {
+  // Where /callback sends the browser AFTER a successful sign-in (i.e.
+  // back into the app at `next`). Distinct from the post-LOGOUT redirect,
+  // which lives on the Authentik side via end_session_endpoint and is
+  // built by buildLogoutUrl below.
+  postLoginRedirectUrl(next: string | undefined): string {
     return next?.startsWith('/') && !next.startsWith('//')
       ? `${env.WEB_BASE_URL}${next}`
       : env.WEB_BASE_URL;
   }
 
+  // OIDC RP-Initiated Logout (security requirement — SSO ⇒ SLO). Builds
+  // Authentik's end_session URL with id_token_hint + post_logout_redirect_uri
+  // so terminating an AI Qadam session also terminates the user's
+  // Authentik session and, transitively, every other Authentik-protected
+  // app (Directus, Gatus, workspace tools). Without this, /sign-out is a
+  // false promise: the IdP session lingers and the user is silently
+  // SSO'd back in on the next sign-in.
+  //
+  // Returns null when we can't construct a hint-bearing URL (e.g. legacy
+  // refresh row without id_token, or end_session_endpoint not advertised
+  // by the issuer). Caller falls back to /auth/signed-out so the user
+  // still gets out of AI Qadam locally.
+  //
+  // Authentik config: `${WEB_BASE_URL}/auth/signed-out` must be in the
+  // OIDC provider's allowed `post_logout_redirect_uris`. Without that
+  // Authentik refuses the redirect (the browser ends up on a generic
+  // Authentik page instead of /auth/signed-out).
+  buildLogoutUrl(idToken: string | null): string | null {
+    if (!idToken) return null;
+    const endSession = this.oidc.issuer.metadata.end_session_endpoint;
+    if (typeof endSession !== 'string' || endSession.length === 0) return null;
+    return this.oidc.endSessionUrl({
+      id_token_hint: idToken,
+      post_logout_redirect_uri: `${env.WEB_BASE_URL}/auth/signed-out`,
+    });
+  }
+
   // Mint OUR session: short-lived access JWT (with jti for deny-list) +
-  // 14-day refresh row. Called from /callback (new family) and /refresh
-  // (existing family).
+  // 14-day refresh row. Called from /callback (new family, idToken
+  // required for SLO) and /refresh (existing family, idToken carried
+  // forward from the consumed row).
   async mintSession(input: {
     userId: string;
     authentikSubject: string;
     email: string;
     familyId?: string;
+    idToken?: string | null;
   }): Promise<{ accessToken: string; refreshToken: string; refreshExpiresAt: Date }> {
     const accessToken = await this.jwtService.sign({
       sub: input.userId,
       authentikSubject: input.authentikSubject,
       email: input.email,
     });
-    const refresh = await this.refreshTokens.issue(
-      input.familyId !== undefined
-        ? { userId: input.userId, familyId: input.familyId }
-        : { userId: input.userId },
-    );
+    const refresh = await this.refreshTokens.issue({
+      userId: input.userId,
+      ...(input.familyId !== undefined ? { familyId: input.familyId } : {}),
+      idToken: input.idToken ?? null,
+    });
     return {
       accessToken,
       refreshToken: refresh.token,
