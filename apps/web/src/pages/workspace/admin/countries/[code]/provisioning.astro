@@ -1,0 +1,38 @@
+---
+import CountryProvisioningWizard from '../../../../../components/workspace/CountryProvisioningWizard';
+import Layout from '../../../../../layouts/Layout.astro';
+
+// F-S4.2 — operator wizard wrapping the F-S4.1 country-provisioning
+// state machine. SSR so we can route any country code without
+// pre-listing them in getStaticPaths.
+
+export const prerender = false;
+
+const { code } = Astro.params;
+if (!code) {
+  return Astro.redirect('/workspace/admin/countries');
+}
+const normalised = code.toLowerCase();
+---
+
+<Layout
+  title={`Provision ${normalised.toUpperCase()} · AI Qadam workspace admin`}
+  description={`Run the country-provisioning state machine for ${normalised}.`}
+>
+  <main style="max-width: 880px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace/admin/countries">← Countries</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Provision {normalised.toUpperCase()}
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      4-step state machine: Authentik OIDC → Directus policy → Plausible
+      site → Coolify FQDN. Every step is idempotent; "Retry from failure"
+      re-attempts whichever step is not yet succeeded. Super-admin only.
+    </p>
+    <CountryProvisioningWizard code={normalised} client:load />
+  </main>
+</Layout>

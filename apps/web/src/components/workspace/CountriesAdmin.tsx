@@ -154,14 +154,24 @@ export default function CountriesAdmin(): ReactElement {
                   <td style={tdMono()}>{c.tz}</td>
                   <td style={tdStyle()}>{c.public_holidays.length}</td>
                   <td style={tdStyle()}>
-                    <button
-                      type="button"
-                      className="btn"
-                      style={{ padding: '4px 10px', fontSize: 12 }}
-                      onClick={() => setExpanded(isOpen ? null : c.code)}
-                    >
-                      {isOpen ? 'Close' : 'Edit'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <a
+                        className="btn"
+                        href={`/workspace/admin/countries/${encodeURIComponent(c.code)}/provisioning`}
+                        style={{ padding: '4px 10px', fontSize: 12, textDecoration: 'none' }}
+                        title="Run the F-S4.1 provisioning state machine"
+                      >
+                        Provision
+                      </a>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ padding: '4px 10px', fontSize: 12 }}
+                        onClick={() => setExpanded(isOpen ? null : c.code)}
+                      >
+                        {isOpen ? 'Close' : 'Edit'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {isOpen && (
