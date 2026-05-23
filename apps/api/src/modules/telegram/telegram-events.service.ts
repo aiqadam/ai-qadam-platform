@@ -20,7 +20,9 @@ export interface EventSummary {
 }
 
 // Directus row shape — narrow to the fields we read.
-interface EventRow {
+// registration_open is optional because PR-1.2a added the column with
+// default=true; rows that pre-date the field appear as undefined.
+export interface EventRow {
   id: string;
   slug: string | null;
   title: string;
@@ -30,6 +32,7 @@ interface EventRow {
   status: string;
   visibility_scope: string | null;
   capacity: number | null;
+  registration_open?: boolean | null;
 }
 
 @Injectable()
@@ -52,7 +55,7 @@ export class TelegramEventsService {
     }
     const query = [
       ...filters,
-      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity',
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open',
       'sort=starts_at',
       'limit=50',
     ].join('&');
@@ -64,7 +67,11 @@ export class TelegramEventsService {
 
 // Visible for unit tests. Falls back to id when slug is null — bot
 // clients require slug as non-null per their pydantic contract, and
-// the schema-fetch endpoint (PR-5a) accepts both shapes.
+// the schema-fetch endpoint (PR-1.2b) accepts both shapes.
+//
+// registration_open reads from the new column added in PR-1.2a;
+// undefined / null defaults to true (consistent with the column default
+// and the PR-4 hardcoded behavior).
 export function rowToSummary(row: EventRow): EventSummary {
   return {
     id: row.id,
@@ -73,10 +80,6 @@ export function rowToSummary(row: EventRow): EventSummary {
     starts_at: row.starts_at,
     location: row.location,
     country: row.country,
-    // No capacity gating yet — the registrations table sits in Directus
-    // but a cheap count query needs its own follow-up. Until then, an
-    // event with status=published is registration_open. Capacity-based
-    // close lands when PR-8 (cron producers) needs the same query.
-    registration_open: true,
+    registration_open: row.registration_open ?? true,
   };
 }

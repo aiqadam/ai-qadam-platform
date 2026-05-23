@@ -17,6 +17,10 @@ import { track } from '../../lib/ops-events';
 import { TelegramAuthGuard } from './telegram-auth.guard';
 import { type EventSummary, TelegramEventsService } from './telegram-events.service';
 import {
+  type RegistrationSchema,
+  TelegramRegistrationSchemaService,
+} from './telegram-registration-schema.service';
+import {
   type LinkConfirmResult,
   type LinkStartResult,
   type MemberByTgResult,
@@ -25,6 +29,14 @@ import {
   TelegramService,
 } from './telegram.service';
 import { TgConfigService } from './tg-config.service';
+
+// Phase Bot-B PR-1.2b — schema endpoint path param. Accepts both real
+// slugs and uuid fallbacks per the rowToSummary slug-or-id contract.
+const slugOrIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[a-zA-Z0-9_\-]+$/, 'slug must be url-safe alphanumeric');
 
 // Phase Bot-B PR-2 path param — TG user ids are int64; we accept the
 // digit-string form and convert via BigInt for the service.
@@ -124,7 +136,10 @@ const eventSchema = z.object({
 
 @Controller('v1/telegram')
 export class TelegramPublicController {
-  constructor(private readonly events: TelegramEventsService) {}
+  constructor(
+    private readonly events: TelegramEventsService,
+    private readonly schemas: TelegramRegistrationSchemaService,
+  ) {}
 
   @Get('health')
   health(): {
@@ -163,6 +178,30 @@ export class TelegramPublicController {
     }
     const items = await this.events.listOpenEvents(parsed.data.tenant ?? null);
     return { items };
+  }
+
+  // GET /v1/telegram/events/{slug}/registration-schema
+  //   Phase Bot-B PR-1.2b. UNGATED — the bot fetches this without a
+  //   service token so anonymous users can see the form before signing
+  //   in (acquisition-channel rule per feedback memory).
+  //
+  //   Returns the operator-defined per-event schema (PR-1.2a column)
+  //   OR a minimum-viable default (name + email + events consent +
+  //   optional newsletter) when null.
+  //
+  //   Slug param accepts both real slugs (most events post-F-S3.10-a)
+  //   and uuid strings (PR-4 EventSummary's slug-fallback).
+  //
+  //   200: { event, fields[], consents[] }
+  //   400: malformed slug param
+  //   404 { error: 'event_not_found' }: no event with this slug or id
+  @Get('events/:slug/registration-schema')
+  async eventRegistrationSchema(@Param('slug') slug: string): Promise<RegistrationSchema> {
+    const parsed = slugOrIdSchema.safeParse(slug);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.schemas.getSchema(parsed.data);
   }
 }
 
