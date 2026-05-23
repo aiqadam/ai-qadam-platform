@@ -4,6 +4,7 @@ import { HealthController } from './health/health.controller';
 import { AdminInvitesModule } from './modules/admin-invites/admin-invites.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CountriesModule } from './modules/countries/countries.module';
+import { CountryProvisioningModule } from './modules/country-provisioning/country-provisioning.module';
 import { EulaModule } from './modules/eula/eula.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
 import { InternalModule } from './modules/internal/internal.module';
@@ -38,6 +39,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     AdminInvitesModule,
     RbacSyncModule,
     CountriesModule,
+    CountryProvisioningModule,
   ],
   controllers: [HealthController],
   providers: [],

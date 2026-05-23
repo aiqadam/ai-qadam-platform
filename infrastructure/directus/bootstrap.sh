@@ -203,6 +203,42 @@ ensure "field countries.default_reminder_channel" \
     }
   }'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S4.1 — Country provisioning state machine
+# ════════════════════════════════════════════════════════════════════════
+#
+# When a super-admin provisions a new country, the back-end walks a 4-step
+# state machine (Authentik OIDC redirect URI → Directus permission policy
+# → Plausible site → Coolify FQDN). Each step is idempotent + retriable.
+# State is persisted here so the operator UI can show per-step status and
+# resume from the last failed step.
+#
+# Shape:
+#   { started_at: ISO, completed_at: ISO|null,
+#     steps: { <step_id>: { status: pending|running|succeeded|failed,
+#                            attempted_at: ISO|null, error: string|null } } }
+#
+# Service: apps/api/src/modules/country-provisioning/*.
+# Framework lands first (this PR); real integrations slot in incrementally
+# in follow-up PRs (F-S4.1-b/c/d).
+
+echo "[F-S4.1 — countries.provisioning_state]"
+ensure "field countries.provisioning_state" \
+  "${DIRECTUS_URL}/fields/countries/provisioning_state" \
+  "${DIRECTUS_URL}/fields/countries" \
+  '{
+    "field":"provisioning_state",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "special":["cast-json"],
+      "width":"full",
+      "options":{"language":"json"},
+      "note":"F-S4.1 — written by CountryProvisioningService. Null = never provisioned (legacy / pre-wizard countries). Operator UI reads this for per-step status."
+    }
+  }'
+
 # Backfill the existing three countries with country-appropriate defaults.
 # PATCH is idempotent; re-running bootstrap is safe.
 set_country_profile() {
