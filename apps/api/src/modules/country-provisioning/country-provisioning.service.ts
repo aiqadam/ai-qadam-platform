@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AuthentikClient, AuthentikError } from '../admin-invites/authentik.client';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
 import { tzForCountry } from './country-tz';
@@ -48,10 +48,11 @@ export interface ProvisioningState {
 interface CountryRow {
   code: string;
   name: string;
+  is_active: boolean;
   provisioning_state: ProvisioningState | null;
 }
 
-const COUNTRY_FIELDS = 'code,name,provisioning_state';
+const COUNTRY_FIELDS = 'code,name,is_active,provisioning_state';
 
 type StepRunner = (country: { code: string; name: string }) => Promise<void>;
 
@@ -286,6 +287,42 @@ export class CountryProvisioningService {
   async getState(code: string): Promise<ProvisioningState | null> {
     const country = await this.fetchCountry(code);
     return country.provisioning_state;
+  }
+
+  async getStateWithActive(
+    code: string,
+  ): Promise<{ state: ProvisioningState | null; is_active: boolean }> {
+    const country = await this.fetchCountry(code);
+    return { state: country.provisioning_state, is_active: country.is_active };
+  }
+
+  // F-S4.2-b — explicit go-live gate. Operators flip `is_active=true`
+  // ONLY after every provisioning step has succeeded. Without this gate
+  // a super-admin could activate a country that nobody can reach
+  // (no DNS, no OIDC redirect, no Directus policy).
+  //
+  // Error contract:
+  //   * not yet provisioned (no state row) → BadRequest(not_provisioned)
+  //   * any step !== succeeded → BadRequest(provisioning_incomplete)
+  //   * already active → returns current row unchanged (idempotent)
+  async activate(code: string): Promise<{ state: ProvisioningState; is_active: boolean }> {
+    const country = await this.fetchCountry(code);
+    const state = country.provisioning_state;
+    if (!state || !state.completed_at) {
+      throw new BadRequestException('not_provisioned');
+    }
+    const allOk = PROVISIONING_STEP_IDS.every((id) => state.steps[id]?.status === 'succeeded');
+    if (!allOk) {
+      throw new BadRequestException('provisioning_incomplete');
+    }
+    if (country.is_active) {
+      return { state, is_active: true };
+    }
+    await this.directus.patch(`/items/countries/${encodeURIComponent(country.code)}`, {
+      is_active: true,
+    });
+    this.logger.log(`activate — country=${country.code} flipped is_active=true`);
+    return { state, is_active: true };
   }
 
   private async fetchCountry(code: string): Promise<CountryRow> {

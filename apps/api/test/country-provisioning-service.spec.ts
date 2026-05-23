@@ -528,3 +528,103 @@ describe('CountryProvisioningService — coolify_fqdn real runner', () => {
     expect(state.steps.coolify_fqdn.error).toBe('coolify_admin_not_configured');
   });
 });
+
+// F-S4.2-b — go-live gate.
+describe('CountryProvisioningService.activate', () => {
+  const COMPLETED = {
+    started_at: '2026-05-20T00:00:00.000Z',
+    completed_at: '2026-05-20T00:00:05.000Z',
+    steps: Object.fromEntries(
+      PROVISIONING_STEP_IDS.map((id) => [
+        id,
+        { status: 'succeeded' as const, attempted_at: '2026-05-20T00:00:01.000Z', error: null },
+      ]),
+    ),
+  };
+
+  beforeEach(() => {
+    dx.get.mockReset();
+    dx.patch.mockReset();
+    dx.patch.mockResolvedValue({});
+  });
+
+  it('flips is_active=true when all steps succeeded and country was inactive', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: false, provisioning_state: COMPLETED },
+    });
+
+    const result = await svc.activate('kg');
+    expect(result.is_active).toBe(true);
+    expect(result.state).toEqual(COMPLETED);
+    expect(dx.patch).toHaveBeenCalledTimes(1);
+    expect(dx.patch.mock.calls[0]?.[0]).toContain('/items/countries/kg');
+    expect(dx.patch.mock.calls[0]?.[1]).toEqual({ is_active: true });
+  });
+
+  it('is idempotent: no PATCH when country is already active', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: true, provisioning_state: COMPLETED },
+    });
+
+    const result = await svc.activate('kg');
+    expect(result.is_active).toBe(true);
+    expect(dx.patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses with BadRequest(not_provisioned) when state has never been started', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: false, provisioning_state: null },
+    });
+
+    await expect(svc.activate('kg')).rejects.toThrow(/not_provisioned/);
+    expect(dx.patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses with BadRequest(not_provisioned) when completed_at is null', async () => {
+    const inflight = {
+      started_at: '2026-05-20T00:00:00.000Z',
+      completed_at: null,
+      steps: COMPLETED.steps,
+    };
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: false, provisioning_state: inflight },
+    });
+
+    await expect(svc.activate('kg')).rejects.toThrow(/not_provisioned/);
+    expect(dx.patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses with BadRequest(provisioning_incomplete) when one step is not succeeded', async () => {
+    const partial = {
+      ...COMPLETED,
+      steps: {
+        ...COMPLETED.steps,
+        coolify_fqdn: {
+          status: 'failed' as const,
+          attempted_at: '2026-05-20T00:00:04.000Z',
+          error: 'transient',
+        },
+      },
+    };
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: false, provisioning_state: partial },
+    });
+
+    await expect(svc.activate('kg')).rejects.toThrow(/provisioning_incomplete/);
+    expect(dx.patch).not.toHaveBeenCalled();
+  });
+});
+
+describe('CountryProvisioningService.getStateWithActive', () => {
+  beforeEach(() => {
+    dx.get.mockReset();
+  });
+
+  it('returns state + is_active together', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: true, provisioning_state: null },
+    });
+    const result = await svc.getStateWithActive('kg');
+    expect(result).toEqual({ state: null, is_active: true });
+  });
+});

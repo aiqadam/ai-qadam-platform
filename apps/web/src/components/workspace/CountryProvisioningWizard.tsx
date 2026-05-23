@@ -41,7 +41,12 @@ type State =
   | { phase: 'bootstrap' }
   | { phase: 'anon' }
   | { phase: 'probe_error'; httpStatus: number }
-  | { phase: 'ready'; accessToken: string; state: ProvisioningState | null };
+  | {
+      phase: 'ready';
+      accessToken: string;
+      state: ProvisioningState | null;
+      isActive: boolean;
+    };
 
 function signInUrl(): string {
   const next = typeof window === 'undefined' ? '/workspace/admin' : window.location.pathname;
@@ -61,8 +66,35 @@ async function bootstrap(code: string): Promise<State> {
   });
   if (res.status === 401) return { phase: 'anon' };
   if (!res.ok) return { phase: 'probe_error', httpStatus: res.status };
-  const { state } = (await res.json()) as { state: ProvisioningState | null };
-  return { phase: 'ready', accessToken, state };
+  const body = (await res.json()) as { state: ProvisioningState | null; is_active: boolean };
+  return { phase: 'ready', accessToken, state: body.state, isActive: body.is_active };
+}
+
+type ActivateOutcome =
+  | { kind: 'ok'; state: ProvisioningState; is_active: boolean }
+  | { kind: 'error'; message: string };
+
+async function activateCountry(code: string, accessToken: string): Promise<ActivateOutcome> {
+  try {
+    const res = await fetch(`/api/v1/admin/countries/${encodeURIComponent(code)}/activate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.status === 403) {
+      return {
+        kind: 'error',
+        message: 'Super-admin only — your account cannot activate countries.',
+      };
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      return { kind: 'error', message: `HTTP ${res.status}: ${text.slice(0, 300)}` };
+    }
+    const body = (await res.json()) as { state: ProvisioningState; is_active: boolean };
+    return { kind: 'ok', state: body.state, is_active: body.is_active };
+  } catch (err) {
+    return { kind: 'error', message: err instanceof Error ? err.message : 'unknown error' };
+  }
 }
 
 type RunOutcome = { kind: 'ok'; state: ProvisioningState } | { kind: 'error'; message: string };
@@ -109,6 +141,7 @@ interface Props {
 export default function CountryProvisioningWizard({ code }: Props): ReactElement {
   const [state, setState] = useState<State>({ phase: 'bootstrap' });
   const [running, setRunning] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -137,13 +170,28 @@ export default function CountryProvisioningWizard({ code }: Props): ReactElement
     setRunning(false);
   }
 
+  async function onActivate(): Promise<void> {
+    if (state.phase !== 'ready') return;
+    if (!window.confirm(`Activate ${code.toUpperCase()} — make it visible to members?`)) return;
+    setActivating(true);
+    setRunError(null);
+    const outcome = await activateCountry(code, state.accessToken);
+    if (outcome.kind === 'ok') {
+      setState({ ...state, state: outcome.state, isActive: outcome.is_active });
+    } else {
+      setRunError(outcome.message);
+    }
+    setActivating(false);
+  }
+
   const ps = state.state;
   const allSucceeded = isAllSucceeded(ps);
   const runLabel = runButtonLabel(ps);
+  const canActivate = allSucceeded && !state.isActive;
 
   return (
     <div>
-      <SummaryBanner state={ps} />
+      <SummaryBanner state={ps} isActive={state.isActive} />
 
       <div style={{ marginTop: 20 }}>
         {STEP_ORDER.map((id) => {
@@ -154,13 +202,29 @@ export default function CountryProvisioningWizard({ code }: Props): ReactElement
 
       {runError && <p style={{ marginTop: 16, color: '#dc2626', fontSize: 13 }}>{runError}</p>}
 
-      <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
+      <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-primary" disabled={running} onClick={onRun}>
           {running ? 'Running…' : runLabel}
         </button>
-        {allSucceeded && (
+        {canActivate && (
+          <button
+            type="button"
+            className="btn"
+            disabled={activating}
+            onClick={onActivate}
+            style={{ background: '#16a34a', color: 'white', borderColor: '#16a34a' }}
+          >
+            {activating ? 'Activating…' : 'Activate (go live)'}
+          </button>
+        )}
+        {state.isActive && (
+          <span style={{ alignSelf: 'center', fontSize: 13, color: '#166534' }}>
+            ● Country is live — members can sign in.
+          </span>
+        )}
+        {allSucceeded && !state.isActive && (
           <span style={{ alignSelf: 'center', fontSize: 13, color: 'var(--muted-foreground)' }}>
-            All steps complete — country is provisioned.
+            All steps complete — click "Activate" to make this country visible to members.
           </span>
         )}
       </div>
@@ -168,7 +232,13 @@ export default function CountryProvisioningWizard({ code }: Props): ReactElement
   );
 }
 
-function SummaryBanner({ state }: { state: ProvisioningState | null }): ReactElement {
+function SummaryBanner({
+  state,
+  isActive,
+}: {
+  state: ProvisioningState | null;
+  isActive: boolean;
+}): ReactElement {
   if (!state) {
     return (
       <div style={banner('var(--muted)', 'var(--muted-foreground)')}>
@@ -177,11 +247,21 @@ function SummaryBanner({ state }: { state: ProvisioningState | null }): ReactEle
       </div>
     );
   }
-  if (state.completed_at) {
+  if (state.completed_at && isActive) {
     return (
       <div style={banner('#dcfce7', '#166534')}>
-        <strong>Provisioned</strong> on{' '}
-        <code style={{ fontFamily: 'var(--font-mono)' }}>{state.completed_at}</code>.
+        <strong>Provisioned + live.</strong> Completed{' '}
+        <code style={{ fontFamily: 'var(--font-mono)' }}>{state.completed_at}</code>. Country is
+        visible to members.
+      </div>
+    );
+  }
+  if (state.completed_at) {
+    return (
+      <div style={banner('#fef9c3', '#854d0e')}>
+        <strong>Provisioned, not yet live.</strong> All steps succeeded on{' '}
+        <code style={{ fontFamily: 'var(--font-mono)' }}>{state.completed_at}</code>. Activate below
+        to make this country visible to members.
       </div>
     );
   }
