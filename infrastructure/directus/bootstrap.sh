@@ -1421,6 +1421,49 @@ ensure "field directus_users.telegram_opted_out_at" \
   }'
 
 # ════════════════════════════════════════════════════════════════════════
+# directus_users.country — member-level tenancy attribute (Bot-B PR-1b)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Required by apps/api/src/modules/telegram/telegram.service.ts:244 —
+# /link/confirm rejects with `member_missing_tenant` when null. Surfaced
+# back to the bot as the `tenant` field on LinkConfirmResult so the bot
+# knows which country-subdomain to deep-link the member to.
+#
+# Populated by:
+#   - F-S1.6 lead capture (current writes `city` but not country; this
+#     PR doesn't backfill that flow — separate follow-up)
+#   - Phase Bot-B PR-5 (Telegram-as-IdP register collects country up-front)
+#   - F-S3.6 /me/profile (members can edit their own country)
+#
+# Existing members may have null country until the first event they
+# register for backfills the value (or until they self-edit).
+#
+# FK to countries.code; on_delete SET NULL so removing a country
+# (extremely rare) doesn't cascade-orphan members.
+
+echo "[directus_users.country]"
+ensure "field directus_users.country" \
+  "${DIRECTUS_URL}/fields/directus_users/country" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"country",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":2},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"half",
+      "display":"related-values",
+      "display_options":{"template":"{{name}}"},
+      "note":"ISO 3166-1 alpha-2 country code (uz/kz/tj/xx). Member-level tenant. Required for Telegram /link to succeed."
+    }
+  }'
+
+ensure "relation directus_users.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/directus_users/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"directus_users","field":"country","related_collection":"countries","schema":{"on_delete":"SET NULL"}}'
+
+# ════════════════════════════════════════════════════════════════════════
 # F-S5.6 — Member visibility preferences (further fields)
 # ════════════════════════════════════════════════════════════════════════
 #
