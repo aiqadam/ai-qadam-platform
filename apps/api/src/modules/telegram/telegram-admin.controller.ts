@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
+import { track } from '../../lib/ops-events';
 import { SuperAdminGuard } from '../admin-invites/super-admin.guard';
 import { AuthGuard } from '../auth/auth.guard';
 import {
@@ -112,6 +113,7 @@ export class TelegramAdminController {
       botToken: parsed.data.token,
       configuredBy: req.user.sub,
     });
+    void track('tg.config.configured', { tenant: result.tenant ?? '*' });
     return shapeConfigResponse(result);
   }
 
@@ -143,6 +145,7 @@ export class TelegramAdminController {
       botToken: parsed.data.token,
       configuredBy: req.user.sub,
     });
+    void track('tg.config.token_rotated', { tenant: result.tenant ?? '*' });
     return shapeConfigResponse(result);
   }
 
@@ -173,6 +176,7 @@ export class TelegramAdminController {
     }
     const tenant = parsed.data.tenant ?? null;
     const result = await this.config.rotateServiceToken(tenant, req.user.sub);
+    void track('tg.config.service_token_rotated', { tenant: tenant ?? '*' });
     return {
       plaintext: result.plaintext,
       rotated_at: result.rotatedAt.toISOString(),

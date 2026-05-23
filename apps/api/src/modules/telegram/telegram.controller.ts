@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { env } from '../../config/env';
+import { track } from '../../lib/ops-events';
 import { TelegramAuthGuard } from './telegram-auth.guard';
 import {
   type LinkConfirmResult,
@@ -80,6 +81,26 @@ const auditSchema = z.object({
     .nullable()
     .optional()
     .transform((v) => (v == null ? null : BigInt(v))),
+});
+
+// F-R4 — Plausible relay. Bot fires lifecycle/UX events via this
+// endpoint; the API forwards them to Plausible via the shared ops-events
+// helper. Names are whitelisted to the `tg.bot.` / `tg.notifier.`
+// prefix so a compromised bot can't forge `auth.failed` etc.
+//
+// Prop values are coerced to strings server-side by ops-events; we accept
+// strings + numbers here for ergonomic client code (the bot has typed
+// payloads with ints).
+const eventSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(80)
+    .regex(
+      /^tg\.(bot|notifier)\.[a-z0-9_.]{1,60}$/,
+      'name must start with tg.bot. or tg.notifier. + lowercase identifier',
+    ),
+  props: z.record(z.union([z.string().max(2000), z.number().finite()])).optional(),
 });
 
 // ─── Public controller (ungated) ──────────────────────────────────────────────
@@ -206,6 +227,12 @@ export class TelegramController {
       detail: parsed.data.detail ?? null,
       messageId: parsed.data.message_id,
     });
+    // F-R4 — first-write only; the helper drops re-deliveries via
+    // delivery_key UNIQUE. Counting only inserts keeps the dashboard
+    // honest about distinct dispatches vs notifier retries.
+    if (result.inserted) {
+      void track('tg.send.audited', { outcome: parsed.data.outcome });
+    }
     return {
       accepted: true,
       inserted: result.inserted,
@@ -221,5 +248,27 @@ export class TelegramController {
       throw new BadRequestException(parsed.error.flatten());
     }
     await this.telegram.optOut(parsed.data.member_id);
+    void track('tg.member.opted_out', {});
+  }
+
+  // F-R4 — Plausible event relay. Bot fires lifecycle/UX events
+  // (link-flow funnel, message receipts, opt-out clicks) via this
+  // endpoint instead of holding a Plausible API key. Name whitelisted
+  // to `tg.bot.*` / `tg.notifier.*` so a compromised bot can't forge
+  // signals like `auth.failed`.
+  //
+  //   200/202: event accepted (Plausible call is fire-and-forget per
+  //            the ops-events contract — never throws, never blocks).
+  //   400: invalid name or props shape.
+  //   401/503: TelegramAuthGuard (bad service token / not configured).
+  @Post('event')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async event(@Body() body: unknown): Promise<{ accepted: true }> {
+    const parsed = eventSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    void track(parsed.data.name, parsed.data.props ?? {});
+    return { accepted: true };
   }
 }
