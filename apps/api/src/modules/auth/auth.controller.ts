@@ -17,7 +17,7 @@ import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.se
 import { LeadsService } from '../leads/leads.service';
 import { UsersService } from '../users/users.service';
 import { AuthGuard } from './auth.guard';
-import { AuthService } from './auth.service';
+import { AuthService, extractGroupsFromIdToken } from './auth.service';
 import { JtiRevocationService } from './jti-revocation.service';
 import { JwtService } from './jwt.service';
 import {
@@ -74,6 +74,11 @@ interface MeResponse {
   id: string;
   email: string;
   authentikSubject: string;
+  // Authentik group names — used by the web nav to render Workspace +
+  // Engineering Deck links per role (ADR-0037). Source-of-truth lives in
+  // Authentik; we cache via the access JWT and re-source on each refresh
+  // by decoding the stored id_token.
+  groups: string[];
 }
 
 @Controller('v1/auth')
@@ -118,9 +123,10 @@ export class AuthController {
     let email: string;
     let displayName: string | undefined;
     let idToken: string | undefined;
+    let groups: string[];
     let next: string;
     try {
-      ({ sub, email, displayName, idToken, next } = await this.auth.completeAuthorization({
+      ({ sub, email, displayName, idToken, groups, next } = await this.auth.completeAuthorization({
         flowToken,
         callbackParams: req.query as Record<string, string | undefined>,
       }));
@@ -168,6 +174,7 @@ export class AuthController {
       authentikSubject: user.authentikSubject,
       email: user.email,
       idToken: idToken ?? null,
+      groups,
     });
 
     res.clearCookie(FLOW_COOKIE, COOKIE_BASE);
@@ -276,6 +283,11 @@ export class AuthController {
       // Carry the id_token forward unchanged so the next /sign-out can
       // still build an RP-Initiated Logout URL after N rotations.
       idToken: consumed.idToken,
+      // Re-source groups from the stored id_token on every refresh so
+      // role changes in Authentik propagate within one refresh cycle
+      // (max ~15 min). No DB schema change required — the id_token
+      // already carries the claim.
+      groups: extractGroupsFromIdToken(consumed.idToken),
     });
     res.cookie(REFRESH_COOKIE, session.refreshToken, {
       ...COOKIE_BASE,
@@ -294,6 +306,7 @@ export class AuthController {
       id: req.user.sub,
       email: req.user.email,
       authentikSubject: req.user.authentikSubject,
+      groups: req.user.groups ?? [],
     };
   }
 }

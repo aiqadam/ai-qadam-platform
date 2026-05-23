@@ -13,6 +13,14 @@ interface AccessTokenClaims {
   sub: string; // our local users.id (uuid)
   authentikSubject: string;
   email: string;
+  // Authentik group names the user belongs to (e.g. `aiqadam-super-admin`,
+  // `aiqadam-country-lead-uz`). Source-of-truth: Authentik. Captured from
+  // the OIDC id_token at /callback (requires the `groups` scope on the
+  // provider) and carried forward across refresh rotations by decoding
+  // the stored id_token in /refresh — see refresh handler. Empty array
+  // when the id_token lacks the claim (e.g. service accounts, legacy
+  // sessions from before the groups scope was attached).
+  groups: string[];
 }
 
 export type VerifiedClaims = JWTPayload & AccessTokenClaims & { jti: string };

@@ -10,6 +10,7 @@
 // SSR pages it's per-request, for prerendered ones it falls back to default.
 
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, getLocale, makeT } from '../lib/i18n';
+import { NavUserBadge } from './NavUserBadge';
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
@@ -45,6 +46,7 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
       <a href="/events" class="app-nav-link">{t('nav.events')}</a>
       <a href="/leaderboard" class="app-nav-link">{t('nav.leaderboard')}</a>
       <a href="/me" class="app-nav-link">{t('nav.account')}</a>
+      <NavUserBadge client:load />
     </nav>
 
     <div style="display: flex; align-items: center; gap: 8px;">

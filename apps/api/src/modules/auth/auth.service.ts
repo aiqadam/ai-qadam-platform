@@ -27,7 +27,11 @@ import { RefreshTokenService } from './refresh-token.service';
 const FLOW_COOKIE_TTL_SECONDS = 600;
 const FLOW_ISSUER = 'aiqadam-api-oauth-flow';
 const FLOW_AUDIENCE = 'aiqadam-api-callback';
-const FLOW_SCOPES = 'openid email profile';
+// `groups` added 2026-05-23 (ADR-0037 RBAC nav). Pulls Authentik group
+// names into the id_token; we then carry them through the JWT and surface
+// them in /v1/auth/me so the web can show Workspace / Engineering Deck
+// nav items by role. Requires the matching scope mapping on the provider.
+const FLOW_SCOPES = 'openid email profile groups';
 
 interface FlowClaims extends JWTPayload {
   state: string;
@@ -106,7 +110,8 @@ export class AuthService {
   // Step 2: read the flow cookie, validate state, exchange the code for
   // an id_token. Returns the identity claims, the raw id_token (kept for
   // RP-Initiated Logout — id_token_hint to Authentik's end_session
-  // endpoint), and the `next` URL the caller should redirect to.
+  // endpoint), the user's Authentik group names (for RBAC nav per
+  // ADR-0037), and the `next` URL the caller should redirect to.
   async completeAuthorization(input: {
     flowToken: string | undefined;
     callbackParams: Record<string, string | undefined>;
@@ -115,6 +120,7 @@ export class AuthService {
     email: string;
     displayName: string | undefined;
     idToken: string | undefined;
+    groups: string[];
     next: string;
   }> {
     if (!input.flowToken) {
@@ -122,8 +128,10 @@ export class AuthService {
     }
     const flowClaims = await this.verifyFlowToken(input.flowToken);
     const tokenSet = await this.exchangeCode(input.callbackParams, flowClaims);
-    const identity = extractIdentityClaims(tokenSet.claims());
-    return { ...identity, idToken: tokenSet.id_token, next: flowClaims.next };
+    const claims = tokenSet.claims() as Record<string, unknown>;
+    const identity = extractIdentityClaims(claims);
+    const groups = extractGroupsClaim(claims);
+    return { ...identity, idToken: tokenSet.id_token, groups, next: flowClaims.next };
   }
 
   private async verifyFlowToken(flowToken: string): Promise<FlowClaims> {
@@ -193,19 +201,21 @@ export class AuthService {
 
   // Mint OUR session: short-lived access JWT (with jti for deny-list) +
   // 14-day refresh row. Called from /callback (new family, idToken
-  // required for SLO) and /refresh (existing family, idToken carried
-  // forward from the consumed row).
+  // required for SLO) and /refresh (existing family, idToken + groups
+  // carried forward from the consumed row).
   async mintSession(input: {
     userId: string;
     authentikSubject: string;
     email: string;
     familyId?: string;
     idToken?: string | null;
+    groups?: string[];
   }): Promise<{ accessToken: string; refreshToken: string; refreshExpiresAt: Date }> {
     const accessToken = await this.jwtService.sign({
       sub: input.userId,
       authentikSubject: input.authentikSubject,
       email: input.email,
+      groups: input.groups ?? [],
     });
     const refresh = await this.refreshTokens.issue({
       userId: input.userId,
@@ -220,6 +230,28 @@ export class AuthService {
   }
 }
 
+// Decode an Authentik-issued id_token (a signed JWT) and extract the
+// `groups` claim. We don't re-verify the signature: the id_token came
+// from Authentik, we wrote it into our refresh_tokens row at /callback,
+// and the DB is our trusted store between writes. Returns an empty
+// array on any parse failure or when the claim is absent — that's a
+// legacy session (issued before the groups scope was attached) and
+// will refresh into a populated array on the user's next sign-in.
+export function extractGroupsFromIdToken(idToken: string | null | undefined): string[] {
+  if (!idToken) return [];
+  const segments = idToken.split('.');
+  if (segments.length < 2) return [];
+  try {
+    const payload = JSON.parse(Buffer.from(segments[1] ?? '', 'base64url').toString('utf-8')) as {
+      groups?: unknown;
+    };
+    if (!Array.isArray(payload.groups)) return [];
+    return payload.groups.filter((g): g is string => typeof g === 'string');
+  } catch {
+    return [];
+  }
+}
+
 function stringifyParams(input: Record<string, string | undefined>): string {
   const clean: Record<string, string> = {};
   for (const [k, v] of Object.entries(input)) {
@@ -228,11 +260,17 @@ function stringifyParams(input: Record<string, string | undefined>): string {
   return new URLSearchParams(clean).toString();
 }
 
-function extractIdentityClaims(claims: {
-  sub?: unknown;
-  email?: unknown;
-  name?: unknown;
-}): { sub: string; email: string; displayName: string | undefined } {
+function extractGroupsClaim(claims: Record<string, unknown>): string[] {
+  const raw = claims.groups;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((g): g is string => typeof g === 'string');
+}
+
+function extractIdentityClaims(claims: Record<string, unknown>): {
+  sub: string;
+  email: string;
+  displayName: string | undefined;
+} {
   if (typeof claims.sub !== 'string' || claims.sub.length === 0) {
     throw new UnauthorizedException('oidc id_token missing sub claim');
   }
