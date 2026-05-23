@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@aiqadam/tsconfig": "workspace:*",
-    "@types/react": "^19.0.0",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.2"
   }
