@@ -1,4 +1,12 @@
-import { Controller, Get, NotFoundException, Param, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+  Req,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { UsersService } from './users.service';
 
@@ -10,6 +18,16 @@ interface PublicProfileResponse {
   totalPoints: number;
 }
 
+interface HandlesResponse {
+  handles: Record<string, string>;
+}
+
+// Cap the batch so the endpoint can't be used to enumerate the whole
+// user table. F-S3.10-c surfaces only event-speaker handles (≤50 per
+// event in practice), so 50 is the natural upper bound.
+const MAX_DIRECTUS_IDS = 50;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Public profile endpoint backing the /u/[handle] page. Tenant-scoped:
 // the counts + points reflect activity in the requesting country only.
 // Email is intentionally NOT in the response — handles are the public
@@ -17,6 +35,30 @@ interface PublicProfileResponse {
 @Controller('v1/users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
+
+  // F-S3.10-c handle bridge — public endpoint that resolves a batch of
+  // directus_user_id UUIDs to local handles, so the SSR layer can render
+  // /u/{handle} links for speakers on the event page. Returns only
+  // already-public handles (private profiles have handle=null); no other
+  // PII is exposed.
+  @Get('handles')
+  async handles(@Query('directusIds') raw?: string): Promise<HandlesResponse> {
+    const ids = (raw ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (ids.length === 0) return { handles: {} };
+    if (ids.length > MAX_DIRECTUS_IDS) {
+      throw new BadRequestException(`directusIds capped at ${MAX_DIRECTUS_IDS}`);
+    }
+    for (const id of ids) {
+      if (!UUID_RE.test(id)) {
+        throw new BadRequestException(`invalid directusId: ${id}`);
+      }
+    }
+    const handles = await this.users.findHandlesByDirectusIds(ids);
+    return { handles };
+  }
 
   @Get(':handle/profile')
   async profile(

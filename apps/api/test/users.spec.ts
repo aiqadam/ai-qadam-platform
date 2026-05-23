@@ -143,6 +143,53 @@ describe('UsersService.findByHandle', () => {
   });
 });
 
+describe('UsersService.findHandlesByDirectusIds (F-S3.10-c bridge)', () => {
+  beforeEach(async () => {
+    await db.delete(users);
+  });
+
+  it('returns empty map for an empty input', async () => {
+    const out = await service.findHandlesByDirectusIds([]);
+    expect(out).toEqual({});
+  });
+
+  it('returns a map of directus_user_id → handle for users that have both', async () => {
+    const alice = await service.upsertByAuthentikSubject({
+      authentikSubject: 'sub-bridge-1',
+      email: 'alice@example.com',
+    });
+    const bob = await service.upsertByAuthentikSubject({
+      authentikSubject: 'sub-bridge-2',
+      email: 'bob@example.com',
+    });
+    const aliceDx = '11111111-1111-1111-1111-111111111111';
+    const bobDx = '22222222-2222-2222-2222-222222222222';
+    await db.update(users).set({ directusUserId: aliceDx }).where(eq(users.id, alice.id));
+    await db.update(users).set({ directusUserId: bobDx }).where(eq(users.id, bob.id));
+
+    const out = await service.findHandlesByDirectusIds([aliceDx, bobDx]);
+    expect(out).toEqual({ [aliceDx]: 'alice', [bobDx]: 'bob' });
+  });
+
+  it('omits users without a handle (e.g. derived handle was too short)', async () => {
+    const u = await service.upsertByAuthentikSubject({
+      authentikSubject: 'sub-bridge-3',
+      // 2-char prefix → derived handle below the 3-char floor → null.
+      email: 'ab@example.com',
+    });
+    const dx = '33333333-3333-3333-3333-333333333333';
+    await db.update(users).set({ directusUserId: dx }).where(eq(users.id, u.id));
+
+    const out = await service.findHandlesByDirectusIds([dx]);
+    expect(out).toEqual({});
+  });
+
+  it('omits directus IDs that match no local user', async () => {
+    const out = await service.findHandlesByDirectusIds(['99999999-9999-9999-9999-999999999999']);
+    expect(out).toEqual({});
+  });
+});
+
 describe('UsersService.upsertByAuthentikSubject (handle derivation)', () => {
   beforeEach(async () => {
     await db.delete(users);

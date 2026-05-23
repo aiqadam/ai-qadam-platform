@@ -250,7 +250,8 @@ export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | n
 // F-S3.10-b — public speaker lineup for an event. Returns only
 // accepted+confirmed speakers (invited / declined / cancelled hidden
 // from the public page). Joins event_speakers → speakers →
-// directus_users for display name + handle.
+// directus_users for display name. Handle (for /u/{handle} link) is
+// resolved via the F-S3.10-c API bridge.
 interface CmsEventSpeakerRow {
   id: string;
   status: EventSpeaker['status'];
@@ -259,11 +260,40 @@ interface CmsEventSpeakerRow {
   speaker: {
     bio_md?: string | null;
     user?: {
+      id?: string | null;
       first_name?: string | null;
       last_name?: string | null;
       job_title?: string | null;
     } | null;
   } | null;
+}
+
+// F-S3.10-c — resolve a batch of directus_user_id values to local
+// handles via the API. `handle` lives on the Postgres `users` table,
+// not on `directus_users`, so we round-trip through the API. Empty
+// object on any failure — speaker just renders without a link.
+const { INTERNAL_API_URL = 'http://localhost:3000' } = process.env;
+
+async function fetchHandlesByDirectusIds(directusIds: string[]): Promise<Record<string, string>> {
+  const ids = directusIds.filter(Boolean);
+  if (ids.length === 0) return {};
+  try {
+    const res = await fetch(`${INTERNAL_API_URL}/v1/users/handles?directusIds=${ids.join(',')}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      console.error(`[cms] /v1/users/handles failed: HTTP ${res.status}`);
+      return {};
+    }
+    const body = (await res.json()) as { handles?: Record<string, string> };
+    return body.handles ?? {};
+  } catch (err) {
+    console.error(
+      '[cms] fetchHandlesByDirectusIds threw:',
+      err instanceof Error ? err.message : err,
+    );
+    return {};
+  }
 }
 
 export async function fetchEventSpeakers(eventId: string): Promise<EventSpeaker[]> {
@@ -274,24 +304,27 @@ export async function fetchEventSpeakers(eventId: string): Promise<EventSpeaker[
         status: { _in: ['accepted', 'confirmed'] },
       }),
     );
-    // handle column lives on the local Postgres `users` table, not on
-    // directus_users — surfacing /u/{handle} links per speaker requires
-    // either bridging the column or routing through the API. Deferred to
-    // F-S3.10-c; v1 shows name + role only.
     const fields =
-      'id,status,talk_title,order_index,speaker.bio_md,speaker.user.first_name,speaker.user.last_name,speaker.user.job_title';
+      'id,status,talk_title,order_index,speaker.bio_md,speaker.user.id,speaker.user.first_name,speaker.user.last_name,speaker.user.job_title';
     const body = await get<{ data: CmsEventSpeakerRow[] }>(
       `/items/event_speakers?filter=${filter}&fields=${fields}&sort=order_index&limit=50`,
     );
+
+    const directusIds = body.data
+      .map((row) => row.speaker?.user?.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const handles = await fetchHandlesByDirectusIds(directusIds);
+
     return body.data.map((row): EventSpeaker => {
       const u = row.speaker?.user ?? null;
       const first = u?.first_name?.trim() ?? '';
       const last = u?.last_name?.trim() ?? '';
       const displayName = `${first} ${last}`.trim() || null;
+      const handle = u?.id ? (handles[u.id] ?? null) : null;
       return {
         id: row.id,
         displayName,
-        handle: null,
+        handle,
         jobTitle: u?.job_title ?? null,
         talkTitle: row.talk_title,
         bioMd: row.speaker?.bio_md ?? null,

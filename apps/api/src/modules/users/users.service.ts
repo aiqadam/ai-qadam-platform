@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { DB, type Db } from '../../db';
 import { DirectusClient } from '../directus/directus.client';
 import { type User, users } from './schema';
@@ -98,6 +98,26 @@ export class UsersService {
       .where(eq(users.id, input.userId))
       .returning();
     return row;
+  }
+
+  // F-S3.10-c bridge: given a batch of directus_user_id values (from a
+  // Directus join — e.g. speakers on an event), return the corresponding
+  // local handles so the SSR layer can build /u/{handle} links. Returns
+  // a map keyed by directus_user_id; users without a handle (or never
+  // signed in via OIDC) are simply absent from the map.
+  async findHandlesByDirectusIds(directusIds: string[]): Promise<Record<string, string>> {
+    if (directusIds.length === 0) return {};
+    const rows = await this.db
+      .select({ directusUserId: users.directusUserId, handle: users.handle })
+      .from(users)
+      .where(inArray(users.directusUserId, directusIds));
+    const out: Record<string, string> = {};
+    for (const row of rows) {
+      if (row.directusUserId && row.handle) {
+        out[row.directusUserId] = row.handle;
+      }
+    }
+    return out;
   }
 
   async findByHandle(handle: string): Promise<User | undefined> {
