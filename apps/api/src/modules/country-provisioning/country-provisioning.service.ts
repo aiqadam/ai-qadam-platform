@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { AuthentikClient, AuthentikError } from '../admin-invites/authentik.client';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
 
 // F-S4.1 — Country provisioning state machine.
@@ -57,14 +58,11 @@ type StepRunner = (country: { code: string; name: string }) => Promise<void>;
 export class CountryProvisioningService {
   private readonly logger = new Logger(CountryProvisioningService.name);
 
-  // Each step's runner. v1 stubs log intent + succeed. F-S4.1-b/c/d swap
-  // these for real implementations one at a time.
+  // Each step's runner. F-S4.1-b/c/d swap stubs for real implementations
+  // one at a time. authentik_oidc is real as of F-S4.1-b; the others
+  // remain stubs that log intent + succeed.
   private readonly runners: Record<ProvisioningStepId, StepRunner> = {
-    authentik_oidc: async (c) => {
-      this.logger.log(
-        `[stub] authentik_oidc — would register OIDC redirect URI for https://${c.code}.aiqadam.org/api/v1/auth/callback`,
-      );
-    },
+    authentik_oidc: (c) => this.runAuthentikOidc(c),
     directus_policy: async (c) => {
       this.logger.log(
         `[stub] directus_policy — would create country=${c.code} member-graph-scoped permission policy`,
@@ -82,7 +80,57 @@ export class CountryProvisioningService {
     },
   };
 
-  constructor(private readonly directus: DirectusClient) {}
+  constructor(
+    private readonly directus: DirectusClient,
+    private readonly authentik: AuthentikClient,
+  ) {}
+
+  // F-S4.1-b — register the new country's OIDC redirect URI on the
+  // configured Authentik OAuth2 provider. Idempotent: if the URI is
+  // already in the provider's list, no PATCH is sent.
+  //
+  // Error contract:
+  //   * AUTHENTIK_OIDC_PROVIDER_NAME unset → authentik_oidc_provider_not_configured
+  //   * Admin token unset → authentik_admin_not_configured
+  //   * Provider name doesn't exist → authentik_oidc_provider_not_found
+  //   * Network / 5xx from Authentik → AuthentikError propagates (the
+  //     framework catches + persists the message into step.error)
+  private async runAuthentikOidc(c: { code: string }): Promise<void> {
+    if (!this.authentik.isConfigured()) {
+      throw new Error('authentik_admin_not_configured');
+    }
+    // Read at runtime (not import time) so vi.stubEnv works in tests
+    // without module-reset gymnastics. The schema entry in config/env.ts
+    // documents + boot-validates the var.
+    const providerName = process.env.AUTHENTIK_OIDC_PROVIDER_NAME;
+    if (!providerName) {
+      throw new Error('authentik_oidc_provider_not_configured');
+    }
+    const newUri = `https://${c.code}.aiqadam.org/api/v1/auth/callback`;
+    const provider = await this.authentik.getOauthProviderByName(providerName);
+    if (!provider) {
+      throw new Error(`authentik_oidc_provider_not_found name=${providerName}`);
+    }
+    const existing = provider.redirect_uris ?? [];
+    if (existing.some((entry) => entry.url === newUri)) {
+      this.logger.log(
+        `authentik_oidc — redirect URI already present provider=${providerName} country=${c.code}`,
+      );
+      return;
+    }
+    const next = [...existing, { matching_mode: 'strict' as const, url: newUri }];
+    try {
+      await this.authentik.setOauthProviderRedirectUris(provider.pk, next);
+      this.logger.log(
+        `authentik_oidc — appended redirect URI provider=${providerName} country=${c.code} now=${next.length}`,
+      );
+    } catch (err) {
+      if (err instanceof AuthentikError) {
+        throw new Error(`authentik_patch_failed status=${err.status}`);
+      }
+      throw err;
+    }
+  }
 
   /**
    * Public API: run the state machine for `code`. Idempotent —

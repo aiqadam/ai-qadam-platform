@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AuthentikClient } from '../src/modules/admin-invites/authentik.client';
 import {
   CountryProvisioningService,
   PROVISIONING_STEP_IDS,
@@ -7,9 +8,9 @@ import {
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import { DirectusError } from '../src/modules/directus/directus.client';
 
-// F-S4.1 — country provisioning state machine. Mocks Directus.
-// v1 stubs always succeed; tests focus on framework semantics:
-// initialization, persistence, idempotency, resume-from-failure.
+// F-S4.1 — country provisioning state machine. Mocks Directus + Authentik.
+// Most steps are stubs (succeed unconditionally). authentik_oidc is real
+// as of F-S4.1-b — its tests live in a dedicated block at the bottom.
 
 type FakeDirectus = {
   get: ReturnType<typeof vi.fn>;
@@ -17,15 +18,41 @@ type FakeDirectus = {
   patch: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
 };
+type FakeAuthentik = {
+  isConfigured: ReturnType<typeof vi.fn>;
+  getOauthProviderByName: ReturnType<typeof vi.fn>;
+  setOauthProviderRedirectUris: ReturnType<typeof vi.fn>;
+};
 
 let dx: FakeDirectus;
+let ak: FakeAuthentik;
 let svc: CountryProvisioningService;
 
 const UZ = { code: 'uz', name: 'Uzbekistan', provisioning_state: null };
 
+// Framework tests share a fake AuthentikClient with happy-path defaults
+// so the real authentik_oidc runner succeeds inside them. Tests that
+// exercise the runner specifically (bottom block) override per-case.
 beforeEach(() => {
   dx = { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() };
-  svc = new CountryProvisioningService(dx as unknown as DirectusClient);
+  ak = {
+    isConfigured: vi.fn().mockReturnValue(true),
+    getOauthProviderByName: vi.fn().mockResolvedValue({
+      pk: 1,
+      name: 'aiqadam',
+      redirect_uris: [{ matching_mode: 'strict', url: 'https://aiqadam.org/api/v1/auth/callback' }],
+    }),
+    setOauthProviderRedirectUris: vi.fn().mockResolvedValue(undefined),
+  };
+  vi.stubEnv('AUTHENTIK_OIDC_PROVIDER_NAME', 'aiqadam');
+  svc = new CountryProvisioningService(
+    dx as unknown as DirectusClient,
+    ak as unknown as AuthentikClient,
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('CountryProvisioningService.run — fresh provisioning', () => {
@@ -163,5 +190,81 @@ describe('CountryProvisioningService.getState', () => {
   it('returns null when the country has never been provisioned', async () => {
     dx.get.mockResolvedValueOnce({ data: { ...UZ, provisioning_state: null } });
     expect(await svc.getState('uz')).toBeNull();
+  });
+});
+
+// F-S4.1-b — real authentik_oidc runner (replaces the v1 stub).
+describe('CountryProvisioningService — authentik_oidc real runner', () => {
+  const KG = { code: 'kg', name: 'Kyrgyzstan', provisioning_state: null };
+  const EXPECTED_URI = 'https://kg.aiqadam.org/api/v1/auth/callback';
+
+  it('appends the new redirect URI when not already present', async () => {
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.patch.mockResolvedValueOnce({});
+    ak.getOauthProviderByName.mockResolvedValueOnce({
+      pk: 1,
+      name: 'aiqadam',
+      redirect_uris: [
+        { matching_mode: 'strict', url: 'https://aiqadam.org/api/v1/auth/callback' },
+        { matching_mode: 'strict', url: 'https://uz.aiqadam.org/api/v1/auth/callback' },
+      ],
+    });
+
+    const state = await svc.run('kg');
+    expect(state.steps.authentik_oidc.status).toBe('succeeded');
+    expect(ak.setOauthProviderRedirectUris).toHaveBeenCalledTimes(1);
+    const [pk, uris] = ak.setOauthProviderRedirectUris.mock.calls[0] as [
+      number,
+      Array<{ matching_mode: string; url: string }>,
+    ];
+    expect(pk).toBe(1);
+    expect(uris).toHaveLength(3);
+    expect(uris[2]).toEqual({ matching_mode: 'strict', url: EXPECTED_URI });
+  });
+
+  it('is idempotent: skips PATCH when URI already present', async () => {
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.patch.mockResolvedValueOnce({});
+    ak.getOauthProviderByName.mockResolvedValueOnce({
+      pk: 1,
+      name: 'aiqadam',
+      redirect_uris: [{ matching_mode: 'strict', url: EXPECTED_URI }],
+    });
+
+    const state = await svc.run('kg');
+    expect(state.steps.authentik_oidc.status).toBe('succeeded');
+    expect(ak.setOauthProviderRedirectUris).not.toHaveBeenCalled();
+  });
+
+  it('fails with authentik_admin_not_configured when token missing', async () => {
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.patch.mockResolvedValueOnce({});
+    ak.isConfigured.mockReturnValueOnce(false);
+
+    const state = await svc.run('kg');
+    expect(state.steps.authentik_oidc.status).toBe('failed');
+    expect(state.steps.authentik_oidc.error).toBe('authentik_admin_not_configured');
+    // Subsequent steps stay pending (state-machine halts on first failure)
+    expect(state.steps.directus_policy.status).toBe('pending');
+  });
+
+  it('fails with authentik_oidc_provider_not_configured when env var unset', async () => {
+    vi.stubEnv('AUTHENTIK_OIDC_PROVIDER_NAME', '');
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.patch.mockResolvedValueOnce({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.authentik_oidc.status).toBe('failed');
+    expect(state.steps.authentik_oidc.error).toBe('authentik_oidc_provider_not_configured');
+  });
+
+  it('fails with authentik_oidc_provider_not_found when name resolves null', async () => {
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.patch.mockResolvedValueOnce({});
+    ak.getOauthProviderByName.mockResolvedValueOnce(null);
+
+    const state = await svc.run('kg');
+    expect(state.steps.authentik_oidc.status).toBe('failed');
+    expect(state.steps.authentik_oidc.error).toContain('authentik_oidc_provider_not_found');
   });
 });

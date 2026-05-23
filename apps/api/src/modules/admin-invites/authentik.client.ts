@@ -54,6 +54,18 @@ export interface CreateUserInput {
   attributes?: Record<string, unknown>;
 }
 
+// F-S4.1-b — Authentik 2023.10+ object form for OAuth2 provider redirect URIs.
+export interface AuthentikRedirectUri {
+  matching_mode: 'strict' | 'regex';
+  url: string;
+}
+
+export interface AuthentikOauthProvider {
+  pk: number;
+  name: string;
+  redirect_uris: AuthentikRedirectUri[];
+}
+
 @Injectable()
 export class AuthentikClient {
   private readonly logger = new Logger(AuthentikClient.name);
@@ -159,6 +171,39 @@ export class AuthentikClient {
   async disableUser(userPk: number): Promise<void> {
     await this.request<unknown>('PATCH', `/api/v3/core/users/${userPk}/`, {
       is_active: false,
+    });
+  }
+
+  // ─── F-S4.1-b — OAuth2 / OIDC provider ops ───────────────────────────
+  //
+  // Country-provisioning needs to add a new redirect URI to the OIDC
+  // provider that handles aiqadam.org sign-in. Two methods:
+  //   * getOauthProviderByName — lookup by exact name (Authentik admin
+  //     UI Name field). Returns pk + redirect_uris.
+  //   * setOauthProviderRedirectUris — replace the redirect_uris array.
+  //     Caller is responsible for merge/dedupe — we keep that logic at
+  //     one layer (the provisioning step) so it stays testable.
+  //
+  // Authentik 2023.10+ uses the object form for redirect_uris:
+  //   [{ "matching_mode": "strict", "url": "https://..." }]
+  // We code against the modern shape only. If a future bump changes it,
+  // swap here in one place.
+
+  async getOauthProviderByName(name: string): Promise<AuthentikOauthProvider | null> {
+    const qs = new URLSearchParams({ name });
+    const res = await this.request<{ results: AuthentikOauthProvider[] }>(
+      'GET',
+      `/api/v3/providers/oauth2/?${qs.toString()}`,
+    );
+    return res.results[0] ?? null;
+  }
+
+  async setOauthProviderRedirectUris(
+    pk: number,
+    redirectUris: AuthentikRedirectUri[],
+  ): Promise<void> {
+    await this.request<unknown>('PATCH', `/api/v3/providers/oauth2/${pk}/`, {
+      redirect_uris: redirectUris,
     });
   }
 

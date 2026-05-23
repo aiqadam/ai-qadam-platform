@@ -119,6 +119,17 @@ const envSchema = z.object({
   AUTHENTIK_ADMIN_URL: z.string().url().default('https://auth.aiqadam.org'),
   AUTHENTIK_ADMIN_TOKEN: z.string().min(20).optional(),
 
+  // F-S4.1-b — name of the Authentik OAuth2/OIDC provider that handles
+  // aiqadam.org sign-in. The country-provisioning state machine reads
+  // this to append `https://<country>.aiqadam.org/api/v1/auth/callback`
+  // to the provider's `redirect_uris` list when a new country is
+  // provisioned.
+  //
+  // **Optional**: when unset, the authentik_oidc provisioning step fails
+  // with `authentik_oidc_provider_not_configured` — operator addresses
+  // the env then re-runs provisioning.
+  AUTHENTIK_OIDC_PROVIDER_NAME: z.string().min(1).optional(),
+
   // Feature flag (ADR-0035 Part 4 + G-1 deferral): country-lead invites
   // scaffold + ready but invisible while compensation is unresolved.
   // Flip to true only after G-1 is closed and an AUP §7 review.
