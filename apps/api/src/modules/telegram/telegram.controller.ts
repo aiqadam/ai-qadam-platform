@@ -21,6 +21,11 @@ import {
   TelegramRegistrationSchemaService,
 } from './telegram-registration-schema.service';
 import {
+  type MemberLookupResult,
+  type RegistrationResult,
+  TelegramRegistrationsService,
+} from './telegram-registrations.service';
+import {
   type LinkConfirmResult,
   type LinkStartResult,
   type MemberByTgResult,
@@ -29,6 +34,21 @@ import {
   TelegramService,
 } from './telegram.service';
 import { TgConfigService } from './tg-config.service';
+
+// Phase Bot-B PR-1.3b — registration submit body. Bot's pydantic
+// RegisterForEventInput pins the field names; rename here breaks
+// contract tests in sibling repo.
+const registerSchema = z.object({
+  event_id: z.string().uuid(),
+  telegram_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .transform((v) => BigInt(v)),
+  telegram_username: z.string().min(1).max(64).nullable().optional(),
+  profile: z.record(z.unknown()),
+  consents: z.record(z.boolean()),
+});
+
+const emailParamSchema = z.string().email().max(255);
 
 // Phase Bot-B PR-1.2b — schema endpoint path param. Accepts both real
 // slugs and uuid fallbacks per the rowToSummary slug-or-id contract.
@@ -213,6 +233,7 @@ export class TelegramController {
   constructor(
     private readonly telegram: TelegramService,
     private readonly config: TgConfigService,
+    private readonly registrations: TelegramRegistrationsService,
   ) {}
 
   @Get('whoami')
@@ -239,6 +260,57 @@ export class TelegramController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.telegram.resolveMemberByTgUserId(parsed.data);
+  }
+
+  // GET /v1/telegram/members/lookup-by-email/:email
+  //   Phase Bot-B PR-1.3b. Silent member match used by the bot's
+  //   /register_<slug> FSM before walking the schema fields.
+  //
+  //   200: { member_id, display_name }
+  //   400: email param malformed
+  //   404 { error: 'member_not_found' }: bot treats as new-user — proceed
+  //        to "new member" treatment in the registration flow
+  //   401/503: TelegramAuthGuard
+  @Get('members/lookup-by-email/:email')
+  async memberLookupByEmail(@Param('email') email: string): Promise<MemberLookupResult> {
+    const parsed = emailParamSchema.safeParse(email);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.registrations.lookupByEmail(parsed.data);
+  }
+
+  // POST /v1/telegram/registrations
+  //   Phase Bot-B PR-1.3b — the activation moment. The bot submits the
+  //   completed form here; aiqadam validates against the live schema,
+  //   silently matches the email to an existing member OR creates a
+  //   new Directus member (Telegram-as-IdP), inserts the registration,
+  //   and records consents.
+  //
+  //   Body shape pinned by bot's pydantic RegisterForEventInput model.
+  //
+  //   201: { registration_id, member_id, was_new_member, qr_token,
+  //          starts_at, title }
+  //   400: schema validation failed (field required / wrong type / etc.)
+  //        or registration_closed / event_not_published / consent_required
+  //   404: event_id does not match any event
+  //   409: { error: 'already_registered', registration_id, member_id }
+  //        — caller renders "you're already in" rather than retry
+  //   401/503: TelegramAuthGuard
+  @Post('registrations')
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() body: unknown): Promise<RegistrationResult> {
+    const parsed = registerSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.registrations.register({
+      event_id: parsed.data.event_id,
+      telegram_user_id: parsed.data.telegram_user_id,
+      telegram_username: parsed.data.telegram_username ?? null,
+      profile: parsed.data.profile,
+      consents: parsed.data.consents,
+    });
   }
 
   // GET /v1/telegram/admin/bot-token?tenant=<code>

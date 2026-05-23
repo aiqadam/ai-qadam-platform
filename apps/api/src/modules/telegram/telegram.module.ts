@@ -14,6 +14,7 @@ import { TelegramAdminService } from './telegram-admin.service';
 import { TelegramAuthGuard } from './telegram-auth.guard';
 import { TelegramEventsService } from './telegram-events.service';
 import { TelegramRegistrationSchemaService } from './telegram-registration-schema.service';
+import { TelegramRegistrationsService } from './telegram-registrations.service';
 import { TelegramController, TelegramPublicController } from './telegram.controller';
 import { TelegramService } from './telegram.service';
 import { TELEGRAM_REDIS } from './telegram.tokens';
@@ -75,6 +76,7 @@ import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
     TelegramService,
     TelegramEventsService,
     TelegramRegistrationSchemaService,
+    TelegramRegistrationsService,
     TgConfigService,
     HeartbeatReaderService,
     TelegramAdminService,
