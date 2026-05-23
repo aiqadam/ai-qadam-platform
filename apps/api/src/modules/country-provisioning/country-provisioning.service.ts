@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AuthentikClient, AuthentikError } from '../admin-invites/authentik.client';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
+import { tzForCountry } from './country-tz';
 
 // F-S4.1 — Country provisioning state machine.
 //
@@ -58,23 +59,12 @@ type StepRunner = (country: { code: string; name: string }) => Promise<void>;
 export class CountryProvisioningService {
   private readonly logger = new Logger(CountryProvisioningService.name);
 
-  // Each step's runner. F-S4.1-b/c/d swap stubs for real implementations
-  // one at a time. authentik_oidc + directus_policy are real as of
-  // F-S4.1-b + F-S4.1-c respectively; plausible_site + coolify_fqdn
-  // remain stubs (slated for F-S4.1-d).
+  // All four step runners are real as of F-S4.1-d.
   private readonly runners: Record<ProvisioningStepId, StepRunner> = {
     authentik_oidc: (c) => this.runAuthentikOidc(c),
     directus_policy: (c) => this.runDirectusPolicy(c),
-    plausible_site: async (c) => {
-      this.logger.log(
-        `[stub] plausible_site — would create Plausible site for ${c.code}.aiqadam.org`,
-      );
-    },
-    coolify_fqdn: async (c) => {
-      this.logger.log(
-        `[stub] coolify_fqdn — would add https://${c.code}.aiqadam.org to aiqadam-web fqdn list`,
-      );
-    },
+    plausible_site: (c) => this.runPlausibleSite(c),
+    coolify_fqdn: (c) => this.runCoolifyFqdn(c),
   };
 
   constructor(
@@ -169,6 +159,93 @@ export class CountryProvisioningService {
     });
     this.logger.log(
       `directus_policy — created country=${c.code} policy=${created.data.id} name=${policyName}`,
+    );
+  }
+
+  // F-S4.1-d — create the Plausible site for `<cc>.aiqadam.org`.
+  // Plausible self-hosted admin API: `POST /api/v1/sites` with
+  // `{ domain, timezone }`. Idempotent semantics: Plausible returns a
+  // domain-already-exists error (HTTP 400/422) on conflict — we swallow
+  // it as success because the goal state is satisfied either way.
+  // Bearer-token auth; degraded mode when PLAUSIBLE_ADMIN_TOKEN unset.
+  private async runPlausibleSite(c: { code: string }): Promise<void> {
+    const token = process.env.PLAUSIBLE_ADMIN_TOKEN;
+    if (!token) throw new Error('plausible_admin_not_configured');
+    const adminUrl = process.env.PLAUSIBLE_ADMIN_URL ?? 'https://analytics.aiqadam.org';
+    const domain = `${c.code}.aiqadam.org`;
+    const timezone = tzForCountry(c.code);
+    const body = new URLSearchParams({ domain, timezone });
+    const res = await fetch(`${adminUrl.replace(/\/$/, '')}/api/v1/sites`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+    if (res.ok) {
+      this.logger.log(`plausible_site — created domain=${domain} tz=${timezone}`);
+      return;
+    }
+    // Plausible returns 400 with `{error: "domain ... has already been taken"}`
+    // when the site exists; treat as idempotent success.
+    if (res.status === 400 || res.status === 422) {
+      const text = await res.text();
+      if (text.toLowerCase().includes('already')) {
+        this.logger.log(`plausible_site — already exists domain=${domain}`);
+        return;
+      }
+      throw new Error(`plausible_create_failed status=${res.status} ${text.slice(0, 120)}`);
+    }
+    throw new Error(`plausible_create_failed status=${res.status}`);
+  }
+
+  // F-S4.1-d — append `https://<cc>.aiqadam.org:<port>` to the
+  // aiqadam-web Coolify application's domains list. Two-step:
+  //   1. GET /api/v1/applications/<uuid> → read current `fqdn`
+  //   2. PATCH /api/v1/applications/<uuid> with `{ domains: <comma-joined> }`
+  // Coolify's PATCH field is `domains` (string, comma-separated); the
+  // GET response field is `fqdn` (same shape).
+  // Idempotent: if the entry is already present, no PATCH.
+  // Bearer-token auth; degraded mode when token / app uuid unset.
+  private async runCoolifyFqdn(c: { code: string }): Promise<void> {
+    const token = process.env.COOLIFY_API_TOKEN;
+    const appUuid = process.env.COOLIFY_WEB_APP_UUID;
+    if (!token || !appUuid) throw new Error('coolify_admin_not_configured');
+    const apiUrl = (process.env.COOLIFY_API_URL ?? 'https://coolify.aiqadam.org').replace(
+      /\/$/,
+      '',
+    );
+    const port = Number(process.env.COOLIFY_WEB_FQDN_PORT ?? 4321);
+    const newFqdn = `https://${c.code}.aiqadam.org:${port}`;
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    };
+    const getRes = await fetch(`${apiUrl}/api/v1/applications/${appUuid}`, { headers });
+    if (!getRes.ok) {
+      throw new Error(`coolify_get_failed status=${getRes.status}`);
+    }
+    const app = (await getRes.json()) as { fqdn?: string };
+    const current = (app.fqdn ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (current.includes(newFqdn)) {
+      this.logger.log(`coolify_fqdn — already present country=${c.code} fqdn=${newFqdn}`);
+      return;
+    }
+    const next = [...current, newFqdn].join(',');
+    const patchRes = await fetch(`${apiUrl}/api/v1/applications/${appUuid}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ domains: next }),
+    });
+    if (!patchRes.ok) {
+      throw new Error(`coolify_patch_failed status=${patchRes.status}`);
+    }
+    this.logger.log(
+      `coolify_fqdn — appended country=${c.code} fqdn=${newFqdn} now=${current.length + 1}`,
     );
   }
 

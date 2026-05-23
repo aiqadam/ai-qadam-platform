@@ -33,6 +33,8 @@ const UZ = { code: 'uz', name: 'Uzbekistan', provisioning_state: null };
 // Framework tests share a fake AuthentikClient with happy-path defaults
 // so the real authentik_oidc runner succeeds inside them. Tests that
 // exercise the runner specifically (bottom block) override per-case.
+const originalFetch = global.fetch;
+
 beforeEach(() => {
   dx = { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() };
   ak = {
@@ -49,6 +51,33 @@ beforeEach(() => {
   dx.get.mockResolvedValue({ data: [] }); // policy lookup → empty (not exists)
   dx.post.mockResolvedValue({ data: { id: 'policy-new' } }); // policy create
   vi.stubEnv('AUTHENTIK_OIDC_PROVIDER_NAME', 'aiqadam');
+  // F-S4.1-d — env + fetch stubs so the real plausible_site + coolify_fqdn
+  // runners succeed in the framework happy-path tests. Tests for those
+  // runners specifically override per-case.
+  vi.stubEnv('PLAUSIBLE_ADMIN_TOKEN', 'plausible-token-test-aaaaaaaaaa');
+  vi.stubEnv('COOLIFY_API_TOKEN', 'coolify-token-test-aaaaaaaaaaa');
+  vi.stubEnv('COOLIFY_WEB_APP_UUID', 'web-app-uuid-test');
+  global.fetch = vi.fn(async (url: unknown, init?: unknown) => {
+    const u = String(url);
+    const method = ((init ?? {}) as RequestInit).method ?? 'GET';
+    if (u.includes('/api/v1/sites')) {
+      // Plausible site create — 200 OK
+      return new Response(JSON.stringify({ domain: 'x.aiqadam.org' }), { status: 200 });
+    }
+    if (u.includes('/api/v1/applications/')) {
+      if (method === 'GET') {
+        // Coolify app fetch — return existing fqdn list (no new entry)
+        return new Response(
+          JSON.stringify({ fqdn: 'https://aiqadam.org:4321,https://uz.aiqadam.org:4321' }),
+          { status: 200 },
+        );
+      }
+      // Coolify PATCH — 200
+      return new Response(JSON.stringify({ uuid: 'web-app-uuid-test' }), { status: 200 });
+    }
+    // Anything else → 404 (forces tests to cover their own URLs)
+    return new Response('', { status: 404 });
+  }) as typeof global.fetch;
   svc = new CountryProvisioningService(
     dx as unknown as DirectusClient,
     ak as unknown as AuthentikClient,
@@ -57,6 +86,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  global.fetch = originalFetch;
 });
 
 describe('CountryProvisioningService.run — fresh provisioning', () => {
@@ -329,5 +359,172 @@ describe('CountryProvisioningService — directus_policy real runner', () => {
     expect(state.steps.directus_policy.error).toContain('Directus 503');
     // Subsequent steps stay pending (state machine halts on first failure)
     expect(state.steps.plausible_site.status).toBe('pending');
+  });
+});
+
+// F-S4.1-d — real plausible_site runner.
+function plausibleAndCoolifyMock(handle: (url: string, init: RequestInit) => Response | undefined) {
+  return vi.fn(async (url: unknown, init?: unknown) => {
+    const u = String(url);
+    const i = (init ?? {}) as RequestInit;
+    const custom = handle(u, i);
+    if (custom) return custom;
+    if (u.includes('/api/v1/sites')) return new Response('{}', { status: 200 });
+    if (u.includes('/api/v1/applications/'))
+      return new Response(JSON.stringify({ fqdn: '' }), { status: 200 });
+    return new Response('', { status: 404 });
+  }) as typeof global.fetch;
+}
+
+describe('CountryProvisioningService — plausible_site real runner', () => {
+  const KG = { code: 'kg', name: 'Kyrgyzstan', provisioning_state: null };
+
+  it('POSTs to /api/v1/sites with correct domain + timezone + bearer token', async () => {
+    global.fetch = plausibleAndCoolifyMock(() => undefined);
+    dx.get.mockReset();
+    dx.post.mockReset();
+    dx.patch.mockReset();
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.get.mockResolvedValue({ data: [] });
+    dx.post.mockResolvedValue({ data: { id: 'policy-new' } });
+    dx.patch.mockResolvedValue({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.plausible_site.status).toBe('succeeded');
+    const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    const plausibleCall = calls.find((c) => String(c[0]).includes('/api/v1/sites'));
+    expect(plausibleCall).toBeDefined();
+    const init = plausibleCall?.[1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>).Authorization).toMatch(/^Bearer plausible/);
+    const body = String(init.body);
+    expect(body).toContain('domain=kg.aiqadam.org');
+    expect(body).toContain('timezone=Asia%2FBishkek');
+  });
+
+  it('treats Plausible 400 "already taken" as idempotent success', async () => {
+    global.fetch = plausibleAndCoolifyMock((u) => {
+      if (u.includes('/api/v1/sites'))
+        return new Response(
+          JSON.stringify({ error: 'domain kg.aiqadam.org has already been taken' }),
+          { status: 400 },
+        );
+      return undefined;
+    });
+    dx.get.mockReset();
+    dx.post.mockReset();
+    dx.patch.mockReset();
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.get.mockResolvedValue({ data: [] });
+    dx.post.mockResolvedValue({ data: { id: 'policy-new' } });
+    dx.patch.mockResolvedValue({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.plausible_site.status).toBe('succeeded');
+  });
+
+  it('fails with plausible_admin_not_configured when token unset', async () => {
+    vi.stubEnv('PLAUSIBLE_ADMIN_TOKEN', '');
+    dx.get.mockReset();
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.get.mockResolvedValue({ data: [] });
+    dx.patch.mockResolvedValue({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.plausible_site.status).toBe('failed');
+    expect(state.steps.plausible_site.error).toBe('plausible_admin_not_configured');
+  });
+});
+
+// F-S4.1-d — real coolify_fqdn runner.
+describe('CountryProvisioningService — coolify_fqdn real runner', () => {
+  const KG = { code: 'kg', name: 'Kyrgyzstan', provisioning_state: null };
+
+  it('appends new FQDN to the apps domains list', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    global.fetch = plausibleAndCoolifyMock((u, i) => {
+      calls.push({ url: u, init: i });
+      if (u.includes('/api/v1/applications/') && (i.method ?? 'GET') === 'GET') {
+        return new Response(
+          JSON.stringify({ fqdn: 'https://aiqadam.org:4321,https://uz.aiqadam.org:4321' }),
+          { status: 200 },
+        );
+      }
+      return undefined;
+    });
+    dx.get.mockReset();
+    dx.post.mockReset();
+    dx.patch.mockReset();
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.get.mockResolvedValue({ data: [] });
+    dx.post.mockResolvedValue({ data: { id: 'policy-new' } });
+    dx.patch.mockResolvedValue({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.coolify_fqdn.status).toBe('succeeded');
+    const patchCall = calls.find(
+      (c) => c.url.includes('/api/v1/applications/') && c.init.method === 'PATCH',
+    );
+    expect(patchCall).toBeDefined();
+    const body = JSON.parse(String(patchCall?.init.body)) as { domains: string };
+    expect(body.domains.split(',')).toEqual([
+      'https://aiqadam.org:4321',
+      'https://uz.aiqadam.org:4321',
+      'https://kg.aiqadam.org:4321',
+    ]);
+  });
+
+  it('is idempotent: no PATCH when FQDN already in the list', async () => {
+    const calls: Array<{ url: string; method: string }> = [];
+    global.fetch = plausibleAndCoolifyMock((u, i) => {
+      const method = i.method ?? 'GET';
+      calls.push({ url: u, method });
+      if (u.includes('/api/v1/applications/') && method === 'GET') {
+        return new Response(
+          JSON.stringify({
+            fqdn: 'https://aiqadam.org:4321,https://kg.aiqadam.org:4321',
+          }),
+          { status: 200 },
+        );
+      }
+      return undefined;
+    });
+    dx.get.mockReset();
+    dx.post.mockReset();
+    dx.patch.mockReset();
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.get.mockResolvedValue({ data: [] });
+    dx.post.mockResolvedValue({ data: { id: 'policy-new' } });
+    dx.patch.mockResolvedValue({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.coolify_fqdn.status).toBe('succeeded');
+    expect(
+      calls.filter((c) => c.url.includes('/api/v1/applications/') && c.method === 'PATCH'),
+    ).toHaveLength(0);
+  });
+
+  it('fails with coolify_admin_not_configured when token unset', async () => {
+    vi.stubEnv('COOLIFY_API_TOKEN', '');
+    dx.get.mockReset();
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.get.mockResolvedValue({ data: [] });
+    dx.patch.mockResolvedValue({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.coolify_fqdn.status).toBe('failed');
+    expect(state.steps.coolify_fqdn.error).toBe('coolify_admin_not_configured');
+  });
+
+  it('fails with coolify_admin_not_configured when web app uuid unset', async () => {
+    vi.stubEnv('COOLIFY_WEB_APP_UUID', '');
+    dx.get.mockReset();
+    dx.get.mockResolvedValueOnce({ data: KG });
+    dx.get.mockResolvedValue({ data: [] });
+    dx.patch.mockResolvedValue({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.coolify_fqdn.status).toBe('failed');
+    expect(state.steps.coolify_fqdn.error).toBe('coolify_admin_not_configured');
   });
 });

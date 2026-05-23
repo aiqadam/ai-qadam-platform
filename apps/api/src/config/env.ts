@@ -66,6 +66,29 @@ const envSchema = z.object({
   // values never break the request path.
   PLAUSIBLE_HOST: z.string().default(''),
 
+  // F-S4.1-d — Plausible admin API for country provisioning. Distinct
+  // from PLAUSIBLE_HOST (events ingest) — admin lives under /api/v1/sites
+  // on the same host but requires its own bearer token. Optional: when
+  // unset, the plausible_site provisioning step fails with
+  // `plausible_admin_not_configured`.
+  PLAUSIBLE_ADMIN_URL: z.string().url().default('https://analytics.aiqadam.org'),
+  PLAUSIBLE_ADMIN_TOKEN: z.string().min(20).optional(),
+
+  // F-S4.1-d — Coolify admin API for country provisioning. Used to
+  // append a new country's `https://<cc>.aiqadam.org:<port>` FQDN to
+  // the aiqadam-web application's domains list (PATCH
+  // /api/v1/applications/<uuid>). Optional: when any of these are
+  // unset, the coolify_fqdn step fails with `coolify_admin_not_configured`.
+  COOLIFY_API_URL: z.string().url().default('https://coolify.aiqadam.org'),
+  COOLIFY_API_TOKEN: z.string().min(20).optional(),
+  // UUID of the aiqadam-web application in Coolify (so we PATCH the
+  // right app). The web fqdn list belongs to ONE application — adding
+  // a new country = appending one entry.
+  COOLIFY_WEB_APP_UUID: z.string().min(8).optional(),
+  // Port suffix on the fqdn entries (existing prod uses :4321). Kept
+  // configurable in case the Coolify port pattern changes.
+  COOLIFY_WEB_FQDN_PORT: z.coerce.number().int().positive().default(4321),
+
   // Shared bearer secret for `/v1/telegram/*` endpoints (ADR-0034). The
   // AI Qadam Telegram bot + notifier pass this in `Authorization: Bearer`
   // when calling our API. Must match `AIQADAM_SERVICE_TOKEN` in the
