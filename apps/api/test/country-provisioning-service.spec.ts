@@ -44,6 +44,10 @@ beforeEach(() => {
     }),
     setOauthProviderRedirectUris: vi.fn().mockResolvedValue(undefined),
   };
+  // F-S4.1-c — fallback for the new directus_policy step's lookup +
+  // create. Tests that exercise this step specifically override per-case.
+  dx.get.mockResolvedValue({ data: [] }); // policy lookup → empty (not exists)
+  dx.post.mockResolvedValue({ data: { id: 'policy-new' } }); // policy create
   vi.stubEnv('AUTHENTIK_OIDC_PROVIDER_NAME', 'aiqadam');
   svc = new CountryProvisioningService(
     dx as unknown as DirectusClient,
@@ -266,5 +270,64 @@ describe('CountryProvisioningService — authentik_oidc real runner', () => {
     const state = await svc.run('kg');
     expect(state.steps.authentik_oidc.status).toBe('failed');
     expect(state.steps.authentik_oidc.error).toContain('authentik_oidc_provider_not_found');
+  });
+});
+
+// F-S4.1-c — real directus_policy runner.
+describe('CountryProvisioningService — directus_policy real runner', () => {
+  const KG = { code: 'kg', name: 'Kyrgyzstan', provisioning_state: null };
+  const EXPECTED_NAME = 'policy.country_lead.kg';
+
+  it('creates the per-country policy when not already present', async () => {
+    // Override defaults to track call shape
+    dx.get.mockReset();
+    dx.post.mockReset();
+    dx.patch.mockReset();
+    dx.get
+      .mockResolvedValueOnce({ data: KG }) // fetchCountry
+      .mockResolvedValueOnce({ data: [] }); // policy lookup → empty
+    dx.post.mockResolvedValueOnce({ data: { id: 'policy-kg-1' } });
+    dx.patch.mockResolvedValueOnce({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.directus_policy.status).toBe('succeeded');
+    const policyPost = dx.post.mock.calls.find((c) => c[0] === '/policies');
+    expect(policyPost).toBeDefined();
+    const body = policyPost?.[1] as Record<string, unknown>;
+    expect(body.name).toBe(EXPECTED_NAME);
+    expect(body.admin_access).toBe(false);
+    expect(body.app_access).toBe(true);
+    expect(body.enforce_tfa).toBe(false);
+  });
+
+  it('is idempotent: skips POST when policy with matching name already exists', async () => {
+    dx.get.mockReset();
+    dx.post.mockReset();
+    dx.patch.mockReset();
+    dx.get
+      .mockResolvedValueOnce({ data: KG })
+      .mockResolvedValueOnce({ data: [{ id: 'policy-kg-existing' }] }); // policy lookup → found
+    dx.patch.mockResolvedValueOnce({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.directus_policy.status).toBe('succeeded');
+    const policyPost = dx.post.mock.calls.find((c) => c[0] === '/policies');
+    expect(policyPost).toBeUndefined(); // no POST — idempotent short-circuit
+  });
+
+  it('fails when the policy lookup throws (e.g. Directus 503)', async () => {
+    dx.get.mockReset();
+    dx.post.mockReset();
+    dx.patch.mockReset();
+    dx.get
+      .mockResolvedValueOnce({ data: KG })
+      .mockRejectedValueOnce(new Error('Directus 503 /policies'));
+    dx.patch.mockResolvedValueOnce({});
+
+    const state = await svc.run('kg');
+    expect(state.steps.directus_policy.status).toBe('failed');
+    expect(state.steps.directus_policy.error).toContain('Directus 503');
+    // Subsequent steps stay pending (state machine halts on first failure)
+    expect(state.steps.plausible_site.status).toBe('pending');
   });
 });

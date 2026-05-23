@@ -59,15 +59,12 @@ export class CountryProvisioningService {
   private readonly logger = new Logger(CountryProvisioningService.name);
 
   // Each step's runner. F-S4.1-b/c/d swap stubs for real implementations
-  // one at a time. authentik_oidc is real as of F-S4.1-b; the others
-  // remain stubs that log intent + succeed.
+  // one at a time. authentik_oidc + directus_policy are real as of
+  // F-S4.1-b + F-S4.1-c respectively; plausible_site + coolify_fqdn
+  // remain stubs (slated for F-S4.1-d).
   private readonly runners: Record<ProvisioningStepId, StepRunner> = {
     authentik_oidc: (c) => this.runAuthentikOidc(c),
-    directus_policy: async (c) => {
-      this.logger.log(
-        `[stub] directus_policy — would create country=${c.code} member-graph-scoped permission policy`,
-      );
-    },
+    directus_policy: (c) => this.runDirectusPolicy(c),
     plausible_site: async (c) => {
       this.logger.log(
         `[stub] plausible_site — would create Plausible site for ${c.code}.aiqadam.org`,
@@ -130,6 +127,49 @@ export class CountryProvisioningService {
       }
       throw err;
     }
+  }
+
+  // F-S4.1-c — create the per-country Directus policy that will gate
+  // country_lead operators' access. Per ADR-0021 §4.1 + ADR-0033: the
+  // global policy.country_lead defines the role's capability set
+  // (organizer permissions + roster + sponsor pipeline + PII per
+  // consent); per-country variants narrow it to one country via name
+  // convention. Per-collection PERMISSIONS rows on this policy are
+  // populated incrementally by the RBAC manifest sync (F-S2.2) — this
+  // step just ensures the policy row exists so the sync has a target.
+  //
+  // Idempotent: lookup by exact name first; create only when missing.
+  //
+  // Error contract:
+  //   * directus_policy_already_exists — never thrown; we short-circuit
+  //     to success when found
+  //   * any Directus 4xx/5xx surfaces via the framework's per-step
+  //     persistence (the error message ends up in step.error)
+  private async runDirectusPolicy(c: { code: string; name: string }): Promise<void> {
+    const policyName = `policy.country_lead.${c.code}`;
+    const description = `F-S4.1-c — per-country variant of policy.country_lead scoped to country=${c.code} (${c.name}). Per-collection permissions populated by F-S2.2 RBAC sync.`;
+    // Lookup by exact name. Directus /policies supports filter[name][_eq]=.
+    const filter = encodeURIComponent(JSON.stringify({ name: { _eq: policyName } }));
+    const existing = await this.directus.get<{ data: Array<{ id: string }> }>(
+      `/policies?filter=${filter}&fields=id&limit=1`,
+    );
+    if (existing.data.length > 0) {
+      this.logger.log(
+        `directus_policy — already exists country=${c.code} policy=${existing.data[0]?.id}`,
+      );
+      return;
+    }
+    const created = await this.directus.post<{ data: { id: string } }>('/policies', {
+      name: policyName,
+      icon: 'shield_person',
+      description,
+      admin_access: false,
+      app_access: true,
+      enforce_tfa: false,
+    });
+    this.logger.log(
+      `directus_policy — created country=${c.code} policy=${created.data.id} name=${policyName}`,
+    );
   }
 
   /**
