@@ -122,16 +122,48 @@ export class EventSpeakersService {
       patchBody,
     );
     const next = await this.fetchOne(eventSpeakerId);
-    // Fire speaker_added dispatch on the invited/accepted → confirmed
-    // transition. Best-effort; never blocks the operator's PATCH response.
-    if (input.status === 'confirmed' && prior.status !== 'confirmed') {
-      this.broadcastSpeakerAdded(next).catch((err) =>
+    // F-S1.1b + F-S1.1b ext — best-effort post-patch side effects.
+    // When BOTH apply we sequence broadcast → og-refresh so members get
+    // notified first + scrapers see the fresh lineup right after. When
+    // only og-refresh applies (no status flip) it runs alone.
+    const fieldChanged =
+      input.status !== undefined ||
+      input.talkTitle !== undefined ||
+      input.talkTopic !== undefined ||
+      input.orderIndex !== undefined;
+    const becameConfirmed = input.status === 'confirmed' && prior.status !== 'confirmed';
+    if (becameConfirmed) {
+      this.broadcastSpeakerAdded(next)
+        .then(() => (fieldChanged ? this.refreshEventOgCard(eventSpeakerId) : undefined))
+        .catch((err) =>
+          this.logger.warn(
+            `speaker_added/og-refresh failed event_speaker=${eventSpeakerId}: ${err instanceof Error ? err.message : 'unknown'}`,
+          ),
+        );
+    } else if (fieldChanged) {
+      this.refreshEventOgCard(eventSpeakerId).catch((err) =>
         this.logger.warn(
-          `speaker_added broadcast failed event_speaker=${eventSpeakerId}: ${err instanceof Error ? err.message : 'unknown'}`,
+          `og-refresh failed event_speaker=${eventSpeakerId}: ${err instanceof Error ? err.message : 'unknown'}`,
         ),
       );
     }
     return next;
+  }
+
+  /**
+   * F-S1.1b ext — bump events.date_updated for `eventId` so the og-card
+   * cache-buster query string changes. Called directly by EventsService
+   * for the operator-facing "Refresh social card" button.
+   */
+  async touchEventForOgRefresh(eventId: string): Promise<void> {
+    await this.directus.patch(`/items/events/${encodeURIComponent(eventId)}`, {
+      date_updated: new Date().toISOString(),
+    });
+  }
+
+  private async refreshEventOgCard(eventSpeakerId: string): Promise<void> {
+    const eventId = await this.eventIdFor(eventSpeakerId);
+    await this.touchEventForOgRefresh(eventId);
   }
 
   async remove(eventSpeakerId: string): Promise<void> {

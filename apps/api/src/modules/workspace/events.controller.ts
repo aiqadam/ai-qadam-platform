@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Put,
   Req,
   UnauthorizedException,
@@ -15,6 +16,7 @@ import {
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AuthGuard } from '../auth/auth.guard';
+import { EventSpeakersService } from './event-speakers.service';
 import {
   type EventDetail,
   type EventFollowup,
@@ -53,7 +55,15 @@ const upsertFollowupSchema = z.object({
 @Controller('v1/workspace/events')
 @UseGuards(AuthGuard)
 export class EventsController {
-  constructor(private readonly events: EventsService) {}
+  constructor(
+    private readonly events: EventsService,
+    // F-S1.1b ext — reused for the operator-driven "Regenerate social
+    // card" button. Bumping events.date_updated lives in
+    // EventSpeakersService.touchEventForOgRefresh so the
+    // speaker-status-change path + the manual button share one
+    // implementation.
+    private readonly speakers: EventSpeakersService,
+  ) {}
 
   @Get()
   async list(@Req() req: Request): Promise<{ events: EventListItem[] }> {
@@ -80,6 +90,22 @@ export class EventsController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const event = await this.events.patch(id, parsed.data);
     return { event };
+  }
+
+  // F-S1.1b ext — operator-driven social-card cache-bust. Bumps
+  // events.date_updated; the og-card endpoint's cache-buster query
+  // string then changes, every social scraper sees a fresh image on
+  // the next preview. Idempotent — repeated calls just rotate the
+  // timestamp.
+  @Post(':id/regenerate-social-card')
+  @HttpCode(HttpStatus.OK)
+  async regenerateSocialCard(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ): Promise<{ regenerated: true }> {
+    requireUser(req);
+    await this.speakers.touchEventForOgRefresh(id);
+    return { regenerated: true };
   }
 
   @Put(':id/followups/:kind')

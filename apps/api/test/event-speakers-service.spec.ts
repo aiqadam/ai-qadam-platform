@@ -112,8 +112,11 @@ describe('EventSpeakersService.patch — confirm transition', () => {
         },
       })
       // attendeeUserIdsOf
-      .mockResolvedValueOnce({ data: [{ user: 'u-a' }, { user: 'u-b' }] });
-    dx.patch.mockResolvedValueOnce({ data: { id: 'es-1' } });
+      .mockResolvedValueOnce({ data: [{ user: 'u-a' }, { user: 'u-b' }] })
+      // F-S1.1b ext — refreshEventOgCard → eventIdFor
+      .mockResolvedValueOnce({ data: { event: 'evt-1' } });
+    // event_speakers PATCH (existing) + events PATCH (F-S1.1b ext og-refresh)
+    dx.patch.mockResolvedValue({ data: { id: 'es-1' } });
     dx.post.mockResolvedValueOnce({ data: { id: 'ann-1' } });
 
     const result = await svc.patch('es-1', { status: 'confirmed' });
@@ -154,10 +157,13 @@ describe('EventSpeakersService.patch — confirm transition', () => {
       })
       .mockResolvedValueOnce({
         data: buildRow({ status: 'confirmed', confirmed_at: '2026-06-15T00:00:00.000Z' }),
-      });
-    dx.patch.mockResolvedValueOnce({ data: { id: 'es-1' } });
+      })
+      // F-S1.1b ext — refreshEventOgCard (still fires on status PATCH)
+      .mockResolvedValueOnce({ data: { event: 'evt-1' } });
+    dx.patch.mockResolvedValue({ data: { id: 'es-1' } });
 
     await svc.patch('es-1', { status: 'confirmed', talkTitle: 'New title' });
+    await new Promise((r) => setTimeout(r, 10));
 
     expect(interactions.dispatch).not.toHaveBeenCalled();
   });
@@ -165,12 +171,50 @@ describe('EventSpeakersService.patch — confirm transition', () => {
   it('does NOT fire when status patch is not confirmed', async () => {
     dx.get
       .mockResolvedValueOnce({ data: buildRow({ status: 'invited' }) })
-      .mockResolvedValueOnce({ data: buildRow({ status: 'accepted' }) });
-    dx.patch.mockResolvedValueOnce({ data: { id: 'es-1' } });
+      .mockResolvedValueOnce({ data: buildRow({ status: 'accepted' }) })
+      // F-S1.1b ext — refreshEventOgCard fires on any field change
+      .mockResolvedValueOnce({ data: { event: 'evt-1' } });
+    dx.patch.mockResolvedValue({ data: { id: 'es-1' } });
 
     await svc.patch('es-1', { status: 'accepted' });
+    await new Promise((r) => setTimeout(r, 10));
 
     expect(interactions.dispatch).not.toHaveBeenCalled();
+  });
+
+  // F-S1.1b ext — og-card cache-buster on any lineup edit.
+  it('bumps events.date_updated on a lineup edit (talkTitle change)', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: buildRow({ status: 'invited' }) })
+      .mockResolvedValueOnce({ data: buildRow({ status: 'invited' }) })
+      .mockResolvedValueOnce({ data: { event: 'evt-1' } }); // refreshEventOgCard
+    dx.patch.mockResolvedValue({ data: { id: 'es-1' } });
+
+    await svc.patch('es-1', { talkTitle: 'Practical RAG' });
+    await new Promise((r) => setTimeout(r, 10));
+
+    // 2 PATCH calls: event_speakers + events (og-refresh)
+    expect(dx.patch.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const eventsPatch = dx.patch.mock.calls.find((c) =>
+      (c[0] as string).startsWith('/items/events/'),
+    );
+    expect(eventsPatch).toBeDefined();
+    const body = eventsPatch?.[1] as Record<string, unknown>;
+    expect(body.date_updated).toBeTypeOf('string');
+  });
+
+  it('does NOT touch event when patch body is empty (no field changes)', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: buildRow({ status: 'invited' }) })
+      .mockResolvedValueOnce({ data: buildRow({ status: 'invited' }) });
+    dx.patch.mockResolvedValue({ data: { id: 'es-1' } });
+
+    await svc.patch('es-1', {});
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Only the event_speakers PATCH — no og-refresh
+    expect(dx.patch).toHaveBeenCalledTimes(1);
+    expect(dx.patch.mock.calls[0]?.[0] as string).toContain('/items/event_speakers/');
   });
 });
 

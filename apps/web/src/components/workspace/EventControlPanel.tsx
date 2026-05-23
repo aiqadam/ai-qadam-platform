@@ -141,6 +141,7 @@ function Panel({ accessToken, initial, onChange }: PanelProps): ReactElement {
       <BackLink />
       <EventHeader event={initial} phase={phase} />
       <CountsRow counts={initial.counts} capacity={initial.capacity} />
+      <RegenerateSocialCardButton eventId={initial.id} accessToken={accessToken} />
       <EditForm event={initial} accessToken={accessToken} onSaved={onChange} />
       {phase === 'post' && <CsatSummaryCard eventId={initial.id} accessToken={accessToken} />}
       <FollowupsList
@@ -150,6 +151,69 @@ function Panel({ accessToken, initial, onChange }: PanelProps): ReactElement {
           onChange({ ...initial, followups: mergeFollowup(initial.followups, next) })
         }
       />
+    </div>
+  );
+}
+
+// F-S1.1b ext — operator-driven social-card cache-bust. Bumps
+// events.date_updated server-side; the og-card cache-buster query
+// string then changes, every social scraper sees a fresh image on
+// the next preview.
+interface RegenerateSocialCardButtonProps {
+  eventId: string;
+  accessToken: string;
+}
+function RegenerateSocialCardButton({
+  eventId,
+  accessToken,
+}: RegenerateSocialCardButtonProps): ReactElement {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'failed'>('idle');
+  async function onClick(): Promise<void> {
+    setState('busy');
+    try {
+      const r = await fetch(
+        `/api/v1/workspace/events/${encodeURIComponent(eventId)}/regenerate-social-card`,
+        { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      setState(r.ok ? 'done' : 'failed');
+    } catch {
+      setState('failed');
+    }
+  }
+  const label =
+    state === 'busy'
+      ? 'Refreshing…'
+      : state === 'done'
+        ? 'Refreshed ✓'
+        : state === 'failed'
+          ? 'Retry'
+          : 'Refresh social card';
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 16px',
+        margin: '0 0 16px',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        background: 'var(--card)',
+      }}
+    >
+      <span style={{ fontSize: 12, color: 'var(--muted-foreground)', flex: 1 }}>
+        Force OG / Twitter scrapers to re-fetch the social-card preview. Auto-runs when a speaker is
+        confirmed; click here if you edited the event after sharing.
+      </span>
+      <button
+        type="button"
+        className="btn"
+        style={{ padding: '6px 12px', fontSize: 13 }}
+        disabled={state === 'busy'}
+        onClick={() => void onClick()}
+      >
+        {label}
+      </button>
     </div>
   );
 }
