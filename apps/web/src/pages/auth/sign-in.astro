@@ -1,42 +1,19 @@
 ---
-import { SignInForm } from '../../components/SignInForm';
-import Layout from '../../layouts/Layout.astro';
+// /auth/sign-in is the public sign-in entry referenced from header CTAs,
+// /me, /events/[id] gates, etc. It used to render an interstitial
+// "Continue to sign in" button. That step is friction: every CTA on the
+// site already says "Sign in" — the next thing the user expects is a
+// password form, not a second button.
+//
+// We now 302 straight to /api/v1/auth/login, which 302s to Authentik's
+// branded login form. Result: one click → password form. The page
+// itself has no UI; it exists only so internal links to /auth/sign-in
+// keep working.
 
-// AI Qadam sign-in. SSR so we can validate ?next= server-side and
-// hand it to the form island as a safe relative path. Off-origin
-// values get reduced to '/'.
 export const prerender = false;
 
 const url = new URL(Astro.request.url);
 const rawNext = url.searchParams.get('next') ?? '/';
-const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+return Astro.redirect(`/api/v1/auth/login?next=${encodeURIComponent(safeNext)}`);
 ---
-
-<Layout title="Sign in · AI Qadam">
-  <main
-    style="max-width: 420px; margin: 0 auto; padding: 80px 24px; display: flex; flex-direction: column; gap: 32px;"
-  >
-    <div style="text-align: center;">
-      <h1
-        style="font-family: var(--font-display); font-weight: 600; font-size: 36px; letter-spacing: -0.025em; margin: 0 0 6px;"
-      >
-        AI <span style="color: var(--primary);">Qadam</span>
-      </h1>
-      <p
-        style="font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase; margin: 0;"
-      >
-        Sign in
-      </p>
-    </div>
-
-    <div
-      style="padding: 28px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);"
-    >
-      <SignInForm next={next} client:load />
-    </div>
-
-    <p style="font-size: 12px; color: var(--muted-foreground); text-align: center; margin: 0;">
-      New here? Sign-in creates your account on first login.
-    </p>
-  </main>
-</Layout>
