@@ -1345,6 +1345,82 @@ ensure "field directus_users.appear_in_directory" \
   }'
 
 # ════════════════════════════════════════════════════════════════════════
+# F-S5.5 R2/R5 — Telegram link fields on directus_users
+# ════════════════════════════════════════════════════════════════════════
+#
+# Populated by aiqadam-api's TelegramLinkService when a member completes
+# the /link FSM in the bot (or registers via Telegram-as-IdP per Phase
+# Bot-B PR-5). apps/api/src/modules/telegram/telegram.service.ts:46-49
+# declares these as part of DirectusUserRow; without them, /link/start
+# 500s on a Directus 400 from the unknown-field query.
+#
+# telegram_user_id is bigInteger because Telegram user IDs are int64 and
+# can exceed 2^53 (the JS-safe-int boundary). Code passes it as string
+# (telegram.service.ts:258 calls .toString()); Directus accepts either.
+
+echo "[directus_users.telegram_user_id]"
+ensure "field directus_users.telegram_user_id" \
+  "${DIRECTUS_URL}/fields/directus_users/telegram_user_id" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"telegram_user_id",
+    "type":"bigInteger",
+    "schema":{"is_nullable":true,"is_unique":true},
+    "meta":{
+      "interface":"input",
+      "width":"half",
+      "note":"Telegram user id (int64). Set by /v1/telegram/link/confirm or by Telegram-as-IdP registration. Uniqueness enforced so resolver maps tg_user_id→member 1:1. Null until member completes /link or registers via the bot."
+    }
+  }'
+
+echo "[directus_users.telegram_username]"
+ensure "field directus_users.telegram_username" \
+  "${DIRECTUS_URL}/fields/directus_users/telegram_username" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"telegram_username",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":64},
+    "meta":{
+      "interface":"input",
+      "width":"half",
+      "note":"Optional @handle (sans @). Captured at /link time as a display aid; not used for routing. Mutable by the user on Telegram side; do not key on this."
+    }
+  }'
+
+echo "[directus_users.telegram_linked_at]"
+ensure "field directus_users.telegram_linked_at" \
+  "${DIRECTUS_URL}/fields/directus_users/telegram_linked_at" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"telegram_linked_at",
+    "type":"dateTime",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"datetime",
+      "width":"half",
+      "readonly":true,
+      "note":"Set on first successful link; refreshed on re-link. Reading it in operator UI helps debug stale opt-outs."
+    }
+  }'
+
+echo "[directus_users.telegram_opted_out_at]"
+ensure "field directus_users.telegram_opted_out_at" \
+  "${DIRECTUS_URL}/fields/directus_users/telegram_opted_out_at" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"telegram_opted_out_at",
+    "type":"dateTime",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"datetime",
+      "width":"half",
+      "readonly":true,
+      "note":"Set when user sends /stop. Re-linking clears this (explicit re-consent). Dispatcher skips telegram channel for members with non-null opted_out_at."
+    }
+  }'
+
+# ════════════════════════════════════════════════════════════════════════
 # F-S5.6 — Member visibility preferences (further fields)
 # ════════════════════════════════════════════════════════════════════════
 #
