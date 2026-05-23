@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { env } from '../../config/env';
 import { track } from '../../lib/ops-events';
 import { TelegramAuthGuard } from './telegram-auth.guard';
+import { type EventSummary, TelegramEventsService } from './telegram-events.service';
 import {
   type LinkConfirmResult,
   type LinkStartResult,
@@ -22,6 +23,13 @@ import {
   TelegramService,
 } from './telegram.service';
 import { TgConfigService } from './tg-config.service';
+
+const eventsQuerySchema = z.object({
+  tenant: z
+    .string()
+    .regex(/^[a-z]{2,8}$/, 'tenant must be 2–8 lowercase letters')
+    .optional(),
+});
 
 // Sync surface (OpenAPI) for the AI Qadam Telegram bot + notifier per
 // ADR-0034. Two controllers on the same path prefix (A1):
@@ -107,6 +115,8 @@ const eventSchema = z.object({
 
 @Controller('v1/telegram')
 export class TelegramPublicController {
+  constructor(private readonly events: TelegramEventsService) {}
+
   @Get('health')
   health(): {
     ok: true;
@@ -120,6 +130,30 @@ export class TelegramPublicController {
       version: 'v1',
       configured: Boolean(env.TELEGRAM_BOT_SERVICE_TOKEN),
     };
+  }
+
+  // GET /v1/telegram/events?tenant=<code>
+  //   Anonymous-browsing surface — UNGATED so the bot's event-first
+  //   /start (sibling repo PR #19) can render a list before the user
+  //   has linked / registered. Returns the same events the public
+  //   web shows: status=published, visibility_scope=public,
+  //   starts_at in the future.
+  //
+  //   Response shape matches the bot's EventSummary pydantic model
+  //   (sibling repo src/aiqadam_telegram_bot/shared/aiqadam_client.py).
+  //   Do not rename fields without coordinating a cross-repo PR.
+  //
+  //   200: { items: [{ id, slug, title, starts_at, location, country,
+  //                    registration_open }] }
+  //   400: bad tenant param
+  @Get('events')
+  async listEvents(@Query() query: unknown): Promise<{ items: EventSummary[] }> {
+    const parsed = eventsQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const items = await this.events.listOpenEvents(parsed.data.tenant ?? null);
+    return { items };
   }
 }
 
