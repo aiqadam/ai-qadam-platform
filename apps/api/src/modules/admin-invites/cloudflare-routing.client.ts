@@ -53,6 +53,23 @@ export interface CreateRoutingRuleResult {
   already_existed: boolean;
 }
 
+// F-S2.8.1 — destination address (account-scope endpoint). A
+// destination is the verified mailbox a routing rule forwards TO.
+// Cloudflare requires every destination to confirm via one-click email
+// before any rule can route to it (error code 2054).
+export interface DestinationAddress {
+  tag: string; // CF destination tag UUID
+  email: string;
+  verified: string | null; // ISO timestamp when verified, null when pending
+  created: string;
+}
+
+export interface AddDestinationResult {
+  tag: string;
+  already_existed: boolean;
+  verified: boolean;
+}
+
 // Cloudflare Email Routing rule priority is 0..2147483647; lower runs
 // first. We use 50 so per-operator rules outrank an eventual
 // catch-all/landing-page rule at 100.
@@ -64,10 +81,19 @@ export class CloudflareRoutingClient {
   private readonly logger = new Logger(CloudflareRoutingClient.name);
   private readonly token = env.CLOUDFLARE_API_TOKEN ?? '';
   private readonly zoneId = env.CLOUDFLARE_ZONE_ID ?? '';
+  private readonly accountId = env.CLOUDFLARE_ACCOUNT_ID ?? '';
   private readonly base = 'https://api.cloudflare.com/client/v4';
 
   isConfigured(): boolean {
     return this.token.length >= 20 && this.zoneId.length === 32;
+  }
+
+  // F-S2.8.1 — account-scope endpoints additionally need the account
+  // id + an Account:Email Routing Addresses:Edit permission on the
+  // token. Distinct check so callers can fail cleanly with "destination
+  // API not configured" when only F-S2.8 envs are present.
+  isDestinationApiConfigured(): boolean {
+    return this.isConfigured() && this.accountId.length === 32;
   }
 
   async createRoutingRule(input: CreateRoutingRuleInput): Promise<CreateRoutingRuleResult> {
@@ -104,6 +130,73 @@ export class CloudflareRoutingClient {
         if (matcher.field === 'to' && matcher.type === 'literal' && matcher.value === alias) {
           return rule;
         }
+      }
+    }
+    return null;
+  }
+
+  // F-S2.8.1 — add a destination address for the account. POSTing a new
+  // address triggers Cloudflare to send a verification email to it.
+  // Idempotent: if the address already exists, return its current tag +
+  // verification state (CF returns 409 on duplicate; we look it up).
+  async addDestinationAddress(email: string): Promise<AddDestinationResult> {
+    if (!this.isDestinationApiConfigured()) {
+      throw new CloudflareRoutingError(
+        0,
+        '/email/routing/addresses',
+        'cloudflare_destination_api_not_configured',
+      );
+    }
+    if (!email.includes('@')) {
+      throw new CloudflareRoutingError(0, '/email/routing/addresses', 'invalid_email');
+    }
+
+    // Try the lookup first — cheaper than handling 409s + clearer logs.
+    const existing = await this.findDestinationByEmail(email);
+    if (existing) {
+      return {
+        tag: existing.tag,
+        already_existed: true,
+        verified: existing.verified !== null,
+      };
+    }
+
+    const path = `/accounts/${this.accountId}/email/routing/addresses`;
+    const result = await this.request<DestinationAddress>('POST', path, { email });
+    return {
+      tag: result.tag,
+      already_existed: false,
+      verified: result.verified !== null,
+    };
+  }
+
+  // F-S2.8.1 — get a destination address by its CF tag UUID. Used to
+  // poll verification status from the onboarding page.
+  async getDestinationByTag(tag: string): Promise<DestinationAddress | null> {
+    if (!this.isDestinationApiConfigured()) {
+      throw new CloudflareRoutingError(
+        0,
+        '/email/routing/addresses',
+        'cloudflare_destination_api_not_configured',
+      );
+    }
+    const path = `/accounts/${this.accountId}/email/routing/addresses/${encodeURIComponent(tag)}`;
+    try {
+      return await this.request<DestinationAddress>('GET', path);
+    } catch (err) {
+      if (err instanceof CloudflareRoutingError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  // F-S2.8.1 — find by email (linear scan; account-wide destination
+  // count is small at our scale). Returns null if not present.
+  private async findDestinationByEmail(email: string): Promise<DestinationAddress | null> {
+    const path = `/accounts/${this.accountId}/email/routing/addresses?per_page=${LIST_PAGE_SIZE}`;
+    const addresses = await this.request<DestinationAddress[]>('GET', path);
+    for (const addr of addresses) {
+      if (addr.email.toLowerCase() === email.toLowerCase()) {
+        return addr;
       }
     }
     return null;

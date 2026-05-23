@@ -195,6 +195,19 @@ const envSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().min(20).optional(),
   ),
+
+  // F-S2.8.1: required for `/accounts/{id}/email/routing/addresses`
+  // endpoints (add destination + poll verification). The F-S2.8 token
+  // was Zone-scope only; F-S2.8.1 expands to Account-scope which needs
+  // the account id explicitly. Optional like the other CF vars so the
+  // API still boots when only F-S2.8 is in effect.
+  CLOUDFLARE_ACCOUNT_ID: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^[0-9a-f]{32}$/, 'must be 32 hex chars (Cloudflare account id)')
+      .optional(),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

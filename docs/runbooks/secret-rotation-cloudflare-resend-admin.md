@@ -4,11 +4,13 @@
 **When to run:** every 12 months, OR immediately on suspected compromise (token shown on screen-share, committed by mistake, posted to a chat, etc.).
 **Time:** ~10 minutes per token.
 
-These two secrets were introduced in [F-S2.8](../../apps/api/src/modules/admin-invites/cloudflare-routing.client.ts) (Cloudflare Email Routing + Resend per-operator key automation). They are **distinct from** the platform sending keys:
+These secrets were introduced in [F-S2.8](../../apps/api/src/modules/admin-invites/cloudflare-routing.client.ts) (Cloudflare Email Routing + Resend per-operator key automation) and broadened in F-S2.8.1 (operator-driven destination flow). They are **distinct from** the platform sending keys:
 
 | Variable | Used for | Distinct from |
 |---|---|---|
-| `CLOUDFLARE_API_TOKEN` | F-S2.8 — creating Email Routing rules at invite-creation time | Cloudflare's general API access (we don't use a global key) |
+| `CLOUDFLARE_API_TOKEN` | F-S2.8 + F-S2.8.1 — creating Email Routing rules + adding destination addresses | Cloudflare's general API access (we don't use a global key) |
+| `CLOUDFLARE_ZONE_ID` | Identifies the `aiqadam.org` zone for the Zone-scope endpoints | — (identifier, not a credential) |
+| `CLOUDFLARE_ACCOUNT_ID` | F-S2.8.1 — required by the Account-scope `/email/routing/addresses` endpoints | — (identifier, not a credential) |
 | `RESEND_ADMIN_API_KEY` | F-S2.8 — creating per-operator sub-keys via `POST /v1/api-keys` | `RESEND_API_KEY` (the platform sending key in `EmailService`) |
 
 ## Posture
@@ -21,16 +23,18 @@ Both tokens follow the **degraded-mode** convention used elsewhere in this codeb
 
 1. Open https://dash.cloudflare.com/profile/api-tokens.
 2. Click **Create Token** → **Custom token**.
-3. Configure:
-   - **Name:** `aiqadam-email-routing-edit-YYYY-MM-DD` (date stamps the rotation cohort)
+3. Configure (post-F-S2.8.1 scope — superset of F-S2.8):
+   - **Name:** `aiqadam-email-routing-full-YYYY-MM-DD` (date stamps the rotation cohort)
    - **Permissions:**
-     - **Zone → Email Routing Rules → Edit**
-     - **Zone → Email Routing Settings → Read**
+     - **Zone → Email Routing Rules → Edit** (F-S2.8 — for routing rule provisioning)
+     - **Account → Email Routing Addresses → Edit** (F-S2.8.1 — for destination provisioning + verification poll)
+   - **Account Resources:** **Include → All accounts** (only one anyway)
    - **Zone Resources:** **Include → Specific zone → aiqadam.org**
    - **Client IP Address Filtering:** leave empty unless tightening (Coolify outbound IP may rotate)
    - **TTL:** **forever** (annual rotation handles freshness)
 4. **Continue to summary** → **Create Token**.
-5. Copy the displayed token into 1Password as `cloudflare-email-routing-edit` (overwrite the prior entry; keep one historical version in 1Password's history).
+5. Copy the displayed token into 1Password as `cloudflare-email-routing-full` (overwrite the prior entry; keep one historical version in 1Password's history).
+6. Also cache at `/tmp/aiqadam-secrets-CLOUDFLARE_API_TOKEN` per the [all-tokens-must-be-cached](../../.claude/memory/feedback_all_tokens_must_be_cached.md) rule.
 
 ### Step 2 — Roll into Coolify
 

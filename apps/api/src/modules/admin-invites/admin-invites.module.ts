@@ -6,6 +6,8 @@ import { AdminInvitesController } from './admin-invites.controller';
 import { AdminInvitesService } from './admin-invites.service';
 import { AuthentikModule } from './authentik.module';
 import { CloudflareRoutingClient } from './cloudflare-routing.client';
+import { OnboardingEmailRoutingController } from './onboarding-email-routing.controller';
+import { OnboardingEmailRoutingService } from './onboarding-email-routing.service';
 import { OnboardingController } from './onboarding.controller';
 import { ResendAdminClient } from './resend-admin.client';
 
@@ -21,8 +23,13 @@ import { ResendAdminClient } from './resend-admin.client';
 
 @Module({
   imports: [DirectusModule, AuthModule, AuthentikModule, AuditModule],
-  providers: [AdminInvitesService, CloudflareRoutingClient, ResendAdminClient],
-  controllers: [AdminInvitesController, OnboardingController],
+  providers: [
+    AdminInvitesService,
+    CloudflareRoutingClient,
+    ResendAdminClient,
+    OnboardingEmailRoutingService,
+  ],
+  controllers: [AdminInvitesController, OnboardingController, OnboardingEmailRoutingController],
   exports: [AdminInvitesService],
 })
 export class AdminInvitesModule {}
