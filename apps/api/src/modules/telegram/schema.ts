@@ -169,6 +169,17 @@ export const tgConfig = pgTable(
     // markets).
     tenant: varchar('tenant', { length: 8 }),
     encryptedToken: bytea('encrypted_token').notNull(),
+    // R2 PR-3 — bot ↔ API service token (`Authorization: Bearer`),
+    // AES-256-GCM encrypted with the same TG_CONFIG_ENCRYPTION_KEY as
+    // encrypted_token. Nullable so existing rows configured pre-R2-PR-3
+    // keep working: TelegramAuthGuard reads from this column first, then
+    // falls back to env.TELEGRAM_BOT_SERVICE_TOKEN. After an operator
+    // rotates via the cabinet, DB takes over and the env becomes
+    // deprecated for that tenant (a Plausible ops event fires on every
+    // env fallback so we know when prod has fully cut over).
+    encryptedServiceToken: bytea('encrypted_service_token'),
+    serviceTokenRotatedAt: timestamp('service_token_rotated_at', { withTimezone: true }),
+    serviceTokenRotatedBy: uuid('service_token_rotated_by'),
     botId: bigint('bot_id', { mode: 'bigint' }).notNull(),
     botUsername: varchar('bot_username', { length: 64 }).notNull(),
     configuredAt: timestamp('configured_at', { withTimezone: true }).notNull().defaultNow(),

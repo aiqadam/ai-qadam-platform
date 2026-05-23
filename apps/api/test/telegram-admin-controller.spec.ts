@@ -101,6 +101,61 @@ describe('TelegramAdminController.rotateToken', () => {
   });
 });
 
+describe('TelegramAdminController.rotateServiceToken (R2 PR-3)', () => {
+  it('mints a fresh 64-hex service token + persists encrypted + returns plaintext once', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'aiqadam_bot' }));
+    const { controller, config } = makeController(getMe);
+    const op = randomUUID();
+    await config.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: op });
+
+    const res = await controller.rotateServiceToken(fakeUser(op), {});
+
+    // 32 bytes hex = 64 chars
+    expect(res.plaintext).toMatch(/^[0-9a-f]{64}$/);
+    expect(res.tenant).toBeNull();
+    expect(typeof res.rotated_at).toBe('string');
+
+    // Round-trip: getServiceToken should now return the plaintext we
+    // just issued (decrypted from the stored ciphertext).
+    const decrypted = await config.getServiceToken(null);
+    expect(decrypted).toBe(res.plaintext);
+
+    // Audit columns persisted.
+    const [row] = await db.select().from(tgConfig);
+    expect(row?.serviceTokenRotatedBy).toBe(op);
+    expect(row?.serviceTokenRotatedAt).toBeInstanceOf(Date);
+  });
+
+  it('returns 404 telegram_not_configured when no tg_config row exists', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'x' }));
+    const { controller } = makeController(getMe);
+
+    await expect(controller.rotateServiceToken(fakeUser(randomUUID()), {})).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('issues a different token each time (idempotent endpoint, fresh value)', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'aiqadam_bot' }));
+    const { controller, config } = makeController(getMe);
+    const op = randomUUID();
+    await config.configure({ tenant: null, botToken: SAMPLE_TOKEN, configuredBy: op });
+
+    const a = await controller.rotateServiceToken(fakeUser(op), {});
+    const b = await controller.rotateServiceToken(fakeUser(op), {});
+
+    expect(a.plaintext).not.toBe(b.plaintext);
+  });
+
+  it('rejects requests with no signed-in user', async () => {
+    const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'x' }));
+    const { controller } = makeController(getMe);
+    await expect(
+      controller.rotateServiceToken({} as import('express').Request, {}),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});
+
 describe('TelegramAdminController.status', () => {
   it('returns the JSON shape contracted with the cabinet UI', async () => {
     const getMe = makeGetMe(async () => ({ botId: 1n, botUsername: 'aiqadam_bot' }));

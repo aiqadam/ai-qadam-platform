@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   HttpException,
@@ -5,6 +6,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { eq, isNull } from 'drizzle-orm';
 import type Redis from 'ioredis';
@@ -227,6 +229,63 @@ export class TgConfigService {
     if (!row) return null;
     const key = this.resolveKey();
     return { ...rowToPublic(row), decryptedToken: decryptToken(row.encryptedToken, key) };
+  }
+
+  // ─── R2 PR-3 — service token (bot ↔ API auth) ────────────────────────────
+
+  // Mint a fresh 64-hex service token, encrypt it, persist into the
+  // existing tg_config row. Returns the plaintext ONCE so the operator
+  // can paste it into the bot's Coolify env. The plaintext is NEVER
+  // echoed back from /status or any other endpoint after this call.
+  //
+  // Requires an existing row (tenant must be configured first via
+  // /configure). 404s otherwise — symmetric with /rotate-token.
+  async rotateServiceToken(
+    tenant: string | null,
+    rotatedBy: string,
+  ): Promise<{ plaintext: string; rotatedAt: Date }> {
+    const key = this.resolveKey();
+    const row = await this.findRow(tenant);
+    if (!row) {
+      throw new NotFoundException({ error: 'telegram_not_configured' });
+    }
+    // 32 random bytes → 64 hex chars. Plenty of entropy for a service
+    // token; matches the env-var format (operators may have set the
+    // existing env via `openssl rand -hex 32`).
+    const plaintext = randomBytes(32).toString('hex');
+    const encrypted = encryptToken(plaintext, key);
+    const now = new Date();
+    const [updated] = await this.db
+      .update(tgConfig)
+      .set({
+        encryptedServiceToken: encrypted,
+        serviceTokenRotatedAt: now,
+        serviceTokenRotatedBy: rotatedBy,
+      })
+      .where(eq(tgConfig.id, row.id))
+      .returning({ id: tgConfig.id });
+    if (!updated) {
+      throw new Error('tg_config service-token update returned no row');
+    }
+    // Log prefix only — never the full token. 6 chars is enough to
+    // correlate with operator memory ("rotated to ab12cd…") without
+    // re-exposing the secret in logs.
+    this.logger.log(
+      `service token rotated for tenant=${tenant ?? '*'} prefix=${plaintext.slice(0, 6)}…`,
+    );
+    return { plaintext, rotatedAt: now };
+  }
+
+  // Returns the decrypted service token for `tenant` if one is stored,
+  // or null if the row exists but has no service token yet (the guard
+  // then falls back to env). Errors propagate (e.g. encryption-key
+  // missing) so the guard's per-request DB read short-circuits to 503
+  // rather than silently leaking to env.
+  async getServiceToken(tenant: string | null): Promise<string | null> {
+    const row = await this.findRow(tenant);
+    if (!row || !row.encryptedServiceToken) return null;
+    const key = this.resolveKey();
+    return decryptToken(row.encryptedServiceToken, key);
   }
 }
 

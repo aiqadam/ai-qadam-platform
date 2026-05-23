@@ -146,6 +146,40 @@ export class TelegramAdminController {
     return shapeConfigResponse(result);
   }
 
+  // POST /v1/telegram/admin/rotate-service-token
+  //   body: { tenant?: string }
+  //   200:  { plaintext, rotated_at, tenant }
+  //   404:  no tg_config row for tenant (must /configure first)
+  //   401/403/503: same as the other admin endpoints
+  //
+  // R2 PR-3 — mints a fresh 32-byte hex service token, encrypts +
+  // persists, returns plaintext ONCE for the operator to paste into the
+  // bot's Coolify env. The plaintext is NEVER echoed back from /status
+  // or any other endpoint after this call. After the operator restarts
+  // the bot with the new token, TelegramAuthGuard picks it up from the
+  // DB on the next cache miss (≤10s).
+  @Post('rotate-service-token')
+  @HttpCode(HttpStatus.OK)
+  async rotateServiceToken(
+    @Req() req: Request,
+    @Body() body: unknown,
+  ): Promise<{ plaintext: string; rotated_at: string; tenant: string | null }> {
+    if (!req.user?.sub) {
+      throw new UnauthorizedException('not signed in');
+    }
+    const parsed = tenantQuerySchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const tenant = parsed.data.tenant ?? null;
+    const result = await this.config.rotateServiceToken(tenant, req.user.sub);
+    return {
+      plaintext: result.plaintext,
+      rotated_at: result.rotatedAt.toISOString(),
+      tenant,
+    };
+  }
+
   // GET /v1/telegram/admin/status?tenant=<code>
   //   Aggregated health snapshot for the cabinet's status panel.
   //   Shape is StatusResponse — see telegram-admin.service.ts for the

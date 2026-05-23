@@ -11,6 +11,7 @@ import { OutboxPublisher } from './outbox-publisher.service';
 import { OutboxRelayService } from './outbox-relay.service';
 import { TelegramAdminController } from './telegram-admin.controller';
 import { TelegramAdminService } from './telegram-admin.service';
+import { TelegramAuthGuard } from './telegram-auth.guard';
 import { TelegramController, TelegramPublicController } from './telegram.controller';
 import { TelegramService } from './telegram.service';
 import { TELEGRAM_REDIS } from './telegram.tokens';
@@ -75,6 +76,10 @@ import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
     TelegramAdminService,
     OutboxPublisher,
     OutboxRelayService,
+    // R2 PR-3 — Nest needs the guard in providers so DI can inject
+    // TgConfigService. Pre-PR-3 the guard had no constructor deps and
+    // was instantiated by class-reference at @UseGuards sites.
+    TelegramAuthGuard,
   ],
   // Export DB so consumers of OutboxPublisher (e.g. TelegramAdapter in
   // InteractionsModule) can also inject the same DB token for the tx
