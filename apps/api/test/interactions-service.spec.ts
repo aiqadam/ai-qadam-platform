@@ -253,3 +253,65 @@ describe('InteractionsService.dispatch — input errors', () => {
     expect(dx.post).not.toHaveBeenCalled();
   });
 });
+
+// F-S1.1c ext — renderPayload callback for per-recipient templates.
+describe('InteractionsService.dispatch — F-S1.1c ext renderPayload', () => {
+  it('calls renderPayload with the freshly-created deliveryId + uses its return as the adapter payload', async () => {
+    const email = fakeAdapter('email', { state: 'sent' });
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
+    wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
+    wireInteractionRow(dx);
+    wireDeliveryRow(dx, 'delivery-77');
+
+    const renderPayload = vi.fn().mockResolvedValue({
+      subject: 'rendered subject',
+      text: 'rendered text with delivery-77',
+    });
+    await svc.dispatch(baseInput({ renderPayload }));
+
+    expect(renderPayload).toHaveBeenCalledTimes(1);
+    const ctx = renderPayload.mock.calls[0]?.[0] as {
+      recipient: { userId: string };
+      deliveryId: string;
+    };
+    expect(ctx.deliveryId).toBe('delivery-77');
+    expect(ctx.recipient.userId).toBe(USER_A);
+
+    // adapter saw the rendered payload, not the static one
+    expect(email.send.mock.calls[0]?.[0].payload).toEqual({
+      subject: 'rendered subject',
+      text: 'rendered text with delivery-77',
+    });
+  });
+
+  it('marks delivery failed + skips adapter when renderPayload throws', async () => {
+    const email = fakeAdapter('email', { state: 'sent' });
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
+    wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
+    wireInteractionRow(dx);
+    wireDeliveryRow(dx, 'delivery-78');
+
+    const renderPayload = vi.fn().mockRejectedValue(new Error('token mint failed'));
+    const res = await svc.dispatch(baseInput({ renderPayload }));
+
+    expect(res.deliveries[0]?.state).toBe('failed');
+    expect(res.deliveries[0]?.failureReason).toBe('token mint failed');
+    expect(email.send).not.toHaveBeenCalled();
+    // Delivery row patched to failed
+    const deliveryPatch = dx.patch.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(deliveryPatch.state).toBe('failed');
+    expect(deliveryPatch.failure_reason).toBe('token mint failed');
+  });
+
+  it('falls back to static payload when renderPayload is not set', async () => {
+    const email = fakeAdapter('email', { state: 'sent' });
+    const svc = new InteractionsService(dx as unknown as DirectusClient, fakeConsent(), [email]);
+    wireDirectusUserLookup(dx, [{ id: USER_A, email: 'a@b.com' }]);
+    wireInteractionRow(dx);
+    wireDeliveryRow(dx, 'd-1');
+
+    await svc.dispatch(baseInput());
+
+    expect(email.send.mock.calls[0]?.[0].payload).toEqual({ subject: 'hi', text: 'hello' });
+  });
+});

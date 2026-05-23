@@ -65,7 +65,26 @@ export const dispatchInputSchema = z.object({
   createdBy: z.string().uuid().nullable().optional(),
 });
 
-export type DispatchInput = z.infer<typeof dispatchInputSchema>;
+// F-S1.1c ext — per-recipient payload renderer.
+// When `renderPayload` is set on DispatchInput, the dispatcher calls it
+// AFTER creating each delivery row and uses the result instead of the
+// static `payload`. Receives the resolved recipient + the freshly-created
+// deliveryId so callers can mint per-delivery tokens (e.g. CSAT JWT scoped
+// to a single response). Internal-only (the HTTP controller path goes
+// through dispatchInputSchema.parse which doesn't see this field).
+export type PayloadRenderer = (ctx: {
+  recipient: BaseResolvedRecipient;
+  deliveryId: string;
+}) => Promise<Record<string, unknown>>;
+
+interface BaseResolvedRecipient {
+  userId: string;
+  email: string | null;
+}
+
+export type DispatchInput = z.infer<typeof dispatchInputSchema> & {
+  renderPayload?: PayloadRenderer;
+};
 
 export interface ResolvedRecipient {
   userId: string;

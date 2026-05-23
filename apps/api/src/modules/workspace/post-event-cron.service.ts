@@ -1,22 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DirectusClient } from '../directus/directus.client';
 import { InteractionsService } from '../interactions/interactions.service';
+import { CsatService } from './csat.service';
 
 // F-S1.1c — post-event followup cron.
 //
 // Tick endpoint (POST /v1/internal/post-event/tick) called by an external
 // scheduler ~hourly. The service finds events past ends_at that haven't
 // been processed yet, dispatches:
+//   - csat                            → attendees with per-recipient
+//                                       tokenized link (F-S1.1c ext, uses
+//                                       the new dispatcher renderPayload)
 //   - speaker_thanks_with_referral_ask → confirmed speakers (operational)
 //   - next_event_teaser              → attendees, IFF next published
 //                                       event exists in the same country
 // Marks events.post_event_processed = true. Idempotent via that field.
-//
-// Deferred to F-S1.1c-v2 (needs dispatcher template renderer):
-//   - csat dispatch → attendees with per-recipient tokenized link
-//     (CsatService.mintToken needs a delivery_id at email-body-render
-//     time; today the dispatcher renders one payload per interaction)
-//   - per-event recap link in next_event_teaser
 //
 // Per ux-and-content-guidelines §13: speaker_thanks_with_referral_ask
 // and next_event_teaser canonical subject + body shapes.
@@ -25,6 +23,7 @@ export interface PostEventTickResult {
   evaluated: number;
   processed: Array<{
     eventId: string;
+    csatRecipients: number;
     speakerThanksRecipients: number;
     nextEventTeaserRecipients: number;
   }>;
@@ -54,6 +53,9 @@ export class PostEventCronService {
   constructor(
     private readonly directus: DirectusClient,
     private readonly interactions: InteractionsService,
+    // F-S1.1c ext — used by the per-recipient CSAT renderer to mint a
+    // token scoped to each delivery row.
+    private readonly csat: CsatService,
   ) {}
 
   async tick(): Promise<PostEventTickResult> {
@@ -66,6 +68,7 @@ export class PostEventCronService {
         const counts = await this.processEvent(event);
         processed.push({
           eventId: event.id,
+          csatRecipients: counts.csat,
           speakerThanksRecipients: counts.speakerThanks,
           nextEventTeaserRecipients: counts.nextEvent,
         });
@@ -105,7 +108,8 @@ export class PostEventCronService {
 
   private async processEvent(
     event: EventRow,
-  ): Promise<{ speakerThanks: number; nextEvent: number }> {
+  ): Promise<{ csat: number; speakerThanks: number; nextEvent: number }> {
+    const csat = await this.dispatchCsat(event);
     const speakerThanks = await this.dispatchSpeakerThanks(event);
     const nextEvent = await this.dispatchNextEventTeaser(event);
     // Mark processed LAST so a partial failure leaves it false +
@@ -113,7 +117,34 @@ export class PostEventCronService {
     await this.directus.patch(`/items/events/${encodeURIComponent(event.id)}`, {
       post_event_processed: true,
     });
-    return { speakerThanks, nextEvent };
+    return { csat, speakerThanks, nextEvent };
+  }
+
+  // F-S1.1c ext — CSAT dispatch with per-recipient tokenised link.
+  // The renderer mints a JWT scoped to the freshly-created delivery row
+  // (CsatService.mintToken(deliveryId)), then builds the public URL.
+  // Consent basis is operational_contract: members opted into "event
+  // experience feedback" by registering. Channel: email-only.
+  private async dispatchCsat(event: EventRow): Promise<number> {
+    const userIds = await this.attendeeUserIds(event.id);
+    if (userIds.length === 0) return 0;
+    await this.interactions.dispatch({
+      initiatorActor: 'system',
+      audience: { userIds },
+      intent: 'csat',
+      // Static fallback in case renderPayload somehow doesn't run (defence
+      // in depth). The fallback link goes to the generic CSAT landing
+      // without a token — visitor would get an "invalid token" page,
+      // which is OK for the edge case.
+      payload: buildCsatStaticFallback(event),
+      consentBasis: 'operational_contract',
+      allowedChannels: ['email'],
+      renderPayload: async ({ deliveryId }) => {
+        const token = await this.csat.mintToken(deliveryId);
+        return buildCsatPayload(event, token);
+      },
+    });
+    return userIds.length;
   }
 
   private async dispatchSpeakerThanks(event: EventRow): Promise<number> {
@@ -206,5 +237,27 @@ function buildNextEventTeaserPayload(next: EventRow): Record<string, unknown> {
   return {
     subject: `${next.title} — ${dateShort}`,
     text: `Thanks for coming to the last event.\n\nNext one: ${next.title} on ${dateShort} at ${venue}.\n\nRegister: ${link}\n\n— AI Qadam`,
+  };
+}
+
+// F-S1.1c ext — CSAT payload. Built per-recipient by the renderPayload
+// callback (which mints a token scoped to each delivery row). Anonymity:
+// the token's `sub` is the delivery_id, NOT the user_id — the response
+// row carries no user identity (see csat.service.ts).
+function buildCsatPayload(event: EventRow, token: string): Record<string, unknown> {
+  const url = `https://aiqadam.org/feedback/csat?t=${encodeURIComponent(token)}`;
+  return {
+    subject: `How was ${event.title}?`,
+    text: `Thank you for coming to ${event.title}. 30 seconds to rate it would help us shape the next one:\n\n${url}\n\nIt's anonymous — your name doesn't get attached to the response.\n\n— AI Qadam`,
+  };
+}
+
+// Static fallback for the (defence-in-depth) case where the renderer
+// doesn't run. Link goes to the public landing without a token; visitor
+// sees the "invalid token" path. Acceptable for the edge case.
+function buildCsatStaticFallback(event: EventRow): Record<string, unknown> {
+  return {
+    subject: `How was ${event.title}?`,
+    text: `Thank you for coming to ${event.title}. (Feedback link unavailable — please reply to this email with your rating 1-5.)\n\n— AI Qadam`,
   };
 }

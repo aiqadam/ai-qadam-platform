@@ -141,10 +141,39 @@ export class InteractionsService {
       };
     }
 
+    // F-S1.1c ext — per-recipient payload renderer. When set, replaces
+    // input.payload for this delivery. Renderer failure marks the
+    // delivery `failed` without invoking the adapter — better than
+    // sending a half-rendered email.
+    let renderedPayload = input.payload;
+    if (input.renderPayload) {
+      try {
+        renderedPayload = await input.renderPayload({
+          recipient: { userId: recipient.userId, email: recipient.email ?? null },
+          deliveryId,
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'render_failed';
+        await this.patchDeliveryRow(deliveryId, { state: 'failed', failure_reason: reason });
+        void track('dispatch.failed', {
+          channel,
+          intent: input.intent,
+          reason: 'render_failed',
+        });
+        return {
+          deliveryId,
+          recipientUserId: recipient.userId,
+          channel,
+          state: 'failed',
+          failureReason: reason,
+        };
+      }
+    }
+
     const result = await adapter.send({
       recipient,
       intent: input.intent,
-      payload: input.payload,
+      payload: renderedPayload,
     });
 
     const patch: Record<string, unknown> = { state: result.state };
