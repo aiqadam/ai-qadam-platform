@@ -165,3 +165,51 @@ describe('ReferralsService.resolveCode', () => {
     expect(dx.get).not.toHaveBeenCalled();
   });
 });
+
+// F-S5.3 — brought-a-friend stats.
+describe('ReferralsService.getMyStats', () => {
+  it('returns counts + first-badge timestamp when present', async () => {
+    dx.get
+      // countReferralAttendedPoints
+      .mockResolvedValueOnce({ data: [{ id: 'pa-1' }], meta: { filter_count: 3 } })
+      // fetchFirstBroughtAFriendBadge
+      .mockResolvedValueOnce({
+        data: [{ id: 'b-1', date_created: '2026-05-20T10:00:00.000Z' }],
+        meta: { filter_count: 2 },
+      });
+    const result = await svc.getMyStats('u-1', 'a@example.com');
+    expect(result.attendedReferreesCount).toBe(3);
+    expect(result.broughtAFriendBadge).toEqual({
+      firstAwardedAt: '2026-05-20T10:00:00.000Z',
+      count: 2,
+    });
+  });
+
+  it('returns zero count + null badge when no rows exist', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: [], meta: { filter_count: 0 } })
+      .mockResolvedValueOnce({ data: [], meta: { filter_count: 0 } });
+    const result = await svc.getMyStats('u-1', 'a@example.com');
+    expect(result.attendedReferreesCount).toBe(0);
+    expect(result.broughtAFriendBadge).toBeNull();
+  });
+
+  it('returns empty stats when bridge cannot link the user', async () => {
+    bridge.ensureLinked.mockResolvedValueOnce(null);
+    const result = await svc.getMyStats('u-1', 'a@example.com');
+    expect(result).toEqual({ attendedReferreesCount: 0, broughtAFriendBadge: null });
+    expect(dx.get).not.toHaveBeenCalled();
+  });
+
+  it('queries the right filters (user + source/badge_type)', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: [], meta: { filter_count: 0 } })
+      .mockResolvedValueOnce({ data: [], meta: { filter_count: 0 } });
+    await svc.getMyStats('u-1', 'a@example.com');
+    const pointsCall = decodeURIComponent(dx.get.mock.calls[0]?.[0] as string);
+    const badgeCall = decodeURIComponent(dx.get.mock.calls[1]?.[0] as string);
+    expect(pointsCall).toContain('"source":{"_eq":"referral_attended"}');
+    expect(pointsCall).toContain('"user":{"_eq":"du-user-1"}');
+    expect(badgeCall).toContain('"badge_type":{"_eq":"brought_a_friend"}');
+  });
+});

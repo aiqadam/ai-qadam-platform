@@ -225,7 +225,9 @@ export class RegistrationsDirectusService {
         starts_at: string;
         ends_at: string;
         location: string | null;
+        country: string;
       };
+      referred_by: string | null;
     }
     const params = new URLSearchParams({
       'filter[checkin_code][_eq]': code,
@@ -239,11 +241,13 @@ export class RegistrationsDirectusService {
         'cancelled_at',
         'date_created',
         'date_updated',
+        'referred_by',
         'event.id',
         'event.title',
         'event.starts_at',
         'event.ends_at',
         'event.location',
+        'event.country',
       ].join(','),
       limit: '1',
     });
@@ -281,11 +285,94 @@ export class RegistrationsDirectusService {
       `/items/registrations/${row.id}`,
       { status: 'attended', checked_in_at: new Date().toISOString() },
     );
+    // F-S5.3 — best-effort referral bonus + brought-a-friend badge for
+    // the referrer when the referee actually attends (not just registers).
+    // Failure never blocks check-in; we log + continue.
+    if (row.referred_by) {
+      await this.awardReferralBonus({
+        registrationId: row.id,
+        refereeUserId: row.user,
+        referrerUserId: row.referred_by,
+        eventCountry: row.event.country,
+      });
+    }
     return {
       registration: toView({ ...patched.data, event: patched.data.event.id }),
       alreadyCheckedIn: false,
       event: eventView,
     };
+  }
+
+  // F-S5.3 — referral bonus on attendance.
+  //
+  // Idempotency: one point_awards row per (referrer, source_ref=registration).
+  // Re-running checkin (which short-circuits earlier when status==attended)
+  // never reaches this path, so dedupe is mostly belt-and-suspenders against
+  // race / manual re-PATCH.
+  //
+  // Badge: one member_badges row per (user, badge_type='brought_a_friend',
+  // source_ref=registration). Per-registration semantic — bringing a 2nd
+  // friend issues a 2nd badge row (intentional — "you brought a friend to
+  // event X AND event Y").
+  private async awardReferralBonus(input: {
+    registrationId: string;
+    refereeUserId: string;
+    referrerUserId: string;
+    eventCountry: string;
+  }): Promise<void> {
+    try {
+      // Dedupe — don't double-award if this method is somehow re-entered.
+      const dedupeFilter = encodeURIComponent(
+        JSON.stringify({
+          _and: [
+            { user: { _eq: input.referrerUserId } },
+            { source: { _eq: 'referral_attended' } },
+            { source_ref: { _eq: input.registrationId } },
+          ],
+        }),
+      );
+      const existing = await this.directus.get<{ data: Array<{ id: string }> }>(
+        `/items/point_awards?filter=${dedupeFilter}&fields=id&limit=1`,
+      );
+      if (existing.data.length > 0) {
+        return;
+      }
+      await this.directus.post('/items/point_awards', {
+        user: input.referrerUserId,
+        country: input.eventCountry,
+        source: 'referral_attended',
+        source_ref: input.registrationId,
+        points: 25,
+      });
+      // Badge: one per (referrer, badge_type, source_ref=registration).
+      // Same dedupe key shape so re-entry is also a no-op.
+      const badgeDedupeFilter = encodeURIComponent(
+        JSON.stringify({
+          _and: [
+            { user: { _eq: input.referrerUserId } },
+            { badge_type: { _eq: 'brought_a_friend' } },
+            { source_ref: { _eq: input.registrationId } },
+          ],
+        }),
+      );
+      const existingBadge = await this.directus.get<{ data: Array<{ id: string }> }>(
+        `/items/member_badges?filter=${badgeDedupeFilter}&fields=id&limit=1`,
+      );
+      if (existingBadge.data.length === 0) {
+        await this.directus.post('/items/member_badges', {
+          user: input.referrerUserId,
+          badge_type: 'brought_a_friend',
+          source_ref: input.registrationId,
+        });
+      }
+      this.logger.log(
+        `referral bonus awarded: referrer=${input.referrerUserId} referee=${input.refereeUserId} reg=${input.registrationId}`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `referral bonus failed reg=${input.registrationId} referrer=${input.referrerUserId}: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────

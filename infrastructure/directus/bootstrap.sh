@@ -352,7 +352,7 @@ ensure "collection point_awards" \
       {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
       {"field":"user","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
       {"field":"country","type":"string","schema":{"is_nullable":false,"max_length":2},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
-      {"field":"source","type":"string","schema":{"is_nullable":false,"default_value":"event_attended","max_length":50},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Event attended","value":"event_attended"}]}}},
+      {"field":"source","type":"string","schema":{"is_nullable":false,"default_value":"event_attended","max_length":50},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Event attended","value":"event_attended"},{"text":"Referral attended (brought a friend)","value":"referral_attended"}]}}},
       {"field":"source_ref","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"input","width":"half"}},
       {"field":"points","type":"integer","schema":{"is_nullable":false,"default_value":10},"meta":{"interface":"input","width":"half","required":true}},
       {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
@@ -368,6 +368,53 @@ ensure "relation point_awards.country -> countries.code" \
   "${DIRECTUS_URL}/relations/point_awards/country" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"point_awards","field":"country","related_collection":"countries","schema":{"on_delete":"RESTRICT"}}'
+
+# ════════════════════════════════════════════════════════════════════════
+# F-S5.3 — Member badges
+# ════════════════════════════════════════════════════════════════════════
+#
+# Per-member earned badges. Badge issuance happens server-side in
+# response to events (e.g. RegistrationsDirectusService.checkin awards
+# `brought_a_friend` to the referrer when the referee attends).
+#
+# Idempotency: one row per (user, badge_type, source_ref). source_ref is
+# nullable so a "one-time-ever" badge (no specific source) is also
+# representable; in practice F-S5.3 sets source_ref to the registration
+# id, so the same referee attending a 2nd event awards a 2nd badge row
+# (intentional — "you brought a friend to event X, AND event Y").
+
+echo "[F-S5.3 — member_badges]"
+ensure "collection member_badges" \
+  "${DIRECTUS_URL}/collections/member_badges" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"member_badges",
+    "schema":{"name":"member_badges"},
+    "meta":{
+      "icon":"workspace_premium",
+      "note":"Per-member earned badges. Service-issued.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"user","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"badge_type","type":"string","schema":{"is_nullable":false,"max_length":40},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Brought a friend","value":"brought_a_friend"}
+        ]}
+      }},
+      {"field":"source_ref","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"Optional FK to the source row (registrations.id for brought_a_friend). Drives per-occurrence vs once-ever semantics at the service layer."}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation member_badges.user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/member_badges/user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_badges","field":"user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
 
 # ──────────── partners ──────────────────────────────────────────────────
 

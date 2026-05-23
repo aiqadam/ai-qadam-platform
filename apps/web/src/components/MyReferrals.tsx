@@ -12,10 +12,22 @@ interface ReferralCodeView {
   createdAt: string;
 }
 
+// F-S5.3 — "brought a friend" stats. Best-effort; stats panel is hidden
+// when fetch fails so it never blocks the rest of the page.
+interface MyReferralStats {
+  attendedReferreesCount: number;
+  broughtAFriendBadge: { firstAwardedAt: string; count: number } | null;
+}
+
 type State =
   | { phase: 'loading' }
   | { phase: 'anon' }
-  | { phase: 'authed'; accessToken: string; codes: ReferralCodeView[] }
+  | {
+      phase: 'authed';
+      accessToken: string;
+      codes: ReferralCodeView[];
+      stats: MyReferralStats | null;
+    }
   | { phase: 'error'; message: string };
 
 async function bootstrap(): Promise<State> {
@@ -23,12 +35,16 @@ async function bootstrap(): Promise<State> {
     const r = await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' });
     if (!r.ok) return { phase: 'anon' };
     const { accessToken } = (await r.json()) as { accessToken: string };
-    const mine = await fetch('/api/v1/referrals/mine', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const [mine, statsRes] = await Promise.all([
+      fetch('/api/v1/referrals/mine', { headers: { Authorization: `Bearer ${accessToken}` } }),
+      fetch('/api/v1/referrals/mine/stats', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    ]);
     if (!mine.ok) return { phase: 'error', message: `list referrals: ${mine.status}` };
     const { codes } = (await mine.json()) as { codes: ReferralCodeView[] };
-    return { phase: 'authed', accessToken, codes };
+    const stats = statsRes.ok ? ((await statsRes.json()) as MyReferralStats) : null;
+    return { phase: 'authed', accessToken, codes, stats };
   } catch (err) {
     return { phase: 'error', message: err instanceof Error ? err.message : 'bootstrap failed' };
   }
@@ -100,7 +116,102 @@ export default function MyReferrals(): ReactElement {
       ) : (
         <ActiveCodePanel code={state.codes[0]} />
       )}
+      {state.stats && <StatsPanel stats={state.stats} />}
       <FootnoteHowItWorks />
+    </div>
+  );
+}
+
+function StatsPanel({ stats }: { stats: MyReferralStats }): ReactElement | null {
+  // Hide the panel entirely for first-time members (no attendees brought
+  // yet) — the empty zero is more noise than signal. Once at least one
+  // friend has attended, the panel always renders.
+  if (stats.attendedReferreesCount === 0 && !stats.broughtAFriendBadge) return null;
+  return (
+    <div
+      style={{
+        marginTop: 24,
+        padding: 24,
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        background: 'var(--card)',
+        display: 'flex',
+        gap: 20,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}
+    >
+      <div style={{ flex: '1 1 200px' }}>
+        <p
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: 'var(--muted-foreground)',
+            margin: '0 0 6px',
+          }}
+        >
+          Friends attended
+        </p>
+        <p
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: 28,
+            letterSpacing: '-0.02em',
+            margin: 0,
+          }}
+        >
+          {stats.attendedReferreesCount}
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '4px 0 0' }}>
+          {stats.attendedReferreesCount === 1
+            ? '+25 points awarded'
+            : `+${stats.attendedReferreesCount * 25} points awarded`}
+        </p>
+      </div>
+      {stats.broughtAFriendBadge && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '12px 16px',
+            border: '1px solid color-mix(in oklch, var(--primary) 30%, var(--border))',
+            borderRadius: 10,
+            background: 'color-mix(in oklch, var(--primary) 8%, var(--card))',
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 32,
+              height: 32,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              background: 'var(--primary)',
+              color: 'var(--primary-foreground, white)',
+              fontWeight: 700,
+              fontSize: 13,
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: 0,
+            }}
+          >
+            BA
+          </span>
+          <div>
+            <p style={{ fontWeight: 600, fontSize: 14, margin: 0 }}>Brought a friend</p>
+            <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '2px 0 0' }}>
+              {stats.broughtAFriendBadge.count > 1
+                ? `Earned ${stats.broughtAFriendBadge.count}×`
+                : 'Earned'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

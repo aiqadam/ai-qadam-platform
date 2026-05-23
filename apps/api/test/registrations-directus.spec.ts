@@ -253,4 +253,94 @@ describe('checkin', () => {
     fake.get.mockResolvedValueOnce({ data: [enriched('waitlisted')] });
     await expect(svc.checkin(CODE)).rejects.toBeInstanceOf(CheckinIneligibleError);
   });
+
+  // F-S5.3 — brought-a-friend referral bonus on attendance.
+  const REFERRER = 'rrrrrrrr-rrrr-4000-8000-000000000001';
+  const enrichedWithReferral = (status = 'registered', referredBy: string | null = REFERRER) => ({
+    ...regRow({ status, checked_in_at: null }),
+    referred_by: referredBy,
+    event: {
+      id: EVENT,
+      title: 'AI Drinks UZ',
+      starts_at: '2026-06-01T18:00:00Z',
+      ends_at: '2026-06-01T21:00:00Z',
+      location: 'Tashkent',
+      country: 'uz',
+    },
+  });
+
+  it('F-S5.3 — awards +25 referral_attended + brought_a_friend badge when referee attends', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [enrichedWithReferral('registered')] }) // initial fetch
+      .mockResolvedValueOnce({ data: [] }) // point_awards dedupe — empty
+      .mockResolvedValueOnce({ data: [] }); // member_badges dedupe — empty
+    fake.patch.mockResolvedValueOnce({
+      data: enrichedWithReferral('attended'),
+    });
+    fake.post.mockResolvedValueOnce({}); // point_awards insert
+    fake.post.mockResolvedValueOnce({}); // member_badges insert
+
+    const result = await svc.checkin(CODE);
+    expect(result.alreadyCheckedIn).toBe(false);
+    expect(fake.post).toHaveBeenCalledTimes(2);
+    const ptsPost = fake.post.mock.calls[0];
+    expect(ptsPost?.[0]).toBe('/items/point_awards');
+    expect(ptsPost?.[1]).toMatchObject({
+      user: REFERRER,
+      source: 'referral_attended',
+      source_ref: REG,
+      points: 25,
+      country: 'uz',
+    });
+    const badgePost = fake.post.mock.calls[1];
+    expect(badgePost?.[0]).toBe('/items/member_badges');
+    expect(badgePost?.[1]).toMatchObject({
+      user: REFERRER,
+      badge_type: 'brought_a_friend',
+      source_ref: REG,
+    });
+  });
+
+  it('F-S5.3 — no bonus when referred_by is null', async () => {
+    fake.get.mockResolvedValueOnce({ data: [enrichedWithReferral('registered', null)] });
+    fake.patch.mockResolvedValueOnce({ data: enrichedWithReferral('attended', null) });
+
+    await svc.checkin(CODE);
+    expect(fake.post).not.toHaveBeenCalled();
+  });
+
+  it('F-S5.3 — skips bonus when point_awards dedupe row already exists', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [enrichedWithReferral('registered')] })
+      .mockResolvedValueOnce({ data: [{ id: 'existing-pa' }] }); // dedupe hit
+    fake.patch.mockResolvedValueOnce({ data: enrichedWithReferral('attended') });
+
+    await svc.checkin(CODE);
+    expect(fake.post).not.toHaveBeenCalled();
+  });
+
+  it('F-S5.3 — awards points but skips badge when badge dedupe hit', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [enrichedWithReferral('registered')] })
+      .mockResolvedValueOnce({ data: [] }) // point_awards dedupe — empty
+      .mockResolvedValueOnce({ data: [{ id: 'existing-badge' }] }); // badge dedupe hit
+    fake.patch.mockResolvedValueOnce({ data: enrichedWithReferral('attended') });
+    fake.post.mockResolvedValueOnce({}); // point_awards insert succeeds
+
+    await svc.checkin(CODE);
+    expect(fake.post).toHaveBeenCalledTimes(1);
+    expect(fake.post.mock.calls[0]?.[0]).toBe('/items/point_awards');
+  });
+
+  it('F-S5.3 — best-effort: bonus dispatch failure does not block check-in', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [enrichedWithReferral('registered')] })
+      .mockResolvedValueOnce({ data: [] });
+    fake.patch.mockResolvedValueOnce({ data: enrichedWithReferral('attended') });
+    fake.post.mockRejectedValueOnce(new Error('directus 503'));
+
+    const result = await svc.checkin(CODE);
+    expect(result.alreadyCheckedIn).toBe(false);
+    expect(result.registration.status).toBe('attended');
+  });
 });

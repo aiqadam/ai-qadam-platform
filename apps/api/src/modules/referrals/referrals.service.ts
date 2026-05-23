@@ -33,6 +33,19 @@ export interface ReferralCodeView {
   createdAt: string;
 }
 
+// F-S5.3 — "brought a friend" stats. Read-only view derived from
+// point_awards (source=referral_attended) + member_badges
+// (badge_type=brought_a_friend) rows owned by the requesting member.
+export interface MyReferralStats {
+  attendedReferreesCount: number;
+  broughtAFriendBadge: { firstAwardedAt: string; count: number } | null;
+}
+
+const EMPTY_STATS: MyReferralStats = {
+  attendedReferreesCount: 0,
+  broughtAFriendBadge: null,
+};
+
 @Injectable()
 export class ReferralsService {
   private readonly logger = new Logger(ReferralsService.name);
@@ -57,6 +70,54 @@ export class ReferralsService {
     if (!directusUserId) return [];
     const rows = await this.fetchByOwner(directusUserId);
     return rows.map(toView);
+  }
+
+  // F-S5.3 — "brought a friend" stats for the signed-in member.
+  // Returns aggregate counts derived from point_awards (source=referral_attended)
+  // and member_badges (badge_type=brought_a_friend) rows owned by this user.
+  async getMyStats(userId: string, email: string): Promise<MyReferralStats> {
+    const directusUserId = await this.bridge.ensureLinked({ userId, email, displayName: null });
+    if (!directusUserId) return EMPTY_STATS;
+    const [attendedReferreesCount, badge] = await Promise.all([
+      this.countReferralAttendedPoints(directusUserId),
+      this.fetchFirstBroughtAFriendBadge(directusUserId),
+    ]);
+    return {
+      attendedReferreesCount,
+      broughtAFriendBadge: badge,
+    };
+  }
+
+  private async countReferralAttendedPoints(userId: string): Promise<number> {
+    const filter = encodeURIComponent(
+      JSON.stringify({
+        _and: [{ user: { _eq: userId } }, { source: { _eq: 'referral_attended' } }],
+      }),
+    );
+    const res = await this.directus.get<{
+      data: Array<{ id: string }>;
+      meta?: { filter_count?: number };
+    }>(`/items/point_awards?filter=${filter}&fields=id&limit=1&meta=filter_count`);
+    return res.meta?.filter_count ?? res.data.length;
+  }
+
+  private async fetchFirstBroughtAFriendBadge(
+    userId: string,
+  ): Promise<MyReferralStats['broughtAFriendBadge']> {
+    const filter = encodeURIComponent(
+      JSON.stringify({
+        _and: [{ user: { _eq: userId } }, { badge_type: { _eq: 'brought_a_friend' } }],
+      }),
+    );
+    const res = await this.directus.get<{
+      data: Array<{ id: string; date_created: string }>;
+      meta?: { filter_count?: number };
+    }>(
+      `/items/member_badges?filter=${filter}&fields=id,date_created&sort=date_created&limit=1&meta=filter_count`,
+    );
+    const count = res.meta?.filter_count ?? res.data.length;
+    if (count === 0 || !res.data[0]) return null;
+    return { firstAwardedAt: res.data[0].date_created, count };
   }
 
   async resolveCode(code: string): Promise<{ ownerUserId: string } | null> {

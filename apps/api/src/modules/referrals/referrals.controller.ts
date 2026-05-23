@@ -13,7 +13,7 @@ import {
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AuthGuard } from '../auth/auth.guard';
-import { type ReferralCodeView, ReferralsService } from './referrals.service';
+import { type MyReferralStats, type ReferralCodeView, ReferralsService } from './referrals.service';
 
 // F-S3.9 — referral codes + attribution.
 // Public POST /v1/referrals/resolve so unauthenticated visitors can resolve
@@ -43,6 +43,17 @@ export class ReferralsController {
     const { sub, email } = requireUser(req);
     const codes = await this.referrals.listMine(sub, email);
     return { codes };
+  }
+
+  // F-S5.3 — "brought a friend" stats for the signed-in member.
+  // Separate endpoint (not folded into /mine) so EventShareButtons,
+  // which calls /mine on every event detail page load, doesn't pay
+  // for the extra 2 queries.
+  @Get('mine/stats')
+  @UseGuards(AuthGuard)
+  async myStats(@Req() req: Request): Promise<MyReferralStats> {
+    const { sub, email } = requireUser(req);
+    return this.referrals.getMyStats(sub, email);
   }
 
   // Public: anonymous visitor lands at /?ref=CODE; client resolves to
