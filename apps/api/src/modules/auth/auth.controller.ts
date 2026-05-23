@@ -20,7 +20,11 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { JtiRevocationService } from './jti-revocation.service';
 import { JwtService } from './jwt.service';
-import { RefreshTokenService } from './refresh-token.service';
+import {
+  RefreshTokenInvalidError,
+  RefreshTokenReplayError,
+  RefreshTokenService,
+} from './refresh-token.service';
 
 // COOKIES — see docs/auth-architecture.md §"Cookies"
 //
@@ -209,7 +213,21 @@ export class AuthController {
     if (!token) {
       throw new UnauthorizedException('missing refresh cookie');
     }
-    const consumed = await this.refreshTokens.consume(token);
+    let consumed: Awaited<ReturnType<RefreshTokenService['consume']>>;
+    try {
+      consumed = await this.refreshTokens.consume(token);
+    } catch (err) {
+      // Domain errors from the refresh service (revoked / expired / not
+      // recognized / replay) must become 401 — the user's cookie is bad,
+      // not the server. Without this catch, Nest's default filter maps
+      // these to 500 and the form shows "Backend error checking admin
+      // permission" instead of redirecting to sign-in.
+      if (err instanceof RefreshTokenInvalidError || err instanceof RefreshTokenReplayError) {
+        clearRefreshCookies(res);
+        throw new UnauthorizedException(`refresh_invalid:${err.message}`);
+      }
+      throw err;
+    }
     const user = await this.users.findById(consumed.userId);
     if (!user) {
       throw new UnauthorizedException('user no longer exists');
