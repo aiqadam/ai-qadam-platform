@@ -1,4 +1,5 @@
 ---
+import EventShareButtons from '../../components/EventShareButtons';
 import { RegistrationSidebar } from '../../components/RegistrationSidebar';
 import Layout from '../../layouts/Layout.astro';
 import { fetchEvent, fetchEventSpeakers } from '../../lib/cms';
@@ -290,7 +291,15 @@ const layoutProps = {
           )}
         </div>
 
-        <RegistrationSidebar event={event} client:load />
+        <div>
+          <RegistrationSidebar event={event} client:load />
+          <EventShareButtons
+            eventId={event.id}
+            eventTitle={event.title}
+            eventUrl={`${Astro.url.origin}/events/${event.id}`}
+            client:load
+          />
+        </div>
       </div>
     )}
   </main>
