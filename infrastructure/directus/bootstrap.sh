@@ -2779,6 +2779,134 @@ ensure "field operator_invites.email_setup_failed_reason" \
   }'
 
 # ════════════════════════════════════════════════════════════════════════
+# registrations.{telegram_user_id, telegram_username, profile, consents, was_new_member}
+# (Phase Bot-B PR-1.3a — Telegram-as-IdP activation per ADR-0034 acquisition rewrite)
+# ════════════════════════════════════════════════════════════════════════
+#
+# When a user registers via the bot (POST /v1/telegram/registrations,
+# PR-1.3b), aiqadam either matches them to an existing member by email
+# (silent activation) OR creates a new Directus user from the form
+# values (Telegram-as-IdP). Either way the registration row is stamped
+# with:
+#
+#   telegram_user_id  — the int64 TG identity that submitted; lets the
+#                       bot's /me + /stop find this registration without
+#                       asking for an email again. Indexed for cheap
+#                       lookups in PR-3.2's reverse resolver + PR-6's
+#                       /me/registrations cabinet.
+#   telegram_username — optional @handle, captured at registration time
+#                       as a display aid (not used for routing). Matches
+#                       the directus_users.telegram_username shape from
+#                       PR-1 (#248).
+#   profile           — the full set of operator-defined field values
+#                       the user submitted, as collected by the bot's
+#                       schema-driven FSM. Stored as jsonb so the schema
+#                       can evolve per event without a migration. Keyed
+#                       by RegistrationField.key.
+#   consents          — { "events": true, "newsletter": false, ... } map
+#                       capturing which consents the user agreed to at
+#                       registration time. Source of truth for downstream
+#                       member_consents inserts (F-S3.6 /me/profile lets
+#                       the member edit them later).
+#   was_new_member    — true when the registration created a Directus
+#                       member from scratch; false when it silent-matched
+#                       an existing one. Drives the bot's "Welcome back"
+#                       header line + the analytics
+#                       tg.register_completed event prop.
+#
+# qr_token + qr_token_used_at intentionally NOT added here — the existing
+# `checkin_code` column (Sprint 1) covers the same job; Bundle 3 PR-3.3
+# decides whether to reuse it or split the bot-side QR into a new field
+# at that time.
+#
+# UNIQUE (event, user) — registrations already has this constraint
+# implied through the FK relations. POST /registrations relies on a
+# pre-check + 409 mapping; no schema change needed.
+
+echo "[registrations.telegram_user_id]"
+ensure "field registrations.telegram_user_id" \
+  "${DIRECTUS_URL}/fields/registrations/telegram_user_id" \
+  "${DIRECTUS_URL}/fields/registrations" \
+  '{
+    "field":"telegram_user_id",
+    "type":"bigInteger",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input",
+      "width":"half",
+      "readonly":true,
+      "note":"Telegram user id (int64) of the registrant when registration came via the bot. Null for web registrations. Indexed for /me + /stop bot flows."
+    }
+  }'
+
+echo "[registrations.telegram_username]"
+ensure "field registrations.telegram_username" \
+  "${DIRECTUS_URL}/fields/registrations/telegram_username" \
+  "${DIRECTUS_URL}/fields/registrations" \
+  '{
+    "field":"telegram_username",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":64},
+    "meta":{
+      "interface":"input",
+      "width":"half",
+      "readonly":true,
+      "note":"@handle sans @, captured at registration time. Display aid only — mutable by the user on Telegram side."
+    }
+  }'
+
+echo "[registrations.profile]"
+ensure "field registrations.profile" \
+  "${DIRECTUS_URL}/fields/registrations/profile" \
+  "${DIRECTUS_URL}/fields/registrations" \
+  '{
+    "field":"profile",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json"},
+      "width":"full",
+      "readonly":true,
+      "note":"Form values keyed by RegistrationField.key. Shape evolves with events.registration_schema; not constrained at the database level."
+    }
+  }'
+
+echo "[registrations.consents]"
+ensure "field registrations.consents" \
+  "${DIRECTUS_URL}/fields/registrations/consents" \
+  "${DIRECTUS_URL}/fields/registrations" \
+  '{
+    "field":"consents",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json"},
+      "width":"full",
+      "readonly":true,
+      "note":"Map of consent.key -> bool captured at registration. Source of truth for downstream member_consents inserts (F-S3.6). Member can edit later via /me/profile."
+    }
+  }'
+
+echo "[registrations.was_new_member]"
+ensure "field registrations.was_new_member" \
+  "${DIRECTUS_URL}/fields/registrations/was_new_member" \
+  "${DIRECTUS_URL}/fields/registrations" \
+  '{
+    "field":"was_new_member",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "readonly":true,
+      "note":"True when this registration created a Directus member from scratch (Telegram-as-IdP). False when it matched an existing member by email."
+    }
+  }'
+
+# ════════════════════════════════════════════════════════════════════════
 # F-S3.9 — Referral codes + attribution (per marketing playbook §16.3)
 # ════════════════════════════════════════════════════════════════════════
 #
