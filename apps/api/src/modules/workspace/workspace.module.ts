@@ -32,6 +32,8 @@ import { PartnersController } from './partners.controller';
 import { PartnersService } from './partners.service';
 import { PostEventCronController } from './post-event-cron.controller';
 import { PostEventCronService } from './post-event-cron.service';
+import { SponsorDigestsController } from './sponsor-digests.controller';
+import { SponsorDigestsService } from './sponsor-digests.service';
 
 // F-S3.2 — workspace cabinet #1: member directory + cohort builder.
 // F-S3.3 — workspace cabinet #2: announcement composer (cohort →
@@ -93,6 +95,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventMatchesPostRegService,
     DashboardService,
     PartnersService,
+    SponsorDigestsService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -111,6 +114,7 @@ import { PostEventCronService } from './post-event-cron.service';
     EventMatchesPostRegController,
     DashboardController,
     PartnersController,
+    SponsorDigestsController,
   ],
   exports: [
     MembersService,

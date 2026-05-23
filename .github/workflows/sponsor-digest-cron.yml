@@ -1,0 +1,44 @@
+name: sponsor-digest-cron
+
+# F-S3.8 (ADR-0036) — quarterly sponsor digest generator.
+#
+# Fires on the 5th of every month at 04:00 UTC. The endpoint is
+# idempotent (sponsor_digests UNIQUE-via-app-layer on sponsor +
+# quarter_tag) — non-quarter-boundary runs no-op because there's
+# already a digest for the just-closed quarter. The 5th-of-month
+# cadence (vs strict quarter-boundary) lets late CSAT responses
+# and attendance updates land before the rollup snapshots them.
+
+on:
+  schedule:
+    # 04:00 UTC on the 5th of every month. ~09:00 in UZ/KZ.
+    - cron: "0 4 5 * *"
+  workflow_dispatch: {}
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /v1/internal/sponsor-digest/tick
+        env:
+          INTERNAL_API_TOKEN: ${{ secrets.INTERNAL_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          response=$(mktemp)
+          http_code=$(curl --silent --show-error \
+            --max-time 540 \
+            --write-out "%{http_code}" \
+            --output "$response" \
+            -X POST \
+            -H "X-Internal-Auth: $INTERNAL_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{}" \
+            "https://aiqadam.org/api/v1/internal/sponsor-digest/tick")
+          echo "HTTP $http_code"
+          cat "$response"
+          echo
+          if [ "$http_code" != "200" ]; then
+            echo "::error::sponsor-digest tick failed with HTTP $http_code"
+            exit 1
+          fi

@@ -3278,6 +3278,58 @@ ensure "field events.event_retrospective" \
     "meta":{"interface":"input-multiline","width":"full","note":"Operator notes captured during post-event close-out (Sprint 1.1c flow). Surfaces in cross-country comparison (Sprint 2.6) as `tags` on top experiments to replicate."}
   }'
 
+# ════════════════════════════════════════════════════════════════════════
+# F-S3.8 — Sponsor quarterly digest ledger (per ADR-0036)
+# ════════════════════════════════════════════════════════════════════════
+#
+# One row per (sponsor, quarter_tag). Idempotency for the digest cron:
+# the service checks for an existing row before re-generating. The
+# corresponding PDF lands in marketing_assets (category=quarterly-digest,
+# sponsor=<partner.id>, visibility=sponsors, status=approved) so the
+# F-S3.5-b kit_assets cabinet section surfaces it automatically.
+#
+# quarter_tag format: "YYYYQn" (e.g. "2026Q1"). Lowercased + zero-padded
+# is unnecessary because the format is fixed.
+
+echo "[F-S3.8 — sponsor_digests]"
+ensure "collection sponsor_digests" \
+  "${DIRECTUS_URL}/collections/sponsor_digests" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"sponsor_digests",
+    "schema":{"name":"sponsor_digests"},
+    "meta":{
+      "icon":"picture_as_pdf",
+      "note":"F-S3.8 per-(sponsor, quarter) digest ledger. The actual PDF lives in marketing_assets and is linked via asset_file_id.",
+      "sort_field":"generated_at"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"sponsor","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"quarter_tag","type":"string","schema":{"is_nullable":false,"max_length":7},"meta":{"interface":"input","width":"half","required":true,"note":"YYYYQn — e.g. 2026Q1"}},
+      {"field":"asset_file_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file","width":"half","note":"Generated PDF (also lives in marketing_assets for sponsor-cabinet discovery)."}},
+      {"field":"generated_at","type":"timestamp","schema":{"is_nullable":false,"default_value":"now()"},"meta":{"interface":"datetime","width":"half","readonly":true}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation sponsor_digests.sponsor -> companies.id" \
+  "${DIRECTUS_URL}/relations/sponsor_digests/sponsor" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"sponsor_digests","field":"sponsor","related_collection":"companies","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation sponsor_digests.asset_file_id -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/sponsor_digests/asset_file_id" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"sponsor_digests","field":"asset_file_id","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+# Per-(sponsor, quarter_tag) uniqueness is enforced at the app layer
+# (SponsorDigestsService.maybeGenerate checks for existing row before
+# generating). Directus has no portable composite-unique API; a raw-SQL
+# UNIQUE index could be added in a future drizzle migration if we see
+# race conditions in practice (cron is single-tenant + serial, so the
+# app-layer guard is sufficient for v1).
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
