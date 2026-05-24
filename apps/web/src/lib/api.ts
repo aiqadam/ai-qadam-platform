@@ -49,6 +49,11 @@ export interface ApiEvent {
   // F-WebU9 — public post-event recap rendered on the Finished tab.
   // Distinct from `event_retrospective` which stays operator-internal.
   recapMd?: string | null;
+  // F-WebU10 — public livestream URL rendered on the Live tab. YouTube
+  // + Vimeo auto-embed; other providers render as a click-through
+  // Join button. Distinct from `online_meeting_url` (private virtual
+  // meetings sent only to registered attendees).
+  livestreamUrl?: string | null;
   // F-S5.4 — Directus `date_updated`. Used as OG-card cache buster
   // (`?v=<epoch>`) so a speaker_added / metadata edit invalidates
   // every scraper's cached preview.

@@ -3587,6 +3587,17 @@ ensure "field events.recap_md" \
     "meta":{"interface":"input-multiline","width":"full","note":"Public post-event recap (markdown-lite — same renderer as agenda_md). Shown on the Finished tab. Distinct from `event_retrospective` which is internal operator notes."}
   }'
 
+echo "[F-WebU10 — events.livestream_url]"
+ensure "field events.livestream_url" \
+  "${DIRECTUS_URL}/fields/events/livestream_url" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"livestream_url",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":500},
+    "meta":{"interface":"input","width":"full","options":{"placeholder":"https://www.youtube.com/watch?v=…"},"note":"Public livestream URL shown on the Live tab. YouTube + Vimeo auto-embed (same regex as Recordings); other providers render as a click-through Join button. Distinct from `online_meeting_url` which is for private virtual meetings."}
+  }'
+
 # ════════════════════════════════════════════════════════════════════════
 # F-WebU3 — event_materials junction (slides / handouts / recordings)
 # ════════════════════════════════════════════════════════════════════════

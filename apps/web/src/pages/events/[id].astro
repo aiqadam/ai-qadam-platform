@@ -170,6 +170,13 @@ const agendaHtml = event.agendaMd ? renderAgenda(event.agendaMd) : null;
 const recapHtml = event.recapMd ? renderAgenda(event.recapMd) : null;
 const hasFinishedContent = recordings.length > 0 || photos.length > 0 || recapHtml !== null;
 
+// F-WebU10 — Live tab: if an operator has pasted a YouTube / Vimeo URL
+// we embed it inline (same nocookie variant as Recordings); any other
+// http(s) URL renders as a click-through Join button. Null = no stream
+// connected, empty-state message.
+const livestreamUrl = event.livestreamUrl?.trim() || null;
+const livestreamEmbedSrc = livestreamUrl ? recordingEmbedSrc(livestreamUrl) : null;
+
 // F-WebU2 — OpenStreetMap embed. Renders only when both coordinates
 // are set; the fallback is the existing map_url click-through.
 const lat = event.latitude;
@@ -497,11 +504,35 @@ function tabHref(tab: Tab): string {
             )}
 
             {activeTab === 'live' && (
-              <div class="empty-state" style="margin: 24px 0;">
-                <div class="empty-icon" aria-hidden="true">📡</div>
-                <p class="empty-heading">{t('event_detail.tab_live_empty_title')}</p>
-                <p class="empty-desc">{t('event_detail.tab_live_empty_body')}</p>
-              </div>
+              livestreamEmbedSrc ? (
+                <section style="margin: 0 0 32px;">
+                  <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border);">
+                    <iframe
+                      src={livestreamEmbedSrc}
+                      title={t('event_detail.livestream_title', { title: event.title })}
+                      loading="lazy"
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowfullscreen
+                      style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+                    />
+                  </div>
+                </section>
+              ) : livestreamUrl ? (
+                <section style="margin: 0 0 32px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
+                  <p style="font-size: 15px; color: var(--muted-foreground); margin: 0;">
+                    {t('event_detail.livestream_join_body')}
+                  </p>
+                  <a href={livestreamUrl} target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                    {t('event_detail.livestream_join_cta')} ↗
+                  </a>
+                </section>
+              ) : (
+                <div class="empty-state" style="margin: 24px 0;">
+                  <div class="empty-icon" aria-hidden="true">📡</div>
+                  <p class="empty-heading">{t('event_detail.tab_live_empty_title')}</p>
+                  <p class="empty-desc">{t('event_detail.tab_live_empty_body')}</p>
+                </div>
+              )
             )}
 
             {activeTab === 'finished' && (

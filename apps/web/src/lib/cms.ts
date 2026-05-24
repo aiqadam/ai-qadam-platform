@@ -47,6 +47,9 @@ interface CmsEventRow {
   // F-WebU9 — public post-event recap (Finished tab). Distinct from
   // event_retrospective which stays operator-internal.
   recap_md?: string | null;
+  // F-WebU10 — public livestream URL (Live tab). Distinct from
+  // online_meeting_url which is for private virtual meeting links.
+  livestream_url?: string | null;
   // F-S5.4 — used as the OG-card cache buster on /events/[id]
   date_updated?: string | null;
 }
@@ -147,6 +150,7 @@ function toApiEvent(row: CmsEventRow, registeredCount = 0): ApiEvent {
     latitude: parseCoord(row.latitude, -90, 90),
     longitude: parseCoord(row.longitude, -180, 180),
     recapMd: row.recap_md ?? null,
+    livestreamUrl: row.livestream_url ?? null,
     updatedAt: row.date_updated ?? null,
   };
 }
@@ -178,7 +182,7 @@ async function fetchRegisteredCounts(eventIds: string[]): Promise<Map<string, nu
 }
 
 const EVENT_FIELDS =
-  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,latitude,longitude,recap_md,date_updated';
+  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,latitude,longitude,recap_md,livestream_url,date_updated';
 
 // Country code from a request's Host header. Mirrors the API's
 // tenant.middleware logic so SSR + API agree on which country to query.
