@@ -13,6 +13,7 @@ import { TelegramAdminController } from './telegram-admin.controller';
 import { TelegramAdminService } from './telegram-admin.service';
 import { TelegramAuthGuard } from './telegram-auth.guard';
 import { TelegramCheckinService } from './telegram-checkin.service';
+import { TelegramEventTopicsService } from './telegram-event-topics.service';
 import { TelegramEventsService } from './telegram-events.service';
 import { TelegramMeService } from './telegram-me.service';
 import { TelegramPreferencesService } from './telegram-preferences.service';
@@ -80,6 +81,7 @@ import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
     { provide: TG_GET_ME, useValue: realGetMe },
     TelegramService,
     TelegramEventsService,
+    TelegramEventTopicsService,
     TelegramRegistrationSchemaService,
     TelegramRegistrationsService,
     TelegramMeService,

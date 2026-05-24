@@ -840,3 +840,120 @@ describe('sanitizeMediaItems', () => {
     expect(out[1]?.order).toBe(1);
   });
 });
+
+// aiqadam#323 — topic taxonomy + filter.
+describe('TelegramEventsService — topics', () => {
+  const ROW_WITH_TOPICS = {
+    id: 'evt-llm',
+    slug: 'llm-event',
+    title: 'LLM Talk',
+    starts_at: '2026-06-20T03:00:00.000Z',
+    location: null,
+    country: 'uz',
+    status: 'published',
+    visibility_scope: 'public',
+    capacity: null,
+    registration_open: true,
+    topic_tags: ['llm', 'mlops'],
+  };
+
+  function makeSvc(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
+    const directus = { get: getMock } as unknown as DirectusClient;
+    return new TelegramEventsService(directus);
+  }
+
+  it('surfaces topics in list summaries when topic_tags is non-empty', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ data: [ROW_WITH_TOPICS] });
+    const svc = makeSvc(get);
+    const items = await svc.listOpenEvents();
+    expect(items[0]?.topics).toEqual(['llm', 'mlops']);
+  });
+
+  it('omits topics key when topic_tags is null/empty', async () => {
+    const get = vi.fn().mockResolvedValueOnce({
+      data: [
+        { ...ROW_WITH_TOPICS, topic_tags: null },
+        { ...ROW_WITH_TOPICS, topic_tags: [] },
+      ],
+    });
+    const svc = makeSvc(get);
+    const items = await svc.listOpenEvents();
+    expect(items[0]?.topics).toBeUndefined();
+    expect(items[1]?.topics).toBeUndefined();
+  });
+
+  it('appends filter[topic_tags][_contains]=<slug> when topic filter is set', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ data: [] });
+    const svc = makeSvc(get);
+    await svc.listOpenEvents({ topic: 'llm' });
+    const call = get.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[topic_tags][_contains]=llm');
+  });
+
+  it('omits the topic filter when topic is null/empty/whitespace', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ data: [] });
+    const svc = makeSvc(get);
+    await svc.listOpenEvents({ topic: '   ' });
+    const call = get.mock.calls[0]?.[0] as string;
+    expect(call).not.toContain('filter[topic_tags][_contains]');
+  });
+
+  it('filters out non-string entries from topic_tags defensively', async () => {
+    const get = vi.fn().mockResolvedValueOnce({
+      data: [{ ...ROW_WITH_TOPICS, topic_tags: ['llm', 42, null, 'product'] }],
+    });
+    const svc = makeSvc(get);
+    const items = await svc.listOpenEvents();
+    expect(items[0]?.topics).toEqual(['llm', 'product']);
+  });
+});
+
+// aiqadam#323 — taxonomy service
+describe('TelegramEventTopicsService', () => {
+  it('list() returns the curated 7-topic taxonomy with stable shape', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    const items = svc.list();
+    expect(items.length).toBeGreaterThanOrEqual(7);
+    const slugs = items.map((t) => t.slug);
+    for (const expected of [
+      'llm',
+      'mlops',
+      'computer-vision',
+      'product',
+      'career',
+      'ethics',
+      'infra',
+    ]) {
+      expect(slugs).toContain(expected);
+    }
+    for (const t of items) {
+      expect(typeof t.slug).toBe('string');
+      expect(typeof t.label).toBe('string');
+      expect(t.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('isKnown() distinguishes curated slugs from unknown ones', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    expect(svc.isKnown('llm')).toBe(true);
+    expect(svc.isKnown('made-up-slug')).toBe(false);
+    expect(svc.isKnown('')).toBe(false);
+  });
+
+  it('list() returns a fresh copy (mutating result does not affect future calls)', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    const first = svc.list();
+    if (first[0]) first[0].label = 'MUTATED';
+    const second = svc.list();
+    expect(second[0]?.label).not.toBe('MUTATED');
+  });
+});

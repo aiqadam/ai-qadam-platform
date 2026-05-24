@@ -18,6 +18,7 @@ import { env } from '../../config/env';
 import { track } from '../../lib/ops-events';
 import { TelegramAuthGuard } from './telegram-auth.guard';
 import { type CheckinResult, TelegramCheckinService } from './telegram-checkin.service';
+import { type EventTopic, TelegramEventTopicsService } from './telegram-event-topics.service';
 import {
   type EventDetail,
   type EventSummary,
@@ -142,6 +143,17 @@ const eventsQuerySchema = z.object({
   // aiqadam#288 — substring search across title/description/short_description.
   // Trimmed by zod; empty / whitespace-only = no-op.
   q: z.string().trim().min(1).max(200).optional(),
+  // aiqadam#323 — filter to events tagged with this curated taxonomy
+  // slug. Slug shape only (validation against the curated list is
+  // intentionally absent — unknown slugs simply return empty, which
+  // is the right UX for "no events tagged X yet").
+  topic: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9][a-z0-9-]*$/, 'topic must be a lowercase slug')
+    .optional(),
   // aiqadam#287 — when provided, each EventSummary is annotated with
   // is_registered + registration_id (when registered). Omit for the
   // anonymous-browse case; the response shape stays unchanged for
@@ -250,6 +262,7 @@ export class TelegramPublicController {
     private readonly events: TelegramEventsService,
     private readonly schemas: TelegramRegistrationSchemaService,
     private readonly speakers: TelegramSpeakersService,
+    private readonly eventTopics: TelegramEventTopicsService,
   ) {}
 
   @Get('health')
@@ -298,9 +311,23 @@ export class TelegramPublicController {
       format: parsed.data.format ?? null,
       openOnly: parsed.data.open_only ?? false,
       q: parsed.data.q ?? null,
+      topic: parsed.data.topic ?? null,
       limit: parsed.data.limit ?? 50,
     });
     return { items };
+  }
+
+  // GET /v1/telegram/event-topics
+  //   aiqadam#323. Curated taxonomy used by the bot's topic-picker.
+  //   Returns the same list of slugs operators tag events with
+  //   (events.topic_tags) — the bot uses this for the chip-picker UI
+  //   and the displayed labels.
+  //
+  //   Unauth (TelegramAuthGuard still applies — same surface as /events).
+  //   Future: honors Accept-Language per #318 once shipped.
+  @Get('event-topics')
+  listEventTopics(): { items: EventTopic[] } {
+    return { items: this.eventTopics.list() };
   }
 
   // GET /v1/telegram/events/{slug}?tg_user_id=<optional>

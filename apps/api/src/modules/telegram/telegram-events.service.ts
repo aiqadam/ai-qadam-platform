@@ -22,6 +22,10 @@ export interface EventSummary {
   // Absent (omitted from JSON) for anonymous browse → backward compatible.
   is_registered?: boolean;
   registration_id?: string;
+  // aiqadam#323 — operator-tagged topic slugs from the curated taxonomy
+  // (GET /v1/telegram/event-topics). Empty/absent = untagged. Bot uses
+  // these to render chips + the ?topic= filter chip selection.
+  topics?: string[];
 }
 
 // Directus row shape — narrow to the fields we read.
@@ -38,6 +42,8 @@ export interface EventRow {
   visibility_scope: string | null;
   capacity: number | null;
   registration_open?: boolean | null;
+  // aiqadam#323 — JSON array of topic slugs from the curated taxonomy.
+  topic_tags?: string[] | null;
 }
 
 // aiqadam#290 — bot-side filter chips. All optional; combinable (AND).
@@ -56,9 +62,12 @@ export interface ListEventsFilters {
   limit: number; // 1..50, default 50
   // aiqadam#288 — substring match across title/description/short_description
   // (Directus _icontains). Combinable with all other filters. Speaker name
-  // + topic-tag matching deferred to a separate PR (speakers as first-class
-  // is #291; topics need a new column too).
+  // matching deferred to #291.
   q: string | null;
+  // aiqadam#323 — filter to events whose `topic_tags` jsonb array
+  // contains this slug. Single slug only (not multi-select); operators
+  // tag with the curated taxonomy (see TelegramEventTopicsService).
+  topic: string | null;
 }
 
 export const DEFAULT_LIMIT = 50;
@@ -166,6 +175,7 @@ export class TelegramEventsService {
       openOnly = false,
       limit = DEFAULT_LIMIT,
       q = null,
+      topic = null,
     } = filters;
 
     const filterParts: string[] = [
@@ -204,10 +214,18 @@ export class TelegramEventsService {
       filterParts.push(`filter[_or][1][description][_icontains]=${encQ}`);
       filterParts.push(`filter[_or][2][short_description][_icontains]=${encQ}`);
     }
+    // aiqadam#323 — JSON array contains. Directus's _contains on a
+    // jsonb column compares as substring of the JSON text, which is
+    // close enough for slug-shaped tokens (no embedded JSON syntax in
+    // operator-curated slugs from KNOWN_EVENT_TOPICS).
+    const topicTrimmed = topic?.trim() ?? '';
+    if (topicTrimmed.length > 0) {
+      filterParts.push(`filter[topic_tags][_contains]=${encodeURIComponent(topicTrimmed)}`);
+    }
     const cappedLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
     const query = [
       ...filterParts,
-      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open',
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,topic_tags',
       'sort=starts_at',
       `limit=${cappedLimit}`,
     ].join('&');
@@ -266,7 +284,7 @@ export class TelegramEventsService {
   // the slug-then-id fallback in telegram-registration-schema.service.ts.
   private async findPublishedEventBySlugOrId(slugOrId: string): Promise<EventDetailRow | null> {
     const fields =
-      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url,media,feedback_survey_url,feedback_survey_label';
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url,media,feedback_survey_url,feedback_survey_label,topic_tags';
     const guards = 'filter[status][_eq]=published&filter[visibility_scope][_eq]=public';
     const encoded = encodeURIComponent(slugOrId);
 
@@ -547,7 +565,7 @@ export function speakerTitle(row: DirectusSpeakerJoinRow): string | null {
 // undefined / null defaults to true (consistent with the column default
 // and the PR-4 hardcoded behavior).
 export function rowToSummary(row: EventRow): EventSummary {
-  return {
+  const out: EventSummary = {
     id: row.id,
     slug: row.slug && row.slug.length > 0 ? row.slug : row.id,
     title: row.title,
@@ -556,4 +574,11 @@ export function rowToSummary(row: EventRow): EventSummary {
     country: row.country,
     registration_open: row.registration_open ?? true,
   };
+  // aiqadam#323 — surface topic_tags as the cleaner wire name `topics`.
+  // Omit the key entirely when the column is null/empty so the bot's
+  // pydantic distinguishes "untagged" from "missing array" cleanly.
+  if (Array.isArray(row.topic_tags) && row.topic_tags.length > 0) {
+    out.topics = row.topic_tags.filter((t): t is string => typeof t === 'string');
+  }
+  return out;
 }
