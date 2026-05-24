@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  GoneException,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -81,6 +82,15 @@ const registerSchema = z.object({
 // aiqadam#324 — DELETE /registrations/:id body. Same tg_user_id shape
 // as the other endpoints; required as the ownership claim.
 const cancelRegistrationSchema = z.object({
+  telegram_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .transform((v) => BigInt(v)),
+});
+
+// aiqadam#308 — POST /invites/redeem body (stub validates shape;
+// service swap happens when the referral system lands).
+const invitesRedeemSchema = z.object({
+  token: z.string().min(1).max(128),
   telegram_user_id: z
     .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
     .transform((v) => BigInt(v)),
@@ -715,6 +725,40 @@ export class TelegramController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.registrations.cancel(registrationId, parsed.data.telegram_user_id);
+  }
+
+  // POST /v1/telegram/invites/redeem
+  //
+  // aiqadam#308 (part 2). The full referral system (member_invites
+  // mint flow + perks taxonomy + admin UI + perk-application logic)
+  // is non-trivial and unbuilt. This stub returns a structured 410
+  // so the bot can distinguish "feature not yet shipped" from
+  // "route missing" (which was the 404 the bot got pre-stub).
+  //
+  // Contract preserved for the future implementation:
+  //   POST /v1/telegram/invites/redeem
+  //   Body: { token: string, telegram_user_id: int|string }
+  //
+  //   410: { error: 'feature_not_enabled', reason: 'referral_system_pending_design' }
+  //   (future) 200: { invited_by, perk, redeemer }
+  //
+  // Bot handler treats 410 as "graceful no-op" — opens the deeplink
+  // without applying any perk. See aiqadam-telegram-bot's
+  // invite_redeem_handler for the consumer-side shape.
+  @Post('invites/redeem')
+  @HttpCode(HttpStatus.GONE)
+  redeemInviteStub(@Body() body: unknown): never {
+    // Validate the body shape so the bot's contract tests pass against
+    // the stub. We don't consume the values; the future implementation
+    // will swap this body parse for the real one.
+    const parsed = invitesRedeemSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    throw new GoneException({
+      error: 'feature_not_enabled',
+      reason: 'referral_system_pending_design',
+    });
   }
 
   // GET /v1/telegram/admin/bot-token?tenant=<code>
