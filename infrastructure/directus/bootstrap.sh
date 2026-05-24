@@ -4099,6 +4099,34 @@ ensure "relation sponsor_digests.asset_file_id -> directus_files.id" \
 # race conditions in practice (cron is single-tenant + serial, so the
 # app-layer guard is sufficient for v1).
 
+echo "[aiqadam#326 — events.translations]"
+# #326 PR-a — per-locale translations for the customer-facing copy.
+# JSON shape:
+#   {
+#     "ru": { "title": "...", "summary": "...", "description": "..." },
+#     "uz": { "title": "...", "summary": "...", "description": "..." },
+#     "kk": { ... }
+#   }
+# Each per-locale subobject may have any subset of {title, summary,
+# description, short_description}. Missing keys fall back to the
+# event's tenant-default locale (read via countries.default_locale).
+# Read-path substitution lands in PR-b; this PR-a is schema-only so
+# operators can start populating immediately.
+ensure "field events.translations" \
+  "${DIRECTUS_URL}/fields/events/translations" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"translations",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json","placeholder":"{\"ru\":{\"title\":\"...\",\"summary\":\"...\",\"description\":\"...\"},\"uz\":{...}}"},
+      "width":"full",
+      "note":"#326 PR-a — per-locale subobject map. Keys = locale codes from countries.default_locale enum (en/ru/kk/uz-Latn/uz-Cyrl/tg). Per-locale values = {title?, summary?, description?, short_description?}. Missing keys fall back to the event tenant-default locale. Read path (PR-b) substitutes top-level fields when Accept-Language matches."
+    }
+  }'
+
 echo "[aiqadam#325 — events.waitlist_enabled]"
 # #325 — operator-set per-event toggle. When TRUE + event reaches
 # capacity, POST /v1/telegram/registrations accepts new submissions
