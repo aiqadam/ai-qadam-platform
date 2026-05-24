@@ -475,6 +475,8 @@ describe('TelegramEventsService.getEventDetail', () => {
     hero_image: 'aabbccdd-1111-2222-3333-444455556666',
     online_meeting_url: 'https://meet.example.com/abc',
     media: null,
+    feedback_survey_url: null,
+    feedback_survey_label: null,
   };
 
   function makeService(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
@@ -713,6 +715,62 @@ describe('TelegramEventsService.getEventDetail', () => {
 
     const out = await svc.getEventDetail('ai-meetup');
     expect(out.media).toBeUndefined();
+  });
+
+  // aiqadam#322 — feedback survey fields surface only when URL is set.
+  it('omits feedback_survey_* keys entirely when url is null', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+    expect(out.feedback_survey_url).toBeUndefined();
+    expect(out.feedback_survey_label).toBeUndefined();
+  });
+
+  it('exposes feedback_survey_url + label verbatim when both are set', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            ...DETAIL_ROW,
+            feedback_survey_url: 'https://forms.gle/abc123',
+            feedback_survey_label: '5-question feedback (2 min)',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+    expect(out.feedback_survey_url).toBe('https://forms.gle/abc123');
+    expect(out.feedback_survey_label).toBe('5-question feedback (2 min)');
+  });
+
+  it('exposes feedback_survey_url without label when label is null', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            ...DETAIL_ROW,
+            feedback_survey_url: 'https://forms.gle/abc123',
+            feedback_survey_label: null, // bot falls back to its default text
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+    expect(out.feedback_survey_url).toBe('https://forms.gle/abc123');
+    expect(out.feedback_survey_label).toBeUndefined();
   });
 });
 

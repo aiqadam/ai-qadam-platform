@@ -4099,6 +4099,39 @@ ensure "relation sponsor_digests.asset_file_id -> directus_files.id" \
 # race conditions in practice (cron is single-tenant + serial, so the
 # app-layer guard is sufficient for v1).
 
+echo "[aiqadam#322 — events.feedback_survey_url + feedback_survey_label]"
+# #322 — operator-set post-event feedback survey. When set, bot renders
+# a "📝 Leave feedback" inline button on the event detail card. Cron
+# auto-fire (post-event push with this button attached) is deferred
+# to #294's broadcast composer + dispatcher work.
+ensure "field events.feedback_survey_url" \
+  "${DIRECTUS_URL}/fields/events/feedback_survey_url" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"feedback_survey_url",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":2048},
+    "meta":{
+      "interface":"input",
+      "width":"full",
+      "note":"#322 — operator-set survey URL (Typeform/Google Forms/aiqadam-hosted). Bot renders an inline button when set + the user has registered + the event has ended."
+    }
+  }'
+
+ensure "field events.feedback_survey_label" \
+  "${DIRECTUS_URL}/fields/events/feedback_survey_label" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"feedback_survey_label",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":80,"default_value":"📝 Leave feedback"},
+    "meta":{
+      "interface":"input",
+      "width":"full",
+      "note":"#322 — button label rendered by the bot. Default \"📝 Leave feedback\" if null."
+    }
+  }'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

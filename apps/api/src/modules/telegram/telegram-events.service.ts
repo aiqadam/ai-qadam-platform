@@ -97,6 +97,13 @@ export interface EventDetail extends EventSummary {
   speakers?: EventDetailSpeaker[];
   media?: EventMediaItem[];
   web_url: string;
+  // #322 — operator-set post-event feedback survey. Bot renders an
+  // inline button labelled `feedback_survey_label` (default
+  // "📝 Leave feedback") pointing at `feedback_survey_url` when both
+  // are set + the event has ended. Cron-fired post-event push that
+  // carries this button is deferred to #294.
+  feedback_survey_url?: string;
+  feedback_survey_label?: string;
 }
 
 // Extended Directus row — wraps EventRow with the editorial columns
@@ -112,6 +119,9 @@ interface EventDetailRow extends EventRow {
   // exposing on the wire (sanitizeMediaItems) so a malformed operator
   // entry doesn't break the bot's pydantic parsing.
   media: unknown;
+  // #322
+  feedback_survey_url: string | null;
+  feedback_survey_label: string | null;
 }
 
 // Directus speaker join shape — the deep-fetch reaches across the
@@ -256,7 +266,7 @@ export class TelegramEventsService {
   // the slug-then-id fallback in telegram-registration-schema.service.ts.
   private async findPublishedEventBySlugOrId(slugOrId: string): Promise<EventDetailRow | null> {
     const fields =
-      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url,media';
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url,media,feedback_survey_url,feedback_survey_label';
     const guards = 'filter[status][_eq]=published&filter[visibility_scope][_eq]=public';
     const encoded = encodeURIComponent(slugOrId);
 
@@ -443,6 +453,14 @@ function pickEditorialFields(row: EventDetailRow): Partial<EventDetail> {
   if (row.capacity != null) out.capacity_total = row.capacity;
   const media = sanitizeMediaItems(row.media);
   if (media.length > 0) out.media = media;
+  // #322 — surface the survey only when the URL is set. Label defaults
+  // to the Directus column's default ("📝 Leave feedback") OR an
+  // operator override; we pass it through verbatim and let the bot
+  // fall back on null.
+  if (row.feedback_survey_url) {
+    out.feedback_survey_url = row.feedback_survey_url;
+    if (row.feedback_survey_label) out.feedback_survey_label = row.feedback_survey_label;
+  }
   return out;
 }
 
