@@ -188,5 +188,8 @@
     "stat_partners": "partners",
     "stat_countries": "countries",
     "recent_recordings": "From past events"
+  },
+  "welcome": {
+    "secondary_cta": "Or browse all events"
   }
 }

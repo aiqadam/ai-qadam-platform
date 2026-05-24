@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { fetchLandingPage } from '../../lib/cms';
+import { getLocale, makeT } from '../../lib/i18n';
 
 // F-S5.9 — campaign landing pages.
 //
@@ -9,9 +10,12 @@ import { fetchLandingPage } from '../../lib/cms';
 // archived rows 404. UTM/ref attribution is captured by the common
 // Astro shell from F-S3.9 — no special handling here.
 //
-// Body uses the same minimal markdown shape as event agenda renderers
-// (paragraphs + bullet lists). Rich content (links, bold) deferred to
-// a follow-up if marketing needs it.
+// F-WebU17 — pulls visual richness up from 2/5: subtle radial gradient
+// hero behind the title (same pattern as the no-image event-detail
+// hero), markdown image embeds (`![alt](url)`), inline links
+// (`[label](url)`), and a secondary CTA pointing at /events as a soft
+// fallback for visitors not ready to commit. Schema unchanged — these
+// are all renderer / page-shell changes against the existing fields.
 
 export const prerender = false;
 
@@ -24,9 +28,48 @@ if (!page) {
   return new Response(null, { status: 404 });
 }
 
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+// F-WebU17 — minimal-markdown renderer with two new shapes on top of
+// the agenda-style paragraph/list base: images (`![alt](url)`) and
+// inline links (`[label](url)`). URLs are bound to http(s) only to
+// defang `javascript:` / `data:` payloads. Alt + label text are
+// HTML-escaped before being interpolated.
+function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url, 'https://aiqadam.org');
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeAttr(s: string): string {
+  return escapeHtml(s).replace(/"/g, '&quot;');
+}
+
+const IMAGE_LINE_RE = /^!\[([^\]]*)\]\(([^)]+)\)$/;
+const INLINE_LINK_RE = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+function renderInline(text: string): string {
+  // Two-pass: escape the entire string first, then re-introduce link
+  // anchors. Since the regex captures still come from the ORIGINAL
+  // text, we re-escape captured label + url ourselves.
+  let out = escapeHtml(text);
+  out = out.replace(INLINE_LINK_RE, (match, label, rawUrl) => {
+    const url = rawUrl.trim();
+    if (!isSafeUrl(url)) return match;
+    return `<a href="${escapeAttr(url)}" style="color: var(--primary); text-decoration: underline;">${escapeHtml(label)}</a>`;
+  });
+  return out;
+}
+
 function renderBody(md: string): string {
-  const escape = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const blocks = md.split(/\n\s*\n/);
   return blocks
     .map((block) => {
@@ -35,12 +78,22 @@ function renderBody(md: string): string {
         .map((l) => l.trim())
         .filter(Boolean);
       if (lines.length === 0) return '';
+      if (lines.length === 1 && IMAGE_LINE_RE.test(lines[0]!)) {
+        const match = lines[0]!.match(IMAGE_LINE_RE);
+        const alt = match?.[1] ?? '';
+        const src = match?.[2]?.trim() ?? '';
+        if (!isSafeUrl(src)) return '';
+        const caption = alt
+          ? `<figcaption style="font-size: 12px; color: var(--muted-foreground); margin-top: 6px;">${escapeHtml(alt)}</figcaption>`
+          : '';
+        return `<figure style="margin: 0 0 20px;"><img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" loading="lazy" style="width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border); display: block;" />${caption}</figure>`;
+      }
       if (lines.every((l) => l.startsWith('- '))) {
         return `<ul style="margin: 0 0 16px; padding-left: 22px;">${lines
-          .map((l) => `<li style="margin: 0 0 6px;">${escape(l.slice(2))}</li>`)
+          .map((l) => `<li style="margin: 0 0 6px;">${renderInline(l.slice(2))}</li>`)
           .join('')}</ul>`;
       }
-      return `<p style="margin: 0 0 16px;">${lines.map(escape).join('<br />')}</p>`;
+      return `<p style="margin: 0 0 16px;">${lines.map((l) => renderInline(l)).join('<br />')}</p>`;
     })
     .filter(Boolean)
     .join('');
@@ -53,37 +106,52 @@ const bodyHtml = page.bodyMd ? renderBody(page.bodyMd) : null;
   title={page.title}
   description={page.subtitle ?? page.title}
 >
-  <main style="max-width: 720px; margin: 0 auto; padding: 64px 32px 96px;">
-    <p
-      class="section-eyebrow"
-      style="margin-bottom: 8px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
-    >
-      AI Qadam
-    </p>
-    <h1
-      style="font-family: var(--font-display); font-weight: 600; font-size: 36px; letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 16px;"
-    >
-      {page.title}
-    </h1>
-    {page.subtitle && (
-      <p style="font-size: 18px; line-height: 1.5; color: var(--muted-foreground); margin: 0 0 32px;">
-        {page.subtitle}
+  <div
+    style="background: radial-gradient(ellipse 80% 70% at 50% 0%, color-mix(in oklch, var(--primary) 12%, transparent) 0%, transparent 60%);"
+  >
+    <main style="max-width: 720px; margin: 0 auto; padding: 64px 32px 32px;">
+      <p
+        class="section-eyebrow"
+        style="margin-bottom: 8px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+      >
+        AI Qadam
       </p>
-    )}
+      <h1
+        style="font-family: var(--font-display); font-weight: 600; font-size: 40px; letter-spacing: -0.025em; line-height: 1.1; margin: 0 0 16px;"
+      >
+        {page.title}
+      </h1>
+      {page.subtitle && (
+        <p style="font-size: 18px; line-height: 1.5; color: var(--muted-foreground); margin: 0 0 32px; max-width: 600px;">
+          {page.subtitle}
+        </p>
+      )}
+    </main>
+  </div>
+
+  <main style="max-width: 720px; margin: 0 auto; padding: 16px 32px 96px;">
     {bodyHtml && (
       <div
         style="font-size: 16px; line-height: 1.65; color: var(--foreground); margin: 0 0 40px;"
         set:html={bodyHtml}
       />
     )}
-    <a
-      class="btn btn-primary btn-lg"
-      data-landing-cta
-      href={page.ctaUrl}
-      style="display: inline-flex; align-items: center; gap: 8px;"
-    >
-      {page.ctaLabel}
-    </a>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+      <a
+        class="btn btn-primary btn-lg"
+        data-landing-cta
+        href={page.ctaUrl}
+        style="display: inline-flex; align-items: center; gap: 8px;"
+      >
+        {page.ctaLabel}
+      </a>
+      <a
+        href="/events"
+        style="font-size: 14px; color: var(--muted-foreground); text-decoration: none;"
+      >
+        {t('welcome.secondary_cta')} →
+      </a>
+    </div>
   </main>
 
   <script is:inline>

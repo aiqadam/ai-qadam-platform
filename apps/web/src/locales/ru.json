@@ -191,5 +191,8 @@
     "stat_partners": "партнёров",
     "stat_countries": "страны",
     "recent_recordings": "С прошедших событий"
+  },
+  "welcome": {
+    "secondary_cta": "Или посмотреть все события"
   }
 }
