@@ -42,6 +42,11 @@ import {
   TelegramRegistrationsService,
 } from './telegram-registrations.service';
 import {
+  type SpeakerDetail,
+  type SpeakerSummary,
+  TelegramSpeakersService,
+} from './telegram-speakers.service';
+import {
   type LinkConfirmResult,
   type LinkStartResult,
   type MemberByTgResult,
@@ -219,11 +224,22 @@ const eventSchema = z.object({
 
 // ─── Public controller (ungated) ──────────────────────────────────────────────
 
+// aiqadam#291 — list-speakers query. Both filters optional; country
+// matches the 2-letter ISO code on `speakers.country`.
+const speakersListQuerySchema = z.object({
+  country: z
+    .string()
+    .regex(/^[a-z]{2}$/, 'country must be ISO-3166-1 alpha-2 lowercase')
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
 @Controller('v1/telegram')
 export class TelegramPublicController {
   constructor(
     private readonly events: TelegramEventsService,
     private readonly schemas: TelegramRegistrationSchemaService,
+    private readonly speakers: TelegramSpeakersService,
   ) {}
 
   @Get('health')
@@ -334,6 +350,48 @@ export class TelegramPublicController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.schemas.getSchema(parsed.data);
+  }
+
+  // GET /v1/telegram/speakers?country=<code>&limit=<n>
+  //   aiqadam#291. Lists active speakers — powers the bot's /speakers
+  //   command. UNGATED for the same acquisition-channel rule as events.
+  //
+  //   200: { items: [{ id, slug, name, title, avatar_url }] }
+  //   400: malformed country / limit param
+  //
+  //   Speakers without a usable display name (placeholder rows with
+  //   first/last/email all null) are silently dropped — operators see
+  //   them in the cabinet but they don't render in the bot.
+  @Get('speakers')
+  async listSpeakers(@Query() query: unknown): Promise<{ items: SpeakerSummary[] }> {
+    const parsed = speakersListQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.speakers.listSpeakers({
+      country: parsed.data.country ?? null,
+      limit: parsed.data.limit ?? 20,
+    });
+  }
+
+  // GET /v1/telegram/speakers/{slug}
+  //   aiqadam#291. Single speaker detail — bio + social_links + the
+  //   speaker's confirmed upcoming sessions. UNGATED.
+  //
+  //   Slug param accepts both real slugs (post-#318 backfill) and uuid
+  //   fallback (existing speakers with slug=NULL).
+  //
+  //   200: SpeakerDetail (see telegram-speakers.service.ts for shape)
+  //   400: malformed slug param
+  //   404: { error: 'speaker_not_found' } — also returned for archived /
+  //        pending status to avoid leaking operator-internal state
+  @Get('speakers/:slug')
+  async speakerDetail(@Param('slug') slug: string): Promise<SpeakerDetail> {
+    const parsed = slugOrIdSchema.safeParse(slug);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.speakers.getSpeakerDetail(parsed.data);
   }
 }
 

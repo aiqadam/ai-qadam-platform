@@ -19,6 +19,7 @@ import { TelegramPreferencesService } from './telegram-preferences.service';
 import { TelegramProfileDefaultsService } from './telegram-profile-defaults.service';
 import { TelegramRegistrationSchemaService } from './telegram-registration-schema.service';
 import { TelegramRegistrationsService } from './telegram-registrations.service';
+import { TelegramSpeakersService } from './telegram-speakers.service';
 import { TelegramController, TelegramPublicController } from './telegram.controller';
 import { TelegramService } from './telegram.service';
 import { TELEGRAM_REDIS } from './telegram.tokens';
@@ -85,6 +86,7 @@ import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
     TelegramProfileDefaultsService,
     TelegramCheckinService,
     TelegramPreferencesService,
+    TelegramSpeakersService,
     TgConfigService,
     HeartbeatReaderService,
     TelegramAdminService,
