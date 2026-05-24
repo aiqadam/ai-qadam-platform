@@ -1,0 +1,28 @@
+---
+import TgSegmentsList from '../../../../../components/workspace/TgSegmentsList';
+import Layout from '../../../../../layouts/Layout.astro';
+
+// #294 PR-c — operator cabinet for tg_segments (list + new).
+export const prerender = false;
+---
+
+<Layout
+  title="Audience segments · Telegram · AI Qadam workspace"
+  description="Reusable audience segments for Telegram broadcasts."
+>
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace/integrations/telegram">← Telegram</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Audience segments
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Reusable audience definitions. Pick one when composing a broadcast. PR-c ships a JSON-edit
+      surface; a richer criteria builder lands later.
+    </p>
+    <TgSegmentsList client:load />
+  </main>
+</Layout>

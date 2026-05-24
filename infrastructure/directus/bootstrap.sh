@@ -4471,9 +4471,60 @@ ensure "relation tg_broadcasts.country -> countries.code" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"tg_broadcasts","field":"country","related_collection":"countries","schema":{"on_delete":"NO ACTION"}}'
 
-# audience_segment FK is added in PR-c when tg_segments lands. Keeping
-# the column as uuid here so PR-a can ship the cabinet read view
-# without coupling to a not-yet-shipped collection.
+echo "[aiqadam#294 PR-c — tg_segments]"
+# #294 PR-c — operator-authored audience segments for tg_broadcasts.
+#
+# criteria stores a Directus-filter-shaped JSON object. The resolver
+# (SegmentResolverService.resolve) translates supported criteria to
+# directus_users filter queries + always intersects with the universe
+# of "tg-linked, not opted out, in country" members.
+#
+# Supported criteria (v1):
+#   - country:    { _eq } | { _in: [..] }
+#   - linked_within_days:    { _gte: <days_int> }
+#   - registered_for_event:  { _eq: <event_uuid> }
+#   - preferred_topics:      { _contains: <topic_slug> }
+#
+# Operators compose top-level _and / _or; anything that isn't in the
+# supported list is rejected by the validator with a 400.
+ensure "collection tg_segments" \
+  "${DIRECTUS_URL}/collections/tg_segments" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"tg_segments",
+    "schema":{"name":"tg_segments"},
+    "meta":{
+      "icon":"groups",
+      "note":"#294 PR-c — reusable audience segments for Telegram broadcasts. JSON criteria; SegmentResolverService translates to Directus filter queries against directus_users.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"name","type":"string","schema":{"is_nullable":false,"max_length":120},"meta":{"interface":"input","width":"full","required":true,"note":"Operator-visible name (e.g. \"UZ org members, linked last 30d\")."}},
+      {"field":"country","type":"string","schema":{"is_nullable":false,"max_length":2,"default_value":"uz"},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Uzbekistan","value":"uz"},{"text":"Kazakhstan","value":"kz"},{"text":"Tajikistan","value":"tj"}]}}},
+      {"field":"criteria","type":"json","schema":{"is_nullable":false,"default_value":"{\"_and\":[]}"},"meta":{"interface":"input-code","options":{"language":"json"},"width":"full","required":true,"note":"Directus-filter-shaped JSON. Supported v1: country, linked_within_days, registered_for_event, preferred_topics. Resolver always AND-intersects with telegram-linked + not-opted-out + country scope."}},
+      {"field":"created_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","readonly":true,"special":["user-created"],"display":"related-values","display_options":{"template":"{{first_name}} {{last_name}}"}}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation tg_segments.created_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/tg_segments/created_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"tg_segments","field":"created_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation tg_segments.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/tg_segments/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"tg_segments","field":"country","related_collection":"countries","schema":{"on_delete":"NO ACTION"}}'
+
+# PR-a deferred tg_broadcasts.audience_segment FK. Add it now that
+# tg_segments exists.
+ensure "relation tg_broadcasts.audience_segment -> tg_segments.id" \
+  "${DIRECTUS_URL}/relations/tg_broadcasts/audience_segment" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"tg_broadcasts","field":"audience_segment","related_collection":"tg_segments","schema":{"on_delete":"SET NULL"}}'
 
 echo
 echo "✅ Directus schema bootstrapped."
