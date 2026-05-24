@@ -4249,6 +4249,166 @@ ensure "relation feedback.member -> directus_users.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"feedback","field":"member","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# aiqadam: in-house forms-builder (post-event surveys + general forms)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Operators build reusable form templates in /workspace/forms; each
+# template can be attached to an event as the post-event survey, OR
+# published as a standalone form at /forms/{slug}.
+#
+# Privacy: respondent chooses anonymous-or-attributed at submission time
+# (per-submission, not per-form). `form_submissions.is_anonymous=true`
+# nulls the member FK regardless of whether the responder was signed in.
+#
+# Schema (forms.schema jsonb) — operator-defined ordered field list:
+#   {
+#     "fields": [
+#       { "key": "nps", "type": "scale", "label": "How likely...?", "required": true,
+#         "scale": { "min": 0, "max": 10, "min_label": "Not at all", "max_label": "Very likely" } },
+#       { "key": "best", "type": "long_text", "label": "What did you enjoy most?",
+#         "required": false, "max_length": 2000 },
+#       { "key": "channel", "type": "select_one", "label": "How did you hear about us?",
+#         "required": false,
+#         "options": [{"value":"friend","label":"Friend"},{"value":"social","label":"Social media"}] }
+#     ]
+#   }
+#
+# Supported field types (v1):
+#   - short_text  (max 200)
+#   - long_text   (max 2000)
+#   - scale       (NPS 0-10 or rating 1-5; { min, max, min_label?, max_label? })
+#   - select_one  (radio; { options: [{value,label}] })
+#   - select_many (checkboxes; same shape)
+#   - yes_no      (boolean)
+#
+# Cross-layer contract pinned by:
+#   - apps/api forms-service (zod-validates submissions against this schema)
+#   - apps/web public form route (renders fields from this schema)
+#   - cabinet builder (writes this shape; operator-friendly UI)
+
+echo "[forms — collection]"
+ensure "collection forms" \
+  "${DIRECTUS_URL}/collections/forms" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"forms",
+    "schema":{"name":"forms"},
+    "meta":{
+      "icon":"dynamic_form",
+      "note":"Operator-built reusable form templates. Attach to events as post-event surveys, or publish standalone at /forms/{slug}.",
+      "archive_field":"status",
+      "archive_value":"archived",
+      "unarchive_value":"draft",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":120,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"URL-friendly handle. Public form lives at /forms/{slug}."}},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":200},"meta":{"interface":"input","width":"full","required":true}},
+      {"field":"description","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Optional intro shown above the fields."}},
+      {"field":"country","type":"string","schema":{"is_nullable":false,"max_length":2},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"draft","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Draft","value":"draft"},{"text":"Published","value":"published"},{"text":"Archived","value":"archived"}]}}},
+      {"field":"schema","type":"json","schema":{"is_nullable":false,"default_value":"{\"fields\":[]}"},"meta":{"interface":"input-code","options":{"language":"json"},"width":"full","note":"Ordered field list — { fields: [{ key, type, label, required, ... }] }. See forms-builder cabinet for the friendly editor."}},
+      {"field":"allow_anonymous","type":"boolean","schema":{"is_nullable":false,"default_value":true},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"When true, respondent sees \"Submit as Anonymous\" option. When false, respondent must be signed in and submission is always attributed."}},
+      {"field":"created_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"}}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation forms.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/forms/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"forms","field":"country","related_collection":"countries","schema":{"on_delete":"RESTRICT"}}'
+
+ensure "relation forms.created_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/forms/created_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"forms","field":"created_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── form_submissions ───────────────────────────────────────────
+#
+# `is_anonymous=true` MUST coincide with `member=null`. The forms service
+# enforces this on insert (the column nullability allows it; the service
+# is the guard). Reasoning: if a respondent picks Anonymous, we deny
+# ourselves the ability to attribute later — including by reverse-lookup
+# via tg_user_id. tg_user_id is also null for anon submissions.
+
+echo "[forms — submissions]"
+ensure "collection form_submissions" \
+  "${DIRECTUS_URL}/collections/form_submissions" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"form_submissions",
+    "schema":{"name":"form_submissions"},
+    "meta":{
+      "icon":"fact_check",
+      "note":"One row per form submission. Member FK is nulled when respondent picked Anonymous.",
+      "archive_field":"status",
+      "archive_value":"closed",
+      "unarchive_value":"new",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"form","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{title}}"},"note":"Set when the submission came via an event'\''s post-event survey. Powers per-event aggregation."}},
+      {"field":"is_anonymous","type":"boolean","schema":{"is_nullable":false,"default_value":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"Respondent-chosen at submit time. When true, member + telegram_user_id are nulled."}},
+      {"field":"member","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{first_name}} {{last_name}}"}}},
+      {"field":"telegram_user_id","type":"bigInteger","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"Captured for non-anonymous bot submissions even when member resolution failed."}},
+      {"field":"payload","type":"json","schema":{"is_nullable":false},"meta":{"interface":"input-code","options":{"language":"json"},"width":"full","note":"{ <field_key>: <value> } keyed by forms.schema.fields[].key."}},
+      {"field":"source","type":"string","schema":{"is_nullable":false,"default_value":"web","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Web","value":"web"},{"text":"Bot","value":"bot"},{"text":"Email","value":"email"}]}}},
+      {"field":"language","type":"string","schema":{"is_nullable":true,"max_length":8},"meta":{"interface":"input","width":"half"}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"new","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"New","value":"new"},{"text":"Triaged","value":"triaged"},{"text":"Closed","value":"closed"}]}}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation form_submissions.form -> forms.id" \
+  "${DIRECTUS_URL}/relations/form_submissions/form" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"form_submissions","field":"form","related_collection":"forms","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation form_submissions.event -> events.id" \
+  "${DIRECTUS_URL}/relations/form_submissions/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"form_submissions","field":"event","related_collection":"events","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation form_submissions.member -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/form_submissions/member" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"form_submissions","field":"member","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+# ──────────── events.post_event_survey_form ──────────────────────────────
+#
+# Per-event attachment. When set, the bot's post-event flow + the
+# /events/{slug}/survey web route render this form. Coexists with
+# `events.feedback_survey_url` (external URL escape hatch from #322):
+# in-house form wins when both are set.
+
+echo "[events.post_event_survey_form]"
+ensure "field events.post_event_survey_form" \
+  "${DIRECTUS_URL}/fields/events/post_event_survey_form" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"post_event_survey_form",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"half",
+      "display":"related-values",
+      "display_options":{"template":"{{title}}"},
+      "note":"Pick from /workspace/forms. When set, this form is rendered at /events/{slug}/survey + offered by the bot at T+24h after ends_at. Beats events.feedback_survey_url when both are set."
+    }
+  }'
+
+ensure "relation events.post_event_survey_form -> forms.id" \
+  "${DIRECTUS_URL}/relations/events/post_event_survey_form" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"events","field":"post_event_survey_form","related_collection":"forms","schema":{"on_delete":"SET NULL"}}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
