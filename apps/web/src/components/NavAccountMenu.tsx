@@ -3,17 +3,29 @@ import { type AuthMe, getAuthState, signOut } from '../lib/auth-bootstrap';
 
 // Right-cluster account chip in the top nav. Anon → renders nothing
 // (the static Sign-in CTA in the left cluster covers that side). Authed
-// → small avatar circle with initials; click to open a popover that
-// shows the signed-in email and a Sign out action.
+// → small avatar circle with initials; click to open a popover with:
+//   - role-gated operational links (Workspace, Engineering Deck)
+//   - "Signed in as <email>"
+//   - Sign out action
+//
+// Operational links live here (not in the left public nav) so the
+// nav header stays focused on community-facing surfaces (Events,
+// Leaderboard, Account). Per ADR-0037 three-tier, the operator +
+// engineer layers are personal-surface concerns — gating them under
+// the account menu matches the tier mental model.
 //
 // Bootstrap goes through the shared getAuthState() helper so this
 // island piggybacks on whatever /refresh + /me round-trip another
-// island on the page already made.
+// island on the page already made (#339 dedupe).
+
+const ENGINEERING_DECK_URL = 'https://login.aiqadam.org/if/user/#/library';
 
 interface I18n {
   signed_in_as: string;
   sign_out: string;
   account_menu_aria: string;
+  workspace: string;
+  engineering_deck: string;
 }
 
 interface Props {
@@ -33,6 +45,34 @@ function initialsFor(email: string): string {
 function localPart(email: string): string {
   return email.split('@')[0] ?? email;
 }
+
+// Groups source-of-truth lives in Authentik; the `groups` claim is
+// emitted on the OIDC scope (see auth.service.ts FLOW_SCOPES) and
+// arrives in /v1/auth/me. Role changes propagate within one refresh
+// cycle (max ~15 min).
+function isEngineer(groups: string[]): boolean {
+  return groups.some((g) => g === 'aiqadam-super-admin' || g === 'authentik Admins');
+}
+
+function isOperator(groups: string[]): boolean {
+  return groups.some(
+    (g) =>
+      g === 'aiqadam-super-admin' ||
+      g === 'aiqadam-sponsor-rep' ||
+      g.startsWith('aiqadam-country-lead-') ||
+      g.startsWith('aiqadam-organizer-'),
+  );
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'block',
+  padding: '8px 10px',
+  fontSize: 13,
+  color: 'var(--foreground)',
+  textDecoration: 'none',
+  borderRadius: 6,
+  lineHeight: 1.3,
+};
 
 export function NavAccountMenu({ t }: Props): ReactElement | null {
   const [state, setState] = useState<State>({ phase: 'loading' });
@@ -71,6 +111,10 @@ export function NavAccountMenu({ t }: Props): ReactElement | null {
   if (state.phase !== 'authed') return null;
 
   const initials = initialsFor(state.me.email);
+  const groups = state.me.groups ?? [];
+  const showWorkspace = isOperator(groups);
+  const showEngineering = isEngineer(groups);
+  const showOperationalSection = showWorkspace || showEngineering;
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
@@ -112,14 +156,13 @@ export function NavAccountMenu({ t }: Props): ReactElement | null {
             border: '1px solid var(--border)',
             borderRadius: 10,
             boxShadow: 'var(--shadow-lg)',
-            padding: 10,
+            padding: 6,
             display: 'flex',
             flexDirection: 'column',
-            gap: 8,
             zIndex: 60,
           }}
         >
-          <div style={{ padding: '4px 6px' }}>
+          <div style={{ padding: '4px 10px 8px' }}>
             <p
               style={{
                 fontFamily: 'var(--font-mono)',
@@ -147,15 +190,45 @@ export function NavAccountMenu({ t }: Props): ReactElement | null {
               {localPart(state.me.email)}
             </p>
           </div>
-          <div style={{ borderTop: '1px solid var(--border)' }} />
+
+          {showOperationalSection && (
+            <>
+              <div style={{ borderTop: '1px solid var(--border)', margin: '2px 0' }} />
+              {showWorkspace && (
+                <a href="/workspace" role="menuitem" style={menuItemStyle}>
+                  {t.workspace}
+                </a>
+              )}
+              {showEngineering && (
+                <a
+                  href={ENGINEERING_DECK_URL}
+                  role="menuitem"
+                  style={menuItemStyle}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t.engineering_deck} ↗
+                </a>
+              )}
+            </>
+          )}
+
+          <div style={{ borderTop: '1px solid var(--border)', margin: '2px 0' }} />
           <button
             type="button"
             onClick={() => {
               void signOut();
             }}
-            className="btn btn-sm btn-ghost"
             role="menuitem"
-            style={{ justifyContent: 'flex-start', textAlign: 'left' }}
+            style={{
+              ...menuItemStyle,
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+              textAlign: 'left',
+              font: 'inherit',
+              color: 'var(--foreground)',
+            }}
           >
             {t.sign_out}
           </button>

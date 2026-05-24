@@ -18,7 +18,6 @@
 
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, getLocale, makeT } from '../lib/i18n';
 import { NavAccountMenu } from './NavAccountMenu';
-import { NavUserBadge } from './NavUserBadge';
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
@@ -76,7 +75,6 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
           {t('nav.sign_in')}
         </a>
       )}
-      <NavUserBadge client:load />
     </nav>
 
     <div style="display: flex; align-items: center; gap: 8px;">
@@ -106,6 +104,8 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
           signed_in_as: t('nav.signed_in_as'),
           sign_out: t('actions.sign_out'),
           account_menu_aria: t('nav.account_menu_aria'),
+          workspace: t('nav.workspace'),
+          engineering_deck: t('nav.engineering_deck'),
         }}
       />
     </div>
@@ -113,9 +113,6 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
 </header>
 
 <style is:global>
-  /* Global so React islands mounted inside this <nav> (NavUserBadge)
-     inherit the same chrome as the Astro-rendered links. Without
-     is:global Astro hashes the class and the island misses out. */
   .app-nav-link {
     display: inline-flex;
     align-items: center;

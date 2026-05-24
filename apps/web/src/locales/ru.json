@@ -9,7 +9,9 @@
     "account": "Профиль",
     "sign_in": "Войти",
     "signed_in_as": "Вход выполнен как",
-    "account_menu_aria": "Открыть меню профиля"
+    "account_menu_aria": "Открыть меню профиля",
+    "workspace": "Рабочее пространство",
+    "engineering_deck": "Инженерная панель"
   },
   "country": {
     "label": "Страна",

@@ -2,7 +2,7 @@
 //
 // Why this exists: every island that needs to know "who is the user" used
 // to call `POST /api/v1/auth/refresh` + `GET /api/v1/auth/me` from its own
-// useEffect. Two islands on the same page (e.g. NavUserBadge + MeDashboard
+// useEffect. Two islands on the same page (e.g. NavAccountMenu + MeDashboard
 // on /me) would fire both calls in parallel, racing for the same refresh-
 // token cookie. The API treats refresh tokens as single-use: one request
 // consumes the row, the other hits `RefreshTokenReplayError` → 401 →
