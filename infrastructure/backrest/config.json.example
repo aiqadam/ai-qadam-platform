@@ -1,30 +1,42 @@
 {
-  "_comment": "F-OPS1-b · Backrest config. Copy to /opt/aiqadam/backrest/config.json on prod and substitute <REPO_PASSWORD> + <R2_REPO_URL> (read from /etc/restic/repo-password and /etc/restic/r2.env on the host).",
-  "instance": "aiqadam-prod",
+  "_comment": "F-OPS1-b · Backrest config example. Run `sudo /root/build-backrest-config.sh` on prod to materialize the real file at /opt/aiqadam/backrest/config/config.json (reads /etc/restic/r2.env and /etc/restic/repo-password in place; never echoes secrets). Backrest also writes back to this file when operators tweak settings via the UI (snapshot guid registration, sync identity), so the host bind-mount is rw — see docker-compose.yml.",
+  "version": 6,
+  "instance": "AI Qadam Backbone",
   "auth": {
     "disabled": true
   },
   "repos": [
     {
-      "id": "aiqadam-r2",
-      "uri": "<R2_REPO_URL>",
-      "password": "<REPO_PASSWORD>",
-      "env": [],
-      "flags": [],
+      "id": "restic-r2-aiqadam",
+      "uri": "<RESTIC_REPOSITORY from /etc/restic/r2.env>",
+      "password": "<contents of /etc/restic/repo-password>",
+      "env": [
+        "AWS_ACCESS_KEY_ID=<from /etc/restic/r2.env>",
+        "AWS_SECRET_ACCESS_KEY=<from /etc/restic/r2.env>"
+      ],
       "prunePolicy": {
-        "_comment": "Pruning is owned by systemd timer scripts (aiqadam-backup.sh + aiqadam-db-dump.sh). Backrest's pruner stays disabled to avoid double-prune races.",
-        "schedule": {
-          "disabled": true
-        }
+        "_comment": "Disabled: pruning is owned by aiqadam-db-dump.sh + aiqadam-backup.sh. Backrest's pruner stays off to avoid double-prune races.",
+        "schedule": { "disabled": true },
+        "maxUnusedPercent": 10
       },
       "checkPolicy": {
-        "schedule": {
-          "disabled": true
+        "_comment": "Disabled: integrity-check is owned by aiqadam-restore-drill.timer (monthly non-destructive drill). Leaving Backrest's check off keeps the single-writer rule consistent.",
+        "schedule": { "disabled": true }
+      },
+      "forgetPolicy": {
+        "_comment": "Schedule disabled — retention is enforced by `restic forget --keep-*` flags in the systemd scripts. The retention object below is only used if an operator clicks 'Forget' manually in the UI.",
+        "schedule": { "disabled": true, "clock": "CLOCK_LAST_RUN_TIME" },
+        "retention": {
+          "policyTimeBucketed": {
+            "hourly": 24,
+            "daily": 30,
+            "monthly": 12
+          }
         }
       },
-      "_note": "Backrest's read-only mode for this repo: backups + forgets are still done by systemd. Backrest is for browse + restore."
+      "commandPrefix": {}
     }
   ],
   "plans": [],
-  "_note_on_plans": "No plans defined — Backrest scheduler is OFF (systemd timer is source of truth). The UI still lets operators do ad-hoc 'Run now' restore operations from the snapshot list."
+  "_note_on_plans": "No plans defined — Backrest's backup scheduler is OFF (systemd timer is source of truth). The UI still lets operators run ad-hoc restores from the snapshot list."
 }
