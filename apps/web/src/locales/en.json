@@ -51,7 +51,13 @@
     "attended": "Attended",
     "registered": "Upcoming",
     "points": "Points",
-    "scope_note": "Counts reflect activity in this country only."
+    "scope_note": "Counts reflect activity in this country only.",
+    "heatmap_eyebrow": "Last 52 weeks",
+    "heatmap_legend_less": "Less",
+    "heatmap_legend_more": "More",
+    "heatmap_aria": "Activity heatmap for the last 52 weeks. {{count}} events attended.",
+    "heatmap_empty": "No attended events in the last year yet.",
+    "recent_events": "Recent events"
   },
   "leaderboard": {
     "title": "Leaderboard",

@@ -260,7 +260,7 @@ describe('UsersService.getPublicProfile', () => {
     expect(fakeDirectus.get).not.toHaveBeenCalled();
   });
 
-  it('hits Directus three times (attended, registered, points sum) when bridge-linked', async () => {
+  it('hits Directus five times (3 aggregates + user fields + recent events) when bridge-linked', async () => {
     const user = await service.upsertByAuthentikSubject({
       authentikSubject: 'sub-profile-linked',
       email: 'linked@example.com',
@@ -270,18 +270,52 @@ describe('UsersService.getPublicProfile', () => {
       .set({ directusUserId: '11111111-1111-4000-8000-000000000099' })
       .where(eq(users.id, user.id));
 
+    // Order matches the Promise.all in getPublicProfile:
+    //   [attended count, registered count, points sum, user fields, recent events]
     (fakeDirectus.get as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({ data: [{ count: { id: '3' } }] })
       .mockResolvedValueOnce({ data: [{ count: { id: '5' } }] })
-      .mockResolvedValueOnce({ data: [{ sum: { points: '42' } }] });
+      .mockResolvedValueOnce({ data: [{ sum: { points: '42' } }] })
+      .mockResolvedValueOnce({
+        data: {
+          bio_md: 'Hello from the test.',
+          job_title: 'ML Engineer',
+          employer: { name: 'Acme AI' },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            event: {
+              id: 'ev-1',
+              title: 'LoRA Deep Dive',
+              starts_at: '2026-04-12T16:00:00Z',
+              ends_at: '2026-04-12T19:00:00Z',
+            },
+          },
+        ],
+      });
 
     const profile = await service.getPublicProfile('linked', 'uz');
     expect(profile).toMatchObject({
       attendedCount: 3,
       registeredCount: 5,
       totalPoints: 42,
+      extras: {
+        bioMd: 'Hello from the test.',
+        jobTitle: 'ML Engineer',
+        employerName: 'Acme AI',
+        recentEvents: [
+          {
+            eventId: 'ev-1',
+            title: 'LoRA Deep Dive',
+            startsAt: '2026-04-12T16:00:00Z',
+            endsAt: '2026-04-12T19:00:00Z',
+          },
+        ],
+      },
     });
-    expect(fakeDirectus.get).toHaveBeenCalledTimes(3);
+    expect(fakeDirectus.get).toHaveBeenCalledTimes(5);
     // sanity: tenant + status filters applied to the registrations queries
     const calls = (fakeDirectus.get as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => c[0] as string,
@@ -290,6 +324,12 @@ describe('UsersService.getPublicProfile', () => {
     expect(calls[0]).toContain('filter%5Bevent%5D%5Bcountry%5D%5B_eq%5D=uz');
     expect(calls[1]).toContain('filter%5Bstatus%5D%5B_eq%5D=registered');
     expect(calls[2]).toContain('aggregate%5Bsum%5D=points');
+    // F-WebU15 extras: user fields read + recent events list
+    expect(calls[3]).toContain('/users/11111111-1111-4000-8000-000000000099');
+    expect(calls[3]).toContain('fields=bio_md');
+    expect(calls[4]).toContain('/items/registrations');
+    expect(calls[4]).toContain('filter%5Bstatus%5D%5B_eq%5D=attended');
+    expect(calls[4]).toContain('sort=-date_updated');
   });
 
   it('gracefully degrades to zero counts on Directus failure (page still renders)', async () => {

@@ -10,12 +10,35 @@ interface UpsertInput {
   displayName?: string;
 }
 
+// F-WebU15 — extras surfaced on /u/[handle] beyond the v1 counts.
+// Each is independently nullable so a missing field never blocks the
+// page; the renderer hides sections whose source is null.
+export interface PublicProfileExtras {
+  bioMd: string | null;
+  jobTitle: string | null;
+  employerName: string | null;
+  recentEvents: Array<{
+    eventId: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+  }>;
+}
+
 interface PublicProfile {
   user: User;
   attendedCount: number;
   registeredCount: number;
   totalPoints: number;
+  extras: PublicProfileExtras;
 }
+
+const EMPTY_EXTRAS: PublicProfileExtras = {
+  bioMd: null,
+  jobTitle: null,
+  employerName: null,
+  recentEvents: [],
+};
 
 // Lowercase alphanumerics + underscore, up to 64 chars. Drop anything else.
 function deriveHandle(email: string): string {
@@ -135,7 +158,7 @@ export class UsersService {
     // backfilled their directus_user_id (signed in pre-S4.5/1), counts
     // come back as zero — acceptable degraded state until they next sign in.
     if (!user.directusUserId) {
-      return { user, attendedCount: 0, registeredCount: 0, totalPoints: 0 };
+      return { user, attendedCount: 0, registeredCount: 0, totalPoints: 0, extras: EMPTY_EXTRAS };
     }
     const dxUser = user.directusUserId;
 
@@ -155,7 +178,7 @@ export class UsersService {
         'filter[country][_eq]': countryCode,
       });
 
-      const [attendedRes, registeredRes, ptsRes] = await Promise.all([
+      const [attendedRes, registeredRes, ptsRes, extras] = await Promise.all([
         this.directus.get<{ data: Array<{ count: { id: string } }> }>(
           `/items/registrations?${regsParams('attended')}`,
         ),
@@ -165,6 +188,7 @@ export class UsersService {
         this.directus.get<{ data: Array<{ sum: { points: string | null } }> }>(
           `/items/point_awards?${ptsParams.toString()}`,
         ),
+        this.fetchProfileExtras(dxUser, countryCode),
       ]);
 
       return {
@@ -172,11 +196,69 @@ export class UsersService {
         attendedCount: Number(attendedRes.data[0]?.count?.id ?? 0),
         registeredCount: Number(registeredRes.data[0]?.count?.id ?? 0),
         totalPoints: Number(ptsRes.data[0]?.sum?.points ?? 0),
+        extras,
       };
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown';
       this.logger.warn(`[users] getPublicProfile aggregates failed for ${handle}: ${reason}`);
-      return { user, attendedCount: 0, registeredCount: 0, totalPoints: 0 };
+      return { user, attendedCount: 0, registeredCount: 0, totalPoints: 0, extras: EMPTY_EXTRAS };
+    }
+  }
+
+  // F-WebU15 — one extra round-trip per page load to surface bio + job
+  // + employer + recent attended events. Failures degrade silently to
+  // EMPTY_EXTRAS so the rest of the profile still renders.
+  private async fetchProfileExtras(
+    directusUserId: string,
+    countryCode: string,
+  ): Promise<PublicProfileExtras> {
+    try {
+      const userParams = new URLSearchParams({
+        fields: 'bio_md,job_title,employer.name',
+      });
+      const regsParams = new URLSearchParams({
+        'filter[user][_eq]': directusUserId,
+        'filter[status][_eq]': 'attended',
+        'filter[event][country][_eq]': countryCode,
+        fields: 'event.id,event.title,event.starts_at,event.ends_at',
+        sort: '-date_updated',
+        limit: '50',
+      });
+      type DxUser = {
+        data: {
+          bio_md?: string | null;
+          job_title?: string | null;
+          employer?: { name?: string | null } | null;
+        };
+      };
+      type DxReg = {
+        data: Array<{
+          event: { id: string; title: string; starts_at: string; ends_at: string } | null;
+        }>;
+      };
+      const [userRes, regsRes] = await Promise.all([
+        this.directus.get<DxUser>(`/users/${directusUserId}?${userParams.toString()}`),
+        this.directus.get<DxReg>(`/items/registrations?${regsParams.toString()}`),
+      ]);
+      const recentEvents = regsRes.data
+        .map((row) => row.event)
+        .filter((ev): ev is NonNullable<typeof ev> => ev != null)
+        .map((ev) => ({
+          eventId: ev.id,
+          title: ev.title,
+          startsAt: ev.starts_at,
+          endsAt: ev.ends_at,
+        }));
+      return {
+        bioMd: userRes.data.bio_md?.trim() || null,
+        jobTitle: userRes.data.job_title?.trim() || null,
+        employerName: userRes.data.employer?.name?.trim() || null,
+        recentEvents,
+      };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`[users] fetchProfileExtras failed for ${directusUserId}: ${reason}`);
+      return EMPTY_EXTRAS;
     }
   }
 }

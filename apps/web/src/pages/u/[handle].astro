@@ -5,15 +5,15 @@ import { getLocale, makeT } from '../../lib/i18n';
 
 // Public profile page per design screen s3-1.
 //
-// v1: header (avatar + name + handle) + stat cards (attended / registered /
-// points). Tenant-scoped — counts reflect activity in the requesting
-// country (uz.aiqadam.org/u/binali shows UZ activity only).
+// F-WebU15 — enriched layout: bio + job title/employer subtitle +
+// 3 stat cards (existing) + 52-week activity heatmap + recent attended
+// events pill list. Each section degrades silently when its data is
+// null so the page never looks broken for sparse profiles.
 //
-// Deferred (need data not in schema yet):
-// - Bio / location / company
-// - Badges row
-// - 52-week heatmap of attended events
-// - Recent activity feed
+// Data lives on directus_users (bio_md, job_title, employer FK) +
+// registrations (recent attended events for the heatmap + activity feed).
+// The /v1/users/<handle>/profile endpoint deep-reads + filters; the page
+// just renders.
 export const prerender = false;
 
 const { handle } = Astro.params as { handle: string };
@@ -35,6 +35,87 @@ function avatarSeed(name: string): string {
 
 const displayName = profile.displayName ?? profile.handle;
 const seed = avatarSeed(displayName);
+
+const subtitleParts: string[] = [];
+if (profile.jobTitle) subtitleParts.push(profile.jobTitle);
+if (profile.employerName) subtitleParts.push(profile.employerName);
+const subtitle = subtitleParts.join(' · ');
+
+// Minimal markdown-ish renderer for bio_md (same shape as the event
+// agenda renderer). Bumps to `marked` if operators start writing real
+// markdown.
+function renderBio(md: string): string {
+  const escape = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return md
+    .split(/\n\s*\n/)
+    .map((block) => {
+      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) return '';
+      if (lines.every((l) => l.startsWith('- '))) {
+        return `<ul style="margin: 0 0 12px; padding-left: 20px;">${lines
+          .map((l) => `<li>${escape(l.slice(2))}</li>`)
+          .join('')}</ul>`;
+      }
+      return `<p style="margin: 0 0 12px;">${lines.map(escape).join('<br />')}</p>`;
+    })
+    .filter(Boolean)
+    .join('');
+}
+const bioHtml = profile.bioMd ? renderBio(profile.bioMd) : null;
+
+// 52-week heatmap. Bucket attended-event start dates into days, then
+// emit cells in row-major order (Mon row, Tue row, …) over the past
+// 52 × 7 days ending with this week's Saturday. Level 0..4 by per-day
+// event count. With current event volume each cell holds 0–1; the
+// legend explains the scale so future growth makes sense.
+const HEATMAP_WEEKS = 52;
+const HEATMAP_DAYS = HEATMAP_WEEKS * 7;
+const MS_PER_DAY = 86_400_000;
+
+function isoDayKey(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+const dayCounts = new Map<string, number>();
+for (const ev of profile.recentEvents) {
+  const d = new Date(ev.startsAt);
+  if (Number.isNaN(d.getTime())) continue;
+  const key = isoDayKey(d);
+  dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
+}
+
+const today = new Date();
+today.setUTCHours(0, 0, 0, 0);
+const gridEnd = new Date(today.getTime() + (6 - today.getUTCDay()) * MS_PER_DAY);
+
+interface HeatCell {
+  key: string;
+  level: 0 | 1 | 2 | 3 | 4;
+  title: string;
+}
+const heatCells: HeatCell[] = [];
+for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
+  const d = new Date(gridEnd.getTime() - i * MS_PER_DAY);
+  const key = isoDayKey(d);
+  const n = dayCounts.get(key) ?? 0;
+  const level: HeatCell['level'] = n === 0 ? 0 : n === 1 ? 2 : n === 2 ? 3 : 4;
+  heatCells.push({ key, level, title: key });
+}
+const hasHeatmapActivity = heatCells.some((c) => c.level > 0);
+
+// Pill list of recent events (cap 6 for the public profile; the heatmap
+// covers the long-tail).
+const recentEventsForPills = profile.recentEvents.slice(0, 6);
+
+function formatEventDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 ---
 
 <Layout title={`@${profile.handle} · AI Qadam`} description={`Public profile for ${displayName}.`}>
@@ -57,8 +138,18 @@ const seed = avatarSeed(displayName);
         >
           @{profile.handle}
         </p>
+        {subtitle && (
+          <p style="font-size: 14px; color: var(--foreground); margin: 6px 0 0;">{subtitle}</p>
+        )}
       </div>
     </header>
+
+    {bioHtml && (
+      <section
+        style="font-size: 15px; line-height: 1.65; color: var(--muted-foreground);"
+        set:html={bioHtml}
+      />
+    )}
 
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
       <div
@@ -104,6 +195,62 @@ const seed = avatarSeed(displayName);
         </p>
       </div>
     </div>
+
+    <section>
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+        <p
+          class="section-eyebrow"
+          style="margin: 0; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+        >
+          {t('profile.heatmap_eyebrow')}
+        </p>
+        <div class="heatmap__legend" aria-hidden="true">
+          {t('profile.heatmap_legend_less')}
+          <span class="heatmap__cell" data-level="0"></span>
+          <span class="heatmap__cell" data-level="1"></span>
+          <span class="heatmap__cell" data-level="2"></span>
+          <span class="heatmap__cell" data-level="3"></span>
+          <span class="heatmap__cell" data-level="4"></span>
+          {t('profile.heatmap_legend_more')}
+        </div>
+      </div>
+      <div
+        class="heatmap"
+        role="img"
+        aria-label={t('profile.heatmap_aria', { count: profile.attendedCount })}
+      >
+        {heatCells.map((c) => (
+          <span class="heatmap__cell" data-level={c.level} title={c.title}></span>
+        ))}
+      </div>
+      {!hasHeatmapActivity && (
+        <p style="font-size: 12px; color: var(--muted-foreground); margin: 8px 0 0;">
+          {t('profile.heatmap_empty')}
+        </p>
+      )}
+    </section>
+
+    {recentEventsForPills.length > 0 && (
+      <section>
+        <p
+          class="section-eyebrow"
+          style="margin: 0 0 10px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+        >
+          {t('profile.recent_events')}
+        </p>
+        <ul class="pill-row__list">
+          {recentEventsForPills.map((ev) => (
+            <li>
+              <a class="pill-row" href={`/events/${ev.eventId}`}>
+                <span class="pill-row__badge badge mono">{formatEventDate(ev.startsAt)}</span>
+                <span class="pill-row__label">{ev.title}</span>
+                <span class="pill-row__arrow" aria-hidden="true">↗</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
 
     <p style="font-size: 12px; color: var(--muted-foreground); font-family: var(--font-mono); margin: 0;">
       {t('profile.scope_note')}

@@ -16,6 +16,18 @@ interface PublicProfileResponse {
   attendedCount: number;
   registeredCount: number;
   totalPoints: number;
+  // F-WebU15 — enrichment surfaced on /u/[handle]. Always present;
+  // individual fields are nullable and the page hides sections whose
+  // source is null. `recentEvents` is capped at 50 server-side.
+  bioMd: string | null;
+  jobTitle: string | null;
+  employerName: string | null;
+  recentEvents: Array<{
+    eventId: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+  }>;
 }
 
 interface HandlesResponse {
@@ -79,6 +91,10 @@ export class UsersController {
       attendedCount: profile.attendedCount,
       registeredCount: profile.registeredCount,
       totalPoints: profile.totalPoints,
+      bioMd: profile.extras.bioMd,
+      jobTitle: profile.extras.jobTitle,
+      employerName: profile.extras.employerName,
+      recentEvents: profile.extras.recentEvents,
     };
   }
 }

@@ -187,6 +187,19 @@ export interface PublicProfile {
   attendedCount: number;
   registeredCount: number;
   totalPoints: number;
+  // F-WebU15 — enrichment fields. Always present in the response;
+  // null when the underlying directus_users column / FK is unset.
+  bioMd: string | null;
+  jobTitle: string | null;
+  employerName: string | null;
+  // Tenant-scoped attended events, newest-first, cap 50. Powers the
+  // activity pill list + the 52-week heatmap below the stat cards.
+  recentEvents: Array<{
+    eventId: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+  }>;
 }
 
 export async function fetchProfile(req: Request, handle: string): Promise<PublicProfile | null> {
