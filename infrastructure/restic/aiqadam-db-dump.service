@@ -1,0 +1,13 @@
+[Unit]
+Description=AI Qadam hourly DB-only snapshot (Coolify + shared Postgres) to R2 via restic
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/aiqadam-db-dump.sh
+Nice=10
+IOSchedulingClass=idle
+# Survive a slow R2 round-trip — pg_dumpall is fast (~5s); restic
+# upload is the dominant time. 5 min cap is generous.
+TimeoutStartSec=5min

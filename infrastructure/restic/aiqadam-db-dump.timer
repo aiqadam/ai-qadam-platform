@@ -1,0 +1,13 @@
+[Unit]
+Description=Hourly trigger for AI Qadam DB-only snapshots
+
+[Timer]
+# Fire at minute 17 of every hour. Offset from :00 to avoid contention
+# with whole-host cron at the top of the hour.
+OnCalendar=*-*-* *:17:00
+# If the host was off when the timer was due, run on next boot.
+Persistent=true
+Unit=aiqadam-db-dump.service
+
+[Install]
+WantedBy=timers.target
