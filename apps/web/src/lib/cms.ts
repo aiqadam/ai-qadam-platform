@@ -118,7 +118,7 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-function toApiEvent(row: CmsEventRow): ApiEvent {
+function toApiEvent(row: CmsEventRow, registeredCount = 0): ApiEvent {
   const heroImageUrl = row.hero_image ? `${BASE}/assets/${row.hero_image}` : null;
   return {
     id: row.id,
@@ -129,10 +129,7 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     capacity: row.capacity,
-    // Registration counts move to /v1/registrations once Sprint 3 wires
-    // Directus flows. Showing 0 going for now — keeps the empty state
-    // honest and the type stable.
-    registeredCount: 0,
+    registeredCount,
     location: row.location,
     countryCode: row.country,
     shortDescription: row.short_description ?? null,
@@ -148,6 +145,32 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
     longitude: parseCoord(row.longitude, -180, 180),
     updatedAt: row.date_updated ?? null,
   };
+}
+
+// Aggregates registration counts per event_id, scoped to a list of
+// event_ids. Returns 0 for any event with no live registrations.
+// Aggregate query returns groups of {event: <uuid>, count: {id: N}};
+// non-cancelled rows (status != 'cancelled') count toward "going".
+async function fetchRegisteredCounts(eventIds: string[]): Promise<Map<string, number>> {
+  if (eventIds.length === 0) return new Map();
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_in]': eventIds.join(','),
+      'filter[status][_neq]': 'cancelled',
+      'aggregate[count]': 'id',
+      'groupBy[]': 'event',
+    });
+    type AggRow = { event: string; count: { id: number | string } };
+    const body = await get<{ data: AggRow[] }>(`/items/registrations?${params.toString()}`);
+    const m = new Map<string, number>();
+    for (const row of body.data) {
+      m.set(row.event, Number(row.count.id));
+    }
+    return m;
+  } catch (err) {
+    console.error('[cms] fetchRegisteredCounts failed:', err instanceof Error ? err.message : err);
+    return new Map();
+  }
 }
 
 const EVENT_FIELDS =
@@ -177,7 +200,8 @@ export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
       fields: EVENT_FIELDS,
     });
     const body = await get<{ data: CmsEventRow[] }>(`/items/events?${params.toString()}`);
-    return body.data.map(toApiEvent);
+    const counts = await fetchRegisteredCounts(body.data.map((r) => r.id));
+    return body.data.map((row) => toApiEvent(row, counts.get(row.id) ?? 0));
   } catch (err) {
     console.error('[cms] fetchUpcomingEvents failed:', err instanceof Error ? err.message : err);
     return [];
