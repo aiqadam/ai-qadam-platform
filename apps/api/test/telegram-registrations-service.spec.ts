@@ -119,7 +119,7 @@ describe('validateProfile', () => {
 
   it('rejects malformed email', () => {
     expect(() =>
-      validateProfile({ name: 'V', email: 'not-an-email' }, DEFAULT_REGISTRATION_FIELDS),
+      validateProfile({ name: 'Viktor', email: 'not-an-email' }, DEFAULT_REGISTRATION_FIELDS),
     ).toThrow(BadRequestException);
   });
 
@@ -957,5 +957,137 @@ describe('TelegramRegistrationsService.cancel', () => {
     const svc = makeService(fake);
     const out = await svc.cancel(REG_ID, BigInt(12345));
     expect(out.registration_id).toBe(REG_ID);
+  });
+});
+
+// aiqadam#325 — waitlist + capacity behaviour.
+describe('TelegramRegistrationsService.register — waitlist + capacity (#325)', () => {
+  const EVENT_WITH_CAPACITY = {
+    ...EVENT_ROW,
+    capacity: 2,
+    waitlist_enabled: true,
+  };
+  const EVENT_FULL_NO_WAITLIST = {
+    ...EVENT_ROW,
+    capacity: 2,
+    waitlist_enabled: false,
+  };
+
+  it('still returns registered when event has capacity but is under threshold', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_WITH_CAPACITY }) // event
+      .mockResolvedValueOnce({ data: [] }) // member by tg
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] }) // member by email
+      .mockResolvedValueOnce({ data: [] }) // dupe pre-check by member
+      .mockResolvedValueOnce({ data: [] }) // dupe pre-check by tg
+      .mockResolvedValueOnce({ data: [{ count: { id: 1 } }] }); // 1 < 2
+    fake.post
+      .mockResolvedValueOnce({ data: { id: 'reg-ok' } }) // insertRegistration
+      .mockResolvedValueOnce({ data: { id: 'consent-1' } });
+    const svc = makeService(fake);
+
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(456),
+      telegram_username: null,
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    expect(out.status).toBeUndefined(); // backward-compat: absent = registered
+    expect(out.waitlist_position).toBeUndefined();
+    const insertBody = fake.post.mock.calls[0]?.[1] as { status: string };
+    expect(insertBody.status).toBe('registered');
+  });
+
+  it('inserts with status=waitlisted + returns waitlist_position when full + waitlist_enabled', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_WITH_CAPACITY }) // event
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] }) // dupe pre-check by member
+      .mockResolvedValueOnce({ data: [] }) // dupe pre-check by tg
+      .mockResolvedValueOnce({ data: [{ count: { id: 2 } }] }) // 2 = capacity → full
+      .mockResolvedValueOnce({
+        data: [
+          { id: 'older-1', date_created: '2026-05-24T00:00:00.000Z' },
+          { id: 'older-2', date_created: '2026-05-24T01:00:00.000Z' },
+        ],
+      }); // 2 ahead of us → position 3
+    fake.post
+      .mockResolvedValueOnce({ data: { id: 'reg-waitlisted' } })
+      .mockResolvedValueOnce({ data: { id: 'consent-1' } });
+    const svc = makeService(fake);
+
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(456),
+      telegram_username: null,
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    expect(out.status).toBe('waitlisted');
+    expect(out.waitlist_position).toBe(3);
+    const insertBody = fake.post.mock.calls[0]?.[1] as { status: string };
+    expect(insertBody.status).toBe('waitlisted');
+  });
+
+  it('throws BadRequest(capacity_full) when full + waitlist disabled', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_FULL_NO_WAITLIST })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] }) // dupe pre-check by member
+      .mockResolvedValueOnce({ data: [] }) // dupe pre-check by tg
+      .mockResolvedValueOnce({ data: [{ count: { id: 2 } }] });
+    const svc = makeService(fake);
+
+    try {
+      await svc.register({
+        event_id: 'evt-1',
+        telegram_user_id: BigInt(456),
+        telegram_username: null,
+        profile: { name: 'Viktor', email: 'v@example.com' },
+        consents: { events: true },
+      });
+      throw new Error('expected to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(BadRequestException);
+      const resp = (e as BadRequestException).getResponse() as { error: string };
+      expect(resp.error).toBe('capacity_full');
+    }
+    // CRUCIALLY: no POST should have happened — registration is rejected.
+    expect(fake.post).not.toHaveBeenCalled();
+  });
+
+  it('treats event with capacity=null as unlimited (always registered)', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: { ...EVENT_ROW, capacity: null } })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] }) // dupe pre-check by member
+      .mockResolvedValueOnce({ data: [] }); // dupe pre-check by tg
+    // NOTE: no count query expected (capacity=null short-circuits)
+    fake.post
+      .mockResolvedValueOnce({ data: { id: 'reg-unlimited' } })
+      .mockResolvedValueOnce({ data: { id: 'consent-1' } });
+    const svc = makeService(fake);
+
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(456),
+      telegram_username: null,
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    expect(out.status).toBeUndefined();
+    const insertBody = fake.post.mock.calls[0]?.[1] as { status: string };
+    expect(insertBody.status).toBe('registered');
   });
 });

@@ -37,6 +37,10 @@ export interface MeRegistration {
   // Where to read more about this registration on web. Matches the
   // F-S5.4 /me/registrations route pattern.
   web_url: string;
+  // #325 — surfaced when status='waitlisted'. Bot renders
+  // "⌛ Waitlist #N" instead of the normal ✅ badge.
+  status?: 'registered' | 'waitlisted';
+  waitlist_position?: number;
 }
 
 // ─── Internal Directus shape ─────────────────────────────────────────────────
@@ -102,7 +106,12 @@ export class TelegramMeService {
 // ─── Pure helpers (exported for tests) ───────────────────────────────────────
 
 export function rowToWire(
-  row: { id: string; checked_in_at: string | null; checkin_code: string | null },
+  row: {
+    id: string;
+    status?: string;
+    checked_in_at: string | null;
+    checkin_code: string | null;
+  },
   event: {
     id: string;
     slug: string | null;
@@ -111,7 +120,7 @@ export function rowToWire(
     location: string | null;
   },
 ): MeRegistration {
-  return {
+  const out: MeRegistration = {
     registration_id: row.id,
     event: {
       id: event.id,
@@ -126,6 +135,15 @@ export function rowToWire(
     qr_token: row.checked_in_at == null ? row.checkin_code : null,
     web_url: buildWebUrl(row.id),
   };
+  // #325 — only surface status when it's the non-default 'waitlisted'.
+  // Bot's pydantic treats absent as 'registered'. waitlist_position is
+  // not computed here (would require a join per row); bot can render
+  // "⌛ Waitlist" without the number. A follow-up could batch the
+  // position via a single per-list aggregate.
+  if (row.status === 'waitlisted') {
+    out.status = 'waitlisted';
+  }
+  return out;
 }
 
 // Future-first, then past most-recent first. "Future" = starts_at > now.

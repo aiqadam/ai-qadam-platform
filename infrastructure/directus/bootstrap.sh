@@ -4099,6 +4099,26 @@ ensure "relation sponsor_digests.asset_file_id -> directus_files.id" \
 # race conditions in practice (cron is single-tenant + serial, so the
 # app-layer guard is sufficient for v1).
 
+echo "[aiqadam#325 — events.waitlist_enabled]"
+# #325 — operator-set per-event toggle. When TRUE + event reaches
+# capacity, POST /v1/telegram/registrations accepts new submissions
+# with status='waitlisted' instead of throwing capacity_full. Default
+# FALSE so existing events behaviour is unchanged.
+ensure "field events.waitlist_enabled" \
+  "${DIRECTUS_URL}/fields/events/waitlist_enabled" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"waitlist_enabled",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":false},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "note":"#325 — when TRUE + event is at capacity, new POST /registrations creates rows with status=waitlisted + waitlist_position. Auto-promotion on cancel/capacity-bump is a separate deliverable (#325-b)."
+    }
+  }'
+
 echo "[aiqadam#322 — events.feedback_survey_url + feedback_survey_label]"
 # #322 — operator-set post-event feedback survey. When set, bot renders
 # a "📝 Leave feedback" inline button on the event detail card. Cron

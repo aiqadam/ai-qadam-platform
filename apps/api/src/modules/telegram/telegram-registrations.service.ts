@@ -68,6 +68,13 @@ export interface RegistrationResult {
   qr_token: string | null; // Bundle 3 PR-3.3 wires this; null until then
   starts_at: string;
   title: string;
+  // #325 — registration status. Default 'registered' for backward
+  // compatibility (bot's pydantic treats absent as registered too).
+  // 'waitlisted' fires when event is at capacity + waitlist_enabled.
+  status?: 'registered' | 'waitlisted';
+  // #325 — 1-based position in the waitlist; present only when
+  // status='waitlisted'. Bot shows "⌛ Waitlist #N" badge.
+  waitlist_position?: number;
 }
 
 export interface MemberLookupResult {
@@ -95,6 +102,9 @@ interface EventRow {
   visibility_scope: string | null;
   registration_open?: boolean | null;
   registration_schema?: { fields: RegistrationField[]; consents?: RegistrationConsent[] } | null;
+  // #325 — operator-set capacity + waitlist toggle.
+  capacity?: number | null;
+  waitlist_enabled?: boolean | null;
 }
 
 interface DirectusMemberRow {
@@ -334,6 +344,24 @@ export class TelegramRegistrationsService {
       });
     }
 
+    // #325 — capacity + waitlist branch.
+    //
+    // Resolve the target status BEFORE inserting:
+    //   * No capacity set → 'registered' (unlimited).
+    //   * Below capacity → 'registered'.
+    //   * At/above capacity + waitlist_enabled → 'waitlisted' (queued).
+    //   * At/above capacity + !waitlist_enabled → 400 capacity_full.
+    //
+    // Race note: capacity check + insert is best-effort. Two concurrent
+    // submissions racing the threshold could both land 'registered'
+    // (overbook by 1). Operator can resolve in Directus. A strict fix
+    // would require a Postgres advisory lock or a sequence — out of
+    // scope for v1; logged on overbook.
+    const insertStatus = await this.resolveInsertStatus(event);
+    if (insertStatus === 'capacity_full') {
+      throw new BadRequestException({ error: 'capacity_full' });
+    }
+
     // #277 — server-side idempotency. Insert with race-recovery; see
     // insertRegistrationWithRecovery for the catch-and-requery details.
     const recovery = await this.insertRegistrationWithRecovery({
@@ -344,8 +372,13 @@ export class TelegramRegistrationsService {
       telegramUserId: input.telegram_user_id,
       telegramUsername: input.telegram_username,
       wasNewMember,
+      status: insertStatus,
     });
     if (recovery.kind === 'recovered') {
+      // The pre-existing row's status is the truth on a race recovery
+      // (we don't know whether to label it 'registered' or 'waitlisted'
+      // without re-reading). Bot's pydantic treats absent `status` as
+      // 'registered' — fine for the common dup case (same-status repeat).
       return {
         registration_id: recovery.registrationId,
         member_id: memberId,
@@ -377,7 +410,7 @@ export class TelegramRegistrationsService {
       eventLocation: event.location,
     });
 
-    return {
+    const result: RegistrationResult = {
       registration_id: registrationId,
       member_id: memberId,
       was_new_member: wasNewMember,
@@ -385,6 +418,12 @@ export class TelegramRegistrationsService {
       starts_at: event.starts_at,
       title: event.title,
     };
+    // #325 — augment with waitlist details when applicable.
+    if (insertStatus === 'waitlisted') {
+      result.status = 'waitlisted';
+      result.waitlist_position = await this.waitlistPositionOf(input.event_id, registrationId);
+    }
+    return result;
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -392,7 +431,7 @@ export class TelegramRegistrationsService {
   private async findEventOrThrow(eventId: string): Promise<EventRow> {
     try {
       const res = await this.directus.get<{ data: EventRow }>(
-        `/items/events/${encodeURIComponent(eventId)}?fields=id,slug,title,starts_at,country,location,status,visibility_scope,registration_open,registration_schema`,
+        `/items/events/${encodeURIComponent(eventId)}?fields=id,slug,title,starts_at,country,location,status,visibility_scope,registration_open,registration_schema,capacity,waitlist_enabled`,
       );
       return res.data;
     } catch (err) {
@@ -517,6 +556,8 @@ export class TelegramRegistrationsService {
     telegramUserId: bigint;
     telegramUsername: string | null;
     wasNewMember: boolean;
+    // #325 — caller resolves capacity first (see resolveInsertStatus).
+    status: 'registered' | 'waitlisted';
   }): Promise<{ kind: 'inserted' | 'recovered'; registrationId: string }> {
     try {
       const registrationId = await this.insertRegistration(input);
@@ -549,11 +590,12 @@ export class TelegramRegistrationsService {
     telegramUserId: bigint;
     telegramUsername: string | null;
     wasNewMember: boolean;
+    status: 'registered' | 'waitlisted';
   }): Promise<string> {
     const created = await this.directus.post<{ data: { id: string } }>('/items/registrations', {
       event: input.eventId,
       user: input.memberId,
-      status: 'registered',
+      status: input.status,
       profile: input.profile,
       consents: input.consents,
       telegram_user_id: input.telegramUserId.toString(),
@@ -561,6 +603,62 @@ export class TelegramRegistrationsService {
       was_new_member: input.wasNewMember,
     });
     return created.data.id;
+  }
+
+  // #325 — decide what status the new row should land in. Returns
+  // 'registered' (under-capacity OR no cap), 'waitlisted' (full +
+  // waitlist_enabled), or 'capacity_full' (full + !waitlist_enabled,
+  // caller throws 400). Returns 'registered' on lookup failure so
+  // a transient Directus blip doesn't lock new registrations out.
+  private async resolveInsertStatus(
+    event: EventRow,
+  ): Promise<'registered' | 'waitlisted' | 'capacity_full'> {
+    if (event.capacity == null) return 'registered';
+    const taken = await this.countActiveRegistrations(event.id);
+    if (taken < event.capacity) return 'registered';
+    if (event.waitlist_enabled) return 'waitlisted';
+    return 'capacity_full';
+  }
+
+  // #325 — count registrations that consume capacity. Mirrors the
+  // partial unique index in the #277 migration: status IN
+  // (registered, waitlisted, attended) but excluding waitlisted
+  // (waitlisted rows do NOT consume capacity).
+  private async countActiveRegistrations(eventId: string): Promise<number> {
+    const e = encodeURIComponent(eventId);
+    try {
+      const res = await this.directus.get<{ data: Array<{ count: { id: number } }> }>(
+        `/items/registrations?filter[event][_eq]=${e}&filter[status][_in]=registered,attended&aggregate[count]=id&limit=1`,
+      );
+      return Number(res.data[0]?.count?.id ?? 0);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(
+        `countActiveRegistrations event=${eventId} reason=${reason} — defaulting to 0 (registered)`,
+      );
+      return 0;
+    }
+  }
+
+  // #325 — 1-based position in the waitlist. Used in the response for
+  // a freshly-waitlisted row. Counts rows older-or-equal to this one
+  // (date_created <=) so the just-inserted row gets its true position.
+  private async waitlistPositionOf(eventId: string, registrationId: string): Promise<number> {
+    const e = encodeURIComponent(eventId);
+    const r = encodeURIComponent(registrationId);
+    try {
+      const ahead = await this.directus.get<{ data: Array<{ id: string }> }>(
+        `/items/registrations?filter[event][_eq]=${e}&filter[status][_eq]=waitlisted&filter[id][_neq]=${r}&fields=id,date_created&sort=date_created&limit=1000`,
+      );
+      // ahead.length older rows are in front; +1 for the caller's row.
+      return ahead.data.length + 1;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(
+        `waitlistPositionOf event=${eventId} reg=${registrationId} reason=${reason} — defaulting to 1`,
+      );
+      return 1;
+    }
   }
 
   // Bundle 2 MVP. Renders the hardcoded registration_confirmed template,
