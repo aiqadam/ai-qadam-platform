@@ -54,6 +54,11 @@ interface RegistrationRow {
 // event windows later, this moves to events.{checkin_opens_at, ...}.
 const CHECKIN_WINDOW_BEFORE_MS = 60 * 60 * 1000;
 
+// #316 — `registrations.checkin_code` is a uuid column. Pre-check
+// shape before querying so non-UUID tokens don't crash Postgres's
+// cast and propagate as 500.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class TelegramCheckinService {
   private readonly logger = new Logger(TelegramCheckinService.name);
@@ -109,6 +114,14 @@ export class TelegramCheckinService {
   }
 
   private async findRegistrationByToken(token: string): Promise<RegistrationRow | null> {
+    // #316 — `registrations.checkin_code` is a Postgres uuid column.
+    // Directus's filter[_eq] casts the value before WHERE; a non-UUID
+    // token raises a 500 from the underlying CAST. Pre-check the shape
+    // here and treat non-UUID tokens as "not found" (caller will throw
+    // the documented 404 checkin_token_not_found) — same observable
+    // result as "valid UUID that doesn't exist." Future short-token
+    // variants would live in a separate column with its own validator.
+    if (!UUID_RE.test(token)) return null;
     const t = encodeURIComponent(token);
     const query = [
       `filter[checkin_code][_eq]=${t}`,
