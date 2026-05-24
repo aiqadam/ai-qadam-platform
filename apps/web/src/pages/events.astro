@@ -3,35 +3,60 @@ import EventsGrid from '../components/EventsGrid.astro';
 import EventsTimeline from '../components/EventsTimeline.astro';
 import { LeadCaptureForm } from '../components/LeadCaptureForm';
 import Layout from '../layouts/Layout.astro';
-import { fetchUpcomingEvents } from '../lib/cms';
+import { fetchPastEvents, fetchUpcomingEvents } from '../lib/cms';
 import { getLocale, makeT } from '../lib/i18n';
 
 // Events index per design screen s1-2. Two views toggled via ?view=:
 //   - timeline (default): events grouped by month with .tl-item dots
 //   - grid: 3-col grid of .event-card
 //
-// Past events tab is shown but disabled — the API only returns upcoming
-// today. A2.5 extends events.controller with ?include=past|all and
-// flips this on.
+// F-WebU14 adds three filter knobs on top:
+//   - ?tab=upcoming|past — toggles the dataset (past tab no longer disabled)
+//   - ?format=meetup|workshop|hackathon|conference|online — server-side filter
+//   - ?q=<text> — case-insensitive title contains, max 80 chars
+// All three are honored at the Directus query layer (no client filtering),
+// so the URL is the source of truth and SEO sees real filtered results.
 export const prerender = false;
 
 const url = new URL(Astro.request.url);
 const view = url.searchParams.get('view') === 'grid' ? 'grid' : 'timeline';
+const tab = url.searchParams.get('tab') === 'past' ? 'past' : 'upcoming';
+const rawFormat = url.searchParams.get('format');
+const FORMATS = ['meetup', 'workshop', 'hackathon', 'conference', 'online'] as const;
+type FormatKey = (typeof FORMATS)[number];
+const format: FormatKey | null = (FORMATS as readonly string[]).includes(rawFormat ?? '')
+  ? (rawFormat as FormatKey)
+  : null;
+const q = (url.searchParams.get('q') ?? '').trim().slice(0, 80);
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
-const events = await fetchUpcomingEvents(Astro.request);
+const events =
+  tab === 'past'
+    ? await fetchPastEvents(Astro.request, { format, q })
+    : await fetchUpcomingEvents(Astro.request, { format, q });
 
-function toggleHref(target: 'timeline' | 'grid'): string {
+// F-WebU14 — preserves any unrelated query params (e.g. utm_*) when
+// flipping one knob. Pass {key: null} to drop a knob from the URL.
+function withParams(updates: Record<string, string | null>): string {
   const next = new URLSearchParams(url.searchParams);
-  next.set('view', target);
-  return `?${next.toString()}`;
+  for (const [k, v] of Object.entries(updates)) {
+    if (v === null || v === '') next.delete(k);
+    else next.set(k, v);
+  }
+  const qs = next.toString();
+  return qs ? `/events?${qs}` : '/events';
 }
 
 const tabBase =
   'display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.04em; text-decoration: none; cursor: pointer; border: 0; background: transparent;';
-const tabActive = `${tabBase} background: var(--muted); color: var(--foreground);`;
-const tabInactive = `${tabBase} color: var(--muted-foreground);`;
+const tabActiveStyle = `${tabBase} background: var(--muted); color: var(--foreground);`;
+const tabInactiveStyle = `${tabBase} color: var(--muted-foreground);`;
+
+const filterChipBase =
+  'display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; font-size: 12px; line-height: 1; text-decoration: none; border: 1px solid var(--border); cursor: pointer;';
+const filterChipActive = `${filterChipBase} background: var(--primary); color: var(--primary-foreground); border-color: var(--primary);`;
+const filterChipInactive = `${filterChipBase} background: var(--card); color: var(--muted-foreground);`;
 ---
 
 <Layout title={`${t('nav.events')} · AI Qadam`}>
@@ -47,25 +72,85 @@ const tabInactive = `${tabBase} color: var(--muted-foreground);`;
       </p>
     </div>
 
+    <form
+      method="get"
+      action="/events"
+      style="display: flex; gap: 8px; margin-bottom: 16px;"
+    >
+      <input type="hidden" name="tab" value={tab} />
+      <input type="hidden" name="view" value={view} />
+      {format && <input type="hidden" name="format" value={format} />}
+      <input
+        type="search"
+        name="q"
+        value={q}
+        placeholder={t('events_index.search_placeholder')}
+        aria-label={t('events_index.search_placeholder')}
+        class="input"
+        style="flex: 1; max-width: 480px;"
+        maxlength="80"
+      />
+      <button type="submit" class="btn btn-sm btn-outline">
+        {t('events_index.search_button')}
+      </button>
+      {q && (
+        <a
+          href={withParams({ q: null })}
+          class="btn btn-sm btn-ghost"
+          aria-label={t('events_index.search_clear')}
+        >
+          {t('events_index.search_clear')}
+        </a>
+      )}
+    </form>
+
+    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
+      <a href={withParams({ format: null })} style={format == null ? filterChipActive : filterChipInactive}>
+        {t('events_index.filter_all')}
+      </a>
+      {FORMATS.map((f) => (
+        <a
+          href={withParams({ format: f })}
+          style={format === f ? filterChipActive : filterChipInactive}
+        >
+          {t(`events_index.filter_${f}`)}
+        </a>
+      ))}
+    </div>
+
     <div
       style="display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px;"
     >
       <div style="display: inline-flex; gap: 4px;">
-        <span style={tabActive}>
+        <a
+          href={withParams({ tab: null })}
+          style={tab === 'upcoming' ? tabActiveStyle : tabInactiveStyle}
+        >
           {t('events_index.tab_upcoming')}
-          <span class="count" style="font-family: var(--font-mono); font-size: 10px; opacity: 0.7;">{events.length}</span>
-        </span>
-        <span style={`${tabInactive} opacity: 0.5; cursor: not-allowed;`}>
+          {tab === 'upcoming' && (
+            <span class="count" style="font-family: var(--font-mono); font-size: 10px; opacity: 0.7;">
+              {events.length}
+            </span>
+          )}
+        </a>
+        <a
+          href={withParams({ tab: 'past' })}
+          style={tab === 'past' ? tabActiveStyle : tabInactiveStyle}
+        >
           {t('events_index.tab_past')}
-          <span class="count" style="font-family: var(--font-mono); font-size: 10px; opacity: 0.7;">—</span>
-        </span>
+          {tab === 'past' && (
+            <span class="count" style="font-family: var(--font-mono); font-size: 10px; opacity: 0.7;">
+              {events.length}
+            </span>
+          )}
+        </a>
       </div>
 
       <div
         style="margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; padding: 2px;"
       >
         <a
-          href={toggleHref('timeline')}
+          href={withParams({ view: null })}
           style={view === 'timeline'
             ? 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: var(--muted); color: var(--foreground); font-size: 12px; text-decoration: none;'
             : 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; color: var(--muted-foreground); font-size: 12px; text-decoration: none;'}
@@ -73,7 +158,7 @@ const tabInactive = `${tabBase} color: var(--muted-foreground);`;
           {t('events_index.view_timeline')}
         </a>
         <a
-          href={toggleHref('grid')}
+          href={withParams({ view: 'grid' })}
           style={view === 'grid'
             ? 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: var(--muted); color: var(--foreground); font-size: 12px; text-decoration: none;'
             : 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; color: var(--muted-foreground); font-size: 12px; text-decoration: none;'}
@@ -83,7 +168,19 @@ const tabInactive = `${tabBase} color: var(--muted-foreground);`;
       </div>
     </div>
 
-    {view === 'timeline' ? (
+    {events.length === 0 ? (
+      <div class="empty-state" style="margin: 32px 0;">
+        <div class="empty-icon" aria-hidden="true">🔍</div>
+        <p class="empty-heading">{t('events_index.empty_title')}</p>
+        <p class="empty-desc">
+          {q || format
+            ? t('events_index.empty_filtered_body')
+            : tab === 'past'
+              ? t('events_index.empty_past_body')
+              : t('events_index.empty_upcoming_body')}
+        </p>
+      </div>
+    ) : view === 'timeline' ? (
       <EventsTimeline events={events} locale={locale} />
     ) : (
       <EventsGrid events={events} locale={locale} />

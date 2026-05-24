@@ -201,9 +201,40 @@ export function countryFromHost(host: string | null | undefined): string {
   return 'uz';
 }
 
+// F-WebU14 — server-side filter knobs honored by /events. Format is
+// validated against the closed enum; q is `_icontains` on title (max
+// 80 chars to keep the query string bounded). Both optional; calling
+// without opts preserves the original homepage shape.
+export type EventFormatFilter = 'meetup' | 'workshop' | 'hackathon' | 'conference' | 'online';
+const VALID_FORMATS = new Set<EventFormatFilter>([
+  'meetup',
+  'workshop',
+  'hackathon',
+  'conference',
+  'online',
+]);
+
+export interface FetchEventsOpts {
+  format?: string | null;
+  q?: string | null;
+}
+
+function applyEventFilters(params: URLSearchParams, opts?: FetchEventsOpts): void {
+  if (opts?.format && VALID_FORMATS.has(opts.format as EventFormatFilter)) {
+    params.set('filter[format][_eq]', opts.format);
+  }
+  const q = opts?.q?.trim();
+  if (q && q.length > 0 && q.length <= 80) {
+    params.set('filter[title][_icontains]', q);
+  }
+}
+
 // Upcoming, published events for the country derived from the incoming
 // Host header. Drop-in replacement for lib/api.fetchUpcomingEvents.
-export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
+export async function fetchUpcomingEvents(
+  req: Request,
+  opts?: FetchEventsOpts,
+): Promise<ApiEvent[]> {
   const country = countryFromHost(req.headers.get('host'));
   try {
     const now = new Date().toISOString();
@@ -215,11 +246,37 @@ export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
       limit: '50',
       fields: EVENT_FIELDS,
     });
+    applyEventFilters(params, opts);
     const body = await get<{ data: CmsEventRow[] }>(`/items/events?${params.toString()}`);
     const counts = await fetchRegisteredCounts(body.data.map((r) => r.id));
     return body.data.map((row) => toApiEvent(row, counts.get(row.id) ?? 0));
   } catch (err) {
     console.error('[cms] fetchUpcomingEvents failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// F-WebU14 — past published events, newest-first. Same filter knobs as
+// upcoming. Decoupled from fetchUpcomingEvents so the homepage's fast
+// upcoming-only path stays a single Directus call.
+export async function fetchPastEvents(req: Request, opts?: FetchEventsOpts): Promise<ApiEvent[]> {
+  const country = countryFromHost(req.headers.get('host'));
+  try {
+    const now = new Date().toISOString();
+    const params = new URLSearchParams({
+      'filter[country][_eq]': country,
+      'filter[status][_eq]': 'published',
+      'filter[ends_at][_lt]': now,
+      sort: '-ends_at',
+      limit: '50',
+      fields: EVENT_FIELDS,
+    });
+    applyEventFilters(params, opts);
+    const body = await get<{ data: CmsEventRow[] }>(`/items/events?${params.toString()}`);
+    const counts = await fetchRegisteredCounts(body.data.map((r) => r.id));
+    return body.data.map((row) => toApiEvent(row, counts.get(row.id) ?? 0));
+  } catch (err) {
+    console.error('[cms] fetchPastEvents failed:', err instanceof Error ? err.message : err);
     return [];
   }
 }
