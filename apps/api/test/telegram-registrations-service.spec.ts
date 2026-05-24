@@ -372,6 +372,117 @@ describe('TelegramRegistrationsService.register', () => {
     }
   });
 
+  // #277 — race recovery. Two concurrent POSTs both pass the
+  // pre-checks (they race), the second insert hits the partial UNIQUE
+  // index on (event, user) and Directus returns 400 RECORD_NOT_UNIQUE.
+  // The service catches it, re-queries, returns the original 201.
+  it('race recovery: unique-violation on insert → re-query + return existing as 201', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_ROW }) // findEventOrThrow
+      .mockResolvedValueOnce({ data: [] }) // member by tg — miss
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] }) // member by email
+      .mockResolvedValueOnce({ data: [] }) // findRegistration pre-check — RACE WINDOW, no dupe yet
+      .mockResolvedValueOnce({ data: [] }) // findRegistrationByTgUserId pre-check — same
+      // After the insert fails with RECORD_NOT_UNIQUE, the recovery
+      // path re-queries findRegistration and finds the winner.
+      .mockResolvedValueOnce({
+        data: [{ id: 'reg-winner', event: 'evt-1', user: 'mem-1', checkin_code: null }],
+      });
+
+    fake.post
+      // insertRegistration throws RECORD_NOT_UNIQUE from Directus
+      .mockRejectedValueOnce(
+        new DirectusError(
+          400,
+          '/items/registrations',
+          '{"errors":[{"message":"Value for field \\"user\\" has to be unique.","extensions":{"code":"RECORD_NOT_UNIQUE"}}]}',
+        ),
+      );
+
+    const svc = makeService(fake);
+
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(123),
+      telegram_username: 'viktor',
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    expect(out.registration_id).toBe('reg-winner');
+    expect(out.member_id).toBe('mem-1');
+    expect(out.was_new_member).toBe(false);
+  });
+
+  // #277 — guard against silent unique-violation that the recovery
+  // path can't find a winner for (shouldn't happen in practice, but
+  // belt-and-braces: re-throw the original error so the caller doesn't
+  // see a phantom success).
+  it('unique-violation + re-query finds nothing → propagates original error', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_ROW })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] }) // pre-check — no dupe
+      .mockResolvedValueOnce({ data: [] }) // pre-check by tg — no dupe
+      .mockResolvedValueOnce({ data: [] }); // recovery re-query — still nothing
+
+    fake.post.mockRejectedValueOnce(
+      new DirectusError(
+        400,
+        '/items/registrations',
+        '{"errors":[{"extensions":{"code":"RECORD_NOT_UNIQUE"}}]}',
+      ),
+    );
+
+    const svc = makeService(fake);
+
+    await expect(
+      svc.register({
+        event_id: 'evt-1',
+        telegram_user_id: BigInt(123),
+        telegram_username: null,
+        profile: { name: 'Viktor', email: 'v@example.com' },
+        consents: { events: true },
+      }),
+    ).rejects.toBeInstanceOf(DirectusError);
+  });
+
+  // #277 — non-unique-violation errors (e.g. transient 500) must NOT
+  // be swallowed by the recovery path. Re-throw immediately.
+  it('non-unique-violation error → propagates without recovery attempt', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_ROW })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] });
+
+    fake.post.mockRejectedValueOnce(
+      new DirectusError(500, '/items/registrations', '{"errors":[{"message":"db timeout"}]}'),
+    );
+
+    const svc = makeService(fake);
+
+    await expect(
+      svc.register({
+        event_id: 'evt-1',
+        telegram_user_id: BigInt(123),
+        telegram_username: null,
+        profile: { name: 'Viktor', email: 'v@example.com' },
+        consents: { events: true },
+      }),
+    ).rejects.toBeInstanceOf(DirectusError);
+
+    // Crucially: no extra GET after the failed POST (no recovery attempt).
+    // The 5 GETs are: event, member-by-tg, member-by-email, dupe pre-check,
+    // tg dupe pre-check. Six would indicate the recovery path mistakenly fired.
+    expect(fake.get.mock.calls.length).toBe(5);
+  });
+
   it('400 when event not_published', async () => {
     const fake = fakeDirectus();
     fake.get.mockResolvedValueOnce({ data: { ...EVENT_ROW, status: 'draft' } });

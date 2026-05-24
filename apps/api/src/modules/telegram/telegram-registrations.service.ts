@@ -241,7 +241,9 @@ export class TelegramRegistrationsService {
       });
     }
 
-    const registrationId = await this.insertRegistration({
+    // #277 — server-side idempotency. Insert with race-recovery; see
+    // insertRegistrationWithRecovery for the catch-and-requery details.
+    const recovery = await this.insertRegistrationWithRecovery({
       eventId: input.event_id,
       memberId,
       profile: input.profile,
@@ -250,6 +252,17 @@ export class TelegramRegistrationsService {
       telegramUsername: input.telegram_username,
       wasNewMember,
     });
+    if (recovery.kind === 'recovered') {
+      return {
+        registration_id: recovery.registrationId,
+        member_id: memberId,
+        was_new_member: false,
+        qr_token: null,
+        starts_at: event.starts_at,
+        title: event.title,
+      };
+    }
+    const registrationId = recovery.registrationId;
 
     // Consent records are best-effort per-purpose. A single failure
     // doesn't roll back the registration — the registration row carries
@@ -386,6 +399,47 @@ export class TelegramRegistrationsService {
       `/items/registrations?filter[event][_eq]=${e}&filter[telegram_user_id][_eq]=${t}&fields=id,event,user,checkin_code&limit=1`,
     );
     return res.data[0] ?? null;
+  }
+
+  // #277 — insert + on unique-constraint violation, re-query and
+  // return the existing row. Requires the partial unique index in
+  // infrastructure/postgres/migrations/2026-05-24-registrations-unique-event-user.sql
+  // — applied separately by the operator since Directus's schema API
+  // doesn't model partial indexes.
+  //
+  // Returns either { kind: 'inserted', registrationId } or
+  // { kind: 'recovered', registrationId } so the caller can decide
+  // whether to run post-insert side effects (recordConsents, dispatch).
+  private async insertRegistrationWithRecovery(input: {
+    eventId: string;
+    memberId: string;
+    profile: Record<string, unknown>;
+    consents: Record<string, boolean>;
+    telegramUserId: bigint;
+    telegramUsername: string | null;
+    wasNewMember: boolean;
+  }): Promise<{ kind: 'inserted' | 'recovered'; registrationId: string }> {
+    try {
+      const registrationId = await this.insertRegistration(input);
+      return { kind: 'inserted', registrationId };
+    } catch (err) {
+      if (!this.isUniqueViolation(err)) throw err;
+      const recovered = await this.findRegistration(input.eventId, input.memberId);
+      if (!recovered) throw err;
+      this.logger.warn(
+        `register_race_recovered event=${input.eventId} member=${input.memberId} registration=${recovered.id}`,
+      );
+      return { kind: 'recovered', registrationId: recovered.id };
+    }
+  }
+
+  // Directus surfaces Postgres unique-constraint violations as 400
+  // with a body containing `RECORD_NOT_UNIQUE` in the errors[].extensions.
+  // We match on the raw body since DirectusError doesn't parse it.
+  private isUniqueViolation(err: unknown): boolean {
+    return (
+      err instanceof DirectusError && err.status === 400 && err.body.includes('RECORD_NOT_UNIQUE')
+    );
   }
 
   private async insertRegistration(input: {
