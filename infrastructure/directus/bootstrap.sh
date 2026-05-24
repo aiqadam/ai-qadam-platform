@@ -699,6 +699,23 @@ ensure "relation speakers.photo -> directus_files.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"speakers","field":"photo","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
 
+# aiqadam#291 — URL-friendly speaker slug for the bot's /speakers list +
+# /v1/telegram/speakers/{slug} detail endpoint. Mirrors events.slug
+# (F-S3.10-a): nullable + unique + operator-editable. Existing speakers
+# get NULL until the operator (or a one-time backfill) fills it; the
+# endpoint accepts uuid as a slug-or-id fallback so NULL doesn't break
+# the bot's deep-links during the transition.
+echo "[aiqadam#291 — speakers.slug]"
+ensure "field speakers.slug" \
+  "${DIRECTUS_URL}/fields/speakers/slug" \
+  "${DIRECTUS_URL}/fields/speakers" \
+  '{
+    "field":"slug",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":120,"is_unique":true},
+    "meta":{"interface":"input","width":"half","note":"URL-friendly handle (auto-suggested from the speaker'\''s name; editable). Powers the bot'\''s /speakers/{slug} deeplinks + future public /speakers/<slug> page."}
+  }'
+
 # ──────────── eulas (Sprint 5.5/2) ──────────────────────────────────────
 #
 # Per Q1: capability only — multiple independent EULA datasets supported;
