@@ -119,7 +119,7 @@ function AnonView(): ReactElement {
         href={`/auth/sign-in?next=${encodeURIComponent(nextHere())}`}
         style={{ textDecoration: 'none' }}
       >
-        Sign in with Authentik
+        Sign in
       </a>
     </div>
   );
