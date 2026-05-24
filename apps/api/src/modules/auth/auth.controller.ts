@@ -189,7 +189,7 @@ export class AuthController {
   // POST /v1/auth/sign-out — XHR from the app. Three responsibilities,
   // in order:
   //   1. Look up the id_token from the current refresh row (read-only)
-  //      so we can build an OIDC RP-Initiated Logout URL.
+  //      so we can build an OIDC RP-Initiated Logout URL with hint.
   //   2. Tear down our local session: revoke the refresh family
   //      (replay-protected — entire chain killed), deny-list the
   //      access JWT's jti in Redis for its remaining lifetime, clear
@@ -199,8 +199,22 @@ export class AuthController {
   //      logout instead of a local-only clear — SSO ⇒ SLO. Without it
   //      the IdP session lingers and the next /login silently SSO's
   //      the user back in (security regression — confirmed in prod
-  //      2026-05-23). Returns `logoutUrl: null` when no id_token is
-  //      available; client falls back to /auth/signed-out.
+  //      2026-05-23).
+  //
+  // Degraded fallback: when the refresh cookie is absent but the bearer
+  // is a valid (i.e. not denylisted, not malformed) access token, we
+  // STILL build a no-hint end_session URL. This covers the orphaned-
+  // session case where a prior refresh-token race revoked the family +
+  // cleared the cookie while the React island that lost the race kept
+  // a valid access token in JS memory. Without this fallback that user
+  // gets stuck in the silent-resign-in loop (logoutUrl=null → local
+  // clear → next /login silent-SSO's them back in). Cost: the no-hint
+  // URL triggers Authentik's "confirm logout?" page per OIDC RP-Initiated
+  // Logout 1.0 §2 — degraded UX, but strictly better than the loop.
+  //
+  // Only returns `logoutUrl: null` when there's no auth signal at all
+  // (no cookie + no valid bearer) — i.e. the request is anonymous and
+  // there's nothing to log out from.
   @Post('sign-out')
   @HttpCode(HttpStatus.OK)
   async signOut(
@@ -211,7 +225,9 @@ export class AuthController {
       (req.cookies?.[REFRESH_COOKIE] as string | undefined) ??
       (req.cookies?.[LEGACY_REFRESH_COOKIE] as string | undefined);
     let logoutUrl: string | null = null;
+    let sawSession = false;
     if (typeof refreshToken === 'string' && refreshToken.length > 0) {
+      sawSession = true;
       // Peek BEFORE consume: consume() marks usedAt — the row still
       // carries the id_token afterwards, but reading first keeps the
       // logout-URL construction independent of the revoke result. If
@@ -226,19 +242,37 @@ export class AuthController {
         // already invalid — local clear + IdP logout still need to run
       }
     }
-    const bearer = extractBearer(req);
-    if (bearer) {
-      try {
-        const claims = await this.jwt.verify(bearer);
-        const exp = typeof claims.exp === 'number' ? claims.exp : 0;
-        const ttl = Math.max(1, exp - Math.floor(Date.now() / 1000));
-        await this.revocations.revoke(claims.jti, ttl);
-      } catch {
-        // token invalid or already revoked — no-op
-      }
+    if (await this.revokeBearerJti(req)) {
+      sawSession = true;
+    }
+    // Degraded fallback: bearer-proven session but no usable id_token.
+    // buildLogoutUrl(null) returns a no-hint URL (with confirmation page).
+    if (logoutUrl === null && sawSession) {
+      logoutUrl = this.auth.buildLogoutUrl(null);
     }
     clearRefreshCookies(res);
     return { logoutUrl };
+  }
+
+  // Helper for /sign-out: if the request carries a Bearer access token,
+  // verify it and deny-list its jti for the remaining lifetime. Returns
+  // true iff verification succeeded (= proof of a session for the caller's
+  // identity) so the caller can decide whether to fall back to the no-hint
+  // logout URL. Extracted from signOut to keep the controller method
+  // under the cognitive-complexity ceiling.
+  private async revokeBearerJti(req: Request): Promise<boolean> {
+    const bearer = extractBearer(req);
+    if (!bearer) return false;
+    try {
+      const claims = await this.jwt.verify(bearer);
+      const exp = typeof claims.exp === 'number' ? claims.exp : 0;
+      const ttl = Math.max(1, exp - Math.floor(Date.now() / 1000));
+      await this.revocations.revoke(claims.jti, ttl);
+      return true;
+    } catch {
+      // token invalid or already revoked — no proof of session
+      return false;
+    }
   }
 
   // POST /v1/auth/refresh — XHR. Rotates the refresh cookie + returns a

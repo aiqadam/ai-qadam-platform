@@ -173,30 +173,43 @@ export class AuthService {
   }
 
   // OIDC RP-Initiated Logout (security requirement — SSO ⇒ SLO). Builds
-  // Authentik's end_session URL with id_token_hint + post_logout_redirect_uri
-  // so terminating an AI Qadam session also terminates the user's
-  // Authentik session and, transitively, every other Authentik-protected
-  // app (Directus, Gatus, workspace tools). Without this, /sign-out is a
-  // false promise: the IdP session lingers and the user is silently
-  // SSO'd back in on the next sign-in.
+  // Authentik's end_session URL so terminating an AI Qadam session also
+  // terminates the user's Authentik session and, transitively, every
+  // other Authentik-protected app (Directus, Gatus, workspace tools).
+  // Without this, /sign-out is a false promise: the IdP session lingers
+  // and the user is silently SSO'd back in on the next sign-in.
   //
-  // Returns null when we can't construct a hint-bearing URL (e.g. legacy
-  // refresh row without id_token, or end_session_endpoint not advertised
-  // by the issuer). Caller falls back to /auth/signed-out so the user
-  // still gets out of AI Qadam locally.
+  // Two URL shapes:
+  //   - WITH id_token_hint + post_logout_redirect_uri — happy path. Per
+  //     OIDC RP-Initiated Logout 1.0 §2, when the hint is present the OP
+  //     MAY skip the user-confirmation step and run the invalidation
+  //     flow silently. This is what we want for the common case.
+  //   - WITHOUT id_token_hint — degraded fallback. Used when the caller
+  //     has lost its refresh cookie (e.g. after a refresh-token race
+  //     revoked the family + cleared the cookie) but still holds a valid
+  //     access token. Per spec §2 the OP MUST then prompt the user
+  //     "do you want to log out?" — so the user sees Authentik's
+  //     confirmation page before landing on /auth/signed-out. Acceptable
+  //     UX cost; the alternative is the IdP session lingering and the
+  //     next /login silently SSO'ing the user back in. Per spec §3 we
+  //     MUST NOT pass post_logout_redirect_uri without the hint (the OP
+  //     refuses to honour it without authentication); the static-redirect
+  //     stage in the aiqadam-provider-invalidation flow handles landing
+  //     instead.
   //
-  // Authentik config: `${WEB_BASE_URL}/auth/signed-out` must be in the
-  // OIDC provider's allowed `post_logout_redirect_uris`. Without that
-  // Authentik refuses the redirect (the browser ends up on a generic
-  // Authentik page instead of /auth/signed-out).
+  // Returns null only when the issuer doesn't advertise end_session_endpoint
+  // (no way to construct any URL). Caller then falls back to a local
+  // /auth/signed-out navigation and accepts the lingering IdP session.
   buildLogoutUrl(idToken: string | null): string | null {
-    if (!idToken) return null;
     const endSession = this.oidc.issuer.metadata.end_session_endpoint;
     if (typeof endSession !== 'string' || endSession.length === 0) return null;
-    return this.oidc.endSessionUrl({
-      id_token_hint: idToken,
-      post_logout_redirect_uri: `${env.WEB_BASE_URL}/auth/signed-out`,
-    });
+    if (idToken) {
+      return this.oidc.endSessionUrl({
+        id_token_hint: idToken,
+        post_logout_redirect_uri: `${env.WEB_BASE_URL}/auth/signed-out`,
+      });
+    }
+    return this.oidc.endSessionUrl({});
   }
 
   // Mint OUR session: short-lived access JWT (with jti for deny-list) +
