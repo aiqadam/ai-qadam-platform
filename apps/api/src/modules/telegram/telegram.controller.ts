@@ -16,6 +16,7 @@ import { env } from '../../config/env';
 import { track } from '../../lib/ops-events';
 import { TelegramAuthGuard } from './telegram-auth.guard';
 import { type EventSummary, TelegramEventsService } from './telegram-events.service';
+import { type MeRegistration, TelegramMeService } from './telegram-me.service';
 import {
   type RegistrationSchema,
   TelegramRegistrationSchemaService,
@@ -72,6 +73,14 @@ const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-D
 const queryBoolSchema = z
   .enum(['true', 'false', '1', '0'])
   .transform((v) => v === 'true' || v === '1');
+
+// aiqadam#281 — /me/registrations query param. Same tg_user_id zod shape
+// as the other endpoints; required here (no anonymous /me).
+const meQuerySchema = z.object({
+  tg_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .transform((v) => BigInt(v)),
+});
 
 const eventsQuerySchema = z.object({
   // aiqadam#290 — accept full ISO 3166-1 alpha-2 too (was 2-8 before;
@@ -272,11 +281,35 @@ export class TelegramController {
     private readonly telegram: TelegramService,
     private readonly config: TgConfigService,
     private readonly registrations: TelegramRegistrationsService,
+    private readonly me: TelegramMeService,
   ) {}
 
   @Get('whoami')
   whoami(): { authenticated: true; module: 'telegram' } {
     return { authenticated: true, module: 'telegram' };
+  }
+
+  // GET /v1/telegram/me/registrations?tg_user_id=<id>
+  //   aiqadam#281 Part 1. Powers the bot's /me command — lists the
+  //   caller's upcoming + past registrations (future first, closest
+  //   starts_at first; then past, most-recent first). Cancelled rows
+  //   excluded.
+  //
+  //   200: { items: [{ registration_id, event, checked_in_at, qr_token,
+  //                    web_url }] }
+  //   400: bad / missing tg_user_id param
+  //   401/503: TelegramAuthGuard
+  //
+  //   Empty items array is normal — bot renders "No registrations yet"
+  //   and offers /events.
+  @Get('me/registrations')
+  async meRegistrations(@Query() query: unknown): Promise<{ items: MeRegistration[] }> {
+    const parsed = meQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const items = await this.me.listMyRegistrations(parsed.data.tg_user_id);
+    return { items };
   }
 
   // GET /v1/telegram/members/by-tg/:id
