@@ -331,9 +331,13 @@ export class TelegramEventsService {
 
   // Single-event variant of fetchRegistrationsByTgUser. Returns the
   // registration id or null. Used by detail to annotate is_registered.
+  //
+  // #328 — DON'T filter on registrations.telegram_user_id (drifts on
+  // silent-email-match path; see telegram-me.service.ts comment).
+  // Deep-filter through user.telegram_user_id instead.
   private async fetchOneRegistration(eventId: string, tgUserId: bigint): Promise<string | null> {
     const query = [
-      `filter[telegram_user_id][_eq]=${encodeURIComponent(tgUserId.toString())}`,
+      `filter[user][telegram_user_id][_eq]=${encodeURIComponent(tgUserId.toString())}`,
       `filter[event][_eq]=${encodeURIComponent(eventId)}`,
       'filter[status][_neq]=cancelled',
       'fields=id',
@@ -356,6 +360,9 @@ export class TelegramEventsService {
   // Single-query annotation: GET /items/registrations filtered to the
   // (tg_user_id, event ∈ ids) tuple. Excludes status='cancelled' so a
   // user who cancelled can re-register (UX matches the "going" counter).
+  //
+  // #328 — Deep-filter via user.telegram_user_id (canonical) rather
+  // than the denormalized registrations.telegram_user_id column.
   private async fetchRegistrationsByTgUser(
     eventIds: string[],
     tgUserId: bigint,
@@ -363,7 +370,7 @@ export class TelegramEventsService {
     const t = encodeURIComponent(tgUserId.toString());
     const ids = eventIds.map(encodeURIComponent).join(',');
     const query = [
-      `filter[telegram_user_id][_eq]=${t}`,
+      `filter[user][telegram_user_id][_eq]=${t}`,
       `filter[event][_in]=${ids}`,
       'filter[status][_neq]=cancelled',
       'fields=id,event',

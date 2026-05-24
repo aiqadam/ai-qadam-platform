@@ -234,7 +234,7 @@ describe('TelegramEventsService.listOpenEvents — is_registered annotation', ()
     await svc.listOpenEvents({ tgUserId: BigInt(8888) });
 
     const call = getMock.mock.calls[1]?.[0] as string;
-    expect(call).toContain('filter[telegram_user_id][_eq]=8888');
+    expect(call).toContain('filter[user][telegram_user_id][_eq]=8888');
     expect(call).toContain('filter[event][_in]=evt-a,evt-b');
     expect(call).toContain('filter[status][_neq]=cancelled');
   });

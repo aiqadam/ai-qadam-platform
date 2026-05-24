@@ -389,6 +389,12 @@ export class TelegramRegistrationsService {
   // from before the tg-uid-first lookup landed). Result drives 409
   // with the original registration_id + the original member_id so the
   // bot UI shows "you're already in" + the correct member identity.
+  //
+  // #328/#332 — Filter via user.telegram_user_id (canonical column on
+  // directus_users) rather than the denormalized
+  // registrations.telegram_user_id snapshot, which drifts when
+  // silent-email-match resolves to a member whose existing row was
+  // written by a different tg_user_id.
   private async findRegistrationByTgUserId(
     eventId: string,
     tgUserId: bigint,
@@ -396,7 +402,7 @@ export class TelegramRegistrationsService {
     const e = encodeURIComponent(eventId);
     const t = encodeURIComponent(tgUserId.toString());
     const res = await this.directus.get<{ data: RegistrationRow[] }>(
-      `/items/registrations?filter[event][_eq]=${e}&filter[telegram_user_id][_eq]=${t}&fields=id,event,user,checkin_code&limit=1`,
+      `/items/registrations?filter[event][_eq]=${e}&filter[user][telegram_user_id][_eq]=${t}&fields=id,event,user,checkin_code&limit=1`,
     );
     return res.data[0] ?? null;
   }

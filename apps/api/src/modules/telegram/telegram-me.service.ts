@@ -66,9 +66,15 @@ export class TelegramMeService {
   // mistake or a withdrawal, not something the bot's /me should display.
   // Empty array is fine; bot renders "No registrations yet."
   async listMyRegistrations(tgUserId: bigint): Promise<MeRegistration[]> {
+    // #332 — DON'T filter on registrations.telegram_user_id. That
+    // column is a denormalized snapshot from the original POST and
+    // can drift (silent-email-match path baked the wrong tg_user_id
+    // into Viktor's row). Canonical source is
+    // directus_users.telegram_user_id; deep-filter through the m2o
+    // relation so the join is stable against drift.
     const t = encodeURIComponent(tgUserId.toString());
     const query = [
-      `filter[telegram_user_id][_eq]=${t}`,
+      `filter[user][telegram_user_id][_eq]=${t}`,
       'filter[status][_neq]=cancelled',
       'fields=id,status,checked_in_at,checkin_code,event.id,event.slug,event.title,event.starts_at,event.location',
       'limit=100',
