@@ -32,6 +32,11 @@ import {
   MAX_MESSAGE_LENGTH,
   TelegramFeedbackService,
 } from './telegram-feedback.service';
+import {
+  type FormSubmissionResult,
+  type FormSummary,
+  TelegramFormsService,
+} from './telegram-forms.service';
 import { type MeRegistration, TelegramMeService } from './telegram-me.service';
 import {
   type PreferencesResult,
@@ -292,6 +297,20 @@ const speakersListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
+// aiqadam forms — POST /forms/{slug}/submissions body. Wire shape pinned
+// by the future cabinet builder + bot UX; rename here ripples.
+const formSubmissionSchema = z.object({
+  is_anonymous: z.boolean(),
+  telegram_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .optional()
+    .transform((v) => (v == null ? null : BigInt(v))),
+  payload: z.record(z.unknown()),
+  source: z.enum(['web', 'bot', 'email']).optional(),
+  language: z.string().min(1).max(8).optional(),
+  event_id: z.string().uuid().optional(),
+});
+
 @Controller('v1/telegram')
 export class TelegramPublicController {
   constructor(
@@ -299,6 +318,7 @@ export class TelegramPublicController {
     private readonly schemas: TelegramRegistrationSchemaService,
     private readonly speakers: TelegramSpeakersService,
     private readonly eventTopics: TelegramEventTopicsService,
+    private readonly forms: TelegramFormsService,
   ) {}
 
   @Get('health')
@@ -432,6 +452,76 @@ export class TelegramPublicController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.schemas.getSchema(parsed.data);
+  }
+
+  // GET /v1/telegram/forms/{slug}
+  //   aiqadam forms-builder. Returns a published form template (the
+  //   operator-defined schema). UNGATED — public-link or share-by-URL
+  //   forms work without auth.
+  //
+  //   200: FormSummary (see telegram-forms.service.ts)
+  //   400: malformed slug
+  //   404: { error: 'form_not_found' } — draft / archived forms also 404
+  @Get('forms/:slug')
+  async getForm(@Param('slug') slug: string): Promise<FormSummary> {
+    const parsed = slugOrIdSchema.safeParse(slug);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.forms.getFormBySlug(parsed.data);
+  }
+
+  // GET /v1/telegram/events/{slug}/survey
+  //   Convenience for the bot's post-event flow. Returns the form
+  //   attached via events.post_event_survey_form. 404s when the event
+  //   has no in-house survey attached (bot falls back to
+  //   events.feedback_survey_url external URL).
+  //
+  //   200: FormSummary
+  //   400: malformed slug
+  //   404: { error: 'event_not_found' | 'event_survey_not_attached' }
+  @Get('events/:slug/survey')
+  async getEventSurvey(@Param('slug') slug: string): Promise<FormSummary> {
+    const parsed = slugOrIdSchema.safeParse(slug);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.forms.getEventSurvey(parsed.data);
+  }
+
+  // POST /v1/telegram/forms/{slug}/submissions
+  //   Submit a form. UNGATED — anonymous submissions are first-class.
+  //
+  //   Body: { is_anonymous, telegram_user_id?, payload, source?,
+  //           language?, event_id? }
+  //
+  //   Privacy contract:
+  //   - is_anonymous=true → member + tg_user_id null on persist
+  //     regardless of what the client sent (defense-in-depth)
+  //   - is_anonymous=false REQUIRES telegram_user_id in v1
+  //     (web-attributed flow comes with PR-C + Authentik session)
+  //
+  //   200: { submission_id, submitted_at }
+  //   400: payload validation failure (field_required, field_wrong_type,
+  //        field_too_long, field_out_of_range, field_unknown_option,
+  //        attribution_required, payload_must_be_object)
+  //   403: { error: 'anonymous_not_allowed' } — operator-level toggle
+  //   404: { error: 'form_not_found' }
+  @Post('forms/:slug/submissions')
+  @HttpCode(HttpStatus.OK)
+  async submitForm(
+    @Param('slug') slug: string,
+    @Body() body: unknown,
+  ): Promise<FormSubmissionResult> {
+    const parsedSlug = slugOrIdSchema.safeParse(slug);
+    if (!parsedSlug.success) {
+      throw new BadRequestException(parsedSlug.error.flatten());
+    }
+    const parsed = formSubmissionSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.forms.submitForm(parsedSlug.data, parsed.data);
   }
 
   // GET /v1/telegram/speakers?country=<code>&limit=<n>
