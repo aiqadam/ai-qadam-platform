@@ -7,6 +7,7 @@ import {
   HttpStatus,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -18,6 +19,11 @@ import { TelegramAuthGuard } from './telegram-auth.guard';
 import { type CheckinResult, TelegramCheckinService } from './telegram-checkin.service';
 import { type EventSummary, TelegramEventsService } from './telegram-events.service';
 import { type MeRegistration, TelegramMeService } from './telegram-me.service';
+import {
+  type PreferencesResult,
+  SUPPORTED_LANGUAGES,
+  TelegramPreferencesService,
+} from './telegram-preferences.service';
 import {
   type ProfileDefaultsResult,
   TelegramProfileDefaultsService,
@@ -86,6 +92,17 @@ const meQuerySchema = z.object({
     .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
     .transform((v) => BigInt(v)),
 });
+
+// aiqadam#289 — PATCH /preferences body. All keys optional (partial body).
+// Tight zod shapes for client-side errors; service does deeper validation
+// against the known opt-in keys + IANA tz shape.
+const preferencesPatchSchema = z
+  .object({
+    language: z.enum(SUPPORTED_LANGUAGES).optional(),
+    timezone: z.string().min(1).max(64).optional(),
+    notification_opt_ins: z.record(z.boolean()).optional(),
+  })
+  .strict();
 
 const eventsQuerySchema = z.object({
   // aiqadam#290 — accept full ISO 3166-1 alpha-2 too (was 2-8 before;
@@ -293,6 +310,7 @@ export class TelegramController {
     private readonly me: TelegramMeService,
     private readonly profileDefaults: TelegramProfileDefaultsService,
     private readonly checkinService: TelegramCheckinService,
+    private readonly preferences: TelegramPreferencesService,
   ) {}
 
   @Get('whoami')
@@ -414,6 +432,49 @@ export class TelegramController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.profileDefaults.getDefaults(parsed.data);
+  }
+
+  // GET/PATCH /v1/telegram/members/:memberId/preferences
+  //   aiqadam#289. Member's UI prefs (language, timezone, opt-ins) used
+  //   by the bot's /settings screen. Null-stored fields resolve to spec
+  //   defaults: language="en", timezone=countries.tz for member.country,
+  //   notification_opt_ins={events:true, newsletter:false, community:true}.
+  //
+  //   GET   200 { language, timezone, notification_opt_ins }
+  //         400 member_id not a uuid
+  //         404 { error: 'member_not_found' }
+  //
+  //   PATCH (partial body — bot only sends changed keys)
+  //         200 { language, timezone, notification_opt_ins }  (full doc)
+  //         400 { error: 'invalid_language', allowed: [...] }
+  //         400 { error: 'invalid_timezone' }
+  //         400 { error: 'unknown_opt_in_key', key, allowed: [...] }
+  //         404 { error: 'member_not_found' }
+  //   401/503: TelegramAuthGuard
+  @Get('members/:memberId/preferences')
+  async getPreferences(@Param('memberId') memberId: string): Promise<PreferencesResult> {
+    const parsed = z.string().uuid().safeParse(memberId);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.preferences.get(parsed.data);
+  }
+
+  @Patch('members/:memberId/preferences')
+  @HttpCode(HttpStatus.OK)
+  async patchPreferences(
+    @Param('memberId') memberId: string,
+    @Body() body: unknown,
+  ): Promise<PreferencesResult> {
+    const parsedId = z.string().uuid().safeParse(memberId);
+    if (!parsedId.success) {
+      throw new BadRequestException(parsedId.error.flatten());
+    }
+    const parsedBody = preferencesPatchSchema.safeParse(body);
+    if (!parsedBody.success) {
+      throw new BadRequestException(parsedBody.error.flatten());
+    }
+    return this.preferences.patch(parsedId.data, parsedBody.data);
   }
 
   // POST /v1/telegram/registrations
