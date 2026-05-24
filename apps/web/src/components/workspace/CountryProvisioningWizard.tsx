@@ -34,7 +34,11 @@ interface StepState {
 
 // Plausible CE doesn't ship the Sites Provisioning API (per
 // discussion #4329); operator creates the site manually in the
-// Plausible UI. tz lookup gives the value to type into the form.
+// Plausible UI. F-S4.1-f: keep it click-clack — pre-fill the form
+// via URL query params (best-effort; Plausible's Phoenix changeset
+// binding picks them up if the form is open) AND copy the domain
+// to the clipboard when the operator clicks the link, as a fallback
+// for instances where prefill doesn't work.
 const COUNTRY_TZ: Record<string, string> = {
   uz: 'Asia/Tashkent',
   kz: 'Asia/Almaty',
@@ -44,18 +48,31 @@ const COUNTRY_TZ: Record<string, string> = {
   af: 'Asia/Kabul',
 };
 
-function manualInstructions(stepId: string, code: string): { url: string; lines: string[] } | null {
+interface ManualInstructions {
+  url: string;
+  domain: string;
+  tz: string;
+  lines: string[];
+}
+
+function manualInstructions(stepId: string, code: string): ManualInstructions | null {
   if (stepId !== 'plausible_site') return null;
   const domain = `${code}.aiqadam.org`;
   const tz = COUNTRY_TZ[code] ?? 'UTC';
+  // Plausible's /sites/new is a Phoenix form. Query-param prefill is
+  // best-effort: if it works, the operator clicks Save and we're done.
+  // If not, the clipboard fallback (auto-copy on link click) still
+  // keeps the path to "no typing" intact.
+  const params = new URLSearchParams({ domain, timezone: tz });
   return {
-    url: 'https://analytics.aiqadam.org/sites/new',
+    url: `https://analytics.aiqadam.org/sites/new?${params.toString()}`,
+    domain,
+    tz,
     lines: [
-      `1. Open Plausible → "Add a website" (link below).`,
-      `2. Enter domain: ${domain}`,
-      `3. Set timezone: ${tz}`,
-      `4. Click "Add snippet" → close the install screen (we use the JS snippet on the site itself).`,
-      `5. Come back here and click "I've done it" to mark the step complete.`,
+      'Click "Open Plausible →" — the form opens pre-filled (domain + timezone).',
+      'If a field is empty: click "Copy" next to it here, then paste in Plausible.',
+      'In Plausible: click "Add snippet" → close the install screen (we use the JS snippet on the site itself).',
+      'Come back here and click "I\'ve done it".',
     ],
   };
 }
@@ -422,47 +439,7 @@ function StepCard({ id, step, code, onManualComplete }: StepCardProps): ReactEle
             last attempt: {step.attempted_at}
           </div>
         )}
-        {manual && (
-          <div
-            style={{
-              marginTop: 10,
-              padding: 12,
-              background: '#fef9c3',
-              border: '1px solid #fde68a',
-              borderRadius: 6,
-              fontSize: 13,
-              color: '#713f12',
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>Manual step required</div>
-            <ol style={{ margin: 0, paddingLeft: 18 }}>
-              {manual.lines.map((l) => (
-                <li key={l} style={{ marginBottom: 2 }}>
-                  {l}
-                </li>
-              ))}
-            </ol>
-            <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a
-                className="btn"
-                href={manual.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ padding: '6px 12px', fontSize: 12, textDecoration: 'none' }}
-              >
-                Open Plausible →
-              </a>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ padding: '6px 12px', fontSize: 12 }}
-                onClick={() => onManualComplete(id)}
-              >
-                I've done it
-              </button>
-            </div>
-          </div>
-        )}
+        {manual && <ManualPanel manual={manual} stepId={id} onDone={onManualComplete} />}
       </div>
       <span
         style={{
@@ -478,6 +455,132 @@ function StepCard({ id, step, code, onManualComplete }: StepCardProps): ReactEle
       >
         {statusLabel(status)}
       </span>
+    </div>
+  );
+}
+
+function ManualPanel({
+  manual,
+  stepId,
+  onDone,
+}: {
+  manual: ManualInstructions;
+  stepId: string;
+  onDone: (id: string) => Promise<void>;
+}): ReactElement {
+  const [copied, setCopied] = useState<'domain' | 'tz' | null>(null);
+
+  async function copy(value: string, which: 'domain' | 'tz'): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(which);
+      setTimeout(() => setCopied(null), 1500);
+    } catch {
+      // ignore — fallback is the read-only text box right next to the button
+    }
+  }
+
+  // Auto-copy domain when the operator opens Plausible — the most
+  // likely first action is "paste the domain", so we put it on the
+  // clipboard preemptively. If query-param prefill works, no harm.
+  function openPlausible(): void {
+    void copy(manual.domain, 'domain');
+    window.open(manual.url, '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: 12,
+        background: '#fef9c3',
+        border: '1px solid #fde68a',
+        borderRadius: 6,
+        fontSize: 13,
+        color: '#713f12',
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>Manual step — no typing needed</div>
+      <ol style={{ margin: 0, paddingLeft: 18 }}>
+        {manual.lines.map((l) => (
+          <li key={l} style={{ marginBottom: 2 }}>
+            {l}
+          </li>
+        ))}
+      </ol>
+
+      <div
+        style={{
+          marginTop: 10,
+          display: 'grid',
+          gridTemplateColumns: '90px 1fr auto',
+          gap: 6,
+          alignItems: 'center',
+        }}
+      >
+        <span style={{ fontSize: 12, color: '#854d0e' }}>Domain:</span>
+        <code
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 12,
+            padding: '4px 8px',
+            background: 'white',
+            border: '1px solid #fde68a',
+            borderRadius: 4,
+          }}
+        >
+          {manual.domain}
+        </code>
+        <button
+          type="button"
+          className="btn"
+          style={{ padding: '4px 10px', fontSize: 11 }}
+          onClick={() => copy(manual.domain, 'domain')}
+        >
+          {copied === 'domain' ? 'Copied ✓' : 'Copy'}
+        </button>
+
+        <span style={{ fontSize: 12, color: '#854d0e' }}>Timezone:</span>
+        <code
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 12,
+            padding: '4px 8px',
+            background: 'white',
+            border: '1px solid #fde68a',
+            borderRadius: 4,
+          }}
+        >
+          {manual.tz}
+        </code>
+        <button
+          type="button"
+          className="btn"
+          style={{ padding: '4px 10px', fontSize: 11 }}
+          onClick={() => copy(manual.tz, 'tz')}
+        >
+          {copied === 'tz' ? 'Copied ✓' : 'Copy'}
+        </button>
+      </div>
+
+      <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn"
+          style={{ padding: '6px 12px', fontSize: 12 }}
+          onClick={openPlausible}
+        >
+          Open Plausible (copies domain) →
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ padding: '6px 12px', fontSize: 12 }}
+          onClick={() => onDone(stepId)}
+        >
+          I've done it
+        </button>
+      </div>
     </div>
   );
 }
