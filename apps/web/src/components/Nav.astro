@@ -1,8 +1,15 @@
 ---
 // Always-visible top nav per design screen s1-1 (`.app-nav`). Three clusters:
 //   - Brand mark + wordmark
-//   - Center nav links (Events / Speakers / Community / Blog)
-//   - Right cluster: country switcher + locale switcher + Sign in
+//   - Center nav links (Events / Leaderboard / Account-or-Sign-in)
+//   - Right cluster: country switcher + locale switcher
+//
+// Auth-conditional rendering of the right-most nav slot:
+//   - signed in (refresh cookie present)  → "Account" → /me
+//   - signed out                          → "Sign in" CTA → /auth/sign-in?next=…
+// We check the refresh-cookie SSR-side as a hint, not a verification — the
+// /me page itself re-verifies via /auth/refresh + /auth/me. The hint is
+// good enough to pick the right nav label without a JS flicker.
 //
 // Country detection happens client-side from `window.location.hostname` so
 // this component stays prerender-safe (no per-request data needed). Locale
@@ -14,6 +21,22 @@ import { NavUserBadge } from './NavUserBadge';
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
+
+// SSR hint — `Astro.cookies` is unavailable on prerendered pages; default
+// to "anon" so unauthenticated visitors see Sign in, which is the safe
+// fallback (worst case: a signed-in user on a prerendered page sees Sign
+// in briefly, clicks /auth/sign-in, gets a silent SSO loop and lands back
+// where they started).
+const signedInHint = (() => {
+  try {
+    return Astro.cookies.get('aiqadam-refresh')?.value != null;
+  } catch {
+    return false;
+  }
+})();
+
+const currentPath = `${Astro.url.pathname}${Astro.url.search}`;
+const signInHref = `/auth/sign-in?next=${encodeURIComponent(currentPath)}`;
 
 const COUNTRY_CODES = ['uz', 'kz', 'tj', 'global'] as const;
 const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
@@ -45,7 +68,13 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
     >
       <a href="/events" class="app-nav-link">{t('nav.events')}</a>
       <a href="/leaderboard" class="app-nav-link">{t('nav.leaderboard')}</a>
-      <a href="/me" class="app-nav-link">{t('nav.account')}</a>
+      {signedInHint ? (
+        <a href="/me" class="app-nav-link">{t('nav.account')}</a>
+      ) : (
+        <a href={signInHref} class="btn btn-sm btn-primary" style="text-decoration: none; margin-left: 8px;">
+          {t('nav.sign_in')}
+        </a>
+      )}
       <NavUserBadge client:load />
     </nav>
 
