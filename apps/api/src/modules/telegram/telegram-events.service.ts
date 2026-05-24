@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { env } from '../../config/env';
 import { DirectusClient } from '../directus/directus.client';
 
 // Anonymous browsing surface for the Telegram bot. Returns the same
@@ -62,6 +63,53 @@ export interface ListEventsFilters {
 
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 50;
+
+// aiqadam#279 — rich event detail surface (Telegram bot "📖 Details" tap).
+// Adds the editorial/CMS fields on top of EventSummary; everything past
+// description is OPTIONAL so the bot's pydantic model tolerates partial
+// data (events with no hero image / no confirmed speakers / no online URL).
+export interface EventDetailSpeaker {
+  name: string;
+  title: string | null;
+}
+export interface EventDetail extends EventSummary {
+  description: string;
+  short_description?: string;
+  venue?: string;
+  hero_image_url?: string;
+  online_meeting_url?: string;
+  capacity_total?: number;
+  capacity_taken: number;
+  speakers?: EventDetailSpeaker[];
+  web_url: string;
+}
+
+// Extended Directus row — wraps EventRow with the editorial columns
+// needed for the detail surface. hero_image is a UUID FK to
+// directus_files; we synthesize the public URL via DIRECTUS_URL/assets/.
+interface EventDetailRow extends EventRow {
+  description: string;
+  short_description: string | null;
+  venue: string | null;
+  hero_image: string | null;
+  online_meeting_url: string | null;
+}
+
+// Directus speaker join shape — the deep-fetch reaches across the
+// event_speakers junction into the speaker's directus_users row for
+// the display name. headline is the operator-curated one-liner shown
+// next to the name in the bot (falls back to talk_title when null).
+interface DirectusSpeakerJoinRow {
+  talk_title: string | null;
+  speaker: {
+    headline: string | null;
+    user: {
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+    } | null;
+  } | null;
+}
 
 @Injectable()
 export class TelegramEventsService {
@@ -157,6 +205,135 @@ export class TelegramEventsService {
     });
   }
 
+  // aiqadam#279 — rich event detail. Same anonymous-browse posture as
+  // listOpenEvents (no /link required); the bot calls this on the
+  // "📖 Details" inline button. tgUserId is optional and only used to
+  // annotate is_registered + registration_id (same pattern as #287).
+  //
+  // 404 with { error: 'event_not_found' } when the slug/id doesn't
+  // match anything published. Draft / cancelled / private events 404
+  // too — we don't leak existence by status.
+  async getEventDetail(slugOrId: string, tgUserId?: bigint | null): Promise<EventDetail> {
+    const row = await this.findPublishedEventBySlugOrId(slugOrId);
+    if (!row) {
+      throw new NotFoundException({ error: 'event_not_found' });
+    }
+
+    // Fire enrichment fetches in parallel — speakers + taken-count are
+    // independent of the registration lookup. Failures degrade
+    // gracefully (empty speakers, taken=0) rather than 500ing the
+    // whole detail call; the bot's UX matters more than a perfect count.
+    const [speakers, capacityTaken, tgReg] = await Promise.all([
+      this.fetchConfirmedSpeakers(row.id),
+      this.fetchTakenCount(row.id),
+      tgUserId == null ? Promise.resolve(null) : this.fetchOneRegistration(row.id, tgUserId),
+    ]);
+
+    return assembleEventDetail(row, { speakers, capacityTaken, tgUserId: tgUserId ?? null, tgReg });
+  }
+
+  // Slug-or-id resolver with the published/public/non-cancelled guard
+  // pre-applied so the detail view doesn't leak unpublished rows. Mirrors
+  // the slug-then-id fallback in telegram-registration-schema.service.ts.
+  private async findPublishedEventBySlugOrId(slugOrId: string): Promise<EventDetailRow | null> {
+    const fields =
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url';
+    const guards = 'filter[status][_eq]=published&filter[visibility_scope][_eq]=public';
+    const encoded = encodeURIComponent(slugOrId);
+
+    const bySlug = await this.directus.get<{ data: EventDetailRow[] }>(
+      `/items/events?${guards}&filter[slug][_eq]=${encoded}&${fields}&limit=1`,
+    );
+    if (bySlug.data[0]) return bySlug.data[0];
+
+    // UUID fallback — only attempt when the input matches uuid shape
+    // (Directus 400s on filter[id][_eq] with a non-uuid string).
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId)) {
+      return null;
+    }
+    const byId = await this.directus.get<{ data: EventDetailRow[] }>(
+      `/items/events?${guards}&filter[id][_eq]=${encoded}&${fields}&limit=1`,
+    );
+    return byId.data[0] ?? null;
+  }
+
+  // event_speakers JOIN — only confirmed speakers (operators move through
+  // invited→accepted→confirmed; surfacing pre-confirmed names would leak
+  // operator-internal state). Sort by order_index so the operator's curated
+  // display order survives. Failures fall back to an empty list.
+  private async fetchConfirmedSpeakers(eventId: string): Promise<EventDetailSpeaker[]> {
+    const query = [
+      `filter[event][_eq]=${encodeURIComponent(eventId)}`,
+      'filter[status][_eq]=confirmed',
+      'fields=talk_title,speaker.headline,speaker.user.first_name,speaker.user.last_name,speaker.user.email',
+      'sort=order_index',
+      'limit=50',
+    ].join('&');
+    try {
+      const res = await this.directus.get<{ data: DirectusSpeakerJoinRow[] }>(
+        `/items/event_speakers?${query}`,
+      );
+      const out: EventDetailSpeaker[] = [];
+      for (const row of res.data) {
+        const name = speakerDisplayName(row);
+        if (!name) continue;
+        out.push({ name, title: speakerTitle(row) });
+      }
+      return out;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`fetchConfirmedSpeakers failed for event=${eventId}: ${reason}`);
+      return [];
+    }
+  }
+
+  // Directus aggregate query — `aggregate[count]=*` returns a single
+  // row with the count under .count. Excludes cancelled so the bot's
+  // "going" surface matches the website's counter (per #274 convention).
+  private async fetchTakenCount(eventId: string): Promise<number> {
+    const query = [
+      `filter[event][_eq]=${encodeURIComponent(eventId)}`,
+      'filter[status][_neq]=cancelled',
+      'aggregate[count]=*',
+    ].join('&');
+    try {
+      const res = await this.directus.get<{ data: Array<{ count: string | number }> }>(
+        `/items/registrations?${query}`,
+      );
+      const raw = res.data[0]?.count;
+      const n = typeof raw === 'string' ? Number.parseInt(raw, 10) : (raw ?? 0);
+      return Number.isFinite(n) ? n : 0;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`fetchTakenCount failed for event=${eventId}: ${reason}`);
+      return 0;
+    }
+  }
+
+  // Single-event variant of fetchRegistrationsByTgUser. Returns the
+  // registration id or null. Used by detail to annotate is_registered.
+  private async fetchOneRegistration(eventId: string, tgUserId: bigint): Promise<string | null> {
+    const query = [
+      `filter[telegram_user_id][_eq]=${encodeURIComponent(tgUserId.toString())}`,
+      `filter[event][_eq]=${encodeURIComponent(eventId)}`,
+      'filter[status][_neq]=cancelled',
+      'fields=id',
+      'limit=1',
+    ].join('&');
+    try {
+      const res = await this.directus.get<{ data: Array<{ id: string }> }>(
+        `/items/registrations?${query}`,
+      );
+      return res.data[0]?.id ?? null;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(
+        `fetchOneRegistration failed for event=${eventId} tg=${tgUserId}: ${reason}`,
+      );
+      return null;
+    }
+  }
+
   // Single-query annotation: GET /items/registrations filtered to the
   // (tg_user_id, event ∈ ids) tuple. Excludes status='cancelled' so a
   // user who cancelled can re-register (UX matches the "going" counter).
@@ -191,6 +368,82 @@ export class TelegramEventsService {
       return new Map();
     }
   }
+}
+
+// aiqadam#279 — pure assembly of the rich EventDetail wire shape.
+// Extracted from getEventDetail so the orchestration method stays under
+// the cognitive-complexity budget; this function does no I/O, just maps
+// the row + enrichment results into the bot's pydantic shape (optional
+// fields omitted when null/empty so the bot doesn't render blank chips).
+interface DetailEnrichment {
+  speakers: EventDetailSpeaker[];
+  capacityTaken: number;
+  tgUserId: bigint | null;
+  tgReg: string | null;
+}
+export function assembleEventDetail(
+  row: EventDetailRow,
+  enrichment: DetailEnrichment,
+): EventDetail {
+  const summary = rowToSummary(row);
+  const slugForUrl = row.slug && row.slug.length > 0 ? row.slug : row.id;
+  const detail: EventDetail = {
+    ...summary,
+    description: row.description,
+    capacity_taken: enrichment.capacityTaken,
+    web_url: `${env.WEB_BASE_URL.replace(/\/$/, '')}/events/${encodeURIComponent(slugForUrl)}`,
+  };
+  Object.assign(detail, pickEditorialFields(row));
+  if (enrichment.speakers.length > 0) detail.speakers = enrichment.speakers;
+  if (enrichment.tgUserId != null) {
+    detail.is_registered = enrichment.tgReg != null;
+    if (enrichment.tgReg) detail.registration_id = enrichment.tgReg;
+  }
+  return detail;
+}
+
+// Optional editorial fields lifted out of assembleEventDetail to keep the
+// cognitive-complexity budget — null/empty Directus columns get omitted
+// from the wire shape entirely (the bot's pydantic model treats absent
+// keys differently from explicit nulls).
+function pickEditorialFields(row: EventDetailRow): Partial<EventDetail> {
+  const out: Partial<EventDetail> = {};
+  if (row.short_description) out.short_description = row.short_description;
+  if (row.venue) out.venue = row.venue;
+  if (row.hero_image) {
+    out.hero_image_url = `${env.DIRECTUS_URL.replace(/\/$/, '')}/assets/${encodeURIComponent(row.hero_image)}`;
+  }
+  if (row.online_meeting_url) out.online_meeting_url = row.online_meeting_url;
+  if (row.capacity != null) out.capacity_total = row.capacity;
+  return out;
+}
+
+// aiqadam#279 — speaker display helpers (exported for tests). Operators
+// can leave the directus_users name fields empty during invite (the
+// speaker is a placeholder until they accept the calendar invite); we
+// fall back through "first + last" → "first" → "last" → email-local
+// rather than render a blank chip. Returns null when nothing usable
+// exists, which the caller filters out.
+export function speakerDisplayName(row: DirectusSpeakerJoinRow): string | null {
+  const u = row.speaker?.user;
+  if (!u) return null;
+  const first = u.first_name?.trim() ?? '';
+  const last = u.last_name?.trim() ?? '';
+  const fromName = [first, last].filter((s) => s.length > 0).join(' ');
+  if (fromName) return fromName;
+  const local = u.email?.split('@')[0]?.trim();
+  return local && local.length > 0 ? local : null;
+}
+
+// Title prefers the operator-curated headline (speakers.headline) since
+// it's tuned for "this person, this audience"; falls back to the
+// per-event talk_title for placeholder speakers that don't have a
+// headline filled in yet.
+export function speakerTitle(row: DirectusSpeakerJoinRow): string | null {
+  const headline = row.speaker?.headline?.trim();
+  if (headline) return headline;
+  const talk = row.talk_title?.trim();
+  return talk && talk.length > 0 ? talk : null;
 }
 
 // Visible for unit tests. Falls back to id when slug is null — bot

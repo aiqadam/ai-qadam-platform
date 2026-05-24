@@ -17,7 +17,11 @@ import { env } from '../../config/env';
 import { track } from '../../lib/ops-events';
 import { TelegramAuthGuard } from './telegram-auth.guard';
 import { type CheckinResult, TelegramCheckinService } from './telegram-checkin.service';
-import { type EventSummary, TelegramEventsService } from './telegram-events.service';
+import {
+  type EventDetail,
+  type EventSummary,
+  TelegramEventsService,
+} from './telegram-events.service';
 import { type MeRegistration, TelegramMeService } from './telegram-me.service';
 import {
   type PreferencesResult,
@@ -271,6 +275,41 @@ export class TelegramPublicController {
       limit: parsed.data.limit ?? 50,
     });
     return { items };
+  }
+
+  // GET /v1/telegram/events/{slug}?tg_user_id=<optional>
+  //   aiqadam#279. Rich event detail powering the bot's "📖 Details"
+  //   inline button. UNGATED for the same reason as the list/schema
+  //   endpoints — TG is an ACQUISITION channel; a user must be able to
+  //   browse a full event page before /link (Telegram-as-IdP).
+  //
+  //   Slug-or-id contract matches the other event endpoints. When
+  //   tg_user_id is provided, the response is annotated with
+  //   is_registered + registration_id (same pattern as listEvents).
+  //
+  //   200: full EventDetail (see telegram-events.service.ts for shape)
+  //   400: malformed slug param
+  //   404: { error: 'event_not_found' } — slug doesn't match a
+  //        published/public event (draft / cancelled also 404 so we
+  //        don't leak operator-internal state)
+  @Get('events/:slug')
+  async eventDetail(
+    @Param('slug') slug: string,
+    @Query('tg_user_id') tgUserIdRaw?: string,
+  ): Promise<EventDetail> {
+    const parsed = slugOrIdSchema.safeParse(slug);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    let tgUserId: bigint | null = null;
+    if (tgUserIdRaw !== undefined && tgUserIdRaw !== '') {
+      const parsedTg = tgUserIdParamSchema.safeParse(tgUserIdRaw);
+      if (!parsedTg.success) {
+        throw new BadRequestException(parsedTg.error.flatten());
+      }
+      tgUserId = parsedTg.data;
+    }
+    return this.events.getEventDetail(parsed.data, tgUserId);
   }
 
   // GET /v1/telegram/events/{slug}/registration-schema

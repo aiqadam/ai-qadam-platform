@@ -1,8 +1,11 @@
+import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import {
   TelegramEventsService,
   rowToSummary,
+  speakerDisplayName,
+  speakerTitle,
 } from '../src/modules/telegram/telegram-events.service';
 
 // Phase Bot-B PR-4 — ungated event browse for the bot.
@@ -385,5 +388,290 @@ describe('TelegramEventsService.listOpenEvents — filter chips', () => {
     expect(call).toContain('filter[format][_eq]=meetup');
     expect(call).toContain('filter[registration_open][_eq]=true');
     expect(call).toContain('limit=10');
+  });
+});
+
+// ─── aiqadam#279 — speaker display helpers ───────────────────────────────────
+
+describe('speakerDisplayName', () => {
+  const join = (
+    overrides: Partial<{
+      first: string | null;
+      last: string | null;
+      email: string | null;
+      talk_title: string | null;
+      headline: string | null;
+    }> = {},
+  ) => ({
+    talk_title: overrides.talk_title ?? null,
+    speaker: {
+      headline: overrides.headline ?? null,
+      user: {
+        first_name: overrides.first === undefined ? 'Viktor' : overrides.first,
+        last_name: overrides.last === undefined ? 'Drukker' : overrides.last,
+        email: overrides.email === undefined ? 'viktor@example.com' : overrides.email,
+      },
+    },
+  });
+
+  it('joins first + last when both present', () => {
+    expect(speakerDisplayName(join())).toBe('Viktor Drukker');
+  });
+  it('returns first alone when last is empty', () => {
+    expect(speakerDisplayName(join({ last: '' }))).toBe('Viktor');
+  });
+  it('returns last alone when first is null', () => {
+    expect(speakerDisplayName(join({ first: null }))).toBe('Drukker');
+  });
+  it('falls back to email local part when name fields blank', () => {
+    expect(speakerDisplayName(join({ first: '', last: null, email: 'fallback@host' }))).toBe(
+      'fallback',
+    );
+  });
+  it('returns null when nothing is usable', () => {
+    expect(speakerDisplayName(join({ first: null, last: null, email: null }))).toBeNull();
+  });
+  it('returns null when speaker is missing entirely', () => {
+    expect(speakerDisplayName({ talk_title: null, speaker: null })).toBeNull();
+  });
+});
+
+describe('speakerTitle', () => {
+  const make = (headline: string | null, talk_title: string | null) => ({
+    talk_title,
+    speaker: { headline, user: null },
+  });
+  it('prefers operator headline over per-event talk title', () => {
+    expect(speakerTitle(make('Founder, AI Qadam', 'Why retrieval matters'))).toBe(
+      'Founder, AI Qadam',
+    );
+  });
+  it('falls back to talk title when headline is null', () => {
+    expect(speakerTitle(make(null, 'Why retrieval matters'))).toBe('Why retrieval matters');
+  });
+  it('returns null when both empty', () => {
+    expect(speakerTitle(make('  ', ''))).toBeNull();
+  });
+});
+
+// ─── aiqadam#279 — getEventDetail ─────────────────────────────────────────────
+
+describe('TelegramEventsService.getEventDetail', () => {
+  const DETAIL_ROW = {
+    id: 'evt-1',
+    slug: 'ai-meetup',
+    title: 'AI Qadam Meetup',
+    starts_at: '2026-06-20T03:00:00.000Z',
+    location: 'IMPACT.T',
+    country: 'uz',
+    status: 'published',
+    visibility_scope: 'public',
+    capacity: 50,
+    registration_open: true,
+    description: '<b>Topics</b>: retrieval, agents, evals.',
+    short_description: 'Monthly meetup',
+    venue: 'IMPACT.T Hall A',
+    hero_image: 'aabbccdd-1111-2222-3333-444455556666',
+    online_meeting_url: 'https://meet.example.com/abc',
+  };
+
+  function makeService(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
+    const directus = { get: getMock } as unknown as DirectusClient;
+    return new TelegramEventsService(directus);
+  }
+
+  it('returns the full detail shape with no tgUserId', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] }) // slug lookup hit
+      .mockResolvedValueOnce({
+        data: [
+          {
+            talk_title: 'RAG in production',
+            speaker: {
+              headline: 'Principal ML, Uzum Lab',
+              user: { first_name: 'Aigerim', last_name: 'B', email: 'a@example.com' },
+            },
+          },
+        ],
+      }) // speakers
+      .mockResolvedValueOnce({ data: [{ count: '17' }] }); // taken count
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+
+    expect(out.id).toBe('evt-1');
+    expect(out.slug).toBe('ai-meetup');
+    expect(out.description).toContain('retrieval');
+    expect(out.short_description).toBe('Monthly meetup');
+    expect(out.venue).toBe('IMPACT.T Hall A');
+    expect(out.hero_image_url).toContain('/assets/aabbccdd-1111-2222-3333-444455556666');
+    expect(out.online_meeting_url).toBe('https://meet.example.com/abc');
+    expect(out.capacity_total).toBe(50);
+    expect(out.capacity_taken).toBe(17);
+    expect(out.speakers).toEqual([{ name: 'Aigerim B', title: 'Principal ML, Uzum Lab' }]);
+    expect(out.web_url).toMatch(/\/events\/ai-meetup$/);
+    expect(out.is_registered).toBeUndefined();
+    expect(out.registration_id).toBeUndefined();
+  });
+
+  it('omits optional fields cleanly when the row has them null', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            ...DETAIL_ROW,
+            short_description: null,
+            venue: null,
+            hero_image: null,
+            online_meeting_url: null,
+            capacity: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ data: [] }) // no speakers
+      .mockResolvedValueOnce({ data: [{ count: 0 }] }); // 0 taken
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+
+    expect(out.short_description).toBeUndefined();
+    expect(out.venue).toBeUndefined();
+    expect(out.hero_image_url).toBeUndefined();
+    expect(out.online_meeting_url).toBeUndefined();
+    expect(out.capacity_total).toBeUndefined();
+    expect(out.speakers).toBeUndefined();
+    expect(out.capacity_taken).toBe(0);
+  });
+
+  it('annotates is_registered=true + registration_id when tgUserId matches', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] })
+      .mockResolvedValueOnce({ data: [] }) // speakers
+      .mockResolvedValueOnce({ data: [{ count: 5 }] }) // taken
+      .mockResolvedValueOnce({ data: [{ id: 'reg-42' }] }); // tg registration
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup', 12345n);
+
+    expect(out.is_registered).toBe(true);
+    expect(out.registration_id).toBe('reg-42');
+  });
+
+  it('annotates is_registered=false when tgUserId is provided but no registration exists', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 5 }] })
+      .mockResolvedValueOnce({ data: [] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup', 99999n);
+
+    expect(out.is_registered).toBe(false);
+    expect(out.registration_id).toBeUndefined();
+  });
+
+  it('falls back to id when slug lookup misses + input is a uuid', async () => {
+    const uuid = '11111111-1111-1111-1111-111111111111';
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [] }) // slug miss
+      .mockResolvedValueOnce({ data: [{ ...DETAIL_ROW, id: uuid, slug: null }] }) // id hit
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail(uuid);
+
+    expect(out.slug).toBe(uuid); // fallback per rowToSummary
+    // The id-lookup call should have been issued.
+    const idCall = get.mock.calls[1]?.[0] as string;
+    expect(idCall).toContain(`filter[id][_eq]=${uuid}`);
+  });
+
+  it('does NOT issue an id-lookup when the input is not uuid-shaped', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ data: [] }); // slug miss
+    const svc = makeService(get);
+
+    await expect(svc.getEventDetail('not-a-uuid-or-event')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(get).toHaveBeenCalledTimes(1); // no id fallback
+  });
+
+  it('throws NotFoundException with {error:"event_not_found"} when no match', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ data: [] });
+    const svc = makeService(get);
+
+    try {
+      await svc.getEventDetail('missing');
+      throw new Error('expected throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(NotFoundException);
+      const resp = (e as NotFoundException).getResponse() as { error: string };
+      expect(resp.error).toBe('event_not_found');
+    }
+  });
+
+  it('applies the published+public filter guards in the slug query', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    await svc.getEventDetail('ai-meetup');
+
+    const slugCall = get.mock.calls[0]?.[0] as string;
+    expect(slugCall).toContain('filter[status][_eq]=published');
+    expect(slugCall).toContain('filter[visibility_scope][_eq]=public');
+  });
+
+  it('degrades speakers to [] when the join query throws', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] })
+      .mockRejectedValueOnce(new Error('directus 502'))
+      .mockResolvedValueOnce({ data: [{ count: 3 }] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+
+    expect(out.speakers).toBeUndefined(); // empty → omitted
+    expect(out.capacity_taken).toBe(3); // others still work
+  });
+
+  it('degrades capacity_taken to 0 when aggregate fails', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockRejectedValueOnce(new Error('directus 500'));
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+
+    expect(out.capacity_taken).toBe(0);
+  });
+
+  it('filters speakers to status=confirmed in the query', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    await svc.getEventDetail('ai-meetup');
+
+    const speakersCall = get.mock.calls[1]?.[0] as string;
+    expect(speakersCall).toContain('filter[event][_eq]=evt-1');
+    expect(speakersCall).toContain('filter[status][_eq]=confirmed');
+    expect(speakersCall).toContain('sort=order_index');
   });
 });
