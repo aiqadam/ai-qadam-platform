@@ -15,6 +15,7 @@ import { TelegramAuthGuard } from './telegram-auth.guard';
 import { TelegramCheckinService } from './telegram-checkin.service';
 import { TelegramEventTopicsService } from './telegram-event-topics.service';
 import { TelegramEventsService } from './telegram-events.service';
+import { TelegramFeedbackService } from './telegram-feedback.service';
 import { TelegramMeService } from './telegram-me.service';
 import { TelegramPreferencesService } from './telegram-preferences.service';
 import { TelegramProfileDefaultsService } from './telegram-profile-defaults.service';
@@ -89,6 +90,7 @@ import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
     TelegramCheckinService,
     TelegramPreferencesService,
     TelegramSpeakersService,
+    TelegramFeedbackService,
     TgConfigService,
     HeartbeatReaderService,
     TelegramAdminService,

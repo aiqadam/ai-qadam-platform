@@ -24,6 +24,12 @@ import {
   type EventSummary,
   TelegramEventsService,
 } from './telegram-events.service';
+import {
+  FEEDBACK_CATEGORIES,
+  type FeedbackResult,
+  MAX_MESSAGE_LENGTH,
+  TelegramFeedbackService,
+} from './telegram-feedback.service';
 import { type MeRegistration, TelegramMeService } from './telegram-me.service';
 import {
   type PreferencesResult,
@@ -111,6 +117,25 @@ const meQuerySchema = z.object({
   tg_user_id: z
     .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
     .transform((v) => BigInt(v)),
+});
+
+// aiqadam#344 — POST /feedback body. tg_user_id is required; the other
+// fields mirror the bot's pydantic FeedbackInput. Service does deeper
+// validation (rate-limit + non-empty-after-trim) before persisting.
+const feedbackSubmitSchema = z.object({
+  tg_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .transform((v) => BigInt(v)),
+  tg_username: z.string().min(1).max(64).nullable().optional(),
+  category: z.enum(FEEDBACK_CATEGORIES),
+  message: z.string().min(1).max(MAX_MESSAGE_LENGTH),
+  context: z
+    .object({
+      event_id: z.string().uuid().optional(),
+      registration_id: z.string().uuid().optional(),
+    })
+    .optional(),
+  correlation_id: z.string().uuid().optional(),
 });
 
 // aiqadam#289 — PATCH /preferences body. All keys optional (partial body).
@@ -445,6 +470,7 @@ export class TelegramController {
     private readonly profileDefaults: TelegramProfileDefaultsService,
     private readonly checkinService: TelegramCheckinService,
     private readonly preferences: TelegramPreferencesService,
+    private readonly feedback: TelegramFeedbackService,
   ) {}
 
   @Get('whoami')
@@ -609,6 +635,27 @@ export class TelegramController {
       throw new BadRequestException(parsedBody.error.flatten());
     }
     return this.preferences.patch(parsedId.data, parsedBody.data);
+  }
+
+  // POST /v1/telegram/feedback
+  //   aiqadam#344. Bot user free-form feedback / questions / bug reports.
+  //   Persists to the Directus `feedback` collection AND emails the
+  //   operator-configured FEEDBACK_RECIPIENT_EMAIL.
+  //
+  //   Rate-limited per tg_user_id (5/hour) to protect the operator inbox.
+  //
+  //   200: { feedback_id, submitted_at }
+  //   400: { error: 'message_too_long' | 'message_empty' } or zod failure
+  //   429: { error: 'rate_limited', limit, window_ms }
+  //   401/503: TelegramAuthGuard
+  @Post('feedback')
+  @HttpCode(HttpStatus.OK)
+  async submitFeedback(@Body() body: unknown): Promise<FeedbackResult> {
+    const parsed = feedbackSubmitSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.feedback.submit(parsed.data);
   }
 
   // POST /v1/telegram/registrations

@@ -4152,6 +4152,54 @@ ensure "field events.feedback_survey_label" \
     }
   }'
 
+# ════════════════════════════════════════════════════════════════════════
+# aiqadam#344 — User feedback inbox
+# ════════════════════════════════════════════════════════════════════════
+#
+# Bot users hit POST /v1/telegram/feedback; aiqadam persists here AND
+# emails the operator. v1 has no cabinet view yet (email is the inbox);
+# persistence ensures the future /workspace/feedback cabinet has data
+# to render from day-one.
+#
+# `member` is OPTIONAL — a TG user who hasn't /linked yet can still send
+# feedback. The aiqadam service resolves tg_user_id → member when
+# possible and stores both columns (tg_user_id is canonical for
+# rate-limiting + reply correlation; member is for cabinet UX).
+
+echo "[aiqadam#344 — feedback]"
+ensure "collection feedback" \
+  "${DIRECTUS_URL}/collections/feedback" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"feedback",
+    "schema":{"name":"feedback"},
+    "meta":{
+      "icon":"feedback",
+      "note":"Bot user feedback / questions / bug reports. Inserted by POST /v1/telegram/feedback; operator gets an email per row.",
+      "archive_field":"status",
+      "archive_value":"closed",
+      "unarchive_value":"new",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"telegram_user_id","type":"bigInteger","schema":{"is_nullable":false},"meta":{"interface":"input","width":"half","note":"Canonical sender id (int64). Used for rate-limit + reply correlation."}},
+      {"field":"telegram_username","type":"string","schema":{"is_nullable":true,"max_length":64},"meta":{"interface":"input","width":"half"}},
+      {"field":"member","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","note":"Resolved at submit time when the tg user is linked. Null = anonymous / unlinked.","display":"related-values","display_options":{"template":"{{first_name}} {{last_name}} <{{email}}>"}}},
+      {"field":"category","type":"string","schema":{"is_nullable":false,"max_length":40,"default_value":"other"},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Question","value":"question"},{"text":"Bug","value":"bug"},{"text":"Event suggestion","value":"event_suggestion"},{"text":"Other","value":"other"}]}}},
+      {"field":"message","type":"text","schema":{"is_nullable":false},"meta":{"interface":"input-multiline","width":"full","note":"Max 4000 chars enforced at the API."}},
+      {"field":"context","type":"json","schema":{"is_nullable":true},"meta":{"interface":"input-code","options":{"language":"json"},"width":"full","note":"Bot-attached context. Known keys: event_id, registration_id."}},
+      {"field":"correlation_id","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"X-Correlation-ID from the bot. Lets operator support trace a single user complaint across logs."}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"new","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"New","value":"new"},{"text":"Triaged","value":"triaged"},{"text":"Closed","value":"closed"}]}}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation feedback.member -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/feedback/member" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"feedback","field":"member","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

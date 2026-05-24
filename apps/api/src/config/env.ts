@@ -46,6 +46,11 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('AI Qadam <admin@aiqadam.org>'),
 
+  // aiqadam#344 — recipient for the bot's user-feedback inbox. Single
+  // address for v1 (typically a team alias); per-tenant routing can
+  // come later when the cabinet view exists.
+  FEEDBACK_RECIPIENT_EMAIL: z.string().email().default('hello@aiqadam.org'),
+
   // Shared secret for /v1/internal/* endpoints. Directus flows pass this in
   // the X-Internal-Auth header when calling our API. Must be set in both
   // the API's env AND in Directus' env (allowed in FLOWS_ENV_ALLOW_LIST so
