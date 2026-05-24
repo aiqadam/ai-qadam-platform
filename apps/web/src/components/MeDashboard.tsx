@@ -243,6 +243,136 @@ function StatCard({ label, value, hint }: StatCardProps): ReactElement {
   );
 }
 
+// U-Me1c: 90-day attendance heatmap. Buckets attended registrations by
+// local-calendar day (Y-M-D key from checkedInAt; falls back to event
+// startsAt when checkedInAt is null — e.g. retro-flagged attendance).
+const HEATMAP_WEEKS = 13;
+const HEATMAP_DAYS = HEATMAP_WEEKS * 7;
+
+function dayKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+interface HeatmapCell {
+  date: Date;
+  key: string;
+  count: number;
+  titles: string[];
+}
+
+function buildHeatmap(attended: MineEntry[]): HeatmapCell[] {
+  const byDay = new Map<string, { count: number; titles: string[] }>();
+  for (const r of attended) {
+    const stamp = r.checkedInAt ?? r.event.startsAt;
+    const k = dayKey(new Date(stamp));
+    const cur = byDay.get(k) ?? { count: 0, titles: [] };
+    cur.count += 1;
+    cur.titles.push(r.event.title);
+    byDay.set(k, cur);
+  }
+  // Anchor on today so the right edge is "this week". Walk back
+  // HEATMAP_DAYS - 1 days inclusive.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const cells: HeatmapCell[] = [];
+  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const k = dayKey(d);
+    const bucket = byDay.get(k);
+    cells.push({
+      date: d,
+      key: k,
+      count: bucket?.count ?? 0,
+      titles: bucket?.titles ?? [],
+    });
+  }
+  return cells;
+}
+
+const heatmapDateFmt = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+});
+
+interface ActivityHeatmapProps {
+  attended: MineEntry[];
+}
+
+function ActivityHeatmap({ attended }: ActivityHeatmapProps): ReactElement | null {
+  if (attended.length === 0) return null;
+  const cells = buildHeatmap(attended);
+  // 13 columns (weeks), 7 rows (Mon..Sun). Render column-major: column k
+  // holds cells[k*7..k*7+6]. buildHeatmap is row-major across the day
+  // sequence, so reshape via index math at render time.
+  const cols = HEATMAP_WEEKS;
+  const rows = 7;
+  return (
+    <section>
+      <h2
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 500,
+          fontSize: 11,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--muted-foreground)',
+          margin: '0 0 10px',
+        }}
+      >
+        Last 13 weeks
+      </h2>
+      <div
+        role="img"
+        aria-label={`Attendance heatmap: ${attended.length} event${attended.length === 1 ? '' : 's'} in the last 90 days`}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, 12px)`,
+          gridTemplateRows: `repeat(${rows}, 12px)`,
+          gridAutoFlow: 'column',
+          gap: 3,
+          padding: 12,
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          background: 'var(--card)',
+          width: 'max-content',
+          maxWidth: '100%',
+          overflowX: 'auto',
+        }}
+      >
+        {cells.map((cell) => {
+          const bg =
+            cell.count === 0
+              ? 'var(--muted)'
+              : cell.count === 1
+                ? 'color-mix(in oklch, var(--primary) 45%, var(--muted))'
+                : 'var(--primary)';
+          const title =
+            cell.count === 0
+              ? heatmapDateFmt.format(cell.date)
+              : `${heatmapDateFmt.format(cell.date)} — ${cell.titles.join(', ')}`;
+          return (
+            <div
+              key={cell.key}
+              title={title}
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 3,
+                background: bg,
+              }}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function statusBadgeStyle(status: Status): { label: string; bg: string; fg: string } {
   if (status === 'registered') {
     return {
@@ -811,6 +941,8 @@ function Dashboard({ session, suggestedEvents }: DashboardProps): ReactElement {
         <StatCard label="On waitlist" value={waitlisted.length} />
         <StatCard label="Points" value="—" hint="See the leaderboard" />
       </div>
+
+      <ActivityHeatmap attended={attended} />
 
       <section>
         <h2
