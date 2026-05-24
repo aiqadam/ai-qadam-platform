@@ -27,7 +27,7 @@ DUMP_DIR="${DB_DUMP_ROOT}/${DUMP_TS}"
 mkdir -p "${DUMP_DIR}"
 chmod 700 "${DB_DUMP_ROOT}" "${DUMP_DIR}"
 
-SHARED_PG_CONTAINER="$(docker ps --filter 'ancestor=pgvector/pgvector:pg17' --format '{{.Names}}' | head -1 || true)"
+SHARED_PG_CONTAINER="$(docker ps --filter 'ancestor=pgvector/pgvector:pg16' --format '{{.Names}}' | head -1 || true)"
 if [ -z "${SHARED_PG_CONTAINER}" ]; then
   SHARED_PG_CONTAINER="rmh626agrz1uiv8cyny47rbb"
 fi

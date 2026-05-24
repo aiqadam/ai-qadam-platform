@@ -13,10 +13,10 @@
 -- bug we're stopping is silent duplication, not re-registration intent.
 --
 -- Apply on the shared Postgres cluster (container resolves dynamically
--- via `docker ps --filter ancestor=pgvector/pgvector:pg17`):
+-- via `docker ps --filter ancestor=pgvector/pgvector:pg16`):
 --
 --   ssh aiqadam-admin@212.20.151.29
---   SHARED_PG=$(sudo docker ps --filter 'ancestor=pgvector/pgvector:pg17' \
+--   SHARED_PG=$(sudo docker ps --filter 'ancestor=pgvector/pgvector:pg16' \
 --     --format '{{.Names}}' | head -1)
 --   sudo docker exec -i "$SHARED_PG" psql -U postgres -d directus \
 --     < infrastructure/postgres/migrations/2026-05-24-registrations-unique-event-user.sql

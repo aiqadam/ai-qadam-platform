@@ -45,7 +45,7 @@ mkdir -p "${DUMP_DIR}"
 chmod 700 "${DB_DUMP_ROOT}" "${DUMP_DIR}"
 
 # Resolve the shared Postgres container by image (pgvector-based).
-SHARED_PG_CONTAINER="$(docker ps --filter 'ancestor=pgvector/pgvector:pg17' --format '{{.Names}}' | head -1 || true)"
+SHARED_PG_CONTAINER="$(docker ps --filter 'ancestor=pgvector/pgvector:pg16' --format '{{.Names}}' | head -1 || true)"
 if [ -z "${SHARED_PG_CONTAINER}" ]; then
   # Fallback to current well-known name; if Coolify renamed it,
   # operator updates the runbook.
