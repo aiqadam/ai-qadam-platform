@@ -1,4 +1,5 @@
 ---
+import { fetchUpcomingEvents } from '../lib/cms';
 import { MeDashboard } from '../components/MeDashboard';
 import Layout from '../layouts/Layout.astro';
 
@@ -7,10 +8,24 @@ import Layout from '../layouts/Layout.astro';
 // this, the page is prerendered at build time and Astro.cookies is
 // empty → nav shows "Sign in" even when the user is signed in.
 export const prerender = false;
+
+// U-Me1b — fetch up to 6 upcoming events server-side (country derived
+// from Host header). MeDashboard filters out the ones the member is
+// already registered for and shows the top 3. Doing this in SSR avoids
+// a client-side Directus fetch (CORS + faster TTI).
+const events = await fetchUpcomingEvents(Astro.request);
+const suggestedEvents = events.slice(0, 6).map((e) => ({
+  id: e.id,
+  title: e.title,
+  startsAt: e.startsAt,
+  location: e.location,
+  format: e.format,
+  slug: e.slug ?? null,
+}));
 ---
 
 <Layout title="Account · AI Qadam">
   <main style="max-width: 1180px; margin: 0 auto; padding: 40px 48px;">
-    <MeDashboard client:load />
+    <MeDashboard client:load suggestedEvents={suggestedEvents} />
   </main>
 </Layout>

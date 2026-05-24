@@ -398,8 +398,106 @@ function AnonView(): ReactElement {
   );
 }
 
+// SSR-passed event suggestions. The full ApiEvent shape from cms.ts is
+// heavier than we need; me.astro narrows down to just these fields.
+export interface SuggestedEvent {
+  id: string;
+  title: string;
+  startsAt: string;
+  location: string | null;
+  format: 'meetup' | 'workshop' | 'hackathon' | 'conference' | 'online';
+  slug: string | null;
+}
+
 interface DashboardProps {
   session: Session;
+  suggestedEvents: SuggestedEvent[];
+}
+
+const formatLabel: Record<SuggestedEvent['format'], string> = {
+  meetup: 'Meetup',
+  workshop: 'Workshop',
+  hackathon: 'Hackathon',
+  conference: 'Conference',
+  online: 'Online',
+};
+
+interface SuggestedEventCardProps {
+  event: SuggestedEvent;
+}
+
+function SuggestedEventCard({ event }: SuggestedEventCardProps): ReactElement {
+  const startsAt = new Date(event.startsAt);
+  return (
+    <a
+      href={`/events/${event.id}`}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        padding: 16,
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        background: 'var(--card)',
+        color: 'inherit',
+        textDecoration: 'none',
+        transition: 'border-color 150ms ease',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 10,
+          color: 'var(--muted-foreground)',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {formatLabel[event.format]} · {relativeDay(startsAt)}
+      </span>
+      <p
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 600,
+          fontSize: 16,
+          lineHeight: 1.3,
+          margin: 0,
+        }}
+      >
+        {event.title}
+      </p>
+      <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0 }}>
+        {dateFmt.format(startsAt)}
+        {event.location && ` · ${event.location}`}
+      </p>
+    </a>
+  );
+}
+
+interface QuickActionsProps {
+  isStudent: boolean;
+}
+
+function QuickActions({ isStudent }: QuickActionsProps): ReactElement {
+  const actions = [
+    { href: '/events', label: 'Browse all events' },
+    { href: '/leaderboard', label: 'View leaderboard' },
+    { href: '/me/profile', label: isStudent ? 'Update student status' : 'Edit profile' },
+  ];
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {actions.map((a) => (
+        <a
+          key={a.href}
+          href={a.href}
+          className="btn btn-sm"
+          style={{ textDecoration: 'none', background: 'var(--card)' }}
+        >
+          {a.label}
+        </a>
+      ))}
+    </div>
+  );
 }
 
 interface AvatarProps {
@@ -613,7 +711,7 @@ function NextEventHero({ entry }: NextEventHeroProps): ReactElement {
   );
 }
 
-function Dashboard({ session }: DashboardProps): ReactElement {
+function Dashboard({ session, suggestedEvents }: DashboardProps): ReactElement {
   const upcoming = session.registrations
     .filter((r) => r.status === 'registered' && new Date(r.event.startsAt) > new Date())
     .sort((a, b) => new Date(a.event.startsAt).getTime() - new Date(b.event.startsAt).getTime());
@@ -627,6 +725,12 @@ function Dashboard({ session }: DashboardProps): ReactElement {
   const role = roleLabel(session.me.groups ?? []);
   const signals = completenessSignals(session.profile, session.skillCount);
   const completenessDone = signals.every((s) => s.done);
+
+  // Filter out events the member is already registered/waitlisted for so
+  // suggestions never duplicate what's already on the page.
+  const registeredIds = new Set(session.registrations.map((r) => r.event.id));
+  const suggestions = suggestedEvents.filter((e) => !registeredIds.has(e.id)).slice(0, 3);
+  const hasNoActiveRegs = active.length === 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
@@ -720,20 +824,39 @@ function Dashboard({ session }: DashboardProps): ReactElement {
         >
           Your registrations
         </h2>
-        {active.length === 0 ? (
+        {hasNoActiveRegs ? (
           <div
             style={{
-              padding: '40px 24px',
+              padding: '32px 24px',
               border: '1px dashed var(--border)',
               borderRadius: 12,
               textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              alignItems: 'center',
             }}
           >
-            <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: 0 }}>
-              No registrations yet.{' '}
-              <a href="/events" style={{ color: 'var(--primary)' }}>
-                Browse events →
-              </a>
+            <p
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 600,
+                fontSize: 17,
+                margin: 0,
+              }}
+            >
+              You haven't registered for anything yet
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: 'var(--muted-foreground)',
+                margin: 0,
+                maxWidth: 460,
+              }}
+            >
+              Pick an event below to meet other AI engineers in your city. Most are free, and your
+              first one earns you a starter badge.
             </p>
           </div>
         ) : (
@@ -753,11 +876,59 @@ function Dashboard({ session }: DashboardProps): ReactElement {
           </ul>
         )}
       </section>
+
+      {suggestions.length > 0 && (
+        <section>
+          <h2
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              fontSize: 22,
+              letterSpacing: '-0.015em',
+              margin: '0 0 16px',
+            }}
+          >
+            {hasNoActiveRegs ? 'Start here' : 'More events for you'}
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {suggestions.map((event) => (
+              <SuggestedEventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <h2
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 500,
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--muted-foreground)',
+            margin: '0 0 10px',
+          }}
+        >
+          Quick actions
+        </h2>
+        <QuickActions isStudent={session.profile?.is_student ?? false} />
+      </section>
     </div>
   );
 }
 
-export function MeDashboard(): ReactElement {
+interface MeDashboardProps {
+  suggestedEvents?: SuggestedEvent[];
+}
+
+export function MeDashboard({ suggestedEvents = [] }: MeDashboardProps): ReactElement {
   const [state, setState] = useState<State>({ phase: 'loading' });
 
   useEffect(() => {
@@ -784,5 +955,5 @@ export function MeDashboard(): ReactElement {
     return <p style={{ color: 'var(--destructive, #c00)' }}>{state.message}</p>;
   }
   if (state.phase === 'anon') return <AnonView />;
-  return <Dashboard session={state.session} />;
+  return <Dashboard session={state.session} suggestedEvents={suggestedEvents} />;
 }
