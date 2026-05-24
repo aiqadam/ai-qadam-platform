@@ -45,6 +45,9 @@
     "kz_desc": "Almaty, Astana — meetups and engineering talks",
     "tj_desc": "Dushanbe — meetups and engineering talks",
     "browse": "Browse",
+    "stat_events_run_one": "{{count}} event so far",
+    "stat_events_run_other": "{{count}} events so far",
+    "stat_events_zero": "Calendar opening soon",
     "note": "We're a community-owned, open-source platform. Pick the country closest to you — you can switch any time from the nav."
   },
   "profile": {

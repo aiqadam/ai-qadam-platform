@@ -349,6 +349,32 @@ export async function fetchHomepageStats(req: Request): Promise<HomepageStats> {
   };
 }
 
+// F-WebU18 — count past events for an arbitrary country code. Used by
+// the /global apex page to surface per-country activity on each tile.
+// Zero on any failure so the tile degrades to "—" rather than blocking
+// the page render.
+export async function fetchEventCountForCountry(country: string): Promise<number> {
+  if (!/^[a-z]{2}$/.test(country)) return 0;
+  try {
+    const now = new Date().toISOString();
+    const params = new URLSearchParams({
+      'filter[country][_eq]': country,
+      'filter[status][_eq]': 'published',
+      'filter[ends_at][_lt]': now,
+      'aggregate[count]': 'id',
+    });
+    type AggRow = Array<{ count: { id: number | string } }>;
+    const body = await get<{ data: AggRow }>(`/items/events?${params.toString()}`);
+    return Number(body.data[0]?.count?.id ?? 0);
+  } catch (err) {
+    console.error(
+      `[cms] fetchEventCountForCountry(${country}) failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return 0;
+  }
+}
+
 // Recent recordings teaser for the homepage. Pulls up to N most recently
 // added event_materials where kind=recording AND the parent event is
 // published in this country. Only rows with a valid URL survive; the
