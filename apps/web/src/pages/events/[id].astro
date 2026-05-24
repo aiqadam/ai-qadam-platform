@@ -2,7 +2,7 @@
 import EventShareButtons from '../../components/EventShareButtons';
 import { RegistrationSidebar } from '../../components/RegistrationSidebar';
 import Layout from '../../layouts/Layout.astro';
-import { fetchEvent, fetchEventSpeakers } from '../../lib/cms';
+import { fetchEvent, fetchEventMaterials, fetchEventSpeakers } from '../../lib/cms';
 import { getLocale, makeT } from '../../lib/i18n';
 
 // Event detail page per design screen s1-3 (desktop) / s1-4 (mobile).
@@ -32,6 +32,7 @@ const isGated = (event.visibilityScope === 'members_only' || event.visibilitySco
 
 const speakers = isGated ? [] : await fetchEventSpeakers(event.id);
 const confirmedSpeakers = speakers.filter((s) => s.status === 'confirmed');
+const materials = isGated ? [] : await fetchEventMaterials(event.id);
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
@@ -357,6 +358,37 @@ const layoutProps = {
                     {s.status === 'accepted' && (
                       <span class="badge mono" style="margin-top: 8px; display: inline-block; font-size: 9px;">PENDING</span>
                     )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {materials.length > 0 && (
+            <section style="margin: 0 0 32px;">
+              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                {t('event_detail.materials')}
+              </h2>
+              <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+                {materials.map((m) => (
+                  <li>
+                    <a
+                      href={m.url ?? m.fileUrl ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s, background 0.15s;"
+                    >
+                      <span
+                        class="badge mono"
+                        style="font-size: 9px; letter-spacing: 0.08em; min-width: 78px; text-align: center;"
+                      >
+                        {t(`event_detail.material_kind_${m.kind}`)}
+                      </span>
+                      <span style="font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {m.title}
+                      </span>
+                      <span aria-hidden="true" style="color: var(--primary); font-size: 13px;">↗</span>
+                    </a>
                   </li>
                 ))}
               </ul>

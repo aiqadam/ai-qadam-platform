@@ -65,6 +65,18 @@ export interface EventSpeaker {
   orderIndex: number;
 }
 
+// F-WebU3 — public materials (slides, handouts, recording URLs, code
+// links, etc.) attached to an event. Either `fileUrl` (Directus-hosted
+// download) or `url` (external) is set per row; the other is null.
+export interface EventMaterial {
+  id: string;
+  title: string;
+  kind: 'slides' | 'handout' | 'cheatsheet' | 'recording' | 'code' | 'other';
+  fileUrl: string | null;
+  url: string | null;
+  orderIndex: number;
+}
+
 const { INTERNAL_API_URL = 'http://localhost:3000' } = process.env;
 const BASE = INTERNAL_API_URL;
 

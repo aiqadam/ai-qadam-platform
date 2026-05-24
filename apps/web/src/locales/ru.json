@@ -83,6 +83,13 @@
     "speakers": "Спикеры",
     "speakers_confirmed_of": "{{confirmed}} подтверждено · {{total}} всего",
     "speakers_none": "Лайнап скоро объявим.",
+    "materials": "Материалы",
+    "material_kind_slides": "Слайды",
+    "material_kind_handout": "Раздатка",
+    "material_kind_cheatsheet": "Шпаргалка",
+    "material_kind_recording": "Запись",
+    "material_kind_code": "Код",
+    "material_kind_other": "Файл",
     "members_only_title": "Событие для участников",
     "members_only_body": "Войдите в аккаунт AI Qadam, чтобы увидеть детали и зарегистрироваться."
   },

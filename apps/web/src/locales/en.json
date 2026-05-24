@@ -83,6 +83,13 @@
     "speakers": "Speakers",
     "speakers_confirmed_of": "{{confirmed}} confirmed · {{total}} total",
     "speakers_none": "Lineup coming soon.",
+    "materials": "Materials",
+    "material_kind_slides": "Slides",
+    "material_kind_handout": "Handout",
+    "material_kind_cheatsheet": "Cheatsheet",
+    "material_kind_recording": "Recording",
+    "material_kind_code": "Code",
+    "material_kind_other": "File",
     "members_only_title": "Members-only event",
     "members_only_body": "Sign in with your AI Qadam account to see the full details and register."
   },

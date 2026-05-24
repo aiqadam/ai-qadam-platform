@@ -3577,6 +3577,88 @@ ensure "field events.longitude" \
   }'
 
 # ════════════════════════════════════════════════════════════════════════
+# F-WebU3 — event_materials junction (slides / handouts / recordings)
+# ════════════════════════════════════════════════════════════════════════
+#
+# One row per (event, material). Surfaces under a "Materials" section
+# on the public event page. v1 is public-only — visibility gating
+# (registered_only / attendees_only) is deferred until the SSR layer
+# can carry per-request identity to Directus.
+
+echo "[F-WebU3 — event_materials]"
+ensure "collection event_materials" \
+  "${DIRECTUS_URL}/collections/event_materials" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_materials",
+    "schema":{"name":"event_materials"},
+    "meta":{
+      "icon":"description",
+      "note":"Public-facing materials attached to an event (slides, handouts, code, recording links). Operator-managed. Either `file` (Directus-hosted) or `url` (external) — set whichever fits.",
+      "sort_field":"order_index"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":160},"meta":{"interface":"input","width":"half","required":true,"options":{"placeholder":"Slides — \"What is LoRA\""}}},
+      {"field":"kind","type":"string","schema":{"is_nullable":false,"default_value":"slides","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Slides","value":"slides"},
+          {"text":"Handout","value":"handout"},
+          {"text":"Cheatsheet","value":"cheatsheet"},
+          {"text":"Recording","value":"recording"},
+          {"text":"Code","value":"code"},
+          {"text":"Other","value":"other"}
+        ]}
+      }},
+      {"field":"file","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file","width":"half","note":"Directus-hosted file (PDF / ZIP / image). Leave empty if pointing at an external URL."}},
+      {"field":"url","type":"string","schema":{"is_nullable":true,"max_length":500},"meta":{"interface":"input","width":"half","options":{"placeholder":"https://..."},"note":"External link (YouTube, GitHub, Slideshare, etc.). Leave empty if uploading a file. http(s) only — rejected otherwise on render."}},
+      {"field":"order_index","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation event_materials.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_materials/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_materials","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation event_materials.file -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/event_materials/file" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_materials","field":"file","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+# Public-policy read so the unauthenticated SSR layer can fetch via
+# /items/event_materials. Same policy that already grants events /
+# partners / homepage_hero (pk = 87bf5954-616e-40fa-bd61-2587e8c3f49b
+# on prod, named "Public").
+POLICY_PUBLIC_PROD="87bf5954-616e-40fa-bd61-2587e8c3f49b"
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_materials&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm event_materials/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"event_materials", action:"read", permissions:{}, fields:["*"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm event_materials/read (public, created)"
+    else
+      echo "  ✗ perm event_materials/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public read for event_materials. Add manually via Directus admin if this is a non-prod environment."
+fi
+
+# ════════════════════════════════════════════════════════════════════════
 # F-S3.8 — Sponsor quarterly digest ledger (per ADR-0036)
 # ════════════════════════════════════════════════════════════════════════
 #

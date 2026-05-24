@@ -13,7 +13,7 @@
 // don't change. The snake_case → camelCase + country → countryCode
 // translation happens here.
 
-import type { ApiEvent, EventSpeaker } from './api';
+import type { ApiEvent, EventMaterial, EventSpeaker } from './api';
 
 interface CmsEventRow {
   id: string;
@@ -408,6 +408,71 @@ export async function fetchEventSpeakers(eventId: string): Promise<EventSpeaker[
     });
   } catch (err) {
     console.error('[cms] fetchEventSpeakers failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ──────────── F-WebU3 — event materials ──────────────────────────────
+//
+// Public read of event_materials, sorted by order_index. Either `file`
+// (Directus-hosted) or `url` (external) is set per row — we keep both
+// shapes in the API and let the page choose.
+
+interface CmsEventMaterialRow {
+  id: string;
+  title: string;
+  kind: EventMaterial['kind'];
+  file: string | null;
+  url: string | null;
+  order_index: number;
+}
+
+const ALLOWED_MATERIAL_KINDS = new Set<EventMaterial['kind']>([
+  'slides',
+  'handout',
+  'cheatsheet',
+  'recording',
+  'code',
+  'other',
+]);
+
+function normalizeMaterialUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchEventMaterials(eventId: string): Promise<EventMaterial[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields: 'id,title,kind,file,url,order_index',
+      sort: 'order_index',
+      limit: '50',
+    });
+    const body = await get<{ data: CmsEventMaterialRow[] }>(
+      `/items/event_materials?${params.toString()}`,
+    );
+    return body.data
+      .map((row): EventMaterial | null => {
+        const title = row.title?.trim() ?? '';
+        if (title.length === 0) return null;
+        const kind = ALLOWED_MATERIAL_KINDS.has(row.kind) ? row.kind : 'other';
+        const fileUrl = row.file ? `${BASE}/assets/${row.file}` : null;
+        const url = normalizeMaterialUrl(row.url);
+        if (!fileUrl && !url) return null;
+        return { id: row.id, title, kind, fileUrl, url, orderIndex: row.order_index };
+      })
+      .filter((m): m is EventMaterial => m !== null);
+  } catch (err) {
+    console.error('[cms] fetchEventMaterials failed:', err instanceof Error ? err.message : err);
     return [];
   }
 }
