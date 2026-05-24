@@ -333,6 +333,38 @@ describe('TelegramEventsService.listOpenEvents — filter chips', () => {
     expect(getMock.mock.calls[2]?.[0] as string).toContain('limit=10');
   });
 
+  it('adds OR filter on title/description/short_description when q is provided (aiqadam#288)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ q: 'llm' });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[_or][0][title][_icontains]=llm');
+    expect(call).toContain('filter[_or][1][description][_icontains]=llm');
+    expect(call).toContain('filter[_or][2][short_description][_icontains]=llm');
+  });
+
+  it('trims q and treats whitespace-only as no-op (aiqadam#288)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ q: '   ' });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).not.toContain('filter[_or]');
+  });
+
+  it('URL-encodes the q value (aiqadam#288)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ q: 'foo bar' });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[_or][0][title][_icontains]=foo%20bar');
+  });
+
   it('combines multiple filters with AND semantics (all present in query)', async () => {
     const getMock = vi.fn().mockResolvedValue({ data: [] });
     const svc = makeService(getMock);

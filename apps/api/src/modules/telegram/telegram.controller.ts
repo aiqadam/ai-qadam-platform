@@ -98,6 +98,9 @@ const eventsQuerySchema = z.object({
   format: z.string().min(1).max(50).optional(),
   open_only: queryBoolSchema.optional(),
   limit: z.coerce.number().int().min(1).max(50).optional(),
+  // aiqadam#288 — substring search across title/description/short_description.
+  // Trimmed by zod; empty / whitespace-only = no-op.
+  q: z.string().trim().min(1).max(200).optional(),
   // aiqadam#287 — when provided, each EventSummary is annotated with
   // is_registered + registration_id (when registered). Omit for the
   // anonymous-browse case; the response shape stays unchanged for
@@ -242,6 +245,7 @@ export class TelegramPublicController {
       to: parsed.data.to ?? null,
       format: parsed.data.format ?? null,
       openOnly: parsed.data.open_only ?? false,
+      q: parsed.data.q ?? null,
       limit: parsed.data.limit ?? 50,
     });
     return { items };

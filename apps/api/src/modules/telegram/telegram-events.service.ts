@@ -53,6 +53,11 @@ export interface ListEventsFilters {
   format: string | null; // event_types.key
   openOnly: boolean; // when true, filter to registration_open=true
   limit: number; // 1..50, default 50
+  // aiqadam#288 — substring match across title/description/short_description
+  // (Directus _icontains). Combinable with all other filters. Speaker name
+  // + topic-tag matching deferred to a separate PR (speakers as first-class
+  // is #291; topics need a new column too).
+  q: string | null;
 }
 
 export const DEFAULT_LIMIT = 50;
@@ -83,6 +88,7 @@ export class TelegramEventsService {
       format = null,
       openOnly = false,
       limit = DEFAULT_LIMIT,
+      q = null,
     } = filters;
 
     const filterParts: string[] = [
@@ -109,6 +115,17 @@ export class TelegramEventsService {
     }
     if (openOnly) {
       filterParts.push('filter[registration_open][_eq]=true');
+    }
+    // aiqadam#288 — substring match across title/description/short_description.
+    // Directus collapses these into an OR group; combined with the other
+    // top-level filters with AND semantics (status=published etc. still apply).
+    // Whitespace-trimmed; empty / null = no-op.
+    const qTrimmed = q?.trim() ?? '';
+    if (qTrimmed.length > 0) {
+      const encQ = encodeURIComponent(qTrimmed);
+      filterParts.push(`filter[_or][0][title][_icontains]=${encQ}`);
+      filterParts.push(`filter[_or][1][description][_icontains]=${encQ}`);
+      filterParts.push(`filter[_or][2][short_description][_icontains]=${encQ}`);
     }
     const cappedLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
     const query = [
