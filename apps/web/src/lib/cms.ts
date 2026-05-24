@@ -318,6 +318,81 @@ export async function fetchPartners(req: Request): Promise<CmsPartner[]> {
 // against publicly-readable collections. Zero on any failure so the
 // strip degrades to "—" rather than 500'ing the page.
 
+// C-1 — site_settings singleton. Global content + brand defaults that
+// used to live as JSX constants in pages/index.astro and Layout.astro.
+// Directus singleton (one row); operators edit via the /workspace/
+// site-settings cabinet (planned C-4) or Directus admin.
+export interface SiteSettings {
+  countriesServed: number;
+  defaultDescription: string | null;
+  telegramUrl: string | null;
+  twitterUrl: string | null;
+  linkedinUrl: string | null;
+  instagramUrl: string | null;
+  youtubeUrl: string | null;
+  contactEmailPartners: string | null;
+  contactEmailPress: string | null;
+  contactEmailSupport: string | null;
+}
+
+interface CmsSiteSettingsRow {
+  countries_served?: number | null;
+  default_description?: string | null;
+  telegram_url?: string | null;
+  twitter_url?: string | null;
+  linkedin_url?: string | null;
+  instagram_url?: string | null;
+  youtube_url?: string | null;
+  contact_email_partners?: string | null;
+  contact_email_press?: string | null;
+  contact_email_support?: string | null;
+}
+
+const SITE_SETTINGS_DEFAULTS: SiteSettings = {
+  countriesServed: 3,
+  defaultDescription: 'Multi-tenant community platform for AI engineers across Central Asia.',
+  telegramUrl: 'https://t.me/aiqadam',
+  twitterUrl: null,
+  linkedinUrl: null,
+  instagramUrl: null,
+  youtubeUrl: null,
+  contactEmailPartners: 'partners@aiqadam.org',
+  contactEmailPress: 'press@aiqadam.org',
+  contactEmailSupport: null,
+};
+
+function normalizeSiteSettings(row: CmsSiteSettingsRow): SiteSettings {
+  return {
+    countriesServed: typeof row.countries_served === 'number' ? row.countries_served : 3,
+    defaultDescription: row.default_description ?? SITE_SETTINGS_DEFAULTS.defaultDescription,
+    telegramUrl: row.telegram_url ?? null,
+    twitterUrl: row.twitter_url ?? null,
+    linkedinUrl: row.linkedin_url ?? null,
+    instagramUrl: row.instagram_url ?? null,
+    youtubeUrl: row.youtube_url ?? null,
+    contactEmailPartners: row.contact_email_partners ?? null,
+    contactEmailPress: row.contact_email_press ?? null,
+    contactEmailSupport: row.contact_email_support ?? null,
+  };
+}
+
+// Singleton: Directus returns the row as the bare `data` object (not an
+// array) when the collection has `meta.singleton: true`. We guard for
+// both shapes for safety. Falls back to the hardcoded defaults on any
+// failure so the homepage never breaks because Directus is unreachable.
+export async function fetchSiteSettings(): Promise<SiteSettings> {
+  try {
+    const body = await get<{ data: CmsSiteSettingsRow | CmsSiteSettingsRow[] }>(
+      '/items/site_settings',
+    );
+    const row = Array.isArray(body.data) ? body.data[0] : body.data;
+    return row ? normalizeSiteSettings(row) : SITE_SETTINGS_DEFAULTS;
+  } catch (err) {
+    console.error('[cms] fetchSiteSettings failed:', err instanceof Error ? err.message : err);
+    return SITE_SETTINGS_DEFAULTS;
+  }
+}
+
 export interface HomepageStats {
   pastEventsCount: number;
   partnersCount: number;

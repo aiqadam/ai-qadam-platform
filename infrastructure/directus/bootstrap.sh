@@ -4526,6 +4526,90 @@ ensure "relation tg_broadcasts.audience_segment -> tg_segments.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"tg_broadcasts","field":"audience_segment","related_collection":"tg_segments","schema":{"on_delete":"SET NULL"}}'
 
+# ════════════════════════════════════════════════════════════════════════
+# C-1 — site_settings (true singleton — global, not per-country)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Replaces hardcoded values on the homepage + Layout meta:
+#   - countries_served      → was a JSX constant `= 3`
+#   - default_description   → was a JSX constant in Layout.astro
+#   - telegram_url + others → was hardcoded `https://t.me/aiqadam`
+#   - contact_email_*       → was hardcoded `partners@aiqadam.org` etc.
+#
+# Singleton enforced via `meta.singleton: true`. Directus admin renders
+# this as a no-list "Edit" view; only one row ever exists.
+
+echo "[site_settings]"
+ensure "collection site_settings" \
+  "${DIRECTUS_URL}/collections/site_settings" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"site_settings",
+    "schema":{"name":"site_settings"},
+    "meta":{
+      "icon":"settings",
+      "singleton":true,
+      "note":"Global site-wide content + brand defaults. One row, app-readable by anon for the homepage."
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"countries_served","type":"integer","schema":{"is_nullable":false,"default_value":3},"meta":{"interface":"input","width":"half","note":"How many countries the homepage advertises as served. Bump when adding KZ/TJ/etc. tenants."}},
+      {"field":"default_description","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"SEO meta description used as the page <meta description> fallback when a page does not set its own."}},
+      {"field":"telegram_url","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half","note":"Public Telegram channel/community link. Used as the primary CTA on the homepage."}},
+      {"field":"twitter_url","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}},
+      {"field":"linkedin_url","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}},
+      {"field":"instagram_url","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}},
+      {"field":"youtube_url","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}},
+      {"field":"contact_email_partners","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half","note":"mailto target for the homepage partner CTA."}},
+      {"field":"contact_email_press","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}},
+      {"field":"contact_email_support","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half"}}
+    ]
+  }'
+
+# Seed the singleton row if missing. Idempotent: check via items endpoint,
+# create only when empty.
+count=$(curl -s -H "${H_AUTH}" "${DIRECTUS_URL}/items/site_settings?limit=1&fields=id" \
+  | jq -r '.data | length' 2>/dev/null || echo 0)
+if [ "${count}" = "0" ]; then
+  body='{"countries_served":3,"default_description":"Multi-tenant community platform for AI engineers across Central Asia.","telegram_url":"https://t.me/aiqadam","contact_email_partners":"partners@aiqadam.org","contact_email_press":"press@aiqadam.org"}'
+  code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/items/site_settings" --data "${body}")
+  if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    echo "  + site_settings (seeded with defaults)"
+  else
+    echo "  ✗ site_settings seed HTTP ${code}"
+    head -c 300 /tmp/directus-resp; echo
+  fi
+else
+  echo "  ✓ site_settings (already seeded)"
+fi
+
+# Demo-tenant policy read perm (authenticated readers).
+ensure_perm "perm site_settings/read" site_settings read '{}'
+
+# Public-policy read perm so the unauthenticated SSR homepage can read.
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=site_settings&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm site_settings/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"site_settings", action:"read", permissions:{}, fields:["*"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm site_settings/read (public, created)"
+    else
+      echo "  ✗ perm site_settings/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy not found — skipping public read for site_settings."
+fi
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

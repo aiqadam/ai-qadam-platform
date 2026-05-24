@@ -8,6 +8,7 @@ import {
   fetchHomepageStats,
   fetchPartners,
   fetchRecentRecordings,
+  fetchSiteSettings,
   fetchUpcomingEvents,
 } from '../lib/cms';
 import { geoTargetSubdomain, hostnameFromHeaders, isApexHost } from '../lib/geo';
@@ -48,18 +49,26 @@ const countryName = t(`country.${country}`);
 //   - recent recordings (between partners and lead capture): up to 3
 //     most recent kind=recording event_materials for this country,
 //     deep-joined to event title. Click-through to /events/<id>?tab=finished.
-const [events, partners, stats, recordings] = await Promise.all([
+const [events, partners, stats, recordings, siteSettings] = await Promise.all([
   fetchUpcomingEvents(Astro.request),
   fetchPartners(Astro.request),
   fetchHomepageStats(Astro.request),
   fetchRecentRecordings(Astro.request, 3),
+  fetchSiteSettings(),
 ]);
 const hero = events[0] ?? null;
 const grid = events.slice(1, 4);
-const countriesServed = 3;
+const countriesServed = siteSettings.countriesServed;
+const telegramUrl = siteSettings.telegramUrl ?? 'https://t.me/aiqadam';
+const partnersMailto = siteSettings.contactEmailPartners
+  ? `mailto:${siteSettings.contactEmailPartners}`
+  : 'mailto:partners@aiqadam.org';
 ---
 
-<Layout title="AI Qadam">
+<Layout
+  title="AI Qadam"
+  description={siteSettings.defaultDescription || 'Multi-tenant community platform for AI engineers across Central Asia.'}
+>
   <main style="max-width: 1180px; margin: 0 auto;">
     <section style="padding: 28px 48px 0;">
       <p
@@ -192,7 +201,7 @@ const countriesServed = 3;
           </div>
           <a
             class="btn btn-outline"
-            href="https://t.me/aiqadam"
+            href={telegramUrl}
             target="_blank"
             rel="noopener"
             style="align-self: flex-start; text-decoration: none;"
@@ -213,7 +222,7 @@ const countriesServed = 3;
           </div>
           <a
             class="btn btn-outline"
-            href="mailto:partners@aiqadam.org"
+            href={partnersMailto}
             style="align-self: flex-start; text-decoration: none;"
           >
             {t('home.partner_cta')} →
