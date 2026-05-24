@@ -232,13 +232,20 @@ describe('TelegramRegistrationsService.lookupByEmail', () => {
 
 describe('TelegramRegistrationsService.register', () => {
   function happyPath(opts: { existing?: typeof EXISTING_MEMBER | null } = {}) {
+    // PR-1.3c — two-key silent member match: tg_user_id FIRST, then
+    // email. Default fixture has the email match succeed (mirrors the
+    // pre-1.3c happy path). When opts.existing is provided WITH
+    // telegram_user_id set, callers can pass it directly to test the
+    // tg-uid-first lookup path.
     const fake = fakeDirectus();
     fake.get
       .mockResolvedValueOnce({ data: EVENT_ROW }) // findEventOrThrow
+      .mockResolvedValueOnce({ data: [] }) // findMemberByTgUserId (miss; fall through to email)
       .mockResolvedValueOnce({
         data: opts.existing === null ? [] : [opts.existing ?? EXISTING_MEMBER],
       }) // findMemberByEmail
-      .mockResolvedValueOnce({ data: [] }); // findRegistration (no dupe)
+      .mockResolvedValueOnce({ data: [] }) // findRegistration by (event, member) — no dupe
+      .mockResolvedValueOnce({ data: [] }); // findRegistrationByTgUserId — no dupe
     fake.post
       .mockResolvedValueOnce({ data: { id: 'reg-99' } }) // insertRegistration
       .mockResolvedValueOnce({ data: { id: 'consent-1' } }); // recordConsents: events
@@ -269,8 +276,10 @@ describe('TelegramRegistrationsService.register', () => {
     const fake = fakeDirectus();
     fake.get
       .mockResolvedValueOnce({ data: EVENT_ROW }) // event
+      .mockResolvedValueOnce({ data: [] }) // member by tg_user_id — miss
       .mockResolvedValueOnce({ data: [] }) // member by email — miss
-      .mockResolvedValueOnce({ data: [] }); // registration check — no dupe
+      .mockResolvedValueOnce({ data: [] }) // registration check by member — no dupe
+      .mockResolvedValueOnce({ data: [] }); // registration check by tg_user_id — no dupe
     fake.post
       .mockResolvedValueOnce({ data: { id: 'mem-new' } }) // POST /users (createMemberFromProfile)
       .mockResolvedValueOnce({ data: { id: 'reg-100' } }) // POST /items/registrations
@@ -339,7 +348,8 @@ describe('TelegramRegistrationsService.register', () => {
     const fake = fakeDirectus();
     fake.get
       .mockResolvedValueOnce({ data: EVENT_ROW })
-      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
+      .mockResolvedValueOnce({ data: [] }) // findMemberByTgUserId — miss
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] }) // findMemberByEmail
       .mockResolvedValueOnce({
         data: [{ id: 'reg-existing', event: 'evt-1', user: 'mem-1', checkin_code: null }],
       });
@@ -507,8 +517,10 @@ describe('register — dispatches tg.dispatch.v1 envelope after successful regis
     const fake = fakeDirectus();
     fake.get
       .mockResolvedValueOnce({ data: EVENT_ROW })
-      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
-      .mockResolvedValueOnce({ data: [] });
+      .mockResolvedValueOnce({ data: [] }) // findMemberByTgUserId
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] }) // findMemberByEmail
+      .mockResolvedValueOnce({ data: [] }) // findRegistration by member
+      .mockResolvedValueOnce({ data: [] }); // findRegistrationByTgUserId
     fake.post
       .mockResolvedValueOnce({ data: { id: 'reg-99' } })
       .mockResolvedValueOnce({ data: { id: 'consent-1' } });
@@ -575,8 +587,10 @@ describe('register — dispatches tg.dispatch.v1 envelope after successful regis
     const fake = fakeDirectus();
     fake.get
       .mockResolvedValueOnce({ data: { ...EVENT_ROW, location: null } })
-      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] })
-      .mockResolvedValueOnce({ data: [] });
+      .mockResolvedValueOnce({ data: [] }) // findMemberByTgUserId
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] }) // findMemberByEmail
+      .mockResolvedValueOnce({ data: [] }) // findRegistration by member
+      .mockResolvedValueOnce({ data: [] }); // findRegistrationByTgUserId
     fake.post
       .mockResolvedValueOnce({ data: { id: 'reg-100' } })
       .mockResolvedValueOnce({ data: { id: 'consent-2' } });
@@ -598,5 +612,110 @@ describe('register — dispatches tg.dispatch.v1 envelope after successful regis
       unknown
     >;
     expect(template.text).not.toContain('Where:');
+  });
+});
+
+// ─── PR-1.3c — dedup by tg_user_id ───────────────────────────────────────────
+
+describe('register — tg_user_id-first member match (PR-1.3c)', () => {
+  it('reuses existing member when tg_user_id matches, IGNORING the typed email', async () => {
+    // The "I'm one person retrying" case: same TG user types a
+    // different email on retry — should NOT create a new member.
+    const fake = fakeDirectus();
+    const memberByTg = {
+      id: 'mem-tg-99',
+      email: 'old-email@example.com',
+      first_name: 'Viktor',
+      last_name: 'Drukker',
+      telegram_user_id: '8888',
+    };
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_ROW })
+      .mockResolvedValueOnce({ data: [memberByTg] }) // findMemberByTgUserId HIT
+      // findMemberByEmail intentionally not mocked — should not be called
+      .mockResolvedValueOnce({ data: [] }) // findRegistration by member
+      .mockResolvedValueOnce({ data: [] }); // findRegistrationByTgUserId
+    fake.post
+      .mockResolvedValueOnce({ data: { id: 'reg-new' } })
+      .mockResolvedValueOnce({ data: { id: 'consent-1' } });
+    const svc = makeService(fake);
+
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(8888),
+      telegram_username: 'viktor',
+      profile: { name: 'Viktor', email: 'different-email-this-time@example.com' },
+      consents: { events: true },
+    });
+
+    expect(out.member_id).toBe('mem-tg-99');
+    expect(out.was_new_member).toBe(false);
+    // 4 get calls total: event + tg-lookup + 2 registration dupe-checks.
+    // The email lookup MUST be skipped (tg-uid match takes precedence).
+    expect(fake.get).toHaveBeenCalledTimes(4);
+  });
+
+  it('returns 409 with original registration when (event, tg_user_id) already exists via DIFFERENT member', async () => {
+    // Defense-in-depth: even if member dedup somehow failed (e.g. a
+    // historical row pre-dating this PR), the (event, tg_user_id)
+    // pre-check catches the duplicate at the registration layer.
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_ROW })
+      .mockResolvedValueOnce({ data: [] }) // findMemberByTgUserId miss (rare)
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] }) // findMemberByEmail hit
+      .mockResolvedValueOnce({ data: [] }) // findRegistration by member — clean
+      .mockResolvedValueOnce({
+        // findRegistrationByTgUserId — DIRTY
+        data: [{ id: 'reg-other', event: 'evt-1', user: 'mem-other', checkin_code: null }],
+      });
+    const svc = makeService(fake);
+
+    try {
+      await svc.register({
+        event_id: 'evt-1',
+        telegram_user_id: BigInt(8888),
+        telegram_username: null,
+        profile: { name: 'Viktor', email: 'v@example.com' },
+        consents: { events: true },
+      });
+      throw new Error('expected to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ConflictException);
+      const resp = (e as ConflictException).getResponse() as Record<string, unknown>;
+      expect(resp.error).toBe('already_registered');
+      expect(resp.registration_id).toBe('reg-other');
+      // member_id reflects the ORIGINAL registration's member, not the
+      // current attempt's lookup. Tells the bot UX "you already have a
+      // spot — under this other account".
+      expect(resp.member_id).toBe('mem-other');
+    }
+  });
+
+  it('falls through to email lookup when tg_user_id is unknown (pre-link / web-registered member)', async () => {
+    const fake = fakeDirectus();
+    fake.get
+      .mockResolvedValueOnce({ data: EVENT_ROW })
+      .mockResolvedValueOnce({ data: [] }) // findMemberByTgUserId miss
+      .mockResolvedValueOnce({ data: [EXISTING_MEMBER] }) // findMemberByEmail hit
+      .mockResolvedValueOnce({ data: [] }) // findRegistration by member
+      .mockResolvedValueOnce({ data: [] }); // findRegistrationByTgUserId
+    fake.post
+      .mockResolvedValueOnce({ data: { id: 'reg-cross' } })
+      .mockResolvedValueOnce({ data: { id: 'consent-1' } });
+    const svc = makeService(fake);
+
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(9999),
+      telegram_username: 'newhandle',
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+
+    expect(out.member_id).toBe('mem-1'); // EXISTING_MEMBER.id
+    expect(out.was_new_member).toBe(false);
+    // Should also backfill the TG link on the existing member.
+    expect(fake.patch).toHaveBeenCalledTimes(1);
   });
 });

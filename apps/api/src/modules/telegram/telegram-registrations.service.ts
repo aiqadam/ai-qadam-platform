@@ -181,8 +181,19 @@ export class TelegramRegistrationsService {
         ? input.profile.name.trim()
         : email;
 
-    // Silent member match — find by email, create if missing.
-    const existing = await this.findMemberByEmail(email);
+    // Silent member match — two-key lookup so the same TG user retrying
+    // with a different email doesn't create a duplicate member.
+    //
+    // Order matters: tg_user_id FIRST because it's the more reliable
+    // identity (the bot can't fake it; httpx + Telegram guarantee it
+    // belongs to the chatting user). Email second for the "registered
+    // on web before, now coming via the bot" path. Falling all the way
+    // through → create a fresh Directus member from the profile.
+    const byTg = await this.findMemberByTgUserId(input.telegram_user_id);
+    let existing = byTg;
+    if (!existing) {
+      existing = await this.findMemberByEmail(email);
+    }
     let memberId: string;
     let wasNewMember: boolean;
     if (existing) {
@@ -208,16 +219,25 @@ export class TelegramRegistrationsService {
     });
 
     // Idempotency check — POST /registrations is at-least-once from
-    // the bot's perspective (network retries). Pre-check is cheaper +
-    // surfaces a clean 409 vs a 500 from the Directus uniqueness
-    // violation (which the existing constraint may or may not enforce
-    // depending on collection settings).
+    // the bot's perspective (network retries). Pre-check on (event,
+    // member_id) catches the canonical case. Also pre-check on (event,
+    // telegram_user_id) for the case where the bot user is somehow
+    // mid-flight on a member-merge — same TG identity, registration
+    // already counted, we don't want a second row for the same person.
     const dupe = await this.findRegistration(input.event_id, memberId);
     if (dupe) {
       throw new ConflictException({
         error: 'already_registered',
         registration_id: dupe.id,
         member_id: memberId,
+      });
+    }
+    const dupeByTg = await this.findRegistrationByTgUserId(input.event_id, input.telegram_user_id);
+    if (dupeByTg) {
+      throw new ConflictException({
+        error: 'already_registered',
+        registration_id: dupeByTg.id,
+        member_id: dupeByTg.user,
       });
     }
 
@@ -285,6 +305,19 @@ export class TelegramRegistrationsService {
     return res.data[0] ?? null;
   }
 
+  // Used by the silent member match: if this TG user already has a
+  // Directus member (from a prior /link OR a prior Telegram-as-IdP
+  // registration), prefer that member regardless of which email they
+  // type this time. Prevents duplicate-member creation when the same
+  // user retries with different email variants.
+  private async findMemberByTgUserId(tgUserId: bigint): Promise<DirectusMemberRow | null> {
+    const encoded = encodeURIComponent(tgUserId.toString());
+    const res = await this.directus.get<{ data: DirectusMemberRow[] }>(
+      `/users?filter[telegram_user_id][_eq]=${encoded}&fields=id,email,first_name,last_name,telegram_user_id&limit=1`,
+    );
+    return res.data[0] ?? null;
+  }
+
   private async createMemberFromProfile(input: {
     email: string;
     displayName: string;
@@ -333,6 +366,24 @@ export class TelegramRegistrationsService {
     const m = encodeURIComponent(memberId);
     const res = await this.directus.get<{ data: RegistrationRow[] }>(
       `/items/registrations?filter[event][_eq]=${e}&filter[user][_eq]=${m}&fields=id,event,user,checkin_code&limit=1`,
+    );
+    return res.data[0] ?? null;
+  }
+
+  // Companion to findRegistration: catches the case where the same TG
+  // identity already has a registration for this event via a DIFFERENT
+  // member_id (e.g. operator manually merged members, or stale data
+  // from before the tg-uid-first lookup landed). Result drives 409
+  // with the original registration_id + the original member_id so the
+  // bot UI shows "you're already in" + the correct member identity.
+  private async findRegistrationByTgUserId(
+    eventId: string,
+    tgUserId: bigint,
+  ): Promise<RegistrationRow | null> {
+    const e = encodeURIComponent(eventId);
+    const t = encodeURIComponent(tgUserId.toString());
+    const res = await this.directus.get<{ data: RegistrationRow[] }>(
+      `/items/registrations?filter[event][_eq]=${e}&filter[telegram_user_id][_eq]=${t}&fields=id,event,user,checkin_code&limit=1`,
     );
     return res.data[0] ?? null;
   }
