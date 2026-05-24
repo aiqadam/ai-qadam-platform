@@ -1,0 +1,30 @@
+{
+  "_comment": "F-OPS1-b · Backrest config. Copy to /opt/aiqadam/backrest/config.json on prod and substitute <REPO_PASSWORD> + <R2_REPO_URL> (read from /etc/restic/repo-password and /etc/restic/r2.env on the host).",
+  "instance": "aiqadam-prod",
+  "auth": {
+    "disabled": true
+  },
+  "repos": [
+    {
+      "id": "aiqadam-r2",
+      "uri": "<R2_REPO_URL>",
+      "password": "<REPO_PASSWORD>",
+      "env": [],
+      "flags": [],
+      "prunePolicy": {
+        "_comment": "Pruning is owned by systemd timer scripts (aiqadam-backup.sh + aiqadam-db-dump.sh). Backrest's pruner stays disabled to avoid double-prune races.",
+        "schedule": {
+          "disabled": true
+        }
+      },
+      "checkPolicy": {
+        "schedule": {
+          "disabled": true
+        }
+      },
+      "_note": "Backrest's read-only mode for this repo: backups + forgets are still done by systemd. Backrest is for browse + restore."
+    }
+  ],
+  "plans": [],
+  "_note_on_plans": "No plans defined — Backrest scheduler is OFF (systemd timer is source of truth). The UI still lets operators do ad-hoc 'Run now' restore operations from the snapshot list."
+}

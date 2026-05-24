@@ -1,0 +1,103 @@
+# F-OPS1-b/c · Backrest UI for the restic snapshot/restore tool.
+#
+# Backrest gives operators a web UI over our existing restic repo on
+# Cloudflare R2. Lists snapshots, browses files, runs restore-to-path
+# with a click — the "Windows Backup and Restore" UX that closes the
+# loop after F-OPS1-a (hourly DB dumps).
+#
+# Auth: Authentik forward-auth via the Embedded Outpost (per
+# scripts/provision-backrest-authentik.sh + ADR-0032). Restricted to
+# the `aiqadam-super-admin` group. Backrest itself runs with auth
+# disabled — it trusts the outpost's X-Authentik-* headers (only
+# reachable via the Traefik router that goes through the outpost).
+#
+# Why NOT a Coolify-managed service: this tool is the recovery path
+# FOR Coolify outages. Running it ON Coolify defeats the purpose.
+# Plain docker-compose on the prod host, joined to the `coolify`
+# external network so Traefik (which lives in coolify-proxy and
+# keeps running even if Coolify's control plane dies) picks it up
+# via the labels below.
+#
+# Backrest's built-in scheduler is DISABLED. The systemd timer from
+# F-OPS1-a is the single source of truth. Backrest is read/restore-only
+# from a write perspective — it shouldn't run backups itself.
+#
+# Deploy (on prod host):
+#   sudo mkdir -p /opt/aiqadam/backrest
+#   sudo cp infrastructure/backrest/docker-compose.yml /opt/aiqadam/backrest/
+#   sudo cp infrastructure/backrest/config.json.example /opt/aiqadam/backrest/config.json
+#   # edit config.json to set the repo password from /etc/restic/repo-password
+#   cd /opt/aiqadam/backrest && sudo docker compose up -d
+#
+# Auto-restart on boot: handled by `restart: unless-stopped` below.
+
+name: aiqadam-backrest
+
+services:
+  backrest:
+    image: garethgeorge/backrest:v1.7.4
+    restart: unless-stopped
+    expose:
+      - "9898"
+    environment:
+      BACKREST_PORT: "0.0.0.0:9898"
+      BACKREST_CONFIG: /etc/backrest/config.json
+      BACKREST_DATA: /data
+      # Disable Backrest's own auth — forward-auth via Authentik
+      # outpost is the boundary. Backrest reads X-Authentik-Username
+      # from the outpost-set header and trusts it.
+      BACKREST_DISABLE_AUTHENTICATION: "true"
+    volumes:
+      # Backrest's own state (job history, restore staging).
+      - backrest-data:/data
+      # Restic repo env (R2 creds + repo URL); read-only.
+      - /etc/restic/r2.env:/etc/restic/r2.env:ro
+      # Repo decryption passphrase; read-only.
+      - /etc/restic/repo-password:/etc/restic/repo-password:ro
+      # Backrest config (defines the repo + plan); read-only.
+      - /opt/aiqadam/backrest/config.json:/etc/backrest/config.json:ro
+      # Read-only view of local dump dir so operators can browse the
+      # latest local dumps without downloading from R2.
+      - /var/backups/aiqadam:/var/backups/aiqadam:ro
+    labels:
+      # Traefik routing. Mirrors the per-app label set Coolify
+      # auto-generates (see feedback_coolify_custom_labels_replaces_autogen)
+      # but we hand-write them because this container is NOT
+      # Coolify-managed.
+      - "traefik.enable=true"
+      - "coolify.managed=false"
+      # HTTPS router on ops.aiqadam.org (wildcard cert covers it).
+      - "traefik.http.routers.backrest.entryPoints=https"
+      - "traefik.http.routers.backrest.rule=Host(`ops.aiqadam.org`)"
+      - "traefik.http.routers.backrest.tls=true"
+      - "traefik.http.routers.backrest.service=backrest"
+      - "traefik.http.routers.backrest.middlewares=backrest-auth@docker"
+      # HTTP → HTTPS redirect.
+      - "traefik.http.routers.backrest-http.entryPoints=http"
+      - "traefik.http.routers.backrest-http.rule=Host(`ops.aiqadam.org`)"
+      - "traefik.http.routers.backrest-http.middlewares=redirect-to-https@docker"
+      # Unauthenticated /health for Gatus probes (priority > main
+      # router so it matches first). Otherwise Gatus's anon probe
+      # would hit Authentik's login page and never see a 200.
+      - "traefik.http.routers.backrest-health.entryPoints=https"
+      - "traefik.http.routers.backrest-health.rule=Host(`ops.aiqadam.org`) && Path(`/health`)"
+      - "traefik.http.routers.backrest-health.tls=true"
+      - "traefik.http.routers.backrest-health.service=backrest"
+      - "traefik.http.routers.backrest-health.priority=20"
+      # Service definition.
+      - "traefik.http.services.backrest.loadbalancer.server.port=9898"
+      # Forward-auth middleware: every request goes through Authentik
+      # outpost's /outpost.goauthentik.io/auth/traefik endpoint.
+      # Authentik either lets the request through (with user headers
+      # appended) or 302s to the login page.
+      - "traefik.http.middlewares.backrest-auth.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.backrest-auth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.backrest-auth.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid,X-authentik-jwt,X-authentik-meta-jwks,X-authentik-meta-outpost,X-authentik-meta-provider,X-authentik-meta-app,X-authentik-meta-version"
+
+networks:
+  default:
+    name: coolify
+    external: true
+
+volumes:
+  backrest-data:

@@ -201,3 +201,21 @@ configs:
             - type: telegram
               failure-threshold: 3
               send-on-resolved: true
+
+        # F-OPS1-d · Backrest UI liveness + backup freshness signal.
+        # Backrest's /health endpoint returns 200 IFF the configured
+        # restic repo is reachable AND the last scheduled operation
+        # didn't error. Indirectly tells us R2 is up + restic repo
+        # decrypts cleanly. Backup-freshness alerting (latest snapshot
+        # within N hours) lives inside Backrest's own UI as a config'd
+        # "missed backup" notification — handled there per F-OPS1-b.
+        - name: ops — Backrest /health
+          group: ops
+          url: https://ops.aiqadam.org/health
+          interval: 300s
+          conditions:
+            - "[STATUS] == 200"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
