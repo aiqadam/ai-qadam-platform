@@ -3576,6 +3576,29 @@ ensure "relation events.hero_image -> directus_files.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"events","field":"hero_image","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
 
+# aiqadam#293 — multi-item media array. Drives sendMediaGroup
+# (Telegram album, 2-10 items) on the bot detail screen + the public
+# event-page gallery. Each item: { kind, url, caption?, thumbnail_url?,
+# order }. URL host must be aiqadam-owned (Directus assets) or an
+# allow-listed CDN — Telegram fetches at send time, no proxy. Size /
+# dimension validation runs at upload time (cabinet PR, future work);
+# this column is just the persistence layer.
+echo "[aiqadam#293 — events.media]"
+ensure "field events.media" \
+  "${DIRECTUS_URL}/fields/events/media" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"media",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json"},
+      "width":"full",
+      "note":"Optional media gallery (photos, videos, documents). Array of {kind, url, caption?, thumbnail_url?, order}. Null = use hero_image only (existing single-image rendering). Cabinet drag-drop uploader lands in a follow-up PR."
+    }
+  }'
+
 echo "[F-S3.10-a — events.agenda_md]"
 ensure "field events.agenda_md" \
   "${DIRECTUS_URL}/fields/events/agenda_md" \

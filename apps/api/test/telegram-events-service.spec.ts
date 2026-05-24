@@ -4,6 +4,7 @@ import type { DirectusClient } from '../src/modules/directus/directus.client';
 import {
   TelegramEventsService,
   rowToSummary,
+  sanitizeMediaItems,
   speakerDisplayName,
   speakerTitle,
 } from '../src/modules/telegram/telegram-events.service';
@@ -473,6 +474,7 @@ describe('TelegramEventsService.getEventDetail', () => {
     venue: 'IMPACT.T Hall A',
     hero_image: 'aabbccdd-1111-2222-3333-444455556666',
     online_meeting_url: 'https://meet.example.com/abc',
+    media: null,
   };
 
   function makeService(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
@@ -673,5 +675,110 @@ describe('TelegramEventsService.getEventDetail', () => {
     expect(speakersCall).toContain('filter[event][_eq]=evt-1');
     expect(speakersCall).toContain('filter[status][_eq]=confirmed');
     expect(speakersCall).toContain('sort=order_index');
+  });
+
+  it('passes media items through after sanitization (aiqadam#293)', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            ...DETAIL_ROW,
+            media: [
+              { kind: 'photo', url: 'https://cdn.example/a.jpg', caption: 'A', order: 1 },
+              { kind: 'video', url: 'https://cdn.example/b.mp4', order: 0 },
+              { kind: 'unknown', url: 'https://cdn.example/c' }, // dropped
+            ],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+
+    expect(out.media).toHaveLength(2);
+    expect(out.media?.[0]?.kind).toBe('video'); // order=0 sorts first
+    expect(out.media?.[1]?.caption).toBe('A');
+  });
+
+  it('omits media key entirely when row.media is null (aiqadam#293)', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [{ ...DETAIL_ROW, media: null }] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+
+    const out = await svc.getEventDetail('ai-meetup');
+    expect(out.media).toBeUndefined();
+  });
+});
+
+// ─── aiqadam#293 — sanitizeMediaItems ───────────────────────────────────────
+
+describe('sanitizeMediaItems', () => {
+  it('returns [] for non-array input', () => {
+    expect(sanitizeMediaItems(null)).toEqual([]);
+    expect(sanitizeMediaItems(undefined)).toEqual([]);
+    expect(sanitizeMediaItems({ kind: 'photo' })).toEqual([]);
+    expect(sanitizeMediaItems('string')).toEqual([]);
+  });
+
+  it('keeps valid items + drops malformed ones', () => {
+    const out = sanitizeMediaItems([
+      { kind: 'photo', url: 'https://x/a.jpg', order: 0 },
+      { kind: 'video', url: '', order: 1 }, // empty url → drop
+      { kind: 'unknown', url: 'https://x/c', order: 2 }, // bad kind → drop
+      { url: 'https://x/d', order: 3 }, // missing kind → drop
+      null,
+      'not-an-object',
+      { kind: 'document', url: 'https://x/e.pdf', order: 4 },
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out[0]?.kind).toBe('photo');
+    expect(out[1]?.kind).toBe('document');
+  });
+
+  it('sorts by order ascending', () => {
+    const out = sanitizeMediaItems([
+      { kind: 'photo', url: 'https://x/b.jpg', order: 5 },
+      { kind: 'photo', url: 'https://x/a.jpg', order: 1 },
+      { kind: 'photo', url: 'https://x/c.jpg', order: 3 },
+    ]);
+    expect(out.map((m) => m.url)).toEqual([
+      'https://x/a.jpg',
+      'https://x/c.jpg',
+      'https://x/b.jpg',
+    ]);
+  });
+
+  it('keeps caption + thumbnail_url when present, omits when missing', () => {
+    const out = sanitizeMediaItems([
+      {
+        kind: 'video',
+        url: 'https://x/v.mp4',
+        caption: 'Talk replay',
+        thumbnail_url: 'https://x/v.jpg',
+        order: 0,
+      },
+      { kind: 'photo', url: 'https://x/p.jpg', order: 1 },
+    ]);
+    expect(out[0]).toMatchObject({
+      caption: 'Talk replay',
+      thumbnail_url: 'https://x/v.jpg',
+    });
+    expect(out[1]?.caption).toBeUndefined();
+    expect(out[1]?.thumbnail_url).toBeUndefined();
+  });
+
+  it('synthesizes order from index when missing', () => {
+    const out = sanitizeMediaItems([
+      { kind: 'photo', url: 'https://x/a.jpg' },
+      { kind: 'photo', url: 'https://x/b.jpg' },
+    ]);
+    expect(out[0]?.order).toBe(0);
+    expect(out[1]?.order).toBe(1);
   });
 });

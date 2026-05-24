@@ -72,6 +72,20 @@ export interface EventDetailSpeaker {
   name: string;
   title: string | null;
 }
+
+// aiqadam#293 — multi-item media gallery. Drives sendMediaGroup on the
+// bot (Telegram albums, 2-10 items per group) and the public event
+// page gallery. Operators supply URLs (Directus assets or allow-listed
+// CDN); validation runs at upload time, this layer trusts the column.
+export type EventMediaKind = 'photo' | 'video' | 'animation' | 'document';
+export interface EventMediaItem {
+  kind: EventMediaKind;
+  url: string;
+  caption?: string;
+  thumbnail_url?: string;
+  order: number;
+}
+
 export interface EventDetail extends EventSummary {
   description: string;
   short_description?: string;
@@ -81,6 +95,7 @@ export interface EventDetail extends EventSummary {
   capacity_total?: number;
   capacity_taken: number;
   speakers?: EventDetailSpeaker[];
+  media?: EventMediaItem[];
   web_url: string;
 }
 
@@ -93,6 +108,10 @@ interface EventDetailRow extends EventRow {
   venue: string | null;
   hero_image: string | null;
   online_meeting_url: string | null;
+  // aiqadam#293 — raw jsonb. We narrow + filter the array before
+  // exposing on the wire (sanitizeMediaItems) so a malformed operator
+  // entry doesn't break the bot's pydantic parsing.
+  media: unknown;
 }
 
 // Directus speaker join shape — the deep-fetch reaches across the
@@ -237,7 +256,7 @@ export class TelegramEventsService {
   // the slug-then-id fallback in telegram-registration-schema.service.ts.
   private async findPublishedEventBySlugOrId(slugOrId: string): Promise<EventDetailRow | null> {
     const fields =
-      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url';
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url,media';
     const guards = 'filter[status][_eq]=published&filter[visibility_scope][_eq]=public';
     const encoded = encodeURIComponent(slugOrId);
 
@@ -415,7 +434,56 @@ function pickEditorialFields(row: EventDetailRow): Partial<EventDetail> {
   }
   if (row.online_meeting_url) out.online_meeting_url = row.online_meeting_url;
   if (row.capacity != null) out.capacity_total = row.capacity;
+  const media = sanitizeMediaItems(row.media);
+  if (media.length > 0) out.media = media;
   return out;
+}
+
+// aiqadam#293 — narrow + filter the raw jsonb. Drops items missing
+// the required keys (kind, url) or with an unknown kind, and stable-sorts
+// by `order` so the operator's curated sequence survives. Returns an
+// empty array (rather than throwing) on any unexpected shape so a
+// malformed cabinet edit can't 500 the whole detail call.
+const VALID_MEDIA_KINDS: ReadonlySet<EventMediaKind> = new Set([
+  'photo',
+  'video',
+  'animation',
+  'document',
+]);
+export function sanitizeMediaItems(raw: unknown): EventMediaItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: EventMediaItem[] = [];
+  for (const entry of raw) {
+    const item = parseMediaItem(entry, out.length);
+    if (item) out.push(item);
+  }
+  out.sort((a, b) => a.order - b.order);
+  return out;
+}
+
+// Single-item parser — extracted from sanitizeMediaItems to keep the
+// outer loop within the cognitive-complexity budget. Returns null when
+// the entry fails any required-field check (drops silently — operator
+// edits land in the cabinet first, the bot shouldn't 500 on a typo).
+function parseMediaItem(entry: unknown, fallbackOrder: number): EventMediaItem | null {
+  if (typeof entry !== 'object' || entry === null) return null;
+  const e = entry as Record<string, unknown>;
+  if (!isValidKind(e.kind) || !isNonEmptyString(e.url)) return null;
+  const item: EventMediaItem = {
+    kind: e.kind,
+    url: e.url,
+    order: typeof e.order === 'number' ? e.order : fallbackOrder,
+  };
+  if (isNonEmptyString(e.caption)) item.caption = e.caption;
+  if (isNonEmptyString(e.thumbnail_url)) item.thumbnail_url = e.thumbnail_url;
+  return item;
+}
+
+function isValidKind(v: unknown): v is EventMediaKind {
+  return typeof v === 'string' && VALID_MEDIA_KINDS.has(v as EventMediaKind);
+}
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0;
 }
 
 // aiqadam#279 — speaker display helpers (exported for tests). Operators
