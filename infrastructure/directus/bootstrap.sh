@@ -1712,12 +1712,19 @@ ensure "field directus_users.show_company_on_public_profile" \
 #
 # Storing null = "use the default"; the GET endpoint resolves them.
 
-echo "[aiqadam#289 — directus_users.language]"
-ensure "field directus_users.language" \
-  "${DIRECTUS_URL}/fields/directus_users/language" \
+echo "[aiqadam#289 — directus_users.preferred_language]"
+# NOTE: renamed from `language` because Directus 11 ships `directus_users.language`
+# as a SYSTEM field (admin UI locale). Reusing the system field would conflate
+# admin-UI language with member communication language — fine in theory while
+# 99% of members have no admin account, but a future operator/admin overlap
+# would silently flip somebody's bot language. Different concept = different
+# column. (Viktor 2026-05-24: "system fields should not be collisioned, future
+# it will be a disaster".)
+ensure "field directus_users.preferred_language" \
+  "${DIRECTUS_URL}/fields/directus_users/preferred_language" \
   "${DIRECTUS_URL}/fields/directus_users" \
   '{
-    "field":"language",
+    "field":"preferred_language",
     "type":"string",
     "schema":{"is_nullable":true,"max_length":8},
     "meta":{
@@ -1728,7 +1735,7 @@ ensure "field directus_users.language" \
         {"text":"Russian","value":"ru"},
         {"text":"Uzbek","value":"uz"}
       ]},
-      "note":"Preferred UI language. Honored via Accept-Language on bot reads. Null → default \"en\". Member-editable from /settings in the bot."
+      "note":"Member-preferred language for bot UI + outbound comms. Honored via Accept-Language on bot reads. Null → default \"en\". Member-editable from /settings in the bot. NOT the same as directus_users.language (which is the admin UI locale and is operator-internal)."
     }
   }'
 

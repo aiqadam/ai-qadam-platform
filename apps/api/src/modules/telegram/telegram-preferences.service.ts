@@ -64,10 +64,16 @@ const ULTIMATE_DEFAULT_TZ = 'UTC';
 
 // ─── Internal Directus shapes ────────────────────────────────────────────────
 
+// Note on `preferred_language` (not `language`): Directus 11 ships
+// `directus_users.language` as a SYSTEM field (admin UI locale). Mixing
+// the member's bot-language preference into the same column would
+// silently flip operator-admin members' admin UI when they edit their
+// bot settings. We use a separately-named column so the two concerns
+// stay independent. Wire shape (PreferencesResult.language) is unchanged.
 interface DirectusMemberRow {
   id: string;
   country: string | null;
-  language: string | null;
+  preferred_language: string | null;
   timezone: string | null;
   notification_opt_ins: Partial<Record<string, unknown>> | null;
 }
@@ -115,7 +121,9 @@ export class TelegramPreferencesService {
         : { ...existingOptIns, ...body.notification_opt_ins };
 
     const patchBody: Record<string, unknown> = {};
-    if (body.language !== undefined) patchBody.language = body.language;
+    // body.language is the WIRE field; writes to the `preferred_language`
+    // Directus column (renamed to dodge the system-field collision).
+    if (body.language !== undefined) patchBody.preferred_language = body.language;
     if (body.timezone !== undefined) patchBody.timezone = body.timezone;
     if (body.notification_opt_ins !== undefined) patchBody.notification_opt_ins = mergedOptIns;
 
@@ -127,7 +135,7 @@ export class TelegramPreferencesService {
 
     return this.resolveDefaults({
       ...row,
-      ...(body.language !== undefined ? { language: body.language } : {}),
+      ...(body.language !== undefined ? { preferred_language: body.language } : {}),
       ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
       notification_opt_ins:
         body.notification_opt_ins === undefined
@@ -167,7 +175,7 @@ export class TelegramPreferencesService {
   private async findMember(memberId: string): Promise<DirectusMemberRow | null> {
     try {
       const res = await this.directus.get<{ data: DirectusMemberRow }>(
-        `/users/${encodeURIComponent(memberId)}?fields=id,country,language,timezone,notification_opt_ins`,
+        `/users/${encodeURIComponent(memberId)}?fields=id,country,preferred_language,timezone,notification_opt_ins`,
       );
       return res.data;
     } catch (err) {
@@ -180,7 +188,7 @@ export class TelegramPreferencesService {
 
   private async resolveDefaults(row: DirectusMemberRow): Promise<PreferencesResult> {
     return {
-      language: this.resolveLanguage(row.language),
+      language: this.resolveLanguage(row.preferred_language),
       timezone: await this.resolveTimezone(row.timezone, row.country),
       notification_opt_ins: this.resolveOptIns(row.notification_opt_ins),
     };

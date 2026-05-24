@@ -15,10 +15,13 @@ function fakeDirectus(opts: { get?: ReturnType<typeof vi.fn>; patch?: ReturnType
   } as unknown as DirectusClient;
 }
 
+// Directus row fixtures — `preferred_language` is the COLUMN name (renamed
+// from `language` to avoid the system-field collision). Wire shape stays
+// `language`, asserted on the GET / PATCH responses below.
 const MEMBER_NULL_PREFS = {
   id: 'mem-1',
   country: 'uz',
-  language: null,
+  preferred_language: null,
   timezone: null,
   notification_opt_ins: null,
 };
@@ -26,7 +29,7 @@ const MEMBER_NULL_PREFS = {
 const MEMBER_SET_PREFS = {
   id: 'mem-1',
   country: 'uz',
-  language: 'ru',
+  preferred_language: 'ru',
   timezone: 'Europe/Moscow',
   notification_opt_ins: { event_reminders: true, newsletter: true, community_announcements: false },
 };
@@ -155,7 +158,7 @@ describe('TelegramPreferencesService.get', () => {
 
   it('falls back to "en" for invalid stored language', async () => {
     const get = vi.fn().mockResolvedValueOnce({
-      data: { ...MEMBER_SET_PREFS, language: 'klingon' },
+      data: { ...MEMBER_SET_PREFS, preferred_language: 'klingon' },
     });
     const svc = new TelegramPreferencesService(fakeDirectus({ get }));
 
@@ -225,7 +228,8 @@ describe('TelegramPreferencesService.patch', () => {
 
     expect(patch).toHaveBeenCalledTimes(1);
     expect(patch.mock.calls[0]?.[0]).toBe('/users/mem-1');
-    expect(patch.mock.calls[0]?.[1]).toEqual({ language: 'ru' });
+    // Wire field `language` is rewritten to the renamed Directus column.
+    expect(patch.mock.calls[0]?.[1]).toEqual({ preferred_language: 'ru' });
   });
 
   it('merges opt-ins with existing row (does not clobber unset keys)', async () => {
