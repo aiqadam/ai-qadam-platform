@@ -1,9 +1,11 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { type ReactElement, useEffect, useState } from 'react';
+import { getAuthState } from '../lib/auth-bootstrap';
 
 // /me dashboard per design s3-2. Client-side island:
-//   1. POST /api/v1/auth/refresh — if no cookie, render anon sign-in CTA.
-//   2. GET /api/v1/auth/me + /api/v1/registrations/mine in parallel.
+//   1. getAuthState() — shared bootstrap, deduped with other islands on
+//      the page (Nav.tsx, etc). If anon, render sign-in CTA.
+//   2. GET /api/v1/registrations/mine with the access token from step 1.
 //   3. Render stat cards (upcoming / attended / waitlisted) + registrations
 //      list with QR codes for active registrations.
 //
@@ -45,22 +47,13 @@ type State =
   | { phase: 'error'; message: string };
 
 async function bootstrap(): Promise<State> {
-  const refreshRes = await fetch('/api/v1/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
+  const auth = await getAuthState();
+  if (!auth) return { phase: 'anon' };
+  const { me, accessToken } = auth;
+
+  const mineRes = await fetch('/api/v1/registrations/mine', {
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!refreshRes.ok) return { phase: 'anon' };
-  const { accessToken } = (await refreshRes.json()) as { accessToken: string };
-
-  const [meRes, mineRes] = await Promise.all([
-    fetch('/api/v1/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } }),
-    fetch('/api/v1/registrations/mine', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }),
-  ]);
-
-  if (!meRes.ok) return { phase: 'anon' };
-  const me = (await meRes.json()) as Me;
   const mineBody = mineRes.ok
     ? ((await mineRes.json()) as { registrations: MineEntry[] })
     : { registrations: [] };
