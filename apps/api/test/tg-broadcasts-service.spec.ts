@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import {
   TgBroadcastsService,
+  nextRecurrenceAnchor,
+  normalizeRecurrence,
   rowToDetail,
   rowToSummary,
   sanitizeButtons,
@@ -30,6 +32,7 @@ const ROW = {
   sent_at: null,
   sent_count: null,
   failure_reason: null,
+  recurrence: 'none' as const,
   created_by: 'usr-1',
   date_created: '2026-05-24T12:00:00.000Z',
   date_updated: null,
@@ -282,5 +285,50 @@ describe('TgBroadcastsService.update', () => {
     });
     const body = patch.mock.calls[0]?.[1] as { inline_buttons: unknown[] };
     expect(body.inline_buttons).toEqual([{ label: 'OK', url: 'https://x.test' }]);
+  });
+});
+
+// ─── #294 PR-e — recurrence helpers ──────────────────────────────────────
+
+describe('normalizeRecurrence', () => {
+  it('passes through weekly + monthly', () => {
+    expect(normalizeRecurrence('weekly')).toBe('weekly');
+    expect(normalizeRecurrence('monthly')).toBe('monthly');
+  });
+  it('falls back to none for null/undefined/unknown', () => {
+    expect(normalizeRecurrence(null)).toBe('none');
+    expect(normalizeRecurrence(undefined)).toBe('none');
+    expect(normalizeRecurrence('daily')).toBe('none');
+    expect(normalizeRecurrence('')).toBe('none');
+  });
+});
+
+describe('nextRecurrenceAnchor', () => {
+  it('returns null for none', () => {
+    expect(nextRecurrenceAnchor('2026-07-01T12:00:00.000Z', 'none')).toBeNull();
+  });
+  it('adds 7 days for weekly', () => {
+    expect(nextRecurrenceAnchor('2026-07-01T12:00:00.000Z', 'weekly')).toBe(
+      '2026-07-08T12:00:00.000Z',
+    );
+  });
+  it('adds 1 month for monthly (UTC-aware)', () => {
+    expect(nextRecurrenceAnchor('2026-07-01T12:00:00.000Z', 'monthly')).toBe(
+      '2026-08-01T12:00:00.000Z',
+    );
+  });
+  it('returns null for malformed input', () => {
+    expect(nextRecurrenceAnchor('not-a-date', 'weekly')).toBeNull();
+  });
+});
+
+describe('rowToSummary — recurrence', () => {
+  it('surfaces normalized recurrence', () => {
+    const out = rowToSummary({ ...ROW, recurrence: 'weekly' });
+    expect(out.recurrence).toBe('weekly');
+  });
+  it('defaults to none when row column is null', () => {
+    const out = rowToSummary({ ...ROW, recurrence: null });
+    expect(out.recurrence).toBe('none');
   });
 });

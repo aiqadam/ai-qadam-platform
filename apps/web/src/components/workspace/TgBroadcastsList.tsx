@@ -16,6 +16,8 @@ interface BroadcastSummary {
   audience_segment: string | null;
   has_image: boolean;
   inline_buttons_count: number;
+  // #294 PR-e — 'none' / 'weekly' / 'monthly'
+  recurrence: 'none' | 'weekly' | 'monthly';
   created_by: string | null;
   date_created: string;
   date_updated: string | null;
@@ -126,6 +128,17 @@ export default function TgBroadcastsList(): ReactElement {
               <tr key={b.id}>
                 <td style={tdStyle()}>
                   <a href={`/workspace/integrations/telegram/broadcasts/${b.id}`}>{b.title}</a>
+                  {b.recurrence !== 'none' && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 11,
+                        color: 'var(--muted-foreground)',
+                      }}
+                    >
+                      ↻ {b.recurrence}
+                    </span>
+                  )}
                 </td>
                 <td style={tdStyle()}>{b.country.toUpperCase()}</td>
                 <td style={tdStyle()}>

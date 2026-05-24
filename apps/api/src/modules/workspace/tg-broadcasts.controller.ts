@@ -13,6 +13,10 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthGuard } from '../auth/auth.guard';
+import {
+  type BroadcastAnalytics,
+  TgBroadcastsAnalyticsService,
+} from './tg-broadcasts-analytics.service';
 import { type SendNowResult, TgBroadcastsSenderService } from './tg-broadcasts-sender.service';
 import {
   type BroadcastDetail,
@@ -47,6 +51,8 @@ const buttonSchema = z.object({
   url: z.string().url().max(2048),
 });
 
+const recurrenceSchema = z.enum(['none', 'weekly', 'monthly']);
+
 const createSchema = z.object({
   title: z.string().min(1).max(200),
   country: z.string().regex(/^[a-z]{2}$/, 'country must be ISO-3166-1 alpha-2 lowercase'),
@@ -54,6 +60,7 @@ const createSchema = z.object({
   image_asset: z.string().uuid().nullable().optional(),
   inline_buttons: z.array(buttonSchema).max(8).optional(),
   audience_segment: z.string().uuid().nullable().optional(),
+  recurrence: recurrenceSchema.optional(),
 });
 
 const updateSchema = z
@@ -65,6 +72,7 @@ const updateSchema = z
     audience_segment: z.string().uuid().nullable().optional(),
     status: z.enum(['draft', 'scheduled']).optional(),
     scheduled_at: z.string().datetime().nullable().optional(),
+    recurrence: recurrenceSchema.optional(),
   })
   .strict();
 
@@ -74,6 +82,7 @@ export class TgBroadcastsController {
   constructor(
     private readonly broadcasts: TgBroadcastsService,
     private readonly sender: TgBroadcastsSenderService,
+    private readonly analytics: TgBroadcastsAnalyticsService,
   ) {}
 
   @Get()
@@ -113,6 +122,7 @@ export class TgBroadcastsController {
       image_asset: parsed.data.image_asset ?? null,
       inline_buttons: parsed.data.inline_buttons ?? [],
       audience_segment: parsed.data.audience_segment ?? null,
+      recurrence: parsed.data.recurrence ?? 'none',
     });
   }
 
@@ -139,6 +149,7 @@ export class TgBroadcastsController {
     if (d.audience_segment !== undefined) input.audience_segment = d.audience_segment;
     if (d.status !== undefined) input.status = d.status;
     if (d.scheduled_at !== undefined) input.scheduled_at = d.scheduled_at;
+    if (d.recurrence !== undefined) input.recurrence = d.recurrence;
     return this.broadcasts.update(parsedId.data, input);
   }
 
@@ -160,5 +171,22 @@ export class TgBroadcastsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.sender.sendNow(parsed.data);
+  }
+
+  // #294 PR-e — per-broadcast delivery analytics. Reads tg_send_log
+  // for rows with delivery_key prefix `bdc:${id}:`. Counts are
+  // best-effort point-in-time (notifier audit lags real delivery by
+  // 1–5s; pending=retry rows surface the in-flight state).
+  //
+  //   200: { broadcast_id, delivered, opted_out, failed, pending, total_audited }
+  //   400: { error: 'invalid_id' }
+  //   401: AuthGuard
+  @Get(':id/analytics')
+  async analyticsRead(@Param('id') id: string): Promise<BroadcastAnalytics> {
+    const parsed = idParamSchema.safeParse(id);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.analytics.get(parsed.data);
   }
 }

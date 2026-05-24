@@ -9,6 +9,7 @@ import { DirectusClient } from '../directus/directus.client';
 // PR-d send-now + scheduler, PR-e recurring + analytics.
 
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+export type BroadcastRecurrence = 'none' | 'weekly' | 'monthly';
 
 export interface BroadcastSummary {
   id: string;
@@ -21,6 +22,9 @@ export interface BroadcastSummary {
   audience_segment: string | null;
   has_image: boolean;
   inline_buttons_count: number;
+  // #294 PR-e — when 'weekly' / 'monthly', sender clones the row at
+  // fire time for the next anchor; 'none' = one-time (PR-d default).
+  recurrence: BroadcastRecurrence;
   created_by: string | null;
   date_created: string;
   date_updated: string | null;
@@ -51,6 +55,7 @@ interface BroadcastRow {
   sent_at: string | null;
   sent_count: number | null;
   failure_reason: string | null;
+  recurrence: string | null;
   created_by: string | null;
   date_created: string;
   date_updated: string | null;
@@ -64,6 +69,8 @@ export interface CreateBroadcastInput {
   image_asset?: string | null;
   inline_buttons?: BroadcastButton[];
   audience_segment?: string | null;
+  // #294 PR-e — defaults to 'none' when omitted.
+  recurrence?: BroadcastRecurrence;
 }
 
 export interface UpdateBroadcastInput {
@@ -78,6 +85,7 @@ export interface UpdateBroadcastInput {
   // button + cancel back to draft.
   status?: 'draft' | 'scheduled';
   scheduled_at?: string | null;
+  recurrence?: BroadcastRecurrence;
 }
 
 @Injectable()
@@ -93,6 +101,7 @@ export class TgBroadcastsService {
       image_asset: input.image_asset ?? null,
       inline_buttons: sanitizeButtons(input.inline_buttons ?? []),
       audience_segment: input.audience_segment ?? null,
+      recurrence: input.recurrence ?? 'none',
     };
     const res = await this.directus.post<{ data: BroadcastRow }>('/items/tg_broadcasts', body);
     return rowToDetail(res.data);
@@ -128,6 +137,7 @@ export class TgBroadcastsService {
     if (input.audience_segment !== undefined) patch.audience_segment = input.audience_segment;
     if (input.status !== undefined) patch.status = input.status;
     if (input.scheduled_at !== undefined) patch.scheduled_at = input.scheduled_at;
+    if (input.recurrence !== undefined) patch.recurrence = input.recurrence;
     const res = await this.directus.patch<{ data: BroadcastRow }>(
       `/items/tg_broadcasts/${encodeURIComponent(id)}`,
       patch,
@@ -140,7 +150,7 @@ export class TgBroadcastsService {
   }> {
     const { country = null, status = null } = filters;
     const parts: string[] = [
-      'fields=id,title,country,status,image_asset,inline_buttons,audience_segment,scheduled_at,sent_at,sent_count,created_by,date_created,date_updated',
+      'fields=id,title,country,status,image_asset,inline_buttons,audience_segment,scheduled_at,sent_at,sent_count,recurrence,created_by,date_created,date_updated',
       'sort=-date_created',
       'limit=200',
     ];
@@ -176,6 +186,7 @@ export function rowToSummary(row: BroadcastRow): BroadcastSummary {
     sent_at: row.sent_at,
     sent_count: row.sent_count ?? 0,
     audience_segment: row.audience_segment,
+    recurrence: normalizeRecurrence(row.recurrence),
     has_image: row.image_asset !== null,
     inline_buttons_count: buttons.length,
     created_by: row.created_by,
@@ -213,4 +224,23 @@ export function sanitizeButtons(raw: unknown): BroadcastButton[] {
     out.push({ label, url });
   }
   return out;
+}
+
+// #294 PR-e — narrow operator-supplied / legacy-null recurrence to the
+// known enum. Unknown values + null fall back to 'none'.
+export function normalizeRecurrence(raw: string | null | undefined): BroadcastRecurrence {
+  if (raw === 'weekly' || raw === 'monthly') return raw;
+  return 'none';
+}
+
+// #294 PR-e — compute the next anchor for a recurring broadcast. v1
+// is simple ISO date math from the previous scheduled_at; richer
+// cron-pattern support is a follow-up.
+export function nextRecurrenceAnchor(prev: string, recurrence: BroadcastRecurrence): string | null {
+  if (recurrence === 'none') return null;
+  const d = new Date(prev);
+  if (Number.isNaN(d.getTime())) return null;
+  if (recurrence === 'weekly') d.setUTCDate(d.getUTCDate() + 7);
+  if (recurrence === 'monthly') d.setUTCMonth(d.getUTCMonth() + 1);
+  return d.toISOString();
 }

@@ -37,6 +37,7 @@ import { PostEventCronController } from './post-event-cron.controller';
 import { PostEventCronService } from './post-event-cron.service';
 import { SponsorDigestsController } from './sponsor-digests.controller';
 import { SponsorDigestsService } from './sponsor-digests.service';
+import { TgBroadcastsAnalyticsService } from './tg-broadcasts-analytics.service';
 import { TgBroadcastsCronController } from './tg-broadcasts-cron.controller';
 import { TgBroadcastsSenderService } from './tg-broadcasts-sender.service';
 import { TgBroadcastsController } from './tg-broadcasts.controller';
@@ -108,6 +109,7 @@ import { TgSegmentsService } from './tg-segments.service';
     TgBroadcastsService,
     TgSegmentsService,
     TgBroadcastsSenderService,
+    TgBroadcastsAnalyticsService,
     WorkspaceFormsService,
     InternalAuthGuard,
   ],

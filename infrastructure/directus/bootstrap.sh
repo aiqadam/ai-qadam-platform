@@ -4526,6 +4526,32 @@ ensure "relation tg_broadcasts.audience_segment -> tg_segments.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"tg_broadcasts","field":"audience_segment","related_collection":"tg_segments","schema":{"on_delete":"SET NULL"}}'
 
+echo "[aiqadam#294 PR-e — tg_broadcasts.recurrence]"
+# #294 PR-e — recurring broadcasts.
+#
+# When the sender marks a recurring row as sent, it clones the row
+# (snapshot of body + buttons + segment at fire time) into a new draft
+# with status='scheduled' + scheduled_at=next anchor. v1 supports
+# weekly + monthly with the previous scheduled_at as anchor.
+#
+# Snapshot-on-fire (not template+instance) keeps history immutable:
+# editing the recurring source AFTER the next fire only affects the
+# next-next; already-sent rows preserve what was actually delivered.
+ensure "field tg_broadcasts.recurrence" \
+  "${DIRECTUS_URL}/fields/tg_broadcasts/recurrence" \
+  "${DIRECTUS_URL}/fields/tg_broadcasts" \
+  '{
+    "field":"recurrence",
+    "type":"string",
+    "schema":{"is_nullable":false,"default_value":"none","max_length":20},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[{"text":"One-time","value":"none"},{"text":"Weekly","value":"weekly"},{"text":"Monthly","value":"monthly"}]},
+      "note":"#294 PR-e — when set, sender clones the row at fire time for the next anchor."
+    }
+  }'
+
 # ════════════════════════════════════════════════════════════════════════
 # C-1 — site_settings (true singleton — global, not per-country)
 # ════════════════════════════════════════════════════════════════════════

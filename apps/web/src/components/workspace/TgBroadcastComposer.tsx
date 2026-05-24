@@ -16,6 +16,8 @@ interface BroadcastButton {
   url: string;
 }
 
+type Recurrence = 'none' | 'weekly' | 'monthly';
+
 interface BroadcastDetail {
   id: string;
   title: string;
@@ -27,6 +29,7 @@ interface BroadcastDetail {
   scheduled_at: string | null;
   sent_at: string | null;
   image_asset: string | null;
+  recurrence: Recurrence;
 }
 
 type State =
@@ -54,6 +57,7 @@ interface FormState {
   scheduled_local: string;
   // Operator picks at submit time. PR-b mutates draft → scheduled.
   intent: 'save_draft' | 'schedule';
+  recurrence: Recurrence;
 }
 
 function signInUrl(): string {
@@ -109,6 +113,7 @@ function blankForm(): FormState {
     buttons: [],
     scheduled_local: '',
     intent: 'save_draft',
+    recurrence: 'none',
   };
 }
 
@@ -121,6 +126,7 @@ function detailToForm(d: BroadcastDetail): FormState {
     buttons: d.inline_buttons,
     scheduled_local: d.scheduled_at ? isoToLocalInput(d.scheduled_at) : '',
     intent: d.status === 'scheduled' ? 'schedule' : 'save_draft',
+    recurrence: d.recurrence ?? 'none',
   };
 }
 
@@ -188,11 +194,13 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
       country?: string;
       status?: 'draft' | 'scheduled';
       scheduled_at?: string | null;
+      recurrence?: Recurrence;
     }
     const payload: BroadcastPayload = {
       title: form.title,
       html_body: form.html_body,
       inline_buttons: form.buttons.filter((b) => b.label.trim() && b.url.trim()),
+      recurrence: form.recurrence,
     };
     if (!isEdit) {
       payload.country = form.country;
@@ -410,6 +418,28 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
         <p style={{ ...mutedStyle(), marginTop: 8, fontSize: 12 }}>
           Scheduler cron picks up scheduled broadcasts at the chosen time. To send immediately, save
           first and then click "Send now".
+        </p>
+      </fieldset>
+
+      <fieldset style={fieldsetStyle()}>
+        <legend>Recurrence</legend>
+        <label style={labelStyle()}>
+          Repeat
+          <select
+            value={f.recurrence}
+            onChange={(e) =>
+              setState({ ...state, form: { ...f, recurrence: e.target.value as Recurrence } })
+            }
+            style={inputStyle()}
+          >
+            <option value="none">One-time (don't repeat)</option>
+            <option value="weekly">Weekly (every 7 days from scheduled_at)</option>
+            <option value="monthly">Monthly (every month from scheduled_at)</option>
+          </select>
+        </label>
+        <p style={{ ...mutedStyle(), marginTop: 8, fontSize: 12 }}>
+          When a recurring broadcast fires, the sender clones it for the next anchor with a snapshot
+          of the current body + buttons. Already-sent rows preserve their content.
         </p>
       </fieldset>
 

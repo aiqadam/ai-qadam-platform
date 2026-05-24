@@ -7,6 +7,7 @@ import {
   type BroadcastButton,
   type BroadcastDetail,
   TgBroadcastsService,
+  nextRecurrenceAnchor,
 } from './tg-broadcasts.service';
 import { TgSegmentsService, buildResolverFilter } from './tg-segments.service';
 
@@ -86,6 +87,13 @@ export class TgBroadcastsSenderService {
     try {
       const result = await this.enumerateAndDispatch(bdc);
       await this.markSent(broadcastId, result.sent_count);
+      // #294 PR-e — recurring: clone the row for the next anchor.
+      // Snapshot-on-fire (not template+instance) — the new row carries
+      // the current body/buttons, so future edits to the source don't
+      // retroactively change already-sent history.
+      if (bdc.recurrence !== 'none') {
+        await this.cloneForNextAnchor(bdc);
+      }
       return {
         broadcast_id: broadcastId,
         sent_count: result.sent_count,
@@ -98,6 +106,30 @@ export class TgBroadcastsSenderService {
       await this.markFailed(broadcastId, reason.slice(0, 1000));
       throw err;
     }
+  }
+
+  // #294 PR-e — clone the row for the next anchor. Anchor = previous
+  // scheduled_at + interval. If the source row had no scheduled_at
+  // (sent via send-now), anchor off "now" — operator can still get
+  // weekly-from-now if they kick off ad-hoc.
+  private async cloneForNextAnchor(bdc: BroadcastDetail): Promise<void> {
+    const prevAnchor = bdc.scheduled_at ?? new Date().toISOString();
+    const next = nextRecurrenceAnchor(prevAnchor, bdc.recurrence);
+    if (!next) return;
+    // Two-step: create the draft, then PATCH it to scheduled with the
+    // next anchor. We can't put scheduled_at in create() because the
+    // service-layer guard rejects status=scheduled with a past
+    // scheduled_at — and a freshly-created row defaults to draft.
+    const draft = await this.broadcasts.create({
+      title: bdc.title,
+      country: bdc.country,
+      html_body: bdc.html_body,
+      image_asset: bdc.image_asset,
+      inline_buttons: bdc.inline_buttons,
+      audience_segment: bdc.audience_segment,
+      recurrence: bdc.recurrence,
+    });
+    await this.broadcasts.update(draft.id, { status: 'scheduled', scheduled_at: next });
   }
 
   // sendDue() — used by the scheduler cron. Picks scheduled rows
