@@ -17,6 +17,10 @@ export interface EventSummary {
   location: string | null;
   country: string;
   registration_open: boolean;
+  // aiqadam#287 — present only when the caller passed ?tg_user_id=.
+  // Absent (omitted from JSON) for anonymous browse → backward compatible.
+  is_registered?: boolean;
+  registration_id?: string;
 }
 
 // Directus row shape — narrow to the fields we read.
@@ -44,7 +48,16 @@ export class TelegramEventsService {
   // Returns events with status=published, visibility_scope=public, and
   // starts_at in the future, optionally filtered by tenant country.
   // Ordered by starts_at ASC so the bot can render upcoming-soonest first.
-  async listOpenEvents(tenant: string | null): Promise<EventSummary[]> {
+  //
+  // aiqadam#287 — when tgUserId is provided, each event is annotated with
+  // is_registered + (when registered) registration_id so the bot can render
+  // a ✅ Registered badge inline + short-circuit the Register tap before the
+  // user fills the form again. One extra Directus query per call regardless
+  // of how many events; no N+1.
+  async listOpenEvents(
+    tenant: string | null,
+    tgUserId: bigint | null = null,
+  ): Promise<EventSummary[]> {
     const filters: string[] = [
       'filter[status][_eq]=published',
       'filter[visibility_scope][_eq]=public',
@@ -61,7 +74,60 @@ export class TelegramEventsService {
     ].join('&');
 
     const res = await this.directus.get<{ data: EventRow[] }>(`/items/events?${query}`);
-    return res.data.map(rowToSummary);
+    const items = res.data.map(rowToSummary);
+    if (tgUserId === null || items.length === 0) {
+      return items;
+    }
+
+    const regByEvent = await this.fetchRegistrationsByTgUser(
+      items.map((e) => e.id),
+      tgUserId,
+    );
+    return items.map((e) => {
+      const reg = regByEvent.get(e.id);
+      if (reg) {
+        e.is_registered = true;
+        e.registration_id = reg;
+      } else {
+        e.is_registered = false;
+      }
+      return e;
+    });
+  }
+
+  // Single-query annotation: GET /items/registrations filtered to the
+  // (tg_user_id, event ∈ ids) tuple. Excludes status='cancelled' so a
+  // user who cancelled can re-register (UX matches the "going" counter).
+  private async fetchRegistrationsByTgUser(
+    eventIds: string[],
+    tgUserId: bigint,
+  ): Promise<Map<string, string>> {
+    const t = encodeURIComponent(tgUserId.toString());
+    const ids = eventIds.map(encodeURIComponent).join(',');
+    const query = [
+      `filter[telegram_user_id][_eq]=${t}`,
+      `filter[event][_in]=${ids}`,
+      'filter[status][_neq]=cancelled',
+      'fields=id,event',
+      'limit=50',
+    ].join('&');
+    try {
+      const res = await this.directus.get<{ data: Array<{ id: string; event: string }> }>(
+        `/items/registrations?${query}`,
+      );
+      const m = new Map<string, string>();
+      for (const row of res.data) {
+        m.set(row.event, row.id);
+      }
+      return m;
+    } catch (err) {
+      // Best-effort enrichment — a failure here returns the events
+      // un-annotated rather than breaking the whole browse. Bot's UX
+      // gracefully degrades to the conflict-on-POST flow.
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`fetchRegistrationsByTgUser failed for tg_uid=${tgUserId}: ${reason}`);
+      return new Map();
+    }
   }
 }
 

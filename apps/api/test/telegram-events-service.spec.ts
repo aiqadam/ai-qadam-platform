@@ -140,3 +140,123 @@ describe('TelegramEventsService.listOpenEvents', () => {
     expect(out[1]?.country).toBe('kz');
   });
 });
+
+// ─── aiqadam#287 — per-caller registration annotation ────────────────────────
+
+describe('TelegramEventsService.listOpenEvents — is_registered annotation', () => {
+  function makeService(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
+    const directus = { get: getMock } as unknown as DirectusClient;
+    return new TelegramEventsService(directus);
+  }
+
+  const TWO_EVENTS = [
+    {
+      id: 'evt-a',
+      slug: 'a',
+      title: 'A',
+      starts_at: '2026-07-01T00:00:00Z',
+      location: null,
+      country: 'uz',
+      status: 'published',
+      visibility_scope: 'public',
+      capacity: null,
+      registration_open: true,
+    },
+    {
+      id: 'evt-b',
+      slug: 'b',
+      title: 'B',
+      starts_at: '2026-07-15T00:00:00Z',
+      location: 'Almaty',
+      country: 'kz',
+      status: 'published',
+      visibility_scope: 'public',
+      capacity: 100,
+      registration_open: true,
+    },
+  ];
+
+  it('does NOT call the registrations endpoint when tg_user_id is null (backward compat)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: TWO_EVENTS });
+    const svc = makeService(getMock);
+
+    const out = await svc.listOpenEvents(null, null);
+
+    expect(getMock).toHaveBeenCalledTimes(1);
+    // Neither field is set on any item (response shape stays unchanged).
+    expect(out.every((e) => !('is_registered' in e))).toBe(true);
+  });
+
+  it('annotates is_registered=true + registration_id for events the tg_user_id is registered for', async () => {
+    const getMock = vi
+      .fn()
+      .mockResolvedValueOnce({ data: TWO_EVENTS })
+      .mockResolvedValueOnce({
+        data: [{ id: 'reg-99', event: 'evt-a' }],
+      });
+    const svc = makeService(getMock);
+
+    const out = await svc.listOpenEvents(null, BigInt(12345));
+
+    expect(out[0]).toMatchObject({
+      id: 'evt-a',
+      is_registered: true,
+      registration_id: 'reg-99',
+    });
+    expect(out[1]).toMatchObject({ id: 'evt-b', is_registered: false });
+    expect(out[1]?.registration_id).toBeUndefined();
+  });
+
+  it('annotates is_registered=false for events not registered for', async () => {
+    const getMock = vi
+      .fn()
+      .mockResolvedValueOnce({ data: TWO_EVENTS })
+      .mockResolvedValueOnce({ data: [] });
+    const svc = makeService(getMock);
+
+    const out = await svc.listOpenEvents(null, BigInt(12345));
+
+    expect(out.every((e) => e.is_registered === false)).toBe(true);
+    expect(out.every((e) => e.registration_id === undefined)).toBe(true);
+  });
+
+  it('queries registrations with the tg_user_id + event _in filter + excludes cancelled', async () => {
+    const getMock = vi
+      .fn()
+      .mockResolvedValueOnce({ data: TWO_EVENTS })
+      .mockResolvedValueOnce({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents(null, BigInt(8888));
+
+    const call = getMock.mock.calls[1]?.[0] as string;
+    expect(call).toContain('filter[telegram_user_id][_eq]=8888');
+    expect(call).toContain('filter[event][_in]=evt-a,evt-b');
+    expect(call).toContain('filter[status][_neq]=cancelled');
+  });
+
+  it('skips the registrations query when the events list is empty', async () => {
+    const getMock = vi.fn().mockResolvedValueOnce({ data: [] });
+    const svc = makeService(getMock);
+
+    const out = await svc.listOpenEvents(null, BigInt(8888));
+
+    expect(out).toEqual([]);
+    expect(getMock).toHaveBeenCalledTimes(1); // only events; no registrations query
+  });
+
+  it('degrades gracefully — returns un-annotated events when the registrations query fails', async () => {
+    const getMock = vi
+      .fn()
+      .mockResolvedValueOnce({ data: TWO_EVENTS })
+      .mockRejectedValueOnce(new Error('directus 500'));
+    const svc = makeService(getMock);
+
+    const out = await svc.listOpenEvents(null, BigInt(8888));
+
+    expect(out).toHaveLength(2);
+    // No annotation when the lookup fails; bot's conflict-on-POST flow
+    // catches the duplicate.
+    expect(out.every((e) => e.is_registered === false)).toBe(true);
+  });
+});

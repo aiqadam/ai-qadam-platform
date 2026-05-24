@@ -70,6 +70,14 @@ const eventsQuerySchema = z.object({
     .string()
     .regex(/^[a-z]{2,8}$/, 'tenant must be 2–8 lowercase letters')
     .optional(),
+  // aiqadam#287 — when provided, each EventSummary is annotated with
+  // is_registered + registration_id (when registered). Omit for the
+  // anonymous-browse case; the response shape stays unchanged for
+  // backward compatibility.
+  tg_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .optional()
+    .transform((v) => (v == null ? null : BigInt(v))),
 });
 
 // Sync surface (OpenAPI) for the AI Qadam Telegram bot + notifier per
@@ -196,7 +204,10 @@ export class TelegramPublicController {
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
-    const items = await this.events.listOpenEvents(parsed.data.tenant ?? null);
+    const items = await this.events.listOpenEvents(
+      parsed.data.tenant ?? null,
+      parsed.data.tg_user_id,
+    );
     return { items };
   }
 
