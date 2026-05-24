@@ -26,6 +26,12 @@ export interface EventSummary {
   // (GET /v1/telegram/event-topics). Empty/absent = untagged. Bot uses
   // these to render chips + the ?topic= filter chip selection.
   topics?: string[];
+  // aiqadam#326 PR-b — locale the response was served in. Present when
+  // the request carried Accept-Language and we substituted from
+  // events.translations. Always 'en' for the base path (no
+  // substitution). Absent on listOpenEvents results when no
+  // Accept-Language was passed (backwards compatibility).
+  locale?: string;
 }
 
 // Directus row shape — narrow to the fields we read.
@@ -44,6 +50,18 @@ export interface EventRow {
   registration_open?: boolean | null;
   // aiqadam#323 — JSON array of topic slugs from the curated taxonomy.
   topic_tags?: string[] | null;
+  // aiqadam#326 — per-locale subobject map. Operator-set via Directus.
+  // Read path picks the requested locale's subobject + substitutes
+  // matching keys into the top-level wire shape.
+  translations?: Record<string, EventTranslation> | null;
+}
+
+// aiqadam#326 — per-locale translation shape on events.translations.
+// Every key is optional; missing keys fall back to the base row.
+export interface EventTranslation {
+  title?: string;
+  description?: string;
+  short_description?: string;
 }
 
 // aiqadam#290 — bot-side filter chips. All optional; combinable (AND).
@@ -68,7 +86,19 @@ export interface ListEventsFilters {
   // contains this slug. Single slug only (not multi-select); operators
   // tag with the curated taxonomy (see TelegramEventTopicsService).
   topic: string | null;
+  // aiqadam#326 PR-b — requested locale from Accept-Language. If the
+  // event's translations[locale] has matching keys, top-level fields
+  // get substituted. null = no substitution (base 'en' served).
+  locale: string | null;
 }
+
+// aiqadam#326 PR-b — supported display locales for substitution.
+// Subset of the bot's SUPPORTED_LANGUAGES (en/ru/uz) — operators
+// can populate any of these in events.translations and the bot
+// can request via Accept-Language. Unrecognised values silently
+// fall through to 'en' (base).
+export const I18N_SUPPORTED_LOCALES = ['en', 'ru', 'uz'] as const;
+export type I18nLocale = (typeof I18N_SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 50;
@@ -176,6 +206,7 @@ export class TelegramEventsService {
       limit = DEFAULT_LIMIT,
       q = null,
       topic = null,
+      locale = null,
     } = filters;
 
     const filterParts: string[] = [
@@ -225,13 +256,16 @@ export class TelegramEventsService {
     const cappedLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
     const query = [
       ...filterParts,
-      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,topic_tags',
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,topic_tags,translations',
       'sort=starts_at',
       `limit=${cappedLimit}`,
     ].join('&');
 
     const res = await this.directus.get<{ data: EventRow[] }>(`/items/events?${query}`);
-    const items = res.data.map(rowToSummary);
+    // aiqadam#326 PR-b — Pick locale once, apply per-row. resolvedLocale
+    // is what we picked (requested if matches available, else 'en').
+    const resolvedLocale = pickLocale(locale);
+    const items = res.data.map((r) => applySummaryI18n(rowToSummary(r), r, resolvedLocale));
     if (tgUserId === null || items.length === 0) {
       return items;
     }
@@ -260,7 +294,11 @@ export class TelegramEventsService {
   // 404 with { error: 'event_not_found' } when the slug/id doesn't
   // match anything published. Draft / cancelled / private events 404
   // too — we don't leak existence by status.
-  async getEventDetail(slugOrId: string, tgUserId?: bigint | null): Promise<EventDetail> {
+  async getEventDetail(
+    slugOrId: string,
+    tgUserId?: bigint | null,
+    locale?: string | null,
+  ): Promise<EventDetail> {
     const row = await this.findPublishedEventBySlugOrId(slugOrId);
     if (!row) {
       throw new NotFoundException({ error: 'event_not_found' });
@@ -276,7 +314,15 @@ export class TelegramEventsService {
       tgUserId == null ? Promise.resolve(null) : this.fetchOneRegistration(row.id, tgUserId),
     ]);
 
-    return assembleEventDetail(row, { speakers, capacityTaken, tgUserId: tgUserId ?? null, tgReg });
+    // aiqadam#326 PR-b — substitute translated fields when requested.
+    const resolvedLocale = pickLocale(locale ?? null);
+    const baseDetail = assembleEventDetail(row, {
+      speakers,
+      capacityTaken,
+      tgUserId: tgUserId ?? null,
+      tgReg,
+    });
+    return applyDetailI18n(baseDetail, row, resolvedLocale);
   }
 
   // Slug-or-id resolver with the published/public/non-cancelled guard
@@ -284,7 +330,7 @@ export class TelegramEventsService {
   // the slug-then-id fallback in telegram-registration-schema.service.ts.
   private async findPublishedEventBySlugOrId(slugOrId: string): Promise<EventDetailRow | null> {
     const fields =
-      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url,media,feedback_survey_url,feedback_survey_label,topic_tags';
+      'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open,description,short_description,venue,hero_image,online_meeting_url,media,feedback_survey_url,feedback_survey_label,topic_tags,translations';
     const guards = 'filter[status][_eq]=published&filter[visibility_scope][_eq]=public';
     const encoded = encodeURIComponent(slugOrId);
 
@@ -581,4 +627,65 @@ export function rowToSummary(row: EventRow): EventSummary {
     out.topics = row.topic_tags.filter((t): t is string => typeof t === 'string');
   }
   return out;
+}
+
+// ─── aiqadam#326 PR-b — i18n helpers ──────────────────────────────────────
+
+// Pick the locale we'll serve. v1: requested-or-en, no per-country
+// fallback (tenant-default lookup is a small follow-up; the plan
+// doc calls it out). Normalisation: 'ru,en;q=0.9' → 'ru'; unknown
+// codes → 'en'. Exported for the controller's Accept-Language parser.
+export function pickLocale(requested: string | null): I18nLocale {
+  if (!requested) return 'en';
+  // Accept-Language can be 'ru', 'ru-RU', 'ru;q=0.9', 'ru,en;q=0.9'.
+  // Take the first comma-segment, strip q-suffix + region, lowercase.
+  const head = requested.split(',')[0]?.split(';')[0]?.trim().toLowerCase() ?? '';
+  const lang = head.split('-')[0] ?? '';
+  return (I18N_SUPPORTED_LOCALES as readonly string[]).includes(lang) ? (lang as I18nLocale) : 'en';
+}
+
+// aiqadam#326 PR-b — substitute matching keys from
+// events.translations[locale] into the summary's wire-level fields.
+// EventSummary only carries `title` from the i18n-eligible set.
+// Always sets `locale` on the result so the client knows what it got.
+export function applySummaryI18n(
+  summary: EventSummary,
+  row: EventRow,
+  locale: I18nLocale,
+): EventSummary {
+  const out = { ...summary, locale };
+  const t = pickTranslation(row, locale);
+  if (t?.title) out.title = t.title;
+  return out;
+}
+
+// EventDetail variant — handles title + description + short_description.
+// `row` is loosely typed (EventRow + the i18n-eligible columns) so the
+// helper stays exportable without leaking the private EventDetailRow.
+export function applyDetailI18n(
+  detail: EventDetail,
+  row: EventRow & { description?: string; short_description?: string | null },
+  locale: I18nLocale,
+): EventDetail {
+  const out = { ...detail, locale };
+  const t = pickTranslation(row, locale);
+  if (!t) return out;
+  if (t.title) out.title = t.title;
+  if (t.description) out.description = t.description;
+  if (t.short_description !== undefined) out.short_description = t.short_description;
+  return out;
+}
+
+// Lookup the per-locale subobject, defensive against bad data shapes
+// from the operator (the Directus column is `json` — anything goes).
+function pickTranslation(
+  row: { translations?: Record<string, EventTranslation> | null },
+  locale: I18nLocale,
+): EventTranslation | null {
+  if (locale === 'en') return null; // base row already serves 'en'
+  const all = row.translations;
+  if (!all || typeof all !== 'object') return null;
+  const t = all[locale];
+  if (!t || typeof t !== 'object') return null;
+  return t;
 }

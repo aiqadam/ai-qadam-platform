@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   GoneException,
+  Headers,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -330,7 +331,10 @@ export class TelegramPublicController {
   //                    registration_open }] }
   //   400: bad tenant param
   @Get('events')
-  async listEvents(@Query() query: unknown): Promise<{ items: EventSummary[] }> {
+  async listEvents(
+    @Query() query: unknown,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<{ items: EventSummary[] }> {
     const parsed = eventsQuerySchema.safeParse(query);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
@@ -348,6 +352,10 @@ export class TelegramPublicController {
       q: parsed.data.q ?? null,
       topic: parsed.data.topic ?? null,
       limit: parsed.data.limit ?? 50,
+      // aiqadam#326 PR-b — Accept-Language → locale substitution. The
+      // service normalises the header (en|ru|uz | unknown→en); we pass
+      // the raw string through and let the service own the policy.
+      locale: acceptLanguage ?? null,
     });
     return { items };
   }
@@ -384,6 +392,7 @@ export class TelegramPublicController {
   async eventDetail(
     @Param('slug') slug: string,
     @Query('tg_user_id') tgUserIdRaw?: string,
+    @Headers('accept-language') acceptLanguage?: string,
   ): Promise<EventDetail> {
     const parsed = slugOrIdSchema.safeParse(slug);
     if (!parsed.success) {
@@ -397,7 +406,7 @@ export class TelegramPublicController {
       }
       tgUserId = parsedTg.data;
     }
-    return this.events.getEventDetail(parsed.data, tgUserId);
+    return this.events.getEventDetail(parsed.data, tgUserId, acceptLanguage ?? null);
   }
 
   // GET /v1/telegram/events/{slug}/registration-schema

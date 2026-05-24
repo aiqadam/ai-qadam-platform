@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import {
   TelegramEventsService,
+  applyDetailI18n,
+  applySummaryI18n,
+  pickLocale,
   rowToSummary,
   sanitizeMediaItems,
   speakerDisplayName,
@@ -955,5 +958,268 @@ describe('TelegramEventTopicsService', () => {
     if (first[0]) first[0].label = 'MUTATED';
     const second = svc.list();
     expect(second[0]?.label).not.toBe('MUTATED');
+  });
+});
+
+// ─── aiqadam#326 PR-b — i18n helpers + read-path substitution ─────────────
+
+describe('pickLocale', () => {
+  it('returns "en" for null / empty', () => {
+    expect(pickLocale(null)).toBe('en');
+    expect(pickLocale('')).toBe('en');
+  });
+
+  it('normalises a plain "ru" / "uz" / "en"', () => {
+    expect(pickLocale('ru')).toBe('ru');
+    expect(pickLocale('uz')).toBe('uz');
+    expect(pickLocale('en')).toBe('en');
+  });
+
+  it('strips region suffix (ru-RU → ru)', () => {
+    expect(pickLocale('ru-RU')).toBe('ru');
+    expect(pickLocale('en-US')).toBe('en');
+  });
+
+  it('honours the highest-priority Accept-Language list head', () => {
+    expect(pickLocale('ru,en;q=0.9')).toBe('ru');
+    expect(pickLocale('uz-UZ,ru;q=0.8,en;q=0.5')).toBe('uz');
+  });
+
+  it('strips q-suffix in the head segment', () => {
+    expect(pickLocale('ru;q=0.9')).toBe('ru');
+  });
+
+  it('falls back to "en" for unknown languages (fr/de/ar)', () => {
+    expect(pickLocale('fr-FR')).toBe('en');
+    expect(pickLocale('de')).toBe('en');
+    expect(pickLocale('ar,en;q=0.5')).toBe('en');
+  });
+
+  it('handles whitespace + casing in the header', () => {
+    expect(pickLocale(' RU-ru ')).toBe('ru');
+  });
+});
+
+describe('applySummaryI18n', () => {
+  const ROW = {
+    id: 'evt-1',
+    slug: 'meetup',
+    title: 'AI Qadam Meetup',
+    starts_at: '2026-07-01T00:00:00Z',
+    location: null,
+    country: 'uz',
+    status: 'published',
+    visibility_scope: 'public',
+    capacity: null,
+    translations: {
+      ru: { title: 'Встреча AI Qadam' },
+      uz: { title: 'AI Qadam uchrashuvi' },
+    },
+  };
+
+  it('substitutes title from translations[ru] + tags locale=ru', () => {
+    const base = rowToSummary(ROW);
+    const out = applySummaryI18n(base, ROW, 'ru');
+    expect(out.title).toBe('Встреча AI Qadam');
+    expect(out.locale).toBe('ru');
+  });
+
+  it('keeps base title when locale=en + tags locale=en', () => {
+    const base = rowToSummary(ROW);
+    const out = applySummaryI18n(base, ROW, 'en');
+    expect(out.title).toBe('AI Qadam Meetup');
+    expect(out.locale).toBe('en');
+  });
+
+  it('falls back to base title when requested locale is absent from translations', () => {
+    const base = rowToSummary(ROW);
+    const out = applySummaryI18n(base, { ...ROW, translations: { ru: { title: 'X' } } }, 'uz');
+    expect(out.title).toBe('AI Qadam Meetup');
+    expect(out.locale).toBe('uz');
+  });
+
+  it('defends against bad translations shapes (string, array)', () => {
+    const base = rowToSummary(ROW);
+    const out1 = applySummaryI18n(
+      base,
+      { ...ROW, translations: 'oops' as unknown as Record<string, never> },
+      'ru',
+    );
+    expect(out1.title).toBe('AI Qadam Meetup');
+    const out2 = applySummaryI18n(
+      base,
+      { ...ROW, translations: { ru: 'not-an-object' as unknown as Record<string, never> } },
+      'ru',
+    );
+    expect(out2.title).toBe('AI Qadam Meetup');
+  });
+});
+
+describe('applyDetailI18n', () => {
+  const DETAIL_ROW = {
+    id: 'evt-1',
+    slug: 'meetup',
+    title: 'AI Qadam Meetup',
+    starts_at: '2026-07-01T00:00:00Z',
+    location: null,
+    country: 'uz',
+    status: 'published',
+    visibility_scope: 'public',
+    capacity: null,
+    description: 'English body.',
+    short_description: 'English short',
+    translations: {
+      ru: {
+        title: 'Встреча AI Qadam',
+        description: 'Русское тело.',
+        short_description: 'Краткое',
+      },
+    },
+  };
+
+  function baseDetail() {
+    return {
+      ...rowToSummary(DETAIL_ROW),
+      description: DETAIL_ROW.description,
+      short_description: DETAIL_ROW.short_description,
+      capacity_taken: 0,
+      web_url: 'https://aiqadam.org/events/meetup',
+    };
+  }
+
+  it('substitutes title + description + short_description when ru is present', () => {
+    const out = applyDetailI18n(baseDetail(), DETAIL_ROW, 'ru');
+    expect(out.title).toBe('Встреча AI Qadam');
+    expect(out.description).toBe('Русское тело.');
+    expect(out.short_description).toBe('Краткое');
+    expect(out.locale).toBe('ru');
+  });
+
+  it('keeps base detail when locale=en (no en subobject)', () => {
+    const out = applyDetailI18n(baseDetail(), DETAIL_ROW, 'en');
+    expect(out.title).toBe('AI Qadam Meetup');
+    expect(out.description).toBe('English body.');
+    expect(out.locale).toBe('en');
+  });
+
+  it('partial translation (title only) leaves description on the base', () => {
+    const row = { ...DETAIL_ROW, translations: { ru: { title: 'Только заголовок' } } };
+    const out = applyDetailI18n(baseDetail(), row, 'ru');
+    expect(out.title).toBe('Только заголовок');
+    expect(out.description).toBe('English body.');
+  });
+});
+
+describe('TelegramEventsService.listOpenEvents — locale', () => {
+  function makeService(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
+    const directus = { get: getMock } as unknown as DirectusClient;
+    return new TelegramEventsService(directus);
+  }
+
+  const TRANSLATED_ROW = {
+    id: 'evt-1',
+    slug: 'meetup',
+    title: 'AI Qadam Meetup',
+    starts_at: '2026-07-01T00:00:00Z',
+    location: 'Tashkent',
+    country: 'uz',
+    status: 'published',
+    visibility_scope: 'public',
+    capacity: null,
+    registration_open: true,
+    translations: { ru: { title: 'Встреча AI Qadam' } },
+  };
+
+  it('substitutes title when locale="ru" + tags response with locale=ru', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [TRANSLATED_ROW] });
+    const svc = makeService(get);
+    const out = await svc.listOpenEvents({ locale: 'ru' });
+    expect(out[0]?.title).toBe('Встреча AI Qadam');
+    expect(out[0]?.locale).toBe('ru');
+  });
+
+  it('keeps base title when no Accept-Language (locale=null) but still tags locale=en', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [TRANSLATED_ROW] });
+    const svc = makeService(get);
+    const out = await svc.listOpenEvents({ locale: null });
+    expect(out[0]?.title).toBe('AI Qadam Meetup');
+    expect(out[0]?.locale).toBe('en');
+  });
+
+  it('fetches translations field in the SELECT so substitution has data', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(get);
+    await svc.listOpenEvents({});
+    const call = get.mock.calls[0]?.[0] as string;
+    expect(call).toContain('translations');
+  });
+});
+
+describe('TelegramEventsService.getEventDetail — locale', () => {
+  function makeService(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
+    const directus = { get: getMock } as unknown as DirectusClient;
+    return new TelegramEventsService(directus);
+  }
+
+  const DETAIL_ROW_I18N = {
+    id: 'evt-1',
+    slug: 'meetup',
+    title: 'AI Qadam Meetup',
+    starts_at: '2026-07-01T00:00:00Z',
+    location: 'Tashkent',
+    country: 'uz',
+    status: 'published',
+    visibility_scope: 'public',
+    capacity: 50,
+    registration_open: true,
+    description: 'English body.',
+    short_description: 'English short',
+    venue: null,
+    hero_image: null,
+    online_meeting_url: null,
+    media: null,
+    feedback_survey_url: null,
+    feedback_survey_label: null,
+    translations: {
+      ru: { title: 'Встреча AI Qadam', description: 'Русское тело.' },
+    },
+  };
+
+  it('substitutes title + description when locale="ru-RU"', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW_I18N] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+    const out = await svc.getEventDetail('meetup', null, 'ru-RU,en;q=0.9');
+    expect(out.title).toBe('Встреча AI Qadam');
+    expect(out.description).toBe('Русское тело.');
+    expect(out.locale).toBe('ru');
+  });
+
+  it('keeps base detail + locale="en" when Accept-Language is absent', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW_I18N] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+    const out = await svc.getEventDetail('meetup');
+    expect(out.title).toBe('AI Qadam Meetup');
+    expect(out.description).toBe('English body.');
+    expect(out.locale).toBe('en');
+  });
+
+  it('fetches the translations column in the slug SELECT', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [DETAIL_ROW_I18N] })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{ count: 0 }] });
+    const svc = makeService(get);
+    await svc.getEventDetail('meetup');
+    const slugCall = get.mock.calls[0]?.[0] as string;
+    expect(slugCall).toContain('translations');
   });
 });
