@@ -202,19 +202,26 @@ configs:
               failure-threshold: 3
               send-on-resolved: true
 
-        # F-OPS1-d · Backrest UI liveness + backup freshness signal.
-        # Backrest's /health endpoint returns 200 IFF the configured
-        # restic repo is reachable AND the last scheduled operation
-        # didn't error. Indirectly tells us R2 is up + restic repo
-        # decrypts cleanly. Backup-freshness alerting (latest snapshot
-        # within N hours) lives inside Backrest's own UI as a config'd
-        # "missed backup" notification — handled there per F-OPS1-b.
-        - name: ops — Backrest /health
+        # F-OPS1-d · Backrest UI liveness via the auth-handshake path.
+        # Backrest itself has no /health endpoint (confirmed against
+        # v1.13.0 — only the SPA root is served, behind Authentik
+        # forward-auth). An anon probe to /  must:
+        #   - hit Traefik → forwardauth middleware → Authentik outpost
+        #   - return 302 with Location pointing at auth.aiqadam.org
+        # If Backrest container is dead, Traefik returns 503 (no
+        # available server) BEFORE forwardauth fires → [STATUS] != 302.
+        # If Authentik is dead, the outpost returns 5xx → same.
+        # So a 302 to auth.aiqadam.org proves the whole chain is alive.
+        # Backup-freshness alerting (latest snapshot within N hours)
+        # lives inside Backrest's own UI as a configured "missed backup"
+        # notification — handled there per F-OPS1-b.
+        - name: ops — Backrest auth-handshake
           group: ops
-          url: https://ops.aiqadam.org/health
+          url: https://ops.aiqadam.org/
           interval: 300s
           conditions:
-            - "[STATUS] == 200"
+            - "[STATUS] == 302"
+            - "[HEADERS].location == pat(*auth.aiqadam.org/application/o/authorize/*)"
           alerts:
             - type: telegram
               failure-threshold: 2
