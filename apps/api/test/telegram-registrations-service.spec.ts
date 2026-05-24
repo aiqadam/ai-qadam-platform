@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  GoneException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Db } from '../src/db';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
@@ -828,5 +834,128 @@ describe('register — tg_user_id-first member match (PR-1.3c)', () => {
     expect(out.was_new_member).toBe(false);
     // Should also backfill the TG link on the existing member.
     expect(fake.patch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// aiqadam#324 — DELETE /v1/telegram/registrations/:id
+describe('TelegramRegistrationsService.cancel', () => {
+  const REG_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const FUTURE = '2099-01-01T00:00:00.000Z'; // event in the future
+  const PAST = '2000-01-01T00:00:00.000Z'; // event already started
+
+  const ROW_REGISTERED = {
+    id: REG_ID,
+    status: 'registered',
+    event: { id: 'evt-1', title: 'AI Qadam Meetup', starts_at: FUTURE },
+    user: { telegram_user_id: 12345 },
+  };
+
+  it('soft-cancels: status=cancelled, cancelled_at=now; returns event metadata', async () => {
+    const fake = fakeDirectus();
+    fake.get.mockResolvedValueOnce({ data: ROW_REGISTERED });
+    fake.patch.mockResolvedValueOnce({ data: {} });
+    const svc = makeService(fake);
+
+    const out = await svc.cancel(REG_ID, BigInt(12345));
+
+    expect(out.registration_id).toBe(REG_ID);
+    expect(out.event).toEqual({ id: 'evt-1', title: 'AI Qadam Meetup' });
+    expect(typeof out.cancelled_at).toBe('string');
+    expect(fake.patch.mock.calls[0]?.[0]).toBe(`/items/registrations/${REG_ID}`);
+    const patchBody = fake.patch.mock.calls[0]?.[1] as { status: string; cancelled_at: string };
+    expect(patchBody.status).toBe('cancelled');
+    expect(patchBody.cancelled_at).toBe(out.cancelled_at);
+  });
+
+  it('404 registration_not_found when id is not a UUID (no Directus call)', async () => {
+    const fake = fakeDirectus();
+    const svc = makeService(fake);
+    try {
+      await svc.cancel('not-a-uuid', BigInt(12345));
+      throw new Error('expected to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(NotFoundException);
+      expect(((e as NotFoundException).getResponse() as { error: string }).error).toBe(
+        'registration_not_found',
+      );
+    }
+    expect(fake.get).not.toHaveBeenCalled();
+    expect(fake.patch).not.toHaveBeenCalled();
+  });
+
+  it('404 registration_not_found when Directus 404s the row', async () => {
+    const fake = fakeDirectus();
+    fake.get.mockRejectedValueOnce(
+      new DirectusError(404, `/items/registrations/${REG_ID}`, 'not found'),
+    );
+    const svc = makeService(fake);
+    await expect(svc.cancel(REG_ID, BigInt(12345))).rejects.toBeInstanceOf(NotFoundException);
+    expect(fake.patch).not.toHaveBeenCalled();
+  });
+
+  it('403 not_your_registration when tg_user_id does not match the owner', async () => {
+    const fake = fakeDirectus();
+    fake.get.mockResolvedValueOnce({ data: ROW_REGISTERED });
+    const svc = makeService(fake);
+    try {
+      await svc.cancel(REG_ID, BigInt(99999999)); // different tg id
+      throw new Error('expected to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ForbiddenException);
+      expect(((e as ForbiddenException).getResponse() as { error: string }).error).toBe(
+        'not_your_registration',
+      );
+    }
+    expect(fake.patch).not.toHaveBeenCalled();
+  });
+
+  it('410 already_cancelled when the row is already in cancelled state', async () => {
+    const fake = fakeDirectus();
+    fake.get.mockResolvedValueOnce({
+      data: { ...ROW_REGISTERED, status: 'cancelled' },
+    });
+    const svc = makeService(fake);
+    try {
+      await svc.cancel(REG_ID, BigInt(12345));
+      throw new Error('expected to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(GoneException);
+      expect(((e as GoneException).getResponse() as { error: string }).error).toBe(
+        'already_cancelled',
+      );
+    }
+    expect(fake.patch).not.toHaveBeenCalled();
+  });
+
+  it('409 event_started when event starts_at is in the past', async () => {
+    const fake = fakeDirectus();
+    fake.get.mockResolvedValueOnce({
+      data: {
+        ...ROW_REGISTERED,
+        event: { ...ROW_REGISTERED.event, starts_at: PAST },
+      },
+    });
+    const svc = makeService(fake);
+    try {
+      await svc.cancel(REG_ID, BigInt(12345));
+      throw new Error('expected to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ConflictException);
+      expect(((e as ConflictException).getResponse() as { error: string }).error).toBe(
+        'event_started',
+      );
+    }
+    expect(fake.patch).not.toHaveBeenCalled();
+  });
+
+  it('tg_user_id comparison handles number vs string from Directus (both work)', async () => {
+    const fake = fakeDirectus();
+    fake.get.mockResolvedValueOnce({
+      data: { ...ROW_REGISTERED, user: { telegram_user_id: '12345' } }, // string form
+    });
+    fake.patch.mockResolvedValueOnce({ data: {} });
+    const svc = makeService(fake);
+    const out = await svc.cancel(REG_ID, BigInt(12345));
+    expect(out.registration_id).toBe(REG_ID);
   });
 });

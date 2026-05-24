@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
+  GoneException,
   Inject,
   Injectable,
   Logger,
@@ -18,6 +20,11 @@ import {
 } from './telegram-registration-schema.service';
 
 const TELEGRAM_STREAM = 'tg.dispatch.v1';
+
+// #324 — registration ids are UUIDs; pre-check before any Directus
+// query so non-UUID paths don't crash on Postgres cast errors (same
+// shape as #316 fix for checkin tokens).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Phase Bot-B PR-1.3b — Telegram-as-IdP activation per ADR-0034
 // acquisition rewrite. The bot's /register_<slug> FSM POSTs here once
@@ -66,6 +73,13 @@ export interface RegistrationResult {
 export interface MemberLookupResult {
   member_id: string;
   display_name: string;
+}
+
+// #324
+export interface CancelResult {
+  registration_id: string;
+  event: { id: string; title: string };
+  cancelled_at: string;
 }
 
 // ─── Internal Directus shapes ────────────────────────────────────────────────
@@ -142,6 +156,85 @@ export class TelegramRegistrationsService {
       member_id: row.id,
       display_name: formatMemberDisplayName(row),
     };
+  }
+
+  // ─── DELETE /registrations/:id (cancellation, #324) ──────────────────────
+  //
+  // Bot's `/me` cancel button posts here. We verify the caller owns
+  // the registration via `user.telegram_user_id` (canonical column on
+  // directus_users; same join principle as #328/#332). Soft-delete:
+  // status='cancelled' + cancelled_at=now() — keep the row for the
+  // operator's analytics + downstream consumers (point_awards rollback,
+  // future waitlist auto-promote per #325).
+  //
+  // Errors map per the contract in #324:
+  //   * non-UUID id → 404 registration_not_found (don't crash Postgres cast)
+  //   * Directus 404 → 404 registration_not_found
+  //   * caller's tg_user_id ≠ owner's → 403 not_your_registration
+  //   * row already cancelled → 410 already_cancelled
+  //   * event already started → 409 event_started
+  async cancel(registrationId: string, tgUserId: bigint): Promise<CancelResult> {
+    if (!UUID_RE.test(registrationId)) {
+      throw new NotFoundException({ error: 'registration_not_found' });
+    }
+    const row = await this.findRegistrationForCancel(registrationId);
+    if (!row) {
+      throw new NotFoundException({ error: 'registration_not_found' });
+    }
+    const ownerTgId = row.user?.telegram_user_id;
+    if (ownerTgId == null || String(ownerTgId) !== tgUserId.toString()) {
+      throw new ForbiddenException({ error: 'not_your_registration' });
+    }
+    if (row.status === 'cancelled') {
+      throw new GoneException({ error: 'already_cancelled' });
+    }
+    // Defensive: event row missing → treat as not_found rather than 500.
+    if (!row.event) {
+      this.logger.warn(`cancel registration=${registrationId} has no event; refusing`);
+      throw new NotFoundException({ error: 'registration_not_found' });
+    }
+    if (Date.now() >= new Date(row.event.starts_at).getTime()) {
+      throw new ConflictException({ error: 'event_started' });
+    }
+    const cancelledAt = new Date().toISOString();
+    await this.directus.patch(`/items/registrations/${encodeURIComponent(registrationId)}`, {
+      status: 'cancelled',
+      cancelled_at: cancelledAt,
+    });
+    this.logger.log(
+      `cancelled registration=${registrationId} event=${row.event.id} member_tg=${tgUserId}`,
+    );
+    return {
+      registration_id: registrationId,
+      event: { id: row.event.id, title: row.event.title },
+      cancelled_at: cancelledAt,
+    };
+  }
+
+  private async findRegistrationForCancel(id: string): Promise<{
+    id: string;
+    status: string;
+    event: { id: string; title: string; starts_at: string } | null;
+    user: { telegram_user_id: number | string | null } | null;
+  } | null> {
+    try {
+      const res = await this.directus.get<{
+        data: {
+          id: string;
+          status: string;
+          event: { id: string; title: string; starts_at: string } | null;
+          user: { telegram_user_id: number | string | null } | null;
+        };
+      }>(
+        `/items/registrations/${encodeURIComponent(id)}?fields=id,status,event.id,event.title,event.starts_at,user.telegram_user_id`,
+      );
+      return res.data ?? null;
+    } catch (err) {
+      if (err instanceof DirectusError && (err.status === 404 || err.status === 403)) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   // ─── POST /registrations ──────────────────────────────────────────────────

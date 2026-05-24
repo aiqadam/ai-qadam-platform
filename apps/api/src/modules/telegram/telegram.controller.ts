@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -37,6 +38,7 @@ import {
   TelegramRegistrationSchemaService,
 } from './telegram-registration-schema.service';
 import {
+  type CancelResult,
   type MemberLookupResult,
   type RegistrationResult,
   TelegramRegistrationsService,
@@ -67,6 +69,14 @@ const registerSchema = z.object({
   telegram_username: z.string().min(1).max(64).nullable().optional(),
   profile: z.record(z.unknown()),
   consents: z.record(z.boolean()),
+});
+
+// aiqadam#324 — DELETE /registrations/:id body. Same tg_user_id shape
+// as the other endpoints; required as the ownership claim.
+const cancelRegistrationSchema = z.object({
+  telegram_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .transform((v) => BigInt(v)),
 });
 
 const emailParamSchema = z.string().email().max(255);
@@ -605,6 +615,32 @@ export class TelegramController {
       profile: parsed.data.profile,
       consents: parsed.data.consents,
     });
+  }
+
+  // DELETE /v1/telegram/registrations/:registration_id
+  //   Body: { telegram_user_id: bigint }
+  //   200: { registration_id, event:{id,title}, cancelled_at }
+  //   400: { error: 'invalid_body' } — telegram_user_id missing/wrong type
+  //   403: { error: 'not_your_registration' }
+  //   404: { error: 'registration_not_found' }
+  //   409: { error: 'event_started' }
+  //   410: { error: 'already_cancelled' }
+  //
+  // Why body-with-tg_user_id rather than path-param + service-trust:
+  // the bot's m2m service token can act on any user's behalf — we
+  // need an explicit ownership claim so the bot can't accidentally
+  // cancel the wrong row. Contract per aiqadam#324.
+  @Delete('registrations/:registrationId')
+  @HttpCode(HttpStatus.OK)
+  async cancelRegistration(
+    @Param('registrationId') registrationId: string,
+    @Body() body: unknown,
+  ): Promise<CancelResult> {
+    const parsed = cancelRegistrationSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.registrations.cancel(registrationId, parsed.data.telegram_user_id);
   }
 
   // GET /v1/telegram/admin/bot-token?tenant=<code>
