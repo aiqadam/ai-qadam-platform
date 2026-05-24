@@ -17,6 +17,7 @@
 // SSR pages it's per-request, for prerendered ones it falls back to default.
 
 import { LOCALE_COOKIE, SUPPORTED_LOCALES, getLocale, makeT } from '../lib/i18n';
+import { NavAccountMenu } from './NavAccountMenu';
 import { NavUserBadge } from './NavUserBadge';
 
 const locale = getLocale(Astro);
@@ -98,6 +99,15 @@ const COUNTRY_FLAGS: Record<(typeof COUNTRY_CODES)[number], string> = {
           <option value={code} selected={code === locale}>{t(`locale.${code}`)}</option>
         ))}
       </select>
+
+      <NavAccountMenu
+        client:load
+        t={{
+          signed_in_as: t('nav.signed_in_as'),
+          sign_out: t('actions.sign_out'),
+          account_menu_aria: t('nav.account_menu_aria'),
+        }}
+      />
     </div>
   </div>
 </header>

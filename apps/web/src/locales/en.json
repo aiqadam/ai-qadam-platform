@@ -7,7 +7,9 @@
     "blog": "Blog",
     "leaderboard": "Leaderboard",
     "account": "Account",
-    "sign_in": "Sign in"
+    "sign_in": "Sign in",
+    "signed_in_as": "Signed in as",
+    "account_menu_aria": "Open account menu"
   },
   "country": {
     "label": "Country",

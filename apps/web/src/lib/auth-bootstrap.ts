@@ -86,3 +86,35 @@ export function resetAuthState(): void {
   resolvedAt = 0;
   inflight = null;
 }
+
+// Sign-out flow: terminates the API session AND navigates to the IdP's
+// end_session endpoint so the upstream session dies too (SSO ⇒ SLO).
+// Resolves a bearer from cache first, falls back to a fresh refresh
+// if needed. The function navigates `window.location` itself once it
+// has a logout URL (or `/auth/signed-out` as the fallback when the
+// API couldn't produce a hint-bearing logout URL).
+export async function signOut(): Promise<void> {
+  let bearer = cached?.accessToken ?? '';
+  if (!bearer) {
+    const fresh = await getAuthState();
+    bearer = fresh?.accessToken ?? '';
+  }
+  // Clear in-memory cache before the round-trip so any island that
+  // re-mounts mid-flight gets the post-signout state.
+  resetAuthState();
+  let logoutUrl: string | null = null;
+  try {
+    const res = await fetch('/api/v1/auth/sign-out', {
+      method: 'POST',
+      credentials: 'include',
+      headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
+    });
+    if (res.ok) {
+      logoutUrl = ((await res.json()) as { logoutUrl: string | null }).logoutUrl;
+    }
+  } catch {
+    // Server-side cookie clear may still have happened via the request.
+    // The fallback hard-redirect below kicks in regardless.
+  }
+  window.location.href = logoutUrl ?? '/auth/signed-out';
+}

@@ -1,6 +1,12 @@
 ---
 import { MeDashboard } from '../components/MeDashboard';
 import Layout from '../layouts/Layout.astro';
+
+// SSR so Nav's cookie-based signedInHint sees the refresh cookie and
+// renders Account / NavAccountMenu instead of the Sign in CTA. Without
+// this, the page is prerendered at build time and Astro.cookies is
+// empty → nav shows "Sign in" even when the user is signed in.
+export const prerender = false;
 ---
 
 <Layout title="Account · AI Qadam">

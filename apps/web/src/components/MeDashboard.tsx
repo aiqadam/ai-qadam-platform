@@ -1,6 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { type ReactElement, useEffect, useState } from 'react';
-import { getAuthState } from '../lib/auth-bootstrap';
+import { getAuthState, signOut } from '../lib/auth-bootstrap';
 
 // /me dashboard per design s3-2. Client-side island:
 //   1. getAuthState() — shared bootstrap, deduped with other islands on
@@ -64,43 +64,9 @@ async function bootstrap(): Promise<State> {
   };
 }
 
-async function signOut(): Promise<void> {
-  // Pull a fresh access token so the API can deny-list THIS jti
-  // immediately (sign-out reads Authorization: Bearer to know what to
-  // revoke). Then POST /sign-out — the response carries the Authentik
-  // end_session URL we must navigate the browser to so the IdP session
-  // is killed (SSO ⇒ SLO). Falling back to /auth/signed-out only when
-  // the API can't produce a hint-bearing logout URL means our local
-  // session is gone but the user's Authentik session lingers, which is
-  // a security regression — keep the fallback strictly for failure
-  // cases (no id_token row, network error).
-  let bearer = '';
-  try {
-    const refresh = await fetch('/api/v1/auth/refresh', {
-      method: 'POST',
-      credentials: 'include',
-    });
-    if (refresh.ok) {
-      bearer = ((await refresh.json()) as { accessToken: string }).accessToken;
-    }
-  } catch {
-    // refresh failed — fine, /sign-out still clears the refresh cookie.
-  }
-  let logoutUrl: string | null = null;
-  try {
-    const res = await fetch('/api/v1/auth/sign-out', {
-      method: 'POST',
-      credentials: 'include',
-      headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
-    });
-    if (res.ok) {
-      logoutUrl = ((await res.json()) as { logoutUrl: string | null }).logoutUrl;
-    }
-  } catch {
-    // local clear still happened via cookie expiry on the server.
-  }
-  window.location.href = logoutUrl ?? '/auth/signed-out';
-}
+// Sign-out logic moved to lib/auth-bootstrap so the same flow is
+// reused by NavAccountMenu without duplicating the refresh + revoke
+// dance. See `signOut` import above.
 
 function nextHere(): string {
   return `${window.location.pathname}${window.location.search}`;

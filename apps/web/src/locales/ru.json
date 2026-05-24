@@ -7,7 +7,9 @@
     "blog": "Блог",
     "leaderboard": "Лидерборд",
     "account": "Профиль",
-    "sign_in": "Войти"
+    "sign_in": "Войти",
+    "signed_in_as": "Вход выполнен как",
+    "account_menu_aria": "Открыть меню профиля"
   },
   "country": {
     "label": "Страна",

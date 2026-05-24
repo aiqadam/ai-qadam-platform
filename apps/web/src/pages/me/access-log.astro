@@ -6,6 +6,9 @@ import Layout from '../../layouts/Layout.astro';
 // signed-in user is the actor or the target. v1 shows admin actions
 // touching the account; read-access tracking comes later as we
 // instrument PII consumers.
+//
+// SSR so Nav's cookie-based signedInHint sees the refresh cookie.
+export const prerender = false;
 ---
 
 <Layout

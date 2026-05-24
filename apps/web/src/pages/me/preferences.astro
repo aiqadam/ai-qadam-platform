@@ -1,6 +1,9 @@
 ---
 import { PreferencesForm } from '../../components/PreferencesForm';
 import Layout from '../../layouts/Layout.astro';
+
+// SSR so Nav's cookie-based signedInHint sees the refresh cookie.
+export const prerender = false;
 ---
 
 <Layout title="Preferences · AI Qadam">

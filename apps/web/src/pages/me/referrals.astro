@@ -1,6 +1,9 @@
 ---
 import MyReferrals from '../../components/MyReferrals';
 import Layout from '../../layouts/Layout.astro';
+
+// SSR so Nav's cookie-based signedInHint sees the refresh cookie.
+export const prerender = false;
 ---
 
 <Layout

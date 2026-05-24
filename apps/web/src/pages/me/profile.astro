@@ -15,6 +15,9 @@ import Layout from '../../layouts/Layout.astro';
 // Out of scope for v1 (follow-up):
 //   - Interests (similar shape to skills)
 //   - Employments + employer FK
+//
+// SSR so Nav's cookie-based signedInHint sees the refresh cookie.
+export const prerender = false;
 ---
 
 <Layout title="Profile · AI Qadam">
