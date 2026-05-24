@@ -1,0 +1,35 @@
+---
+import FormRenderer from '../../../components/FormRenderer';
+import Layout from '../../../layouts/Layout.astro';
+import { fetchEventSurvey } from '../../../lib/forms-api';
+
+// Post-event survey page for a specific event. Picks up the form
+// attached via `events.post_event_survey_form` and renders it. When
+// no in-house form is attached, this 404s; the bot may still render
+// the external `events.feedback_survey_url` button (#322).
+//
+// URL conventions:
+//   /events/{slug}/survey         — operator-friendly URL
+//   /events/{uuid}/survey         — uuid fallback (when slug is null)
+//
+// The form's event_id is passed to FormRenderer so submissions are
+// scoped to this event for per-event aggregation in the cabinet.
+
+export const prerender = false;
+
+const { id } = Astro.params as { id: string };
+const form = await fetchEventSurvey(Astro.request, id);
+
+if (!form) {
+  return new Response('No survey attached to this event', { status: 404 });
+}
+---
+
+<Layout
+  title={`${form.title} · AI Qadam`}
+  description={form.description ?? 'Post-event feedback — your input shapes the next one.'}
+>
+  <main style="max-width: 640px; margin: 0 auto; padding: 80px 32px;">
+    <FormRenderer form={form} eventId={id} client:load />
+  </main>
+</Layout>

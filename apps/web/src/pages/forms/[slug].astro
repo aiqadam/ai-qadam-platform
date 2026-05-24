@@ -1,0 +1,30 @@
+---
+import FormRenderer from '../../components/FormRenderer';
+import Layout from '../../layouts/Layout.astro';
+import { fetchForm } from '../../lib/forms-api';
+
+// Public render route for any operator-built form. Slug-based:
+//   /forms/post-event-feedback-2026
+//
+// Renders the schema via FormRenderer (client island for interactivity).
+// v1 web users submit anonymously; PR-D adds Authentik-session
+// attribution for signed-in respondents.
+
+export const prerender = false;
+
+const { slug } = Astro.params as { slug: string };
+const form = await fetchForm(Astro.request, slug);
+
+if (!form) {
+  return new Response('Form not found', { status: 404 });
+}
+---
+
+<Layout
+  title={`${form.title} · AI Qadam`}
+  description={form.description ?? 'Share your input — it shapes our next event.'}
+>
+  <main style="max-width: 640px; margin: 0 auto; padding: 80px 32px;">
+    <FormRenderer form={form} client:load />
+  </main>
+</Layout>
