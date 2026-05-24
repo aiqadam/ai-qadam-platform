@@ -62,7 +62,7 @@ describe('TelegramEventsService.listOpenEvents', () => {
     const getMock = vi.fn().mockResolvedValue({ data: [] });
     const svc = makeService(getMock);
 
-    await svc.listOpenEvents(null);
+    await svc.listOpenEvents({});
 
     const call = getMock.mock.calls[0]?.[0] as string;
     expect(call).toContain('filter[status][_eq]=published');
@@ -76,7 +76,7 @@ describe('TelegramEventsService.listOpenEvents', () => {
     const getMock = vi.fn().mockResolvedValue({ data: [] });
     const svc = makeService(getMock);
 
-    await svc.listOpenEvents('kz');
+    await svc.listOpenEvents({ tenant: 'kz' });
 
     const call = getMock.mock.calls[0]?.[0] as string;
     expect(call).toContain('filter[country][_eq]=kz');
@@ -86,7 +86,7 @@ describe('TelegramEventsService.listOpenEvents', () => {
     const getMock = vi.fn().mockResolvedValue({ data: [] });
     const svc = makeService(getMock);
 
-    await svc.listOpenEvents(null);
+    await svc.listOpenEvents({});
 
     const call = getMock.mock.calls[0]?.[0] as string;
     // Encoded "T" stays plain; ":" becomes %3A.
@@ -97,7 +97,7 @@ describe('TelegramEventsService.listOpenEvents', () => {
     const getMock = vi.fn().mockResolvedValue({ data: [] });
     const svc = makeService(getMock);
 
-    await svc.listOpenEvents(null);
+    await svc.listOpenEvents({});
 
     const call = getMock.mock.calls[0]?.[0] as string;
     expect(call).toContain('limit=50');
@@ -132,7 +132,7 @@ describe('TelegramEventsService.listOpenEvents', () => {
     });
     const svc = makeService(getMock);
 
-    const out = await svc.listOpenEvents(null);
+    const out = await svc.listOpenEvents({});
 
     expect(out).toHaveLength(2);
     expect(out[0]?.slug).toBe('a');
@@ -180,7 +180,7 @@ describe('TelegramEventsService.listOpenEvents — is_registered annotation', ()
     const getMock = vi.fn().mockResolvedValue({ data: TWO_EVENTS });
     const svc = makeService(getMock);
 
-    const out = await svc.listOpenEvents(null, null);
+    const out = await svc.listOpenEvents({});
 
     expect(getMock).toHaveBeenCalledTimes(1);
     // Neither field is set on any item (response shape stays unchanged).
@@ -196,7 +196,7 @@ describe('TelegramEventsService.listOpenEvents — is_registered annotation', ()
       });
     const svc = makeService(getMock);
 
-    const out = await svc.listOpenEvents(null, BigInt(12345));
+    const out = await svc.listOpenEvents({ tgUserId: BigInt(12345) });
 
     expect(out[0]).toMatchObject({
       id: 'evt-a',
@@ -214,7 +214,7 @@ describe('TelegramEventsService.listOpenEvents — is_registered annotation', ()
       .mockResolvedValueOnce({ data: [] });
     const svc = makeService(getMock);
 
-    const out = await svc.listOpenEvents(null, BigInt(12345));
+    const out = await svc.listOpenEvents({ tgUserId: BigInt(12345) });
 
     expect(out.every((e) => e.is_registered === false)).toBe(true);
     expect(out.every((e) => e.registration_id === undefined)).toBe(true);
@@ -227,7 +227,7 @@ describe('TelegramEventsService.listOpenEvents — is_registered annotation', ()
       .mockResolvedValueOnce({ data: [] });
     const svc = makeService(getMock);
 
-    await svc.listOpenEvents(null, BigInt(8888));
+    await svc.listOpenEvents({ tgUserId: BigInt(8888) });
 
     const call = getMock.mock.calls[1]?.[0] as string;
     expect(call).toContain('filter[telegram_user_id][_eq]=8888');
@@ -239,7 +239,7 @@ describe('TelegramEventsService.listOpenEvents — is_registered annotation', ()
     const getMock = vi.fn().mockResolvedValueOnce({ data: [] });
     const svc = makeService(getMock);
 
-    const out = await svc.listOpenEvents(null, BigInt(8888));
+    const out = await svc.listOpenEvents({ tgUserId: BigInt(8888) });
 
     expect(out).toEqual([]);
     expect(getMock).toHaveBeenCalledTimes(1); // only events; no registrations query
@@ -252,11 +252,106 @@ describe('TelegramEventsService.listOpenEvents — is_registered annotation', ()
       .mockRejectedValueOnce(new Error('directus 500'));
     const svc = makeService(getMock);
 
-    const out = await svc.listOpenEvents(null, BigInt(8888));
+    const out = await svc.listOpenEvents({ tgUserId: BigInt(8888) });
 
     expect(out).toHaveLength(2);
     // No annotation when the lookup fails; bot's conflict-on-POST flow
     // catches the duplicate.
     expect(out.every((e) => e.is_registered === false)).toBe(true);
+  });
+});
+
+// ─── aiqadam#290 — filter chips ──────────────────────────────────────────────
+
+describe('TelegramEventsService.listOpenEvents — filter chips', () => {
+  function makeService(getMock: ReturnType<typeof vi.fn>): TelegramEventsService {
+    const directus = { get: getMock } as unknown as DirectusClient;
+    return new TelegramEventsService(directus);
+  }
+
+  it('adds filter[starts_at][_gte] when from is provided (midnight UTC)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ from: '2026-06-01' });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[starts_at][_gte]=2026-06-01T00%3A00%3A00.000Z');
+  });
+
+  it('adds filter[starts_at][_lte] when to is provided (end-of-day UTC)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ to: '2026-07-31' });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[starts_at][_lte]=2026-07-31T23%3A59%3A59.999Z');
+  });
+
+  it('adds filter[format][_eq] when format is provided', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ format: 'meetup' });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[format][_eq]=meetup');
+  });
+
+  it('adds filter[registration_open][_eq]=true when openOnly is true', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ openOnly: true });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[registration_open][_eq]=true');
+  });
+
+  it('does NOT add registration_open filter when openOnly is false (default)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({});
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).not.toContain('filter[registration_open]');
+  });
+
+  it('caps limit to 50; clamps values below 1 up to 1', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({ limit: 999 });
+    expect(getMock.mock.calls[0]?.[0] as string).toContain('limit=50');
+
+    await svc.listOpenEvents({ limit: 0 });
+    expect(getMock.mock.calls[1]?.[0] as string).toContain('limit=1');
+
+    await svc.listOpenEvents({ limit: 10 });
+    expect(getMock.mock.calls[2]?.[0] as string).toContain('limit=10');
+  });
+
+  it('combines multiple filters with AND semantics (all present in query)', async () => {
+    const getMock = vi.fn().mockResolvedValue({ data: [] });
+    const svc = makeService(getMock);
+
+    await svc.listOpenEvents({
+      tenant: 'uz',
+      from: '2026-06-01',
+      to: '2026-07-31',
+      format: 'meetup',
+      openOnly: true,
+      limit: 10,
+    });
+
+    const call = getMock.mock.calls[0]?.[0] as string;
+    expect(call).toContain('filter[country][_eq]=uz');
+    expect(call).toContain('filter[starts_at][_gte]=');
+    expect(call).toContain('filter[starts_at][_lte]=');
+    expect(call).toContain('filter[format][_eq]=meetup');
+    expect(call).toContain('filter[registration_open][_eq]=true');
+    expect(call).toContain('limit=10');
   });
 });

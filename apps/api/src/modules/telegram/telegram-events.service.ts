@@ -39,6 +39,25 @@ export interface EventRow {
   registration_open?: boolean | null;
 }
 
+// aiqadam#290 — bot-side filter chips. All optional; combinable (AND).
+// `format` matches the existing events.format column (FK to event_types.key,
+// e.g. "meetup", "workshop", "conference"). The bot pulls the live list
+// of formats from the result set rather than hardcoding values — same
+// approach as for any future `topic` field (currently deferred to a
+// separate PR that adds the schema column + cabinet support).
+export interface ListEventsFilters {
+  tenant: string | null;
+  tgUserId: bigint | null;
+  from: string | null; // ISO date, inclusive lower bound on starts_at
+  to: string | null; // ISO date, inclusive upper bound on starts_at (end-of-day)
+  format: string | null; // event_types.key
+  openOnly: boolean; // when true, filter to registration_open=true
+  limit: number; // 1..50, default 50
+}
+
+export const DEFAULT_LIMIT = 50;
+export const MAX_LIMIT = 50;
+
 @Injectable()
 export class TelegramEventsService {
   private readonly logger = new Logger(TelegramEventsService.name);
@@ -46,31 +65,57 @@ export class TelegramEventsService {
   constructor(private readonly directus: DirectusClient) {}
 
   // Returns events with status=published, visibility_scope=public, and
-  // starts_at in the future, optionally filtered by tenant country.
-  // Ordered by starts_at ASC so the bot can render upcoming-soonest first.
+  // starts_at in the future. All other filters optional (per
+  // aiqadam#290 contract). Ordered by starts_at ASC so the bot can
+  // render upcoming-soonest first.
   //
   // aiqadam#287 — when tgUserId is provided, each event is annotated with
   // is_registered + (when registered) registration_id so the bot can render
   // a ✅ Registered badge inline + short-circuit the Register tap before the
   // user fills the form again. One extra Directus query per call regardless
   // of how many events; no N+1.
-  async listOpenEvents(
-    tenant: string | null,
-    tgUserId: bigint | null = null,
-  ): Promise<EventSummary[]> {
-    const filters: string[] = [
+  async listOpenEvents(filters: Partial<ListEventsFilters> = {}): Promise<EventSummary[]> {
+    const {
+      tenant = null,
+      tgUserId = null,
+      from = null,
+      to = null,
+      format = null,
+      openOnly = false,
+      limit = DEFAULT_LIMIT,
+    } = filters;
+
+    const filterParts: string[] = [
       'filter[status][_eq]=published',
       'filter[visibility_scope][_eq]=public',
       `filter[starts_at][_gt]=${encodeURIComponent(new Date().toISOString())}`,
     ];
     if (tenant) {
-      filters.push(`filter[country][_eq]=${encodeURIComponent(tenant)}`);
+      filterParts.push(`filter[country][_eq]=${encodeURIComponent(tenant)}`);
     }
+    // aiqadam#290 — `from` is interpreted as ≥ midnight UTC of that date.
+    // Operators who want tz-aware filtering can stick to the default
+    // (server-now lower bound). Bot UX typically passes "today" anyway.
+    if (from) {
+      filterParts.push(`filter[starts_at][_gte]=${encodeURIComponent(`${from}T00:00:00.000Z`)}`);
+    }
+    if (to) {
+      // Inclusive upper bound — end-of-day UTC. Matches Directus's
+      // _lte semantics + the documented behavior in the issue.
+      filterParts.push(`filter[starts_at][_lte]=${encodeURIComponent(`${to}T23:59:59.999Z`)}`);
+    }
+    if (format) {
+      filterParts.push(`filter[format][_eq]=${encodeURIComponent(format)}`);
+    }
+    if (openOnly) {
+      filterParts.push('filter[registration_open][_eq]=true');
+    }
+    const cappedLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
     const query = [
-      ...filters,
+      ...filterParts,
       'fields=id,slug,title,starts_at,location,country,status,visibility_scope,capacity,registration_open',
       'sort=starts_at',
-      'limit=50',
+      `limit=${cappedLimit}`,
     ].join('&');
 
     const res = await this.directus.get<{ data: EventRow[] }>(`/items/events?${query}`);

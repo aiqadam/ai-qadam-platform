@@ -65,11 +65,30 @@ const tgUserIdParamSchema = z
   .regex(/^[1-9]\d*$/, 'tg_user_id must be a positive integer string')
   .transform((v) => BigInt(v));
 
+// aiqadam#290 — ISO date YYYY-MM-DD. We accept just the date part to
+// keep the URL clean; the service expands to ≥ midnight / ≤ end-of-day.
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD');
+// Bool from query strings — `?open_only=true|false|1|0`.
+const queryBoolSchema = z
+  .enum(['true', 'false', '1', '0'])
+  .transform((v) => v === 'true' || v === '1');
+
 const eventsQuerySchema = z.object({
+  // aiqadam#290 — accept full ISO 3166-1 alpha-2 too (was 2-8 before;
+  // tightening keeps the existing tenant codes valid + rejects garbage).
   tenant: z
     .string()
     .regex(/^[a-z]{2,8}$/, 'tenant must be 2–8 lowercase letters')
     .optional(),
+  country: z
+    .string()
+    .regex(/^[a-z]{2}$/, 'country must be ISO-3166-1 alpha-2 lowercase')
+    .optional(),
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
+  format: z.string().min(1).max(50).optional(),
+  open_only: queryBoolSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
   // aiqadam#287 — when provided, each EventSummary is annotated with
   // is_registered + registration_id (when registered). Omit for the
   // anonymous-browse case; the response shape stays unchanged for
@@ -204,10 +223,18 @@ export class TelegramPublicController {
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
-    const items = await this.events.listOpenEvents(
-      parsed.data.tenant ?? null,
-      parsed.data.tg_user_id,
-    );
+    // aiqadam#290 — `country` supersedes `tenant` when both present
+    // (per the spec; `tenant` stays for backwards-compatibility with the
+    // existing aiqadam#287 contract until we deprecate it).
+    const items = await this.events.listOpenEvents({
+      tenant: parsed.data.country ?? parsed.data.tenant ?? null,
+      tgUserId: parsed.data.tg_user_id,
+      from: parsed.data.from ?? null,
+      to: parsed.data.to ?? null,
+      format: parsed.data.format ?? null,
+      openOnly: parsed.data.open_only ?? false,
+      limit: parsed.data.limit ?? 50,
+    });
     return { items };
   }
 
