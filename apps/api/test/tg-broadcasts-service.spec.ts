@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import {
@@ -164,5 +164,123 @@ describe('TgBroadcastsService.get', () => {
     const get = vi.fn().mockResolvedValue({ data: null });
     const svc = new TgBroadcastsService(fakeDirectus(get));
     await expect(svc.get('missing-id')).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ─── #294 PR-b — create + update ───────────────────────────────────────────
+
+function fakeDirectusFull(opts: {
+  get?: ReturnType<typeof vi.fn>;
+  post?: ReturnType<typeof vi.fn>;
+  patch?: ReturnType<typeof vi.fn>;
+}): DirectusClient {
+  return {
+    get: opts.get ?? vi.fn(),
+    post: opts.post ?? vi.fn(),
+    patch: opts.patch ?? vi.fn(),
+  } as unknown as DirectusClient;
+}
+
+describe('TgBroadcastsService.create', () => {
+  it('POSTs to /items/tg_broadcasts with status=draft and sanitized buttons', async () => {
+    const post = vi.fn().mockResolvedValue({ data: { ...ROW, id: 'new-id' } });
+    const svc = new TgBroadcastsService(fakeDirectusFull({ post }));
+    const out = await svc.create({
+      title: 'New broadcast',
+      country: 'uz',
+      html_body: '<b>Hi</b>',
+      inline_buttons: [
+        { label: 'OK', url: 'https://x.test' },
+        { label: '', url: 'https://x.test' }, // dropped by sanitize
+      ],
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/items/tg_broadcasts',
+      expect.objectContaining({
+        title: 'New broadcast',
+        country: 'uz',
+        status: 'draft',
+        html_body: '<b>Hi</b>',
+        inline_buttons: [{ label: 'OK', url: 'https://x.test' }],
+      }),
+    );
+    expect(out.id).toBe('new-id');
+  });
+
+  it('defaults inline_buttons to [] when omitted', async () => {
+    const post = vi.fn().mockResolvedValue({ data: ROW });
+    const svc = new TgBroadcastsService(fakeDirectusFull({ post }));
+    await svc.create({ title: 't', country: 'uz', html_body: 'x' });
+    const body = post.mock.calls[0]?.[1] as { inline_buttons: unknown[] };
+    expect(body.inline_buttons).toEqual([]);
+  });
+});
+
+describe('TgBroadcastsService.update', () => {
+  it('PATCHes only the provided fields', async () => {
+    const get = vi.fn().mockResolvedValue({ data: ROW });
+    const patch = vi.fn().mockResolvedValue({ data: { ...ROW, title: 'Renamed' } });
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    const out = await svc.update('bdc-1', { title: 'Renamed' });
+    expect(patch).toHaveBeenCalledWith(
+      '/items/tg_broadcasts/bdc-1',
+      expect.objectContaining({ title: 'Renamed' }),
+    );
+    // Other fields are NOT in the patch body.
+    const body = patch.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(body).not.toHaveProperty('html_body');
+    expect(body).not.toHaveProperty('inline_buttons');
+    expect(out.title).toBe('Renamed');
+  });
+
+  it('rejects update when status is sent/sending/failed', async () => {
+    const get = vi.fn().mockResolvedValue({ data: { ...ROW, status: 'sent' } });
+    const patch = vi.fn();
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    await expect(svc.update('bdc-1', { title: 'X' })).rejects.toThrow(BadRequestException);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('rejects status=scheduled when scheduled_at is in the past', async () => {
+    const get = vi.fn().mockResolvedValue({ data: ROW });
+    const patch = vi.fn();
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    await expect(
+      svc.update('bdc-1', { status: 'scheduled', scheduled_at: '2000-01-01T00:00:00Z' }),
+    ).rejects.toThrow(BadRequestException);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('rejects status=scheduled when neither scheduled_at provided nor on row', async () => {
+    const get = vi.fn().mockResolvedValue({ data: { ...ROW, scheduled_at: null } });
+    const patch = vi.fn();
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    await expect(svc.update('bdc-1', { status: 'scheduled' })).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts status=scheduled with future scheduled_at', async () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const get = vi.fn().mockResolvedValue({ data: ROW });
+    const patch = vi.fn().mockResolvedValue({
+      data: { ...ROW, status: 'scheduled', scheduled_at: future },
+    });
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    const out = await svc.update('bdc-1', { status: 'scheduled', scheduled_at: future });
+    expect(out.status).toBe('scheduled');
+    expect(out.scheduled_at).toBe(future);
+  });
+
+  it('sanitizes inline_buttons on update', async () => {
+    const get = vi.fn().mockResolvedValue({ data: ROW });
+    const patch = vi.fn().mockResolvedValue({ data: ROW });
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    await svc.update('bdc-1', {
+      inline_buttons: [
+        { label: 'OK', url: 'https://x.test' },
+        { label: '', url: 'https://x.test' }, // dropped
+      ],
+    });
+    const body = patch.mock.calls[0]?.[1] as { inline_buttons: unknown[] };
+    expect(body.inline_buttons).toEqual([{ label: 'OK', url: 'https://x.test' }]);
   });
 });

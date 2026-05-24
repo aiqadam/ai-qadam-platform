@@ -1,0 +1,24 @@
+---
+import TgBroadcastComposer from '../../../../../components/workspace/TgBroadcastComposer';
+import Layout from '../../../../../layouts/Layout.astro';
+
+// #294 PR-b — composer (new). Same auth-bootstrap pattern as the list view.
+export const prerender = false;
+---
+
+<Layout
+  title="New broadcast · Telegram · AI Qadam workspace"
+  description="Compose a new Telegram broadcast."
+>
+  <main style="max-width: 880px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace/integrations/telegram/broadcasts">← Broadcasts</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 16px;"
+    >
+      New broadcast
+    </h1>
+    <TgBroadcastComposer client:load mode="new" />
+  </main>
+</Layout>

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DirectusClient } from '../directus/directus.client';
 
 // #294 PR-a — operator-authored Telegram broadcasts (read view).
@@ -56,9 +56,84 @@ interface BroadcastRow {
   date_updated: string | null;
 }
 
+// #294 PR-b — write-side input contracts.
+export interface CreateBroadcastInput {
+  title: string;
+  country: string;
+  html_body: string;
+  image_asset?: string | null;
+  inline_buttons?: BroadcastButton[];
+  audience_segment?: string | null;
+}
+
+export interface UpdateBroadcastInput {
+  title?: string;
+  html_body?: string;
+  image_asset?: string | null;
+  inline_buttons?: BroadcastButton[];
+  audience_segment?: string | null;
+  // Status transitions in PR-b are draft → scheduled (when scheduled_at
+  // is in the future). draft → sending / sent / failed are driven by
+  // the dispatcher in PR-d; the cabinet can only push the schedule
+  // button + cancel back to draft.
+  status?: 'draft' | 'scheduled';
+  scheduled_at?: string | null;
+}
+
 @Injectable()
 export class TgBroadcastsService {
   constructor(private readonly directus: DirectusClient) {}
+
+  async create(input: CreateBroadcastInput): Promise<BroadcastDetail> {
+    const body = {
+      title: input.title,
+      country: input.country,
+      status: 'draft' as const,
+      html_body: input.html_body,
+      image_asset: input.image_asset ?? null,
+      inline_buttons: sanitizeButtons(input.inline_buttons ?? []),
+      audience_segment: input.audience_segment ?? null,
+    };
+    const res = await this.directus.post<{ data: BroadcastRow }>('/items/tg_broadcasts', body);
+    return rowToDetail(res.data);
+  }
+
+  async update(id: string, input: UpdateBroadcastInput): Promise<BroadcastDetail> {
+    // Read-modify-write so we can validate status transitions + scheduled_at.
+    // Sent/sending/failed are dispatcher-managed; only draft + scheduled
+    // are editable from the cabinet.
+    const current = await this.get(id);
+    if (current.status !== 'draft' && current.status !== 'scheduled') {
+      throw new BadRequestException({
+        error: 'not_editable',
+        reason: `broadcast is ${current.status}`,
+      });
+    }
+    if (input.status === 'scheduled') {
+      const when = input.scheduled_at ?? current.scheduled_at;
+      if (!when || Date.parse(when) < Date.now()) {
+        throw new BadRequestException({
+          error: 'invalid_schedule',
+          reason: 'scheduled_at must be a future ISO timestamp',
+        });
+      }
+    }
+    const patch: Record<string, unknown> = {};
+    if (input.title !== undefined) patch.title = input.title;
+    if (input.html_body !== undefined) patch.html_body = input.html_body;
+    if (input.image_asset !== undefined) patch.image_asset = input.image_asset;
+    if (input.inline_buttons !== undefined) {
+      patch.inline_buttons = sanitizeButtons(input.inline_buttons);
+    }
+    if (input.audience_segment !== undefined) patch.audience_segment = input.audience_segment;
+    if (input.status !== undefined) patch.status = input.status;
+    if (input.scheduled_at !== undefined) patch.scheduled_at = input.scheduled_at;
+    const res = await this.directus.patch<{ data: BroadcastRow }>(
+      `/items/tg_broadcasts/${encodeURIComponent(id)}`,
+      patch,
+    );
+    return rowToDetail(res.data);
+  }
 
   async list(filters: { country?: string | null; status?: BroadcastStatus | null } = {}): Promise<{
     items: BroadcastSummary[];

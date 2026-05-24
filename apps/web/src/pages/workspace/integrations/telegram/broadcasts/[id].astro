@@ -1,0 +1,29 @@
+---
+import TgBroadcastComposer from '../../../../../components/workspace/TgBroadcastComposer';
+import Layout from '../../../../../layouts/Layout.astro';
+
+// #294 PR-b — composer (edit existing broadcast).
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) {
+  return new Response('id required', { status: 400 });
+}
+---
+
+<Layout
+  title="Edit broadcast · Telegram · AI Qadam workspace"
+  description="Edit a draft Telegram broadcast."
+>
+  <main style="max-width: 880px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace/integrations/telegram/broadcasts">← Broadcasts</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 16px;"
+    >
+      Edit broadcast
+    </h1>
+    <TgBroadcastComposer client:load mode="edit" broadcastId={id} />
+  </main>
+</Layout>

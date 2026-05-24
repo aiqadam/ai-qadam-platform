@@ -98,43 +98,64 @@ export default function TgBroadcastsList(): ReactElement {
   if (state.phase === 'probe_error')
     return <p style={mutedStyle()}>Failed to load broadcasts (HTTP {state.httpStatus}).</p>;
 
-  if (state.items.length === 0)
-    return (
-      <p style={mutedStyle()} data-testid="empty-broadcasts">
-        No broadcasts yet. The composer lands in #294 PR-b.
-      </p>
-    );
-
   return (
-    <table style={tableStyle()} data-testid="broadcasts-table">
-      <thead>
-        <tr>
-          <th style={thStyle()}>Title</th>
-          <th style={thStyle()}>Country</th>
-          <th style={thStyle()}>Status</th>
-          <th style={thStyle()}>Scheduled</th>
-          <th style={thStyle()}>Sent</th>
-          <th style={thStyle()}>Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        {state.items.map((b) => (
-          <tr key={b.id}>
-            <td style={tdStyle()}>{b.title}</td>
-            <td style={tdStyle()}>{b.country.toUpperCase()}</td>
-            <td style={tdStyle()}>
-              <span style={statusChipStyle(b.status)}>{STATUS_LABEL[b.status]}</span>
-            </td>
-            <td style={tdStyle()}>{formatDate(b.scheduled_at)}</td>
-            <td style={tdStyle()}>
-              {b.sent_at ? `${b.sent_count} · ${formatDate(b.sent_at)}` : '—'}
-            </td>
-            <td style={tdStyle()}>{formatDate(b.date_created)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      <div style={{ marginBottom: 16 }}>
+        <a href="/workspace/integrations/telegram/broadcasts/new" style={newButtonStyle()}>
+          + New broadcast
+        </a>
+      </div>
+      {state.items.length === 0 ? (
+        <p style={mutedStyle()} data-testid="empty-broadcasts">
+          No broadcasts yet. Use "New broadcast" to compose one.
+        </p>
+      ) : (
+        <table style={tableStyle()} data-testid="broadcasts-table">
+          <thead>
+            <tr>
+              <th style={thStyle()}>Title</th>
+              <th style={thStyle()}>Country</th>
+              <th style={thStyle()}>Status</th>
+              <th style={thStyle()}>Scheduled</th>
+              <th style={thStyle()}>Sent</th>
+              <th style={thStyle()}>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {state.items.map((b) => (
+              <tr key={b.id}>
+                <td style={tdStyle()}>
+                  <a href={`/workspace/integrations/telegram/broadcasts/${b.id}`}>{b.title}</a>
+                </td>
+                <td style={tdStyle()}>{b.country.toUpperCase()}</td>
+                <td style={tdStyle()}>
+                  <span style={statusChipStyle(b.status)}>{STATUS_LABEL[b.status]}</span>
+                </td>
+                <td style={tdStyle()}>{formatDate(b.scheduled_at)}</td>
+                <td style={tdStyle()}>
+                  {b.sent_at ? `${b.sent_count} · ${formatDate(b.sent_at)}` : '—'}
+                </td>
+                <td style={tdStyle()}>{formatDate(b.date_created)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
   );
+}
+
+function newButtonStyle(): React.CSSProperties {
+  return {
+    display: 'inline-block',
+    padding: '8px 16px',
+    background: 'var(--primary)',
+    color: 'var(--primary-foreground)',
+    borderRadius: 6,
+    fontSize: 14,
+    fontWeight: 500,
+    textDecoration: 'none',
+  };
 }
 
 function formatDate(iso: string | null): string {
