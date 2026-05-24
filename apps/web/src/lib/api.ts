@@ -160,13 +160,24 @@ export interface LeaderboardEntry {
   userId: string;
   email: string;
   displayName: string | null;
+  handle: string | null;
   totalPoints: number;
 }
 
-export async function fetchLeaderboard(req: Request, limit = 20): Promise<LeaderboardEntry[]> {
+// F-WebU16 — time-window scopes for /v1/leaderboard. `all` keeps the
+// original lifetime aggregate; the others constrain by point_awards
+// date_created server-side so recent activity wins.
+export type LeaderboardWindow = 'all' | 'year' | 'quarter';
+
+export async function fetchLeaderboard(
+  req: Request,
+  limit = 20,
+  window: LeaderboardWindow = 'all',
+): Promise<LeaderboardEntry[]> {
   const host = req.headers.get('host') ?? '';
   try {
-    const res = await fetch(`${BASE}/v1/leaderboard?limit=${limit}`, {
+    const params = new URLSearchParams({ limit: String(limit), window });
+    const res = await fetch(`${BASE}/v1/leaderboard?${params.toString()}`, {
       headers: host ? { host } : {},
     });
     if (!res.ok) {

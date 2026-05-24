@@ -77,12 +77,14 @@ describe('PointsDirectusService.leaderboard', () => {
       userId: alice.id,
       email: 'a@b.com',
       displayName: 'Alice',
+      handle: alice.handle,
       totalPoints: 50,
     });
     expect(entries[1]).toEqual({
       userId: bob.id,
       email: 'b@b.com',
       displayName: 'Bob',
+      handle: bob.handle,
       totalPoints: 30,
     });
 

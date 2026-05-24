@@ -13,7 +13,29 @@ export interface LeaderboardEntry {
   userId: string; // platform.users.id, NOT directus_users.id
   email: string;
   displayName: string | null;
+  handle: string | null;
   totalPoints: number;
+}
+
+// F-WebU16 — time-window filter on point_awards. `all` keeps the
+// original lifetime aggregate; `year` and `quarter` constrain by
+// date_created so the leaderboard surfaces recent activity for new
+// members (and prevents the same handful of veterans from dominating
+// forever).
+export type LeaderboardWindow = 'all' | 'year' | 'quarter';
+
+function windowFilterValue(window: LeaderboardWindow): string | null {
+  if (window === 'all') return null;
+  const now = new Date();
+  if (window === 'year') {
+    const d = new Date(now);
+    d.setUTCFullYear(d.getUTCFullYear() - 1);
+    return d.toISOString();
+  }
+  // quarter: trailing 90 days
+  const d = new Date(now);
+  d.setUTCDate(d.getUTCDate() - 90);
+  return d.toISOString();
 }
 
 interface DirectusAggregateRow {
@@ -47,7 +69,11 @@ export class PointsDirectusService {
   // list, not the underlying sort, so ranks 1, 2, 4 remain as such when
   // rank 3 opted out. (limit may yield fewer rows than requested if many
   // users opt out; acceptable for v1.)
-  async leaderboard(input: { countryCode: string; limit: number }): Promise<LeaderboardEntry[]> {
+  async leaderboard(input: {
+    countryCode: string;
+    limit: number;
+    window?: LeaderboardWindow;
+  }): Promise<LeaderboardEntry[]> {
     if (input.limit <= 0 || input.limit > 100) {
       throw new Error('limit must be between 1 and 100');
     }
@@ -59,6 +85,10 @@ export class PointsDirectusService {
       sort: '-sum.points',
       limit: String(input.limit),
     });
+    const windowSince = windowFilterValue(input.window ?? 'all');
+    if (windowSince) {
+      params.set('filter[date_created][_gte]', windowSince);
+    }
     const body = await this.directus.get<{ data: DirectusAggregateRow[] }>(
       `/items/point_awards?${params.toString()}`,
     );
@@ -72,6 +102,7 @@ export class PointsDirectusService {
         directusUserId: users.directusUserId,
         email: users.email,
         displayName: users.displayName,
+        handle: users.handle,
       })
       .from(users)
       .where(inArray(users.directusUserId, directusUserIds));
@@ -89,6 +120,7 @@ export class PointsDirectusService {
         userId: profile.id,
         email: profile.email,
         displayName: profile.displayName,
+        handle: profile.handle,
         totalPoints: Number(row.sum.points),
       });
     }

@@ -67,7 +67,10 @@
     "col_points": "Points",
     "col_streak": "Streak",
     "empty_title": "No points awarded yet",
-    "empty_desc": "Attend an event to start earning points."
+    "empty_desc": "Attend an event to start earning points.",
+    "window_all": "All time",
+    "window_year": "This year",
+    "window_quarter": "Last 90 days"
   },
   "event_detail": {
     "back": "All events",
