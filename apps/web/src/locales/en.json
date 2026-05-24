@@ -159,6 +159,12 @@
     "tg_cta": "Open channel",
     "partner_title": "Become a partner",
     "partner_desc": "We host meetups across Central Asia. If you can offer a space, a coffee budget, or amplification, talk to us.",
-    "partner_cta": "Get in touch"
+    "partner_cta": "Get in touch",
+    "mission_eyebrow": "AI Qadam · {{country}}",
+    "mission_body": "Community of AI engineers across Central Asia — meetups, workshops, talks, and the people who actually show up.",
+    "stat_events_run": "events run",
+    "stat_partners": "partners",
+    "stat_countries": "countries",
+    "recent_recordings": "From past events"
   }
 }

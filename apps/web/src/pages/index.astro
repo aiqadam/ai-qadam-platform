@@ -3,7 +3,13 @@ import HomeHero from '../components/HomeHero.astro';
 import { LeadCaptureForm } from '../components/LeadCaptureForm';
 import UpcomingEventsGrid from '../components/UpcomingEventsGrid.astro';
 import Layout from '../layouts/Layout.astro';
-import { fetchPartners, fetchUpcomingEvents } from '../lib/cms';
+import {
+  countryFromHost,
+  fetchHomepageStats,
+  fetchPartners,
+  fetchRecentRecordings,
+  fetchUpcomingEvents,
+} from '../lib/cms';
 import { geoTargetSubdomain, hostnameFromHeaders, isApexHost } from '../lib/geo';
 import { getLocale, makeT } from '../lib/i18n';
 
@@ -30,18 +36,80 @@ if (isApexHost(hostnameFromHeaders(Astro.request.headers))) {
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
-const [events, partners] = await Promise.all([
+const country = countryFromHost(Astro.request.headers.get('host'));
+const countryName = t(`country.${country}`);
+
+// F-WebU13 — homepage uplift adds three SSR-fetched surfaces beside
+// the existing hero / grid / partners / lead capture / CTA layout:
+//   - mission band (top): identity + country context. Strings only.
+//   - trust strip (between grid and partners): three stat cards
+//     computed via Directus aggregate queries — past events + partners
+//     + countries served. Anonymous + cheap.
+//   - recent recordings (between partners and lead capture): up to 3
+//     most recent kind=recording event_materials for this country,
+//     deep-joined to event title. Click-through to /events/<id>?tab=finished.
+const [events, partners, stats, recordings] = await Promise.all([
   fetchUpcomingEvents(Astro.request),
   fetchPartners(Astro.request),
+  fetchHomepageStats(Astro.request),
+  fetchRecentRecordings(Astro.request, 3),
 ]);
 const hero = events[0] ?? null;
 const grid = events.slice(1, 4);
+const countriesServed = 3;
 ---
 
 <Layout title="AI Qadam">
   <main style="max-width: 1180px; margin: 0 auto;">
+    <section style="padding: 28px 48px 0;">
+      <p
+        class="section-eyebrow"
+        style="margin: 0 0 6px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+      >
+        {t('home.mission_eyebrow', { country: countryName })}
+      </p>
+      <p style="font-size: 16px; line-height: 1.55; color: var(--foreground); margin: 0; max-width: 760px;">
+        {t('home.mission_body')}
+      </p>
+    </section>
+
     <HomeHero event={hero} locale={locale} />
     <UpcomingEventsGrid events={grid} locale={locale} />
+
+    <section style="padding: 32px 48px; border-top: 1px solid var(--border);">
+      <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+        <li
+          style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--card);"
+        >
+          <p style="font-family: var(--font-mono); font-size: 32px; font-weight: 600; margin: 0; letter-spacing: -0.02em;">
+            {stats.pastEventsCount}
+          </p>
+          <p style="font-size: 13px; color: var(--muted-foreground); margin: 4px 0 0;">
+            {t('home.stat_events_run')}
+          </p>
+        </li>
+        <li
+          style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--card);"
+        >
+          <p style="font-family: var(--font-mono); font-size: 32px; font-weight: 600; margin: 0; letter-spacing: -0.02em;">
+            {stats.partnersCount}
+          </p>
+          <p style="font-size: 13px; color: var(--muted-foreground); margin: 4px 0 0;">
+            {t('home.stat_partners')}
+          </p>
+        </li>
+        <li
+          style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--card);"
+        >
+          <p style="font-family: var(--font-mono); font-size: 32px; font-weight: 600; margin: 0; letter-spacing: -0.02em;">
+            {countriesServed}
+          </p>
+          <p style="font-size: 13px; color: var(--muted-foreground); margin: 4px 0 0;">
+            {t('home.stat_countries')}
+          </p>
+        </li>
+      </ul>
+    </section>
 
     {partners.length > 0 && (
       <section style="padding: 48px; border-top: 1px solid var(--border);">
@@ -71,6 +139,35 @@ const grid = events.slice(1, 4);
             )
           ))}
         </div>
+      </section>
+    )}
+
+    {recordings.length > 0 && (
+      <section style="padding: 48px; border-top: 1px solid var(--border);">
+        <p
+          class="section-eyebrow"
+          style="margin-bottom: 16px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+        >
+          {t('home.recent_recordings')}
+        </p>
+        <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
+          {recordings.map((r) => (
+            <li>
+              <a
+                href={`/events/${r.eventId}?tab=finished`}
+                style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); text-decoration: none; color: inherit; transition: border-color 150ms var(--ease-out);"
+              >
+                <span class="badge mono" style="font-size: 9px; letter-spacing: 0.08em; align-self: flex-start;">
+                  {t('event_detail.material_kind_recording')}
+                </span>
+                <p style="font-size: 14px; font-weight: 600; margin: 4px 0 0; line-height: 1.35;">{r.title}</p>
+                <p style="font-size: 12px; color: var(--muted-foreground); margin: 0;">
+                  {r.eventTitle}
+                </p>
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
     )}
 

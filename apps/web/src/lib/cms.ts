@@ -254,6 +254,100 @@ export async function fetchPartners(req: Request): Promise<CmsPartner[]> {
   }
 }
 
+// ──────────── F-WebU13 — homepage trust strip + recent recordings ────
+//
+// Lightweight stats for the homepage trust band. Returns counts only
+// (no row data leaks), all computed via Directus aggregate queries
+// against publicly-readable collections. Zero on any failure so the
+// strip degrades to "—" rather than 500'ing the page.
+
+export interface HomepageStats {
+  pastEventsCount: number;
+  partnersCount: number;
+}
+
+export async function fetchHomepageStats(req: Request): Promise<HomepageStats> {
+  const country = countryFromHost(req.headers.get('host'));
+  const now = new Date().toISOString();
+  const eventsParams = new URLSearchParams({
+    'filter[country][_eq]': country,
+    'filter[status][_eq]': 'published',
+    'filter[ends_at][_lt]': now,
+    'aggregate[count]': 'id',
+  });
+  const partnersParams = new URLSearchParams({
+    'filter[country][_eq]': country,
+    'aggregate[count]': 'id',
+  });
+  type AggRow = Array<{ count: { id: number | string } }>;
+  const [events, partners] = await Promise.all([
+    get<{ data: AggRow }>(`/items/events?${eventsParams.toString()}`).catch(() => ({ data: [] })),
+    get<{ data: AggRow }>(`/items/partners?${partnersParams.toString()}`).catch(() => ({
+      data: [],
+    })),
+  ]);
+  return {
+    pastEventsCount: Number(events.data[0]?.count?.id ?? 0),
+    partnersCount: Number(partners.data[0]?.count?.id ?? 0),
+  };
+}
+
+// Recent recordings teaser for the homepage. Pulls up to N most recently
+// added event_materials where kind=recording AND the parent event is
+// published in this country. Only rows with a valid URL survive; the
+// page links each card to /events/<id>?tab=finished.
+
+export interface HomeRecording {
+  materialId: string;
+  title: string;
+  url: string;
+  eventId: string;
+  eventTitle: string;
+  createdAt: string;
+}
+
+interface CmsHomeRecordingRow {
+  id: string;
+  title: string;
+  url: string | null;
+  date_created: string;
+  event: { id: string; title: string } | null;
+}
+
+export async function fetchRecentRecordings(req: Request, limit = 3): Promise<HomeRecording[]> {
+  const country = countryFromHost(req.headers.get('host'));
+  try {
+    const params = new URLSearchParams({
+      'filter[kind][_eq]': 'recording',
+      'filter[event][country][_eq]': country,
+      'filter[event][status][_eq]': 'published',
+      fields: 'id,title,url,date_created,event.id,event.title',
+      sort: '-date_created',
+      limit: String(limit),
+    });
+    const body = await get<{ data: CmsHomeRecordingRow[] }>(
+      `/items/event_materials?${params.toString()}`,
+    );
+    return body.data
+      .map((r): HomeRecording | null => {
+        const url = r.url ? normalizeMaterialUrl(r.url) : null;
+        if (!url || !r.event) return null;
+        return {
+          materialId: r.id,
+          title: r.title,
+          url,
+          eventId: r.event.id,
+          eventTitle: r.event.title,
+          createdAt: r.date_created,
+        };
+      })
+      .filter((r): r is HomeRecording => r !== null);
+  } catch (err) {
+    console.error('[cms] fetchRecentRecordings failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 // ──────────── marketing_assets (F-S0.9b per ADR-0025) ────────────────
 //
 // Tier 2 brand assets: produced photos / PDFs / videos / press kit items
