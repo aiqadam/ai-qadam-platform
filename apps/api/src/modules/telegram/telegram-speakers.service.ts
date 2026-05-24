@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { env } from '../../config/env';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
+import { type I18nLocale, pickLocale } from './telegram-events.service';
 
 // aiqadam#291 — speakers as a first-class entity for the bot's
 // /speakers command + speaker deep-links from event detail. Reads
@@ -23,6 +24,11 @@ export interface SpeakerSummary {
   name: string;
   title: string | null;
   avatar_url: string | null;
+  // aiqadam#326 PR-c — locale the response was served in. Always present
+  // when Accept-Language reached the handler (the bot always sends one);
+  // absent on unauthenticated callers that omit the header. Substitutes
+  // title from speakers.translations[locale].headline when present.
+  locale?: string;
 }
 
 export interface SpeakerSocialLink {
@@ -64,6 +70,14 @@ interface SpeakerRow {
     last_name: string | null;
     email: string | null;
   } | null;
+  // aiqadam#326 PR-c — per-locale subobject map. {ru:{headline,bio},uz:{...}}
+  translations?: Record<string, SpeakerTranslation> | null;
+}
+
+// aiqadam#326 PR-c — per-locale translation shape on speakers.translations.
+export interface SpeakerTranslation {
+  headline?: string;
+  bio?: string;
 }
 
 interface UpcomingEventJoinRow {
@@ -88,14 +102,16 @@ export class TelegramSpeakersService {
 
   constructor(private readonly directus: DirectusClient) {}
 
-  async listSpeakers(opts: { country?: string | null; limit?: number } = {}): Promise<{
+  async listSpeakers(
+    opts: { country?: string | null; limit?: number; locale?: string | null } = {},
+  ): Promise<{
     items: SpeakerSummary[];
   }> {
-    const { country = null, limit = DEFAULT_SPEAKERS_LIMIT } = opts;
+    const { country = null, limit = DEFAULT_SPEAKERS_LIMIT, locale = null } = opts;
     const cappedLimit = Math.min(Math.max(limit, 1), MAX_SPEAKERS_LIMIT);
     const parts: string[] = [
       'filter[status][_eq]=active',
-      'fields=id,slug,headline,bio,photo,linkedin_url,twitter_handle,status,country,user.first_name,user.last_name,user.email',
+      'fields=id,slug,headline,bio,photo,linkedin_url,twitter_handle,status,country,user.first_name,user.last_name,user.email,translations',
       'sort=user.last_name',
       `limit=${cappedLimit}`,
     ];
@@ -105,18 +121,19 @@ export class TelegramSpeakersService {
     const res = await this.directus.get<{ data: SpeakerRow[] }>(
       `/items/speakers?${parts.join('&')}`,
     );
+    const resolvedLocale = pickLocale(locale);
     const items: SpeakerSummary[] = [];
     for (const row of res.data) {
       const summary = rowToSpeakerSummary(row);
       // Silently drop speakers we can't name — operator placeholder rows
       // without any usable identifier (first/last/email all null) are not
       // worth rendering as a blank chip.
-      if (summary) items.push(summary);
+      if (summary) items.push(applySummaryI18n(summary, row, resolvedLocale));
     }
     return { items };
   }
 
-  async getSpeakerDetail(slugOrId: string): Promise<SpeakerDetail> {
+  async getSpeakerDetail(slugOrId: string, locale?: string | null): Promise<SpeakerDetail> {
     const row = await this.findActiveSpeakerBySlugOrId(slugOrId);
     if (!row) {
       throw new NotFoundException({ error: 'speaker_not_found' });
@@ -129,19 +146,21 @@ export class TelegramSpeakersService {
     }
 
     const events = await this.fetchUpcomingEventsForSpeaker(row.id);
-    return {
+    const resolvedLocale = pickLocale(locale ?? null);
+    const baseDetail: SpeakerDetail = {
       ...summary,
       bio: row.bio,
       social_links: buildSocialLinks(row),
       events,
     };
+    return applyDetailI18n(baseDetail, row, resolvedLocale);
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   private async findActiveSpeakerBySlugOrId(slugOrId: string): Promise<SpeakerRow | null> {
     const fields =
-      'fields=id,slug,headline,bio,photo,linkedin_url,twitter_handle,status,country,user.first_name,user.last_name,user.email';
+      'fields=id,slug,headline,bio,photo,linkedin_url,twitter_handle,status,country,user.first_name,user.last_name,user.email,translations';
     const guards = 'filter[status][_eq]=active';
     const encoded = encodeURIComponent(slugOrId);
 
@@ -249,4 +268,44 @@ export function buildSocialLinks(row: SpeakerRow): SpeakerSocialLink[] {
     if (handle) out.push({ label: 'Twitter', url: `https://twitter.com/${handle}` });
   }
   return out;
+}
+
+// ─── aiqadam#326 PR-c — i18n helpers (mirror of events.service shape) ─────
+
+// Substitutes the headline → wire `title` field on the SUMMARY when
+// the locale's translation is present. Always tags response with `locale`.
+export function applySummaryI18n(
+  summary: SpeakerSummary,
+  row: SpeakerRow,
+  locale: I18nLocale,
+): SpeakerSummary {
+  const out: SpeakerSummary = { ...summary, locale };
+  const t = pickTranslation(row, locale);
+  if (t?.headline) out.title = t.headline.trim() || out.title;
+  return out;
+}
+
+// DETAIL variant — substitutes title (← headline) AND bio. Both keys
+// are optional in the translation; missing keys leave the base value.
+export function applyDetailI18n(
+  detail: SpeakerDetail,
+  row: SpeakerRow,
+  locale: I18nLocale,
+): SpeakerDetail {
+  const out: SpeakerDetail = { ...detail, locale };
+  const t = pickTranslation(row, locale);
+  if (!t) return out;
+  if (t.headline) out.title = t.headline.trim() || out.title;
+  if (t.bio) out.bio = t.bio;
+  return out;
+}
+
+// Defensive lookup against potentially-bad operator-supplied JSON.
+function pickTranslation(row: SpeakerRow, locale: I18nLocale): SpeakerTranslation | null {
+  if (locale === 'en') return null; // base row already serves 'en'
+  const all = row.translations;
+  if (!all || typeof all !== 'object') return null;
+  const t = all[locale];
+  if (!t || typeof t !== 'object') return null;
+  return t;
 }

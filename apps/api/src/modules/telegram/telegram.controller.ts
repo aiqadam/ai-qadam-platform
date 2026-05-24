@@ -369,8 +369,9 @@ export class TelegramPublicController {
   //   Unauth (TelegramAuthGuard still applies — same surface as /events).
   //   Future: honors Accept-Language per #318 once shipped.
   @Get('event-topics')
-  listEventTopics(): { items: EventTopic[] } {
-    return { items: this.eventTopics.list() };
+  listEventTopics(@Headers('accept-language') acceptLanguage?: string): { items: EventTopic[] } {
+    // aiqadam#326 PR-c — service normalises ('ru,en;q=0.9' → 'ru', etc.)
+    return { items: this.eventTopics.list(acceptLanguage ?? null) };
   }
 
   // GET /v1/telegram/events/{slug}?tg_user_id=<optional>
@@ -444,7 +445,10 @@ export class TelegramPublicController {
   //   first/last/email all null) are silently dropped — operators see
   //   them in the cabinet but they don't render in the bot.
   @Get('speakers')
-  async listSpeakers(@Query() query: unknown): Promise<{ items: SpeakerSummary[] }> {
+  async listSpeakers(
+    @Query() query: unknown,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<{ items: SpeakerSummary[] }> {
     const parsed = speakersListQuerySchema.safeParse(query);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
@@ -452,6 +456,8 @@ export class TelegramPublicController {
     return this.speakers.listSpeakers({
       country: parsed.data.country ?? null,
       limit: parsed.data.limit ?? 20,
+      // aiqadam#326 PR-c — speakers.translations substitution
+      locale: acceptLanguage ?? null,
     });
   }
 
@@ -467,12 +473,15 @@ export class TelegramPublicController {
   //   404: { error: 'speaker_not_found' } — also returned for archived /
   //        pending status to avoid leaking operator-internal state
   @Get('speakers/:slug')
-  async speakerDetail(@Param('slug') slug: string): Promise<SpeakerDetail> {
+  async speakerDetail(
+    @Param('slug') slug: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<SpeakerDetail> {
     const parsed = slugOrIdSchema.safeParse(slug);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
-    return this.speakers.getSpeakerDetail(parsed.data);
+    return this.speakers.getSpeakerDetail(parsed.data, acceptLanguage ?? null);
   }
 }
 

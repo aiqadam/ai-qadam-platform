@@ -716,6 +716,27 @@ ensure "field speakers.slug" \
     "meta":{"interface":"input","width":"half","note":"URL-friendly handle (auto-suggested from the speaker'\''s name; editable). Powers the bot'\''s /speakers/{slug} deeplinks + future public /speakers/<slug> page."}
   }'
 
+echo "[aiqadam#326 PR-c — speakers.translations]"
+# #326 PR-c — per-locale translations for the speaker's display copy.
+# Same shape pattern as events.translations (PR-a). Keys per locale are
+# optional — operator can translate just headline OR bio and let the
+# other fall back. Read-path substitution lives in
+# telegram-speakers.service.ts (this PR).
+ensure "field speakers.translations" \
+  "${DIRECTUS_URL}/fields/speakers/translations" \
+  "${DIRECTUS_URL}/fields/speakers" \
+  '{
+    "field":"translations",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json","placeholder":"{\"ru\":{\"headline\":\"...\",\"bio\":\"...\"},\"uz\":{...}}"},
+      "width":"full",
+      "note":"#326 PR-c — per-locale subobject map. Keys = locale codes (en/ru/uz). Per-locale values = {headline?, bio?}. Missing keys fall back to the speaker'\''s base copy. Read path substitutes top-level fields when Accept-Language matches."
+    }
+  }'
+
 # ──────────── eulas (Sprint 5.5/2) ──────────────────────────────────────
 #
 # Per Q1: capability only — multiple independent EULA datasets supported;

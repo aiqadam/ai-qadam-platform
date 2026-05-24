@@ -959,6 +959,60 @@ describe('TelegramEventTopicsService', () => {
     const second = svc.list();
     expect(second[0]?.label).not.toBe('MUTATED');
   });
+
+  // aiqadam#326 PR-c — localised topic labels.
+  it('list("ru") returns Russian labels for slugs that have translations', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    const items = svc.list('ru');
+    const llm = items.find((t) => t.slug === 'llm');
+    expect(llm?.label).toBe('Большие языковые модели');
+    expect(llm?.locale).toBe('ru');
+  });
+
+  it('list("uz") returns Uzbek labels for slugs that have translations', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    const items = svc.list('uz');
+    const llm = items.find((t) => t.slug === 'llm');
+    expect(llm?.label).toBe('Katta til modellari');
+    expect(llm?.locale).toBe('uz');
+  });
+
+  it('list() with no arg defaults to English + locale=en', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    const items = svc.list();
+    const llm = items.find((t) => t.slug === 'llm');
+    expect(llm?.label).toBe('Large Language Models');
+    expect(llm?.locale).toBe('en');
+  });
+
+  it('list("fr-FR") falls back to English (unknown locale)', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    const items = svc.list('fr-FR');
+    expect(items.every((t) => t.locale === 'en')).toBe(true);
+    expect(items[0]?.label).toBe('Large Language Models');
+  });
+
+  it('list("ru-RU,en;q=0.9") honours the head locale (ru)', async () => {
+    const { TelegramEventTopicsService } = await import(
+      '../src/modules/telegram/telegram-event-topics.service'
+    );
+    const svc = new TelegramEventTopicsService();
+    const items = svc.list('ru-RU,en;q=0.9');
+    const career = items.find((t) => t.slug === 'career');
+    expect(career?.label).toBe('Карьера в AI');
+  });
 });
 
 // ─── aiqadam#326 PR-b — i18n helpers + read-path substitution ─────────────

@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import {
   TelegramSpeakersService,
+  applyDetailI18n,
+  applySummaryI18n,
   buildSocialLinks,
   rowToSpeakerSummary,
   speakerName,
@@ -301,5 +303,145 @@ describe('TelegramSpeakersService.getSpeakerDetail', () => {
     const svc = new TelegramSpeakersService(fakeDirectus(get));
     const out = await svc.getSpeakerDetail('aigerim-b');
     expect(out.events[0]?.slug).toBe('evt-1');
+  });
+});
+
+// ─── aiqadam#326 PR-c — speakers i18n ─────────────────────────────────────
+
+describe('applySummaryI18n', () => {
+  const ROW = {
+    ...SPEAKER_BASE,
+    translations: { ru: { headline: 'Главный ML, Uzum Lab' }, uz: {} },
+  };
+
+  it('substitutes headline → title when ru translation is present', () => {
+    const base = rowToSpeakerSummary(ROW);
+    if (!base) throw new Error('expected summary');
+    const out = applySummaryI18n(base, ROW, 'ru');
+    expect(out.title).toBe('Главный ML, Uzum Lab');
+    expect(out.locale).toBe('ru');
+  });
+
+  it('keeps base headline when locale=en', () => {
+    const base = rowToSpeakerSummary(ROW);
+    if (!base) throw new Error('expected summary');
+    const out = applySummaryI18n(base, ROW, 'en');
+    expect(out.title).toBe('Principal ML, Uzum Lab');
+    expect(out.locale).toBe('en');
+  });
+
+  it('falls back to base when locale has empty subobject (no headline key)', () => {
+    const base = rowToSpeakerSummary(ROW);
+    if (!base) throw new Error('expected summary');
+    const out = applySummaryI18n(base, ROW, 'uz');
+    expect(out.title).toBe('Principal ML, Uzum Lab');
+    expect(out.locale).toBe('uz');
+  });
+
+  it('defends against bad translations payload shapes', () => {
+    const base = rowToSpeakerSummary(SPEAKER_BASE);
+    if (!base) throw new Error('expected summary');
+    const out = applySummaryI18n(
+      base,
+      { ...SPEAKER_BASE, translations: 'oops' as unknown as Record<string, never> },
+      'ru',
+    );
+    expect(out.title).toBe('Principal ML, Uzum Lab');
+  });
+});
+
+describe('applyDetailI18n', () => {
+  const ROW = {
+    ...SPEAKER_BASE,
+    translations: {
+      ru: { headline: 'Главный ML, Uzum Lab', bio: 'Русское био.' },
+    },
+  };
+
+  function baseDetail() {
+    const summary = rowToSpeakerSummary(ROW);
+    if (!summary) throw new Error('expected summary');
+    return {
+      ...summary,
+      bio: SPEAKER_BASE.bio,
+      social_links: buildSocialLinks(ROW),
+      events: [],
+    };
+  }
+
+  it('substitutes title + bio when ru is present', () => {
+    const out = applyDetailI18n(baseDetail(), ROW, 'ru');
+    expect(out.title).toBe('Главный ML, Uzum Lab');
+    expect(out.bio).toBe('Русское био.');
+    expect(out.locale).toBe('ru');
+  });
+
+  it('partial translation (bio only) leaves base title', () => {
+    const row = { ...SPEAKER_BASE, translations: { ru: { bio: 'Только био.' } } };
+    const summary = rowToSpeakerSummary(row);
+    if (!summary) throw new Error('expected summary');
+    const detail = { ...summary, bio: SPEAKER_BASE.bio, social_links: [], events: [] };
+    const out = applyDetailI18n(detail, row, 'ru');
+    expect(out.title).toBe('Principal ML, Uzum Lab');
+    expect(out.bio).toBe('Только био.');
+  });
+
+  it('keeps base when locale=en (no en subobject)', () => {
+    const out = applyDetailI18n(baseDetail(), ROW, 'en');
+    expect(out.title).toBe('Principal ML, Uzum Lab');
+    expect(out.bio).toBe(SPEAKER_BASE.bio);
+    expect(out.locale).toBe('en');
+  });
+});
+
+describe('TelegramSpeakersService.listSpeakers — locale', () => {
+  const TRANSLATED_ROW = {
+    ...SPEAKER_BASE,
+    translations: { ru: { headline: 'Главный ML' } },
+  };
+
+  it('substitutes title when locale="ru-RU,en;q=0.9"', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [TRANSLATED_ROW] });
+    const svc = new TelegramSpeakersService(fakeDirectus(get));
+    const out = await svc.listSpeakers({ locale: 'ru-RU,en;q=0.9' });
+    expect(out.items[0]?.title).toBe('Главный ML');
+    expect(out.items[0]?.locale).toBe('ru');
+  });
+
+  it('fetches the translations field in the SELECT', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [] });
+    const svc = new TelegramSpeakersService(fakeDirectus(get));
+    await svc.listSpeakers();
+    expect(get.mock.calls[0]?.[0] as string).toContain('translations');
+  });
+});
+
+describe('TelegramSpeakersService.getSpeakerDetail — locale', () => {
+  const TRANSLATED_ROW = {
+    ...SPEAKER_BASE,
+    translations: { ru: { headline: 'Главный ML', bio: 'Русское био.' } },
+  };
+
+  it('substitutes title + bio when locale="ru"', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [TRANSLATED_ROW] })
+      .mockResolvedValueOnce({ data: [] });
+    const svc = new TelegramSpeakersService(fakeDirectus(get));
+    const out = await svc.getSpeakerDetail('aigerim-b', 'ru');
+    expect(out.title).toBe('Главный ML');
+    expect(out.bio).toBe('Русское био.');
+    expect(out.locale).toBe('ru');
+  });
+
+  it('keeps base + locale=en when no Accept-Language', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [TRANSLATED_ROW] })
+      .mockResolvedValueOnce({ data: [] });
+    const svc = new TelegramSpeakersService(fakeDirectus(get));
+    const out = await svc.getSpeakerDetail('aigerim-b');
+    expect(out.title).toBe('Principal ML, Uzum Lab');
+    expect(out.locale).toBe('en');
   });
 });
