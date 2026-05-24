@@ -83,6 +83,7 @@
     "speakers": "Speakers",
     "speakers_confirmed_of": "{{confirmed}} confirmed · {{total}} total",
     "speakers_none": "Lineup coming soon.",
+    "recordings": "Recordings",
     "materials": "Materials",
     "material_kind_slides": "Slides",
     "material_kind_handout": "Handout",

@@ -32,7 +32,47 @@ const isGated = (event.visibilityScope === 'members_only' || event.visibilitySco
 
 const speakers = isGated ? [] : await fetchEventSpeakers(event.id);
 const confirmedSpeakers = speakers.filter((s) => s.status === 'confirmed');
-const materials = isGated ? [] : await fetchEventMaterials(event.id);
+const allMaterials = isGated ? [] : await fetchEventMaterials(event.id);
+
+// F-WebU4 — detect YouTube / Vimeo URLs and turn them into privacy-
+// friendly embed URLs (youtube-nocookie.com so no tracking cookie is
+// set until the user hits Play). Anything else returns null and the
+// material falls back to a click-through pill in the Materials list.
+function recordingEmbedSrc(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const host = parsed.hostname.toLowerCase();
+  // YouTube — short link
+  if (host === 'youtu.be') {
+    const id = parsed.pathname.slice(1).split('/')[0] ?? '';
+    return /^[\w-]{6,}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+  }
+  // YouTube — watch / embed / shorts
+  if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
+    const v = parsed.searchParams.get('v');
+    if (v && /^[\w-]{6,}$/.test(v)) return `https://www.youtube-nocookie.com/embed/${v}`;
+    const segs = parsed.pathname.split('/').filter(Boolean);
+    if ((segs[0] === 'embed' || segs[0] === 'shorts') && segs[1] && /^[\w-]{6,}$/.test(segs[1])) {
+      return `https://www.youtube-nocookie.com/embed/${segs[1]}`;
+    }
+  }
+  // Vimeo
+  if (host === 'vimeo.com' || host.endsWith('.vimeo.com')) {
+    const m = parsed.pathname.match(/^\/(\d+)/);
+    if (m?.[1]) return `https://player.vimeo.com/video/${m[1]}`;
+  }
+  return null;
+}
+
+const recordings = allMaterials
+  .filter((m) => m.kind === 'recording' && m.url != null && recordingEmbedSrc(m.url) != null)
+  .map((m) => ({ ...m, embedSrc: recordingEmbedSrc(m.url ?? '') as string }));
+const recordingIds = new Set(recordings.map((r) => r.id));
+const materials = allMaterials.filter((m) => !recordingIds.has(m.id));
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
@@ -358,6 +398,31 @@ const layoutProps = {
                     {s.status === 'accepted' && (
                       <span class="badge mono" style="margin-top: 8px; display: inline-block; font-size: 9px;">PENDING</span>
                     )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {recordings.length > 0 && (
+            <section style="margin: 0 0 32px;">
+              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                {t('event_detail.recordings')}
+              </h2>
+              <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px;">
+                {recordings.map((r) => (
+                  <li>
+                    <p style="font-size: 13px; color: var(--muted-foreground); margin: 0 0 8px;">{r.title}</p>
+                    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border);">
+                      <iframe
+                        src={r.embedSrc}
+                        title={r.title}
+                        loading="lazy"
+                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
