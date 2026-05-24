@@ -1,0 +1,19 @@
+---
+import FormBuilderPanel from '../../../components/workspace/FormBuilderPanel';
+import Layout from '../../../layouts/Layout.astro';
+
+// Per-form builder cabinet — edit metadata + field list + preview +
+// publish/archive. Bootstraps via /v1/auth/refresh; reads the form
+// from /v1/workspace/forms/:id.
+
+export const prerender = false;
+
+const { id } = Astro.params as { id: string };
+---
+
+<Layout
+  title="Form · AI Qadam workspace"
+  description="Operator form editor — build the field list, preview, attach to an event."
+>
+  <FormBuilderPanel formId={id} client:load />
+</Layout>

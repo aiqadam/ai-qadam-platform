@@ -1,0 +1,20 @@
+---
+import FormsListPanel from '../../../components/workspace/FormsListPanel';
+import Layout from '../../../layouts/Layout.astro';
+
+// Operator forms cabinet — list, create, archive form templates.
+// Follow-up cabinet (#workspace/forms/[id]) is the per-form builder UI.
+//
+// AuthGuard'd on the API side (/v1/workspace/forms/*); UI is signed-in
+// only — the panel bootstraps via /v1/auth/refresh and shows a sign-in
+// CTA when no session.
+
+export const prerender = false;
+---
+
+<Layout
+  title="Forms · AI Qadam workspace"
+  description="Operator forms library — build reusable surveys + attach to events as post-event feedback."
+>
+  <FormsListPanel client:load />
+</Layout>

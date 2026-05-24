@@ -27,6 +27,8 @@ import { EventSpeakersController } from './event-speakers.controller';
 import { EventSpeakersService } from './event-speakers.service';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
+import { WorkspaceFormsController } from './forms.controller';
+import { WorkspaceFormsService } from './forms.service';
 import { MembersController } from './members.controller';
 import { MembersService } from './members.service';
 import { PartnersController } from './partners.controller';
@@ -106,6 +108,7 @@ import { TgSegmentsService } from './tg-segments.service';
     TgBroadcastsService,
     TgSegmentsService,
     TgBroadcastsSenderService,
+    WorkspaceFormsService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -128,6 +131,7 @@ import { TgSegmentsService } from './tg-segments.service';
     TgBroadcastsController,
     TgSegmentsController,
     TgBroadcastsCronController,
+    WorkspaceFormsController,
   ],
   exports: [
     MembersService,
