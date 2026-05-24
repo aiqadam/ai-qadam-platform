@@ -46,6 +46,9 @@ export interface ApiEvent {
   // either is null the page falls back to the existing map_url link.
   latitude?: number | null;
   longitude?: number | null;
+  // F-WebU9 — public post-event recap rendered on the Finished tab.
+  // Distinct from `event_retrospective` which stays operator-internal.
+  recapMd?: string | null;
   // F-S5.4 — Directus `date_updated`. Used as OG-card cache buster
   // (`?v=<epoch>`) so a speaker_added / metadata edit invalidates
   // every scraper's cached preview.
@@ -74,6 +77,20 @@ export interface EventMaterial {
   kind: 'slides' | 'handout' | 'cheatsheet' | 'recording' | 'code' | 'other';
   fileUrl: string | null;
   url: string | null;
+  orderIndex: number;
+}
+
+// F-WebU9 — post-event photos shown on the Finished tab as a gallery.
+// Separate collection from event_materials because the render is
+// different (grid + caption + alt text vs pill row). Either `fileUrl`
+// (Directus-hosted, preferred) or `url` (external CDN) resolves to an
+// <img src>; the cms layer rejects rows that produce neither.
+export interface EventPhoto {
+  id: string;
+  fileUrl: string | null;
+  url: string | null;
+  caption: string | null;
+  altText: string | null;
   orderIndex: number;
 }
 

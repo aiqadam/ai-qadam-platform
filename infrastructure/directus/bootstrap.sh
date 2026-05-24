@@ -3576,6 +3576,17 @@ ensure "field events.longitude" \
     "meta":{"interface":"input","width":"half","options":{"placeholder":"69.279729"},"note":"Venue longitude in decimal degrees (-180 to 180). Paired with latitude to render an OpenStreetMap embed on the public event page. Both must be set."}
   }'
 
+echo "[F-WebU9 — events.recap_md]"
+ensure "field events.recap_md" \
+  "${DIRECTUS_URL}/fields/events/recap_md" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"recap_md",
+    "type":"text",
+    "schema":{"is_nullable":true},
+    "meta":{"interface":"input-multiline","width":"full","note":"Public post-event recap (markdown-lite — same renderer as agenda_md). Shown on the Finished tab. Distinct from `event_retrospective` which is internal operator notes."}
+  }'
+
 # ════════════════════════════════════════════════════════════════════════
 # F-WebU3 — event_materials junction (slides / handouts / recordings)
 # ════════════════════════════════════════════════════════════════════════
@@ -3656,6 +3667,75 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   fi
 else
   echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public read for event_materials. Add manually via Directus admin if this is a non-prod environment."
+fi
+
+# ════════════════════════════════════════════════════════════════════════
+# F-WebU9 — event_photos junction (post-event gallery on Finished tab)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Separate from event_materials because the render is fundamentally
+# different — gallery grid + alt text + caption, not a pill row. Each
+# photo is a Directus-hosted file (rarely an external URL, but we accept
+# either). Public read so anonymous viewers see the gallery on a finished
+# event page.
+
+echo "[F-WebU9 — event_photos]"
+ensure "collection event_photos" \
+  "${DIRECTUS_URL}/collections/event_photos" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_photos",
+    "schema":{"name":"event_photos"},
+    "meta":{
+      "icon":"photo_library",
+      "note":"Public photos for the Finished tab gallery. Operator-managed via Directus admin (cabinet UI lands later). Either `file` (uploaded) or `url` (external CDN/Drive link) is set per row.",
+      "sort_field":"order_index"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"file","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file-image","width":"half","note":"Uploaded image (preferred). Leave empty if linking to an external CDN."}},
+      {"field":"url","type":"string","schema":{"is_nullable":true,"max_length":500},"meta":{"interface":"input","width":"half","options":{"placeholder":"https://..."},"note":"External image URL. http(s) only. Use file upload instead when possible."}},
+      {"field":"caption","type":"string","schema":{"is_nullable":true,"max_length":160},"meta":{"interface":"input","width":"full","options":{"placeholder":"Optional caption shown under the photo"}}},
+      {"field":"alt_text","type":"string","schema":{"is_nullable":true,"max_length":200},"meta":{"interface":"input","width":"full","note":"WCAG: short description of the image for screen readers. Falls back to caption when empty."}},
+      {"field":"order_index","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation event_photos.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_photos/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_photos","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation event_photos.file -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/event_photos/file" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_photos","field":"file","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+# Public-policy read — same pattern as event_materials. Reuses the
+# POLICY_PUBLIC_PROD pin set earlier in the F-WebU3 block.
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_photos&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm event_photos/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"event_photos", action:"read", permissions:{}, fields:["*"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm event_photos/read (public, created)"
+    else
+      echo "  ✗ perm event_photos/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public read for event_photos. Add manually via Directus admin."
 fi
 
 # ════════════════════════════════════════════════════════════════════════

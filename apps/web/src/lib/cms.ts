@@ -13,7 +13,7 @@
 // don't change. The snake_case → camelCase + country → countryCode
 // translation happens here.
 
-import type { ApiEvent, EventMaterial, EventSpeaker } from './api';
+import type { ApiEvent, EventMaterial, EventPhoto, EventSpeaker } from './api';
 
 interface CmsEventRow {
   id: string;
@@ -44,6 +44,9 @@ interface CmsEventRow {
   // shape and coerce in toApiEvent.
   latitude?: number | string | null;
   longitude?: number | string | null;
+  // F-WebU9 — public post-event recap (Finished tab). Distinct from
+  // event_retrospective which stays operator-internal.
+  recap_md?: string | null;
   // F-S5.4 — used as the OG-card cache buster on /events/[id]
   date_updated?: string | null;
 }
@@ -143,6 +146,7 @@ function toApiEvent(row: CmsEventRow, registeredCount = 0): ApiEvent {
     externalLinks: normalizeExternalLinks(row.external_links),
     latitude: parseCoord(row.latitude, -90, 90),
     longitude: parseCoord(row.longitude, -180, 180),
+    recapMd: row.recap_md ?? null,
     updatedAt: row.date_updated ?? null,
   };
 }
@@ -174,7 +178,7 @@ async function fetchRegisteredCounts(eventIds: string[]): Promise<Map<string, nu
 }
 
 const EVENT_FIELDS =
-  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,latitude,longitude,date_updated';
+  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,latitude,longitude,recap_md,date_updated';
 
 // Country code from a request's Host header. Mirrors the API's
 // tenant.middleware logic so SSR + API agree on which country to query.
@@ -497,6 +501,55 @@ export async function fetchEventMaterials(eventId: string): Promise<EventMateria
       .filter((m): m is EventMaterial => m !== null);
   } catch (err) {
     console.error('[cms] fetchEventMaterials failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ──────────── F-WebU9 — event photos (Finished tab gallery) ──────────
+//
+// Public read of event_photos, sorted by order_index. Either `file`
+// (Directus-hosted, preferred) or `url` (external CDN) resolves to an
+// <img src>; rows that produce neither are dropped.
+
+interface CmsEventPhotoRow {
+  id: string;
+  file: string | null;
+  url: string | null;
+  caption: string | null;
+  alt_text: string | null;
+  order_index: number;
+}
+
+export async function fetchEventPhotos(eventId: string): Promise<EventPhoto[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields: 'id,file,url,caption,alt_text,order_index',
+      sort: 'order_index',
+      limit: '60',
+    });
+    const body = await get<{ data: CmsEventPhotoRow[] }>(
+      `/items/event_photos?${params.toString()}`,
+    );
+    return body.data
+      .map((row): EventPhoto | null => {
+        const fileUrl = row.file ? `${BASE}/assets/${row.file}` : null;
+        const url = row.url ? normalizeMaterialUrl(row.url) : null;
+        if (!fileUrl && !url) return null;
+        const caption = row.caption?.trim() || null;
+        const altText = row.alt_text?.trim() || null;
+        return {
+          id: row.id,
+          fileUrl,
+          url,
+          caption,
+          altText,
+          orderIndex: row.order_index,
+        };
+      })
+      .filter((p): p is EventPhoto => p !== null);
+  } catch (err) {
+    console.error('[cms] fetchEventPhotos failed:', err instanceof Error ? err.message : err);
     return [];
   }
 }

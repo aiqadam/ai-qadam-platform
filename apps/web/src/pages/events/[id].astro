@@ -2,7 +2,7 @@
 import EventShareButtons from '../../components/EventShareButtons';
 import { RegistrationSidebar } from '../../components/RegistrationSidebar';
 import Layout from '../../layouts/Layout.astro';
-import { fetchEvent, fetchEventMaterials, fetchEventSpeakers } from '../../lib/cms';
+import { fetchEvent, fetchEventMaterials, fetchEventPhotos, fetchEventSpeakers } from '../../lib/cms';
 import { getLocale, makeT } from '../../lib/i18n';
 
 // Event detail page per design screen s1-3 (desktop) / s1-4 (mobile).
@@ -40,6 +40,7 @@ const isGated = (event.visibilityScope === 'members_only' || event.visibilitySco
 const speakers = isGated ? [] : await fetchEventSpeakers(event.id);
 const confirmedSpeakers = speakers.filter((s) => s.status === 'confirmed');
 const allMaterials = isGated ? [] : await fetchEventMaterials(event.id);
+const photos = isGated ? [] : await fetchEventPhotos(event.id);
 
 // F-WebU4 — detect YouTube / Vimeo URLs and turn them into privacy-
 // friendly embed URLs (youtube-nocookie.com so no tracking cookie is
@@ -166,6 +167,8 @@ function renderAgenda(md: string): string {
     .join('');
 }
 const agendaHtml = event.agendaMd ? renderAgenda(event.agendaMd) : null;
+const recapHtml = event.recapMd ? renderAgenda(event.recapMd) : null;
+const hasFinishedContent = recordings.length > 0 || photos.length > 0 || recapHtml !== null;
 
 // F-WebU2 — OpenStreetMap embed. Renders only when both coordinates
 // are set; the fallback is the existing map_url click-through.
@@ -502,29 +505,76 @@ function tabHref(tab: Tab): string {
             )}
 
             {activeTab === 'finished' && (
-              recordings.length > 0 ? (
-                <section style="margin: 0 0 32px;">
-                  <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
-                    {t('event_detail.recordings')}
-                  </h2>
-                  <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px;">
-                    {recordings.map((r) => (
-                      <li>
-                        <p style="font-size: 13px; color: var(--muted-foreground); margin: 0 0 8px;">{r.title}</p>
-                        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border);">
-                          <iframe
-                            src={r.embedSrc}
-                            title={r.title}
-                            loading="lazy"
-                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowfullscreen
-                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
-                          />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+              hasFinishedContent ? (
+                <>
+                  {recapHtml && (
+                    <section style="margin: 0 0 32px;">
+                      <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                        {t('event_detail.recap')}
+                      </h2>
+                      <div style="font-size: 15px; line-height: 1.65; color: var(--muted-foreground);" set:html={recapHtml} />
+                    </section>
+                  )}
+
+                  {recordings.length > 0 && (
+                    <section style="margin: 0 0 32px;">
+                      <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                        {t('event_detail.recordings')}
+                      </h2>
+                      <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px;">
+                        {recordings.map((r) => (
+                          <li>
+                            <p style="font-size: 13px; color: var(--muted-foreground); margin: 0 0 8px;">{r.title}</p>
+                            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border);">
+                              <iframe
+                                src={r.embedSrc}
+                                title={r.title}
+                                loading="lazy"
+                                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowfullscreen
+                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+                              />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
+                  {photos.length > 0 && (
+                    <section style="margin: 0 0 32px;">
+                      <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                        {t('event_detail.photos')}
+                      </h2>
+                      <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+                        {photos.map((p) => {
+                          const src = p.fileUrl ?? p.url ?? '';
+                          const alt = p.altText ?? p.caption ?? t('event_detail.photo_alt_fallback', { title: event.title });
+                          return (
+                            <li>
+                              <a
+                                href={src}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style="display: block; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; aspect-ratio: 4 / 3; background: var(--muted);"
+                              >
+                                <img
+                                  src={src}
+                                  alt={alt}
+                                  loading="lazy"
+                                  style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                                />
+                              </a>
+                              {p.caption && (
+                                <p style="font-size: 11px; color: var(--muted-foreground); margin: 6px 0 0;">{p.caption}</p>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  )}
+                </>
               ) : (
                 <div class="empty-state" style="margin: 24px 0;">
                   <div class="empty-icon" aria-hidden="true">📼</div>
