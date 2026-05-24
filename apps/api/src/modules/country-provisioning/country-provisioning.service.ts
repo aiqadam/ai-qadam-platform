@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AuthentikClient, AuthentikError } from '../admin-invites/authentik.client';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
-import { tzForCountry } from './country-tz';
 
 // F-S4.1 — Country provisioning state machine.
 //
@@ -31,7 +30,29 @@ export const PROVISIONING_STEP_IDS = [
 
 export type ProvisioningStepId = (typeof PROVISIONING_STEP_IDS)[number];
 
-export type ProvisioningStepStatus = 'pending' | 'running' | 'succeeded' | 'failed';
+// `awaiting_manual` — the runner detected it can't complete the step
+// automatically (e.g. Plausible CE doesn't ship the Sites Provisioning
+// API; per maintainer-confirmed no-plan to add it). The wizard surfaces
+// the step as an operator checklist; POST .../steps/:id/manual-complete
+// flips it to `succeeded` once the operator has done the manual op.
+export type ProvisioningStepStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'awaiting_manual';
+
+// Runners throw this to opt the step into manual-confirmation mode
+// instead of crashing the chain. The run loop catches it, marks
+// `awaiting_manual`, and CONTINUES to the next step (vs `failed`,
+// which halts). completed_at is only set when ALL steps are
+// `succeeded` (awaiting_manual blocks completion).
+export class AwaitingManualError extends Error {
+  constructor() {
+    super('awaiting_manual');
+    this.name = 'AwaitingManualError';
+  }
+}
 
 export interface ProvisioningStepState {
   status: ProvisioningStepStatus;
@@ -163,42 +184,20 @@ export class CountryProvisioningService {
     );
   }
 
-  // F-S4.1-d — create the Plausible site for `<cc>.aiqadam.org`.
-  // Plausible self-hosted admin API: `POST /api/v1/sites` with
-  // `{ domain, timezone }`. Idempotent semantics: Plausible returns a
-  // domain-already-exists error (HTTP 400/422) on conflict — we swallow
-  // it as success because the goal state is satisfied either way.
-  // Bearer-token auth; degraded mode when PLAUSIBLE_ADMIN_TOKEN unset.
+  // F-S4.1-e — Plausible CE v3 does NOT ship the Sites Provisioning
+  // API (`/api/v1/sites`); the maintainer confirmed in discussion #4329
+  // there are no plans to add it. Switching this step to manual mode:
+  // throw AwaitingManualError; the run loop marks the step as
+  // `awaiting_manual` and continues. The wizard surfaces the deeplink
+  // to Plausible's add-site UI + an "I've done it" button which calls
+  // POST .../steps/plausible_site/manual-complete.
+  //
+  // tz lookup retained (it's the value the operator types into
+  // Plausible's add-site form; surfacing it through the wizard hint
+  // saves a context switch).
   private async runPlausibleSite(c: { code: string }): Promise<void> {
-    const token = process.env.PLAUSIBLE_ADMIN_TOKEN;
-    if (!token) throw new Error('plausible_admin_not_configured');
-    const adminUrl = process.env.PLAUSIBLE_ADMIN_URL ?? 'https://analytics.aiqadam.org';
-    const domain = `${c.code}.aiqadam.org`;
-    const timezone = tzForCountry(c.code);
-    const body = new URLSearchParams({ domain, timezone });
-    const res = await fetch(`${adminUrl.replace(/\/$/, '')}/api/v1/sites`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-      body,
-    });
-    if (res.ok) {
-      this.logger.log(`plausible_site — created domain=${domain} tz=${timezone}`);
-      return;
-    }
-    // Plausible returns 400 with `{error: "domain ... has already been taken"}`
-    // when the site exists; treat as idempotent success.
-    if (res.status === 400 || res.status === 422) {
-      const text = await res.text();
-      if (text.toLowerCase().includes('already')) {
-        this.logger.log(`plausible_site — already exists domain=${domain}`);
-        return;
-      }
-      throw new Error(`plausible_create_failed status=${res.status} ${text.slice(0, 120)}`);
-    }
-    throw new Error(`plausible_create_failed status=${res.status}`);
+    void c;
+    throw new AwaitingManualError();
   }
 
   // F-S4.1-d — append `https://<cc>.aiqadam.org:<port>` to the
@@ -264,23 +263,69 @@ export class CountryProvisioningService {
     if (state.completed_at) return state;
 
     for (const stepId of PROVISIONING_STEP_IDS) {
-      const step = state.steps[stepId];
-      if (step.status === 'succeeded') continue;
-      step.status = 'running';
-      step.attempted_at = new Date().toISOString();
-      step.error = null;
-      try {
-        await this.runners[stepId]({ code: country.code, name: country.name });
-        step.status = 'succeeded';
-      } catch (err) {
-        step.status = 'failed';
-        step.error = err instanceof Error ? err.message : 'unknown';
-        await this.persistState(country.code, state);
-        return state;
-      }
+      const halted = await this.executeStep(country, state, stepId);
+      if (halted) return state;
     }
-    state.completed_at = new Date().toISOString();
+    if (PROVISIONING_STEP_IDS.every((id) => state.steps[id].status === 'succeeded')) {
+      state.completed_at = new Date().toISOString();
+    }
     await this.persistState(country.code, state);
+    return state;
+  }
+
+  // Runs one step; returns true if the chain must halt (real failure
+  // + state persisted). awaiting_manual returns false (continue chain).
+  private async executeStep(
+    country: { code: string; name: string },
+    state: ProvisioningState,
+    stepId: ProvisioningStepId,
+  ): Promise<boolean> {
+    const step = state.steps[stepId];
+    if (step.status === 'succeeded' || step.status === 'awaiting_manual') return false;
+    step.status = 'running';
+    step.attempted_at = new Date().toISOString();
+    step.error = null;
+    try {
+      await this.runners[stepId]({ code: country.code, name: country.name });
+      step.status = 'succeeded';
+      return false;
+    } catch (err) {
+      if (err instanceof AwaitingManualError) {
+        step.status = 'awaiting_manual';
+        step.error = null;
+        return false;
+      }
+      step.status = 'failed';
+      step.error = err instanceof Error ? err.message : 'unknown';
+      await this.persistState(country.code, state);
+      return true;
+    }
+  }
+
+  // F-S4.1-e — operator confirms an awaiting_manual step has been done
+  // out-of-band (e.g. Plausible site created in the Plausible UI).
+  // Refuses unless the step is currently awaiting_manual — there's no
+  // mechanism here to bypass a real failure or jump a step forward.
+  async manualComplete(code: string, stepId: string): Promise<ProvisioningState> {
+    if (!(PROVISIONING_STEP_IDS as readonly string[]).includes(stepId)) {
+      throw new BadRequestException('invalid_step');
+    }
+    const typedStepId = stepId as ProvisioningStepId;
+    const country = await this.fetchCountry(code);
+    const state = country.provisioning_state;
+    if (!state) throw new BadRequestException('not_provisioned');
+    const step = state.steps[typedStepId];
+    if (step.status !== 'awaiting_manual') {
+      throw new BadRequestException('step_not_awaiting_manual');
+    }
+    step.status = 'succeeded';
+    step.attempted_at = new Date().toISOString();
+    step.error = null;
+    if (PROVISIONING_STEP_IDS.every((id) => state.steps[id].status === 'succeeded')) {
+      state.completed_at = new Date().toISOString();
+    }
+    await this.persistState(country.code, state);
+    this.logger.log(`manual_complete — country=${country.code} step=${stepId}`);
     return state;
   }
 

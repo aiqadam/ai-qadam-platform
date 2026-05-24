@@ -90,25 +90,23 @@ afterEach(() => {
 });
 
 describe('CountryProvisioningService.run — fresh provisioning', () => {
-  it('initialises state + runs all 4 stub steps + marks completed', async () => {
+  it('initialises state + runs 3 automatable steps; plausible_site goes awaiting_manual (CE has no Sites API); completed_at stays null', async () => {
     dx.get.mockResolvedValueOnce({ data: { ...UZ, provisioning_state: null } });
     dx.patch.mockResolvedValueOnce({});
 
     const state = await svc.run('uz');
 
     expect(state.started_at).toBeTruthy();
-    expect(state.completed_at).toBeTruthy();
-    for (const id of PROVISIONING_STEP_IDS) {
-      expect(state.steps[id].status).toBe('succeeded');
-      expect(state.steps[id].error).toBeNull();
-      expect(state.steps[id].attempted_at).toBeTruthy();
-    }
-    // Persisted at the end only (single patch when whole chain succeeds)
+    // completed_at requires ALL steps succeeded; plausible_site needs manual.
+    expect(state.completed_at).toBeNull();
+    expect(state.steps.authentik_oidc.status).toBe('succeeded');
+    expect(state.steps.directus_policy.status).toBe('succeeded');
+    expect(state.steps.plausible_site.status).toBe('awaiting_manual');
+    expect(state.steps.plausible_site.error).toBeNull();
+    expect(state.steps.coolify_fqdn.status).toBe('succeeded');
+    // Persisted once at the end.
     expect(dx.patch).toHaveBeenCalledTimes(1);
     expect(dx.patch.mock.calls[0]?.[0]).toBe('/items/countries/uz');
-    const persisted = (dx.patch.mock.calls[0]?.[1] as { provisioning_state: unknown })
-      .provisioning_state;
-    expect(persisted).toEqual(state);
   });
 
   it('normalises the country code (case + whitespace) before lookup', async () => {
@@ -151,7 +149,7 @@ describe('CountryProvisioningService.run — already complete', () => {
 });
 
 describe('CountryProvisioningService.run — resume after failure', () => {
-  it('resumes from the first non-succeeded step (skips already-succeeded ones)', async () => {
+  it('resumes from the first non-succeeded step (skips already-succeeded ones); plausible_site lands awaiting_manual', async () => {
     const partial = {
       started_at: '2026-05-20T00:00:00.000Z',
       completed_at: null,
@@ -174,11 +172,12 @@ describe('CountryProvisioningService.run — resume after failure', () => {
     dx.patch.mockResolvedValueOnce({});
 
     const state = await svc.run('uz');
-    expect(state.completed_at).toBeTruthy();
+    expect(state.completed_at).toBeNull(); // blocked on plausible_site awaiting_manual
     expect(state.steps.authentik_oidc.attempted_at).toBe('2026-05-20T00:00:01.000Z'); // untouched
     expect(state.steps.directus_policy.status).toBe('succeeded');
     expect(state.steps.directus_policy.error).toBeNull();
-    expect(state.steps.plausible_site.status).toBe('succeeded');
+    expect(state.steps.plausible_site.status).toBe('awaiting_manual');
+    expect(state.steps.coolify_fqdn.status).toBe('succeeded');
   });
 
   it('stops on first failing step + persists + returns state with error', async () => {
@@ -376,10 +375,14 @@ function plausibleAndCoolifyMock(handle: (url: string, init: RequestInit) => Res
   }) as typeof global.fetch;
 }
 
-describe('CountryProvisioningService — plausible_site real runner', () => {
+// F-S4.1-e — plausible_site is now a manual-confirmation step (Plausible
+// CE doesn't ship the Sites Provisioning API, per maintainer in discussion
+// #4329). Runner throws AwaitingManualError; run loop marks the step as
+// awaiting_manual and continues. Operator confirms via manualComplete().
+describe('CountryProvisioningService — plausible_site manual mode', () => {
   const KG = { code: 'kg', name: 'Kyrgyzstan', provisioning_state: null };
 
-  it('POSTs to /api/v1/sites with correct domain + timezone + bearer token', async () => {
+  it('marks plausible_site as awaiting_manual and continues to coolify_fqdn', async () => {
     global.fetch = plausibleAndCoolifyMock(() => undefined);
     dx.get.mockReset();
     dx.post.mockReset();
@@ -390,49 +393,14 @@ describe('CountryProvisioningService — plausible_site real runner', () => {
     dx.patch.mockResolvedValue({});
 
     const state = await svc.run('kg');
-    expect(state.steps.plausible_site.status).toBe('succeeded');
+    expect(state.steps.plausible_site.status).toBe('awaiting_manual');
+    expect(state.steps.plausible_site.error).toBeNull();
+    // Crucially: coolify_fqdn STILL ran (chain continues past awaiting_manual)
+    expect(state.steps.coolify_fqdn.status).toBe('succeeded');
+    expect(state.completed_at).toBeNull();
+    // No HTTP call to Plausible's /api/v1/sites — the runner short-circuits.
     const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
-    const plausibleCall = calls.find((c) => String(c[0]).includes('/api/v1/sites'));
-    expect(plausibleCall).toBeDefined();
-    const init = plausibleCall?.[1] as RequestInit;
-    expect(init.method).toBe('POST');
-    expect((init.headers as Record<string, string>).Authorization).toMatch(/^Bearer plausible/);
-    const body = String(init.body);
-    expect(body).toContain('domain=kg.aiqadam.org');
-    expect(body).toContain('timezone=Asia%2FBishkek');
-  });
-
-  it('treats Plausible 400 "already taken" as idempotent success', async () => {
-    global.fetch = plausibleAndCoolifyMock((u) => {
-      if (u.includes('/api/v1/sites'))
-        return new Response(
-          JSON.stringify({ error: 'domain kg.aiqadam.org has already been taken' }),
-          { status: 400 },
-        );
-      return undefined;
-    });
-    dx.get.mockReset();
-    dx.post.mockReset();
-    dx.patch.mockReset();
-    dx.get.mockResolvedValueOnce({ data: KG });
-    dx.get.mockResolvedValue({ data: [] });
-    dx.post.mockResolvedValue({ data: { id: 'policy-new' } });
-    dx.patch.mockResolvedValue({});
-
-    const state = await svc.run('kg');
-    expect(state.steps.plausible_site.status).toBe('succeeded');
-  });
-
-  it('fails with plausible_admin_not_configured when token unset', async () => {
-    vi.stubEnv('PLAUSIBLE_ADMIN_TOKEN', '');
-    dx.get.mockReset();
-    dx.get.mockResolvedValueOnce({ data: KG });
-    dx.get.mockResolvedValue({ data: [] });
-    dx.patch.mockResolvedValue({});
-
-    const state = await svc.run('kg');
-    expect(state.steps.plausible_site.status).toBe('failed');
-    expect(state.steps.plausible_site.error).toBe('plausible_admin_not_configured');
+    expect(calls.find((c) => String(c[0]).includes('/api/v1/sites'))).toBeUndefined();
   });
 });
 
@@ -626,5 +594,105 @@ describe('CountryProvisioningService.getStateWithActive', () => {
     });
     const result = await svc.getStateWithActive('kg');
     expect(result).toEqual({ state: null, is_active: true });
+  });
+});
+
+// F-S4.1-e — manualComplete contract.
+describe('CountryProvisioningService.manualComplete', () => {
+  const AWAITING = {
+    started_at: '2026-05-20T00:00:00.000Z',
+    completed_at: null,
+    steps: {
+      authentik_oidc: {
+        status: 'succeeded' as const,
+        attempted_at: '2026-05-20T00:00:01.000Z',
+        error: null,
+      },
+      directus_policy: {
+        status: 'succeeded' as const,
+        attempted_at: '2026-05-20T00:00:02.000Z',
+        error: null,
+      },
+      plausible_site: {
+        status: 'awaiting_manual' as const,
+        attempted_at: '2026-05-20T00:00:03.000Z',
+        error: null,
+      },
+      coolify_fqdn: {
+        status: 'succeeded' as const,
+        attempted_at: '2026-05-20T00:00:04.000Z',
+        error: null,
+      },
+    },
+  };
+
+  beforeEach(() => {
+    dx.get.mockReset();
+    dx.patch.mockReset();
+    dx.patch.mockResolvedValue({});
+  });
+
+  it('flips awaiting_manual → succeeded and sets completed_at when it was the last blocker', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: {
+        code: 'kg',
+        name: 'Kyrgyzstan',
+        is_active: false,
+        provisioning_state: structuredClone(AWAITING),
+      },
+    });
+
+    const state = await svc.manualComplete('kg', 'plausible_site');
+    expect(state.steps.plausible_site.status).toBe('succeeded');
+    expect(state.steps.plausible_site.error).toBeNull();
+    expect(state.completed_at).toBeTruthy();
+    expect(dx.patch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not set completed_at when other steps are still not succeeded', async () => {
+    const stillBlocked = structuredClone(AWAITING) as typeof AWAITING & {
+      steps: { coolify_fqdn: { status: string; attempted_at: string; error: string } };
+    };
+    stillBlocked.steps.coolify_fqdn = {
+      status: 'failed',
+      attempted_at: '2026-05-20T00:00:04.000Z',
+      error: 'transient',
+    };
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: false, provisioning_state: stillBlocked },
+    });
+
+    const state = await svc.manualComplete('kg', 'plausible_site');
+    expect(state.steps.plausible_site.status).toBe('succeeded');
+    expect(state.completed_at).toBeNull();
+  });
+
+  it('refuses with BadRequest(invalid_step) for an unknown step id', async () => {
+    await expect(svc.manualComplete('kg', 'made_up_step')).rejects.toThrow(/invalid_step/);
+    expect(dx.get).not.toHaveBeenCalled();
+  });
+
+  it('refuses with BadRequest(not_provisioned) when state is null', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: false, provisioning_state: null },
+    });
+    await expect(svc.manualComplete('kg', 'plausible_site')).rejects.toThrow(/not_provisioned/);
+    expect(dx.patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses with BadRequest(step_not_awaiting_manual) when step is already succeeded', async () => {
+    const completed = structuredClone(AWAITING);
+    completed.steps.plausible_site = {
+      status: 'succeeded',
+      attempted_at: '2026-05-20T00:00:03.000Z',
+      error: null,
+    };
+    dx.get.mockResolvedValueOnce({
+      data: { code: 'kg', name: 'Kyrgyzstan', is_active: false, provisioning_state: completed },
+    });
+    await expect(svc.manualComplete('kg', 'plausible_site')).rejects.toThrow(
+      /step_not_awaiting_manual/,
+    );
+    expect(dx.patch).not.toHaveBeenCalled();
   });
 });

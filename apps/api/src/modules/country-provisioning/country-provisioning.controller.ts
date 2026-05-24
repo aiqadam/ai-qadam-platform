@@ -17,6 +17,12 @@ import { CountryProvisioningService, type ProvisioningState } from './country-pr
 //   Go-live gate. Flips countries.is_active=true ONLY after every
 //   provisioning step has succeeded. Refuses with 400 otherwise.
 //   Idempotent.
+//
+// POST /v1/admin/countries/:code/provisioning/steps/:stepId/manual-complete
+//   Operator confirms an awaiting_manual step has been done
+//   out-of-band (e.g. Plausible CE Sites Provisioning API isn't
+//   available; operator creates the site in the Plausible UI then
+//   marks it done). Refuses unless step is currently awaiting_manual.
 
 @Controller('v1/admin/countries')
 @UseGuards(AuthGuard, SuperAdminGuard)
@@ -42,5 +48,14 @@ export class CountryProvisioningController {
     @Param('code') code: string,
   ): Promise<{ state: ProvisioningState; is_active: boolean }> {
     return this.provisioning.activate(code);
+  }
+
+  @Post(':code/provisioning/steps/:stepId/manual-complete')
+  @HttpCode(HttpStatus.OK)
+  async manualComplete(
+    @Param('code') code: string,
+    @Param('stepId') stepId: string,
+  ): Promise<ProvisioningState> {
+    return this.provisioning.manualComplete(code, stepId);
   }
 }

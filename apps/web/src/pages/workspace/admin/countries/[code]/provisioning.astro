@@ -29,9 +29,10 @@ const normalised = code.toLowerCase();
       Provision {normalised.toUpperCase()}
     </h1>
     <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
-      4-step state machine: Authentik OIDC → Directus policy → Plausible
-      site → Coolify FQDN. Every step is idempotent; "Retry from failure"
-      re-attempts whichever step is not yet succeeded. Super-admin only.
+      State machine: Authentik OIDC → Directus policy → Plausible site
+      (manual: CE has no Sites API) → Coolify FQDN. Every step is
+      idempotent; "Retry from failure" re-attempts whichever step is
+      not yet succeeded. Super-admin only.
     </p>
     <CountryProvisioningWizard code={normalised} client:load />
   </main>
