@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CountriesModule } from './modules/countries/countries.module';
 import { CountryProvisioningModule } from './modules/country-provisioning/country-provisioning.module';
 import { EulaModule } from './modules/eula/eula.module';
+import { EventQuestionsModule } from './modules/event-questions/event-questions.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
 import { InternalModule } from './modules/internal/internal.module';
 import { LeadsModule } from './modules/leads/leads.module';
@@ -40,6 +41,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     RbacSyncModule,
     CountriesModule,
     CountryProvisioningModule,
+    EventQuestionsModule,
   ],
   controllers: [HealthController],
   providers: [],

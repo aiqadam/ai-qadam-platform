@@ -3750,6 +3750,90 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════
+# F-WebU12 — event_questions (per-event Q&A on the Forum tab)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Local-DB threaded Q&A — small enough to ship now without violating the
+# 200-DAU Discourse gate (see docs/forum-adoption-brief.md). Members post
+# via the Nest API; anonymous read filtered to status=published. Operator
+# moderation (pin / mark-answered / soft-delete to status=hidden|removed)
+# is done in Directus admin until the cabinet PR lands.
+
+echo "[F-WebU12 — event_questions]"
+ensure "collection event_questions" \
+  "${DIRECTUS_URL}/collections/event_questions" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_questions",
+    "schema":{"name":"event_questions"},
+    "meta":{
+      "icon":"forum",
+      "note":"Per-event Q&A. Members post via API (POST /v1/events/:id/questions); anonymous read on status=published. Replies link parent_question -> self. Operator moderation via Directus admin until the cabinet PR lands.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"user","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{email}}"},"note":"directus_users author. Null when the user is deleted."}},
+      {"field":"parent_question","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","display":"related-values","display_options":{"template":"{{question_text}}"},"note":"Null = root question; non-null = reply"}},
+      {"field":"question_text","type":"text","schema":{"is_nullable":false},"meta":{"interface":"input-multiline","width":"full","required":true,"note":"1..2000 chars enforced by the API"}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"published","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Published","value":"published"},
+          {"text":"Hidden","value":"hidden"},
+          {"text":"Flagged","value":"flagged"},
+          {"text":"Removed","value":"removed"}
+        ]}
+      }},
+      {"field":"is_pinned","type":"boolean","schema":{"is_nullable":false,"default_value":false},"meta":{"interface":"boolean","width":"half","note":"Operator pin"}},
+      {"field":"is_answered","type":"boolean","schema":{"is_nullable":false,"default_value":false},"meta":{"interface":"boolean","width":"half","note":"Operator mark"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation event_questions.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_questions/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_questions","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation event_questions.user -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/event_questions/user" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_questions","field":"user","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation event_questions.parent_question -> event_questions.id" \
+  "${DIRECTUS_URL}/relations/event_questions/parent_question" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_questions","field":"parent_question","related_collection":"event_questions","schema":{"on_delete":"SET NULL"}}'
+
+# Public-policy read filtered to status=published; restricted fields so
+# operator-internal flags (status text, date_updated) don't leak.
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_questions&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm event_questions/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"event_questions", action:"read", permissions:{"status":{"_eq":"published"}}, fields:["id","event","user","parent_question","question_text","is_pinned","is_answered","date_created"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm event_questions/read (public, created — status=published, restricted fields)"
+    else
+      echo "  ✗ perm event_questions/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public read for event_questions."
+fi
+
+# ════════════════════════════════════════════════════════════════════════
 # F-WebU11 — event_sponsors junction (per-event sponsorship)
 # ════════════════════════════════════════════════════════════════════════
 #

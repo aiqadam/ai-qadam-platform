@@ -1,8 +1,16 @@
 ---
+import EventForum from '../../components/EventForum';
 import EventShareButtons from '../../components/EventShareButtons';
 import { RegistrationSidebar } from '../../components/RegistrationSidebar';
 import Layout from '../../layouts/Layout.astro';
-import { fetchEvent, fetchEventMaterials, fetchEventPhotos, fetchEventSpeakers, fetchEventSponsors } from '../../lib/cms';
+import {
+  fetchEvent,
+  fetchEventMaterials,
+  fetchEventPhotos,
+  fetchEventQuestions,
+  fetchEventSpeakers,
+  fetchEventSponsors,
+} from '../../lib/cms';
 import { getLocale, makeT } from '../../lib/i18n';
 
 // Event detail page per design screen s1-3 (desktop) / s1-4 (mobile).
@@ -42,6 +50,7 @@ const confirmedSpeakers = speakers.filter((s) => s.status === 'confirmed');
 const allMaterials = isGated ? [] : await fetchEventMaterials(event.id);
 const photos = isGated ? [] : await fetchEventPhotos(event.id);
 const sponsors = isGated ? [] : await fetchEventSponsors(event.id);
+const questions = isGated ? [] : await fetchEventQuestions(event.id);
 
 // F-WebU4 — detect YouTube / Vimeo URLs and turn them into privacy-
 // friendly embed URLs (youtube-nocookie.com so no tracking cookie is
@@ -617,11 +626,27 @@ function tabHref(tab: Tab): string {
             )}
 
             {activeTab === 'forum' && (
-              <div class="empty-state" style="margin: 24px 0;">
-                <div class="empty-icon" aria-hidden="true">💬</div>
-                <p class="empty-heading">{t('event_detail.tab_forum_empty_title')}</p>
-                <p class="empty-desc">{t('event_detail.tab_forum_empty_body')}</p>
-              </div>
+              <EventForum
+                eventId={event.id}
+                eventTitle={event.title}
+                initialQuestions={questions}
+                t={{
+                  forum_heading: t('event_detail.forum_heading'),
+                  forum_subheading: t('event_detail.forum_subheading'),
+                  forum_signin_body: t('event_detail.forum_signin_body'),
+                  forum_signin_cta: t('event_detail.forum_signin_cta'),
+                  forum_form_label: t('event_detail.forum_form_label'),
+                  forum_form_placeholder: t('event_detail.forum_form_placeholder'),
+                  forum_form_submit: t('event_detail.forum_form_submit'),
+                  forum_form_posting: t('event_detail.forum_form_posting'),
+                  forum_empty_title: t('event_detail.forum_empty_title'),
+                  forum_empty_body: t('event_detail.forum_empty_body'),
+                  forum_anon_label: t('event_detail.forum_anon_label'),
+                  forum_badge_pinned: t('event_detail.forum_badge_pinned'),
+                  forum_badge_answered: t('event_detail.forum_badge_answered'),
+                }}
+                client:load
+              />
             )}
           </div>
 

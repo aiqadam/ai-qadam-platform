@@ -99,6 +99,23 @@ export interface EventPhoto {
   orderIndex: number;
 }
 
+// F-WebU12 — per-event Q&A question (root) or reply (parentQuestionId
+// set). Authored by a signed-in member; deep-joined to directus_users
+// for the display name. Public read filtered to status=published so
+// moderation flags never reach the client.
+export interface EventQuestion {
+  id: string;
+  questionText: string;
+  parentQuestionId: string | null;
+  isPinned: boolean;
+  isAnswered: boolean;
+  createdAt: string;
+  author: {
+    displayName: string | null;
+    directusUserId: string | null;
+  };
+}
+
 // F-WebU11 — per-event sponsorship row, deep-joined to the sponsor
 // org record. Surfaces in the right sidebar of /events/[id] cross-tab.
 // Tier here OVERRIDES the org-level (sponsors.tier) since the same

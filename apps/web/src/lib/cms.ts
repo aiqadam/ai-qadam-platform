@@ -13,7 +13,14 @@
 // don't change. The snake_case → camelCase + country → countryCode
 // translation happens here.
 
-import type { ApiEvent, EventMaterial, EventPhoto, EventSpeaker, EventSponsor } from './api';
+import type {
+  ApiEvent,
+  EventMaterial,
+  EventPhoto,
+  EventQuestion,
+  EventSpeaker,
+  EventSponsor,
+} from './api';
 
 interface CmsEventRow {
   id: string;
@@ -621,6 +628,66 @@ export async function fetchEventSponsors(eventId: string): Promise<EventSponsor[
     return body.data.map(normalizeSponsorRow).filter((s): s is EventSponsor => s !== null);
   } catch (err) {
     console.error('[cms] fetchEventSponsors failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ──────────── F-WebU12 — event Q&A (Forum tab) ───────────────────────
+//
+// Public read filtered by Directus permission (status=published only).
+// Rows include directus_users deep-join for the display name. Replies
+// link parent_question -> root; v1 renders as a flat list sorted by
+// pinned-then-newest because the React island handles the threading
+// presentation client-side.
+
+interface CmsEventQuestionRow {
+  id: string;
+  parent_question: string | null;
+  question_text: string;
+  is_pinned: boolean;
+  is_answered: boolean;
+  date_created: string;
+  user: {
+    id?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+}
+
+function normalizeQuestionRow(row: CmsEventQuestionRow): EventQuestion {
+  const u = row.user;
+  const first = u?.first_name?.trim() ?? '';
+  const last = u?.last_name?.trim() ?? '';
+  const displayName = `${first} ${last}`.trim() || null;
+  return {
+    id: row.id,
+    questionText: row.question_text,
+    parentQuestionId: row.parent_question,
+    isPinned: row.is_pinned === true,
+    isAnswered: row.is_answered === true,
+    createdAt: row.date_created,
+    author: {
+      displayName,
+      directusUserId: u?.id ?? null,
+    },
+  };
+}
+
+export async function fetchEventQuestions(eventId: string): Promise<EventQuestion[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields:
+        'id,parent_question,question_text,is_pinned,is_answered,date_created,user.id,user.first_name,user.last_name',
+      sort: '-is_pinned,date_created',
+      limit: '100',
+    });
+    const body = await get<{ data: CmsEventQuestionRow[] }>(
+      `/items/event_questions?${params.toString()}`,
+    );
+    return body.data.map(normalizeQuestionRow);
+  } catch (err) {
+    console.error('[cms] fetchEventQuestions failed:', err instanceof Error ? err.message : err);
     return [];
   }
 }
