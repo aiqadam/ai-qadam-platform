@@ -1677,6 +1677,75 @@ ensure "field directus_users.show_company_on_public_profile" \
     }
   }'
 
+# ════════════════════════════════════════════════════════════════════════
+# aiqadam#289 — Member preferences: language, timezone, notification opt-ins
+# ════════════════════════════════════════════════════════════════════════
+#
+# Read + write via GET / PATCH /v1/telegram/members/{id}/preferences
+# (bot-facing, service-token-gated). The bot's settings screen lets users
+# pick en / uz / ru; aiqadam returns operator content translated to that
+# language when Accept-Language: <lang> is sent on subsequent reads.
+#
+# Defaults at read time:
+#   - language: "en"
+#   - timezone: looked up via countries.tz for the member's country
+#     (Asia/Tashkent for uz, Asia/Almaty for kz, Asia/Dushanbe for tj)
+#   - notification_opt_ins: server-side fallback to {event_reminders: true,
+#     newsletter: false, community_announcements: true} per the spec
+#
+# Storing null = "use the default"; the GET endpoint resolves them.
+
+echo "[aiqadam#289 — directus_users.language]"
+ensure "field directus_users.language" \
+  "${DIRECTUS_URL}/fields/directus_users/language" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"language",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":8},
+    "meta":{
+      "interface":"select-dropdown",
+      "width":"half",
+      "options":{"choices":[
+        {"text":"English","value":"en"},
+        {"text":"Russian","value":"ru"},
+        {"text":"Uzbek","value":"uz"}
+      ]},
+      "note":"Preferred UI language. Honored via Accept-Language on bot reads. Null → default \"en\". Member-editable from /settings in the bot."
+    }
+  }'
+
+echo "[aiqadam#289 — directus_users.timezone]"
+ensure "field directus_users.timezone" \
+  "${DIRECTUS_URL}/fields/directus_users/timezone" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"timezone",
+    "type":"string",
+    "schema":{"is_nullable":true,"max_length":64},
+    "meta":{
+      "interface":"input",
+      "width":"half",
+      "note":"IANA tz (e.g. Asia/Tashkent). Null → default per tenant (countries.tz for member.country). Drives reminder send-time + localised timestamps in bot UI."
+    }
+  }'
+
+echo "[aiqadam#289 — directus_users.notification_opt_ins]"
+ensure "field directus_users.notification_opt_ins" \
+  "${DIRECTUS_URL}/fields/directus_users/notification_opt_ins" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"notification_opt_ins",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"input-code",
+      "options":{"language":"json"},
+      "width":"full",
+      "note":"Map of notification kind -> bool. Known keys: event_reminders, newsletter, community_announcements. Null → server defaults (events=true, newsletter=false, community=true). Member-editable from /settings in the bot. Pairs with member_consents.purpose for downstream dispatcher gating."
+    }
+  }'
+
 # ──────────── member_skills ─────────────────────────────────────────────
 #
 # Tag-per-row keeps cohort filtering simple. verified_by_event nudges
