@@ -1,24 +1,15 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { type ReactElement, useEffect, useState } from 'react';
-import { getAuthState, signOut } from '../lib/auth-bootstrap';
+import { type AuthMe, getAuthState, signOut } from '../lib/auth-bootstrap';
 
-// /me dashboard per design s3-2. Client-side island:
-//   1. getAuthState() — shared bootstrap, deduped with other islands on
-//      the page (Nav.tsx, etc). If anon, render sign-in CTA.
-//   2. GET /api/v1/registrations/mine with the access token from step 1.
-//   3. Render stat cards (upcoming / attended / waitlisted) + registrations
-//      list with QR codes for active registrations.
-//
-// Points / streak / "speaking at" cards are deferred until per-user
-// points endpoint + speakers schema exist.
+// /me dashboard per design s3-2 + U-Me1a uplift. Client-side island:
+//   1. getAuthState() — shared bootstrap, deduped with other islands.
+//   2. In parallel: GET /api/v1/registrations/mine + GET /api/v1/me/profile.
+//   3. Render: header (avatar + name + role chip), profile-completeness
+//      nudge if incomplete, next-event hero if upcoming, stat cards,
+//      registrations list with QR codes for active registrations.
 
 type Status = 'registered' | 'waitlisted' | 'cancelled' | 'attended';
-
-interface Me {
-  id: string;
-  email: string;
-  authentikSubject: string;
-}
 
 interface MineEntry {
   id: string;
@@ -34,10 +25,26 @@ interface MineEntry {
   };
 }
 
+interface Profile {
+  first_name: string | null;
+  last_name: string | null;
+  job_title: string | null;
+  seniority: string | null;
+  industry_tags: string[];
+  is_student: boolean;
+  bio_md: string | null;
+}
+
+interface Skill {
+  id: string;
+}
+
 interface Session {
-  me: Me;
+  me: AuthMe;
   accessToken: string;
   registrations: MineEntry[];
+  profile: Profile | null;
+  skillCount: number;
 }
 
 type State =
@@ -46,21 +53,45 @@ type State =
   | { phase: 'authed'; session: Session }
   | { phase: 'error'; message: string };
 
+async function fetchMine(accessToken: string): Promise<MineEntry[]> {
+  const res = await fetch('/api/v1/registrations/mine', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return [];
+  const body = (await res.json()) as { registrations: MineEntry[] };
+  return body.registrations;
+}
+
+async function fetchProfile(
+  accessToken: string,
+): Promise<{ profile: Profile | null; skillCount: number }> {
+  const res = await fetch('/api/v1/me/profile', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return { profile: null, skillCount: 0 };
+  const body = (await res.json()) as { profile: Profile; skills: Skill[] };
+  return { profile: body.profile, skillCount: body.skills?.length ?? 0 };
+}
+
 async function bootstrap(): Promise<State> {
   const auth = await getAuthState();
   if (!auth) return { phase: 'anon' };
   const { me, accessToken } = auth;
 
-  const mineRes = await fetch('/api/v1/registrations/mine', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const mineBody = mineRes.ok
-    ? ((await mineRes.json()) as { registrations: MineEntry[] })
-    : { registrations: [] };
+  const [registrations, profileBundle] = await Promise.all([
+    fetchMine(accessToken),
+    fetchProfile(accessToken),
+  ]);
 
   return {
     phase: 'authed',
-    session: { me, accessToken, registrations: mineBody.registrations },
+    session: {
+      me,
+      accessToken,
+      registrations,
+      profile: profileBundle.profile,
+      skillCount: profileBundle.skillCount,
+    },
   };
 }
 
@@ -79,6 +110,91 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric',
   minute: '2-digit',
 });
+
+function displayName(me: AuthMe, profile: Profile | null): string {
+  const first = profile?.first_name?.trim();
+  const last = profile?.last_name?.trim();
+  if (first && last) return `${first} ${last}`;
+  if (first) return first;
+  return me.email.split('@')[0] ?? me.email;
+}
+
+function initials(me: AuthMe, profile: Profile | null): string {
+  const first = profile?.first_name?.trim();
+  const last = profile?.last_name?.trim();
+  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+  if (first) return first.slice(0, 2).toUpperCase();
+  const local = me.email.split('@')[0] ?? me.email;
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? local[0] ?? '?';
+  const b = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+  return `${a}${b}`.toUpperCase();
+}
+
+// Map the highest-rank Authentik group to a friendly chip label. Group
+// names are canonical per ADR-0021; ranking ensures e.g. a super-admin
+// who is also country-lead-uz shows as "Admin", not "Country lead".
+function roleLabel(groups: string[]): string | null {
+  if (groups.includes('aiqadam-super-admin') || groups.includes('authentik Admins')) {
+    return 'Admin';
+  }
+  const countryLead = groups.find((g) => g.startsWith('aiqadam-country-lead-'));
+  if (countryLead) {
+    const cc = countryLead.slice('aiqadam-country-lead-'.length).toUpperCase();
+    return `Country lead · ${cc}`;
+  }
+  const organizer = groups.find((g) => g.startsWith('aiqadam-organizer-'));
+  if (organizer) {
+    const cc = organizer.slice('aiqadam-organizer-'.length).toUpperCase();
+    return `Organizer · ${cc}`;
+  }
+  if (groups.some((g) => g === 'aiqadam-sponsor-rep' || g.startsWith('aiqadam-sponsor-rep-'))) {
+    return 'Sponsor';
+  }
+  if (groups.includes('aiqadam-speaker')) return 'Speaker';
+  if (groups.includes('aiqadam-staff')) return 'Staff';
+  return null;
+}
+
+// 6 binary signals → 0..6. Anything ≥6 hides the nudge.
+interface CompletenessSignal {
+  key: string;
+  label: string;
+  done: boolean;
+}
+
+function completenessSignals(profile: Profile | null, skillCount: number): CompletenessSignal[] {
+  return [
+    {
+      key: 'name',
+      label: 'Name',
+      done: Boolean(profile?.first_name?.trim() && profile?.last_name?.trim()),
+    },
+    { key: 'job_title', label: 'Job title', done: Boolean(profile?.job_title?.trim()) },
+    { key: 'seniority', label: 'Seniority', done: Boolean(profile?.seniority) },
+    {
+      key: 'industry',
+      label: 'Industry or student status',
+      done: Boolean(profile && (profile.industry_tags.length > 0 || profile.is_student)),
+    },
+    {
+      key: 'bio',
+      label: 'Short bio',
+      done: Boolean(profile?.bio_md && profile.bio_md.length > 20),
+    },
+    { key: 'skills', label: 'At least one skill', done: skillCount > 0 },
+  ];
+}
+
+const daysFmt = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
+function relativeDay(target: Date): string {
+  const ms = target.getTime() - Date.now();
+  const days = Math.round(ms / (1000 * 60 * 60 * 24));
+  if (Math.abs(days) >= 1) return daysFmt.format(days, 'day');
+  const hours = Math.round(ms / (1000 * 60 * 60));
+  if (Math.abs(hours) >= 1) return daysFmt.format(hours, 'hour');
+  return 'soon';
+}
 
 interface StatCardProps {
   label: string;
@@ -286,51 +402,288 @@ interface DashboardProps {
   session: Session;
 }
 
-function Dashboard({ session }: DashboardProps): ReactElement {
-  const upcoming = session.registrations.filter(
-    (r) => r.status === 'registered' && new Date(r.event.startsAt) > new Date(),
+interface AvatarProps {
+  text: string;
+}
+
+function Avatar({ text }: AvatarProps): ReactElement {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: 56,
+        height: 56,
+        borderRadius: '50%',
+        border: '1px solid var(--border)',
+        background: 'color-mix(in oklch, var(--primary) 22%, var(--card))',
+        color: 'var(--foreground)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 18,
+        fontWeight: 600,
+        letterSpacing: '0.02em',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      {text}
+    </div>
   );
+}
+
+interface RoleChipProps {
+  label: string;
+}
+
+function RoleChip({ label }: RoleChipProps): ReactElement {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '3px 8px',
+        borderRadius: 6,
+        background: 'color-mix(in oklch, var(--primary) 12%, transparent)',
+        color: 'var(--primary)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 11,
+        letterSpacing: '0.04em',
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+interface CompletenessCardProps {
+  signals: CompletenessSignal[];
+}
+
+function CompletenessCard({ signals }: CompletenessCardProps): ReactElement {
+  const done = signals.filter((s) => s.done).length;
+  const total = signals.length;
+  const pct = Math.round((done / total) * 100);
+  const missing = signals.filter((s) => !s.done).slice(0, 3);
+  return (
+    <div
+      style={{
+        padding: 20,
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        background: 'var(--card)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <p
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: 15,
+            margin: 0,
+          }}
+        >
+          Complete your profile
+        </p>
+        <p
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 12,
+            color: 'var(--muted-foreground)',
+            margin: 0,
+          }}
+        >
+          {done} of {total}
+        </p>
+      </div>
+      <div
+        style={{
+          height: 6,
+          background: 'var(--muted)',
+          borderRadius: 999,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: '100%',
+            background: 'var(--primary)',
+            transition: 'width 200ms ease',
+          }}
+        />
+      </div>
+      <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: 0 }}>
+        Missing: {missing.map((s) => s.label).join(', ')}
+        {signals.filter((s) => !s.done).length > 3 && ', …'}
+      </p>
+      <a
+        className="btn btn-sm btn-primary"
+        href="/me/profile"
+        style={{ alignSelf: 'flex-start', textDecoration: 'none' }}
+      >
+        Continue →
+      </a>
+    </div>
+  );
+}
+
+interface NextEventHeroProps {
+  entry: MineEntry;
+}
+
+function NextEventHero({ entry }: NextEventHeroProps): ReactElement {
+  const startsAt = new Date(entry.event.startsAt);
+  const checkinUrl = `${window.location.origin}/checkin?code=${entry.checkinCode}`;
+  return (
+    <div
+      style={{
+        padding: 24,
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        background:
+          'linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, var(--card)) 0%, var(--card) 60%)',
+        display: 'grid',
+        gridTemplateColumns: '1fr 130px',
+        gap: 24,
+        alignItems: 'center',
+      }}
+    >
+      <div>
+        <p
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            color: 'var(--primary)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            margin: '0 0 6px',
+          }}
+        >
+          Next up · {relativeDay(startsAt)}
+        </p>
+        <a
+          href={`/events/${entry.event.id}`}
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: 24,
+            letterSpacing: '-0.02em',
+            color: 'inherit',
+            textDecoration: 'none',
+            display: 'block',
+            marginBottom: 6,
+          }}
+        >
+          {entry.event.title}
+        </a>
+        <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: 0 }}>
+          {dateFmt.format(startsAt)}
+          {entry.event.location && ` · ${entry.event.location}`}
+        </p>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div
+          style={{
+            padding: 6,
+            background: 'white',
+            borderRadius: 8,
+            display: 'inline-block',
+          }}
+        >
+          <QRCodeSVG value={checkinUrl} size={110} />
+        </div>
+        <p
+          style={{
+            marginTop: 6,
+            fontSize: 10,
+            color: 'var(--muted-foreground)',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Show at the door
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({ session }: DashboardProps): ReactElement {
+  const upcoming = session.registrations
+    .filter((r) => r.status === 'registered' && new Date(r.event.startsAt) > new Date())
+    .sort((a, b) => new Date(a.event.startsAt).getTime() - new Date(b.event.startsAt).getTime());
   const attended = session.registrations.filter((r) => r.status === 'attended');
   const waitlisted = session.registrations.filter((r) => r.status === 'waitlisted');
   const active = [...upcoming, ...waitlisted, ...attended].sort(
     (a, b) => new Date(b.event.startsAt).getTime() - new Date(a.event.startsAt).getTime(),
   );
 
+  const nextEvent = upcoming[0] ?? null;
+  const role = roleLabel(session.me.groups ?? []);
+  const signals = completenessSignals(session.profile, session.skillCount);
+  const completenessDone = signals.every((s) => s.done);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
       <header
         style={{
           display: 'flex',
-          alignItems: 'baseline',
+          alignItems: 'center',
           justifyContent: 'space-between',
           gap: 16,
           flexWrap: 'wrap',
         }}
       >
-        <div>
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 600,
-              fontSize: 36,
-              letterSpacing: '-0.025em',
-              margin: '0 0 4px',
-            }}
-          >
-            Hi, {session.me.email.split('@')[0]}
-          </h1>
-          <p
-            style={{
-              fontSize: 13,
-              color: 'var(--muted-foreground)',
-              fontFamily: 'var(--font-mono)',
-              margin: 0,
-            }}
-          >
-            {session.me.email}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Avatar text={initials(session.me, session.profile)} />
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                marginBottom: 4,
+              }}
+            >
+              <h1
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: 32,
+                  letterSpacing: '-0.025em',
+                  margin: 0,
+                }}
+              >
+                {displayName(session.me, session.profile)}
+              </h1>
+              {role && <RoleChip label={role} />}
+            </div>
+            <p
+              style={{
+                fontSize: 13,
+                color: 'var(--muted-foreground)',
+                fontFamily: 'var(--font-mono)',
+                margin: 0,
+              }}
+            >
+              {session.me.email}
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <a
+            className="btn btn-outline btn-sm"
+            href="/me/profile"
+            style={{ textDecoration: 'none' }}
+          >
+            Edit profile
+          </a>
           <a
             className="btn btn-outline btn-sm"
             href="/me/preferences"
@@ -343,6 +696,10 @@ function Dashboard({ session }: DashboardProps): ReactElement {
           </button>
         </div>
       </header>
+
+      {!completenessDone && <CompletenessCard signals={signals} />}
+
+      {nextEvent && <NextEventHero entry={nextEvent} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         <StatCard label="Upcoming" value={upcoming.length} />
