@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { env } from '../../config/env';
 import { track } from '../../lib/ops-events';
 import { TelegramAuthGuard } from './telegram-auth.guard';
+import { type CheckinResult, TelegramCheckinService } from './telegram-checkin.service';
 import { type EventSummary, TelegramEventsService } from './telegram-events.service';
 import { type MeRegistration, TelegramMeService } from './telegram-me.service';
 import {
@@ -291,6 +292,7 @@ export class TelegramController {
     private readonly registrations: TelegramRegistrationsService,
     private readonly me: TelegramMeService,
     private readonly profileDefaults: TelegramProfileDefaultsService,
+    private readonly checkinService: TelegramCheckinService,
   ) {}
 
   @Get('whoami')
@@ -319,6 +321,36 @@ export class TelegramController {
     }
     const items = await this.me.listMyRegistrations(parsed.data.tg_user_id);
     return { items };
+  }
+
+  // POST /v1/telegram/checkin/:token
+  //   aiqadam#280. Event-day check-in via QR/deeplink. Idempotent on the
+  //   status='attended' transition — replay returns first_checkin=false
+  //   with the original timestamp.
+  //
+  //   200: { member_id, event_id, event_title, checked_in_at, first_checkin }
+  //   400: malformed token (zod)
+  //   404: { error: 'checkin_token_not_found' }
+  //   409: { error: 'event_not_started' } — operator-defined window
+  //        (currently 60min before starts_at)
+  //   410: { error: 'event_ended' } — past ends_at
+  //   401/503: TelegramAuthGuard
+  @Post('checkin/:token')
+  @HttpCode(HttpStatus.OK)
+  async checkinByToken(@Param('token') token: string): Promise<CheckinResult> {
+    // Token shape: 1-128 url-safe chars. The existing checkin_code field
+    // is a uuid for codes minted via the web (Sprint 1) but we don't
+    // enforce uuid here so the bot can mint shorter tokens later.
+    const parsed = z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[a-zA-Z0-9_\-]+$/)
+      .safeParse(token);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.checkinService.checkin(parsed.data);
   }
 
   // GET /v1/telegram/members/by-tg/:id

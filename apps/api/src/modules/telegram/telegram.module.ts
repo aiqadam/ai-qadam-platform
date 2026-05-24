@@ -12,6 +12,7 @@ import { OutboxRelayService } from './outbox-relay.service';
 import { TelegramAdminController } from './telegram-admin.controller';
 import { TelegramAdminService } from './telegram-admin.service';
 import { TelegramAuthGuard } from './telegram-auth.guard';
+import { TelegramCheckinService } from './telegram-checkin.service';
 import { TelegramEventsService } from './telegram-events.service';
 import { TelegramMeService } from './telegram-me.service';
 import { TelegramProfileDefaultsService } from './telegram-profile-defaults.service';
@@ -81,6 +82,7 @@ import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
     TelegramRegistrationsService,
     TelegramMeService,
     TelegramProfileDefaultsService,
+    TelegramCheckinService,
     TgConfigService,
     HeartbeatReaderService,
     TelegramAdminService,
