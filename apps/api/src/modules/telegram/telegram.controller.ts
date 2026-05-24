@@ -18,6 +18,10 @@ import { TelegramAuthGuard } from './telegram-auth.guard';
 import { type EventSummary, TelegramEventsService } from './telegram-events.service';
 import { type MeRegistration, TelegramMeService } from './telegram-me.service';
 import {
+  type ProfileDefaultsResult,
+  TelegramProfileDefaultsService,
+} from './telegram-profile-defaults.service';
+import {
   type RegistrationSchema,
   TelegramRegistrationSchemaService,
 } from './telegram-registration-schema.service';
@@ -286,6 +290,7 @@ export class TelegramController {
     private readonly config: TgConfigService,
     private readonly registrations: TelegramRegistrationsService,
     private readonly me: TelegramMeService,
+    private readonly profileDefaults: TelegramProfileDefaultsService,
   ) {}
 
   @Get('whoami')
@@ -353,6 +358,30 @@ export class TelegramController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.registrations.lookupByEmail(parsed.data);
+  }
+
+  // GET /v1/telegram/members/:memberId/profile-defaults
+  //   aiqadam#292. Returns the member's saved profile data so the bot
+  //   can pre-fill the registration form for returning members. Keys
+  //   align with registration-schema field `key`s so the bot can iterate
+  //   the schema and pre-fill any matching keys without per-field logic.
+  //
+  //   200: { defaults: { name, email, ...custom fields from last registration } }
+  //   400: malformed member_id (not a uuid)
+  //   404: { error: 'member_not_found' }
+  //   401/503: TelegramAuthGuard
+  //
+  //   Fields without a saved value are OMITTED (not null) — "present +
+  //   empty" is intentionally distinct from "never set".
+  @Get('members/:memberId/profile-defaults')
+  async profileDefaultsForMember(
+    @Param('memberId') memberId: string,
+  ): Promise<ProfileDefaultsResult> {
+    const parsed = z.string().uuid().safeParse(memberId);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.profileDefaults.getDefaults(parsed.data);
   }
 
   // POST /v1/telegram/registrations
