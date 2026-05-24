@@ -234,7 +234,40 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
     });
   };
 
+  // #294 PR-d — send-now action. Only available on edit (we need a
+  // stable broadcast id) and only when the audience segment is set.
+  const sendNow = async (): Promise<void> => {
+    if (!state.form.id) return;
+    if (
+      !window.confirm('Send this broadcast NOW to all matching members? This cannot be undone.')
+    ) {
+      return;
+    }
+    setState({ ...state, submitting: true, error: null });
+    const res = await fetch(
+      `/api/v1/workspace/tg-broadcasts/${encodeURIComponent(state.form.id)}/send-now`,
+      { method: 'POST', headers: { Authorization: `Bearer ${state.accessToken}` } },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      setState({ ...state, submitting: false, error: `Send failed: ${text}` });
+      return;
+    }
+    const body = (await res.json()) as { sent_count: number; skipped_count: number };
+    setState({
+      ...state,
+      submitting: false,
+      error: null,
+      savedId: state.form.id,
+      form: { ...state.form },
+    });
+    window.alert(
+      `Send queued: ${body.sent_count} dispatched, ${body.skipped_count} skipped. The notifier will deliver in the background.`,
+    );
+  };
+
   const f = state.form;
+  const isEditMode = f.id !== null;
   return (
     <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {state.savedId && (
@@ -375,12 +408,12 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
           />
         </label>
         <p style={{ ...mutedStyle(), marginTop: 8, fontSize: 12 }}>
-          Send-now lands in PR-d. Scheduler cron will pick up scheduled broadcasts at the chosen
-          time.
+          Scheduler cron picks up scheduled broadcasts at the chosen time. To send immediately, save
+          first and then click "Send now".
         </p>
       </fieldset>
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button
           type="submit"
           disabled={state.submitting}
@@ -392,6 +425,17 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
               ? 'Save + schedule'
               : 'Save draft'}
         </button>
+        {isEditMode && (
+          <button
+            type="button"
+            onClick={() => void sendNow()}
+            disabled={state.submitting}
+            style={dangerButtonStyle(state.submitting)}
+            data-testid="composer-send-now"
+          >
+            Send now ▶
+          </button>
+        )}
         <a href="/workspace/integrations/telegram/broadcasts" style={secondaryButtonStyle()}>
           Cancel
         </a>
@@ -461,6 +505,19 @@ function secondaryButtonStyle(): React.CSSProperties {
     cursor: 'pointer',
     textDecoration: 'none',
     display: 'inline-block',
+  };
+}
+
+function dangerButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '8px 16px',
+    background: disabled ? 'var(--muted)' : '#dc2626',
+    color: 'white',
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: disabled ? 'not-allowed' : 'pointer',
   };
 }
 

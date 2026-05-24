@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { DirectusModule } from '../directus/directus.module';
 import { InteractionsModule } from '../interactions/interactions.module';
 import { InternalAuthGuard } from '../internal/internal-auth.guard';
+import { TelegramModule } from '../telegram/telegram.module';
 import { AnnounceController } from './announce.controller';
 import { AnnounceService } from './announce.service';
 import { ApprovalsController } from './approvals.controller';
@@ -34,6 +35,8 @@ import { PostEventCronController } from './post-event-cron.controller';
 import { PostEventCronService } from './post-event-cron.service';
 import { SponsorDigestsController } from './sponsor-digests.controller';
 import { SponsorDigestsService } from './sponsor-digests.service';
+import { TgBroadcastsCronController } from './tg-broadcasts-cron.controller';
+import { TgBroadcastsSenderService } from './tg-broadcasts-sender.service';
 import { TgBroadcastsController } from './tg-broadcasts.controller';
 import { TgBroadcastsService } from './tg-broadcasts.service';
 import { TgSegmentsController } from './tg-segments.controller';
@@ -82,7 +85,7 @@ import { TgSegmentsService } from './tg-segments.service';
 // Directus via our API with our auth + audit layered on.
 
 @Module({
-  imports: [DirectusModule, AuthModule, InteractionsModule],
+  imports: [DirectusModule, AuthModule, InteractionsModule, TelegramModule],
   providers: [
     MembersService,
     CohortsService,
@@ -102,6 +105,7 @@ import { TgSegmentsService } from './tg-segments.service';
     SponsorDigestsService,
     TgBroadcastsService,
     TgSegmentsService,
+    TgBroadcastsSenderService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -123,6 +127,7 @@ import { TgSegmentsService } from './tg-segments.service';
     SponsorDigestsController,
     TgBroadcastsController,
     TgSegmentsController,
+    TgBroadcastsCronController,
   ],
   exports: [
     MembersService,

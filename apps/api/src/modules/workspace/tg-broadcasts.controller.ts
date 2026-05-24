@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthGuard } from '../auth/auth.guard';
+import { type SendNowResult, TgBroadcastsSenderService } from './tg-broadcasts-sender.service';
 import {
   type BroadcastDetail,
   type BroadcastStatus,
@@ -22,10 +23,10 @@ import {
 
 // #294 PR-a — workspace cabinet read endpoints for tg_broadcasts.
 // #294 PR-b — adds POST + PATCH for the composer.
+// #294 PR-d — adds POST :id/send-now to enqueue dispatches via the outbox.
 //
-// PR-d will add the send-now action (POST :id/send-now). Operator-scope
-// filtering by country happens here (rather than via Directus
-// permissions) so the same DirectusClient can serve both views.
+// Operator-scope filtering by country happens here (rather than via
+// Directus permissions) so the same DirectusClient can serve both views.
 
 const STATUSES = ['draft', 'scheduled', 'sending', 'sent', 'failed'] as const;
 
@@ -70,7 +71,10 @@ const updateSchema = z
 @Controller('v1/workspace/tg-broadcasts')
 @UseGuards(AuthGuard)
 export class TgBroadcastsController {
-  constructor(private readonly broadcasts: TgBroadcastsService) {}
+  constructor(
+    private readonly broadcasts: TgBroadcastsService,
+    private readonly sender: TgBroadcastsSenderService,
+  ) {}
 
   @Get()
   async list(@Query() query: unknown): Promise<{ items: BroadcastSummary[] }> {
@@ -136,5 +140,25 @@ export class TgBroadcastsController {
     if (d.status !== undefined) input.status = d.status;
     if (d.scheduled_at !== undefined) input.scheduled_at = d.scheduled_at;
     return this.broadcasts.update(parsedId.data, input);
+  }
+
+  // #294 PR-d — fire the broadcast NOW. Synchronous status flip to
+  // sending; envelope enqueue is per-recipient + still in this request
+  // (the notifier consumes async from the outbox). Operator gets
+  // back sent_count + skipped_count.
+  //
+  //   200: { broadcast_id, sent_count, skipped_count, sent_at }
+  //   400: { error: 'already_sent' | 'in_progress' | 'previous_send_failed'
+  //                 | 'no_audience_segment' | 'empty_body' }
+  //   401: AuthGuard
+  //   404: { error: 'broadcast_not_found' }
+  @Post(':id/send-now')
+  @HttpCode(HttpStatus.OK)
+  async sendNow(@Param('id') id: string): Promise<SendNowResult> {
+    const parsed = idParamSchema.safeParse(id);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.sender.sendNow(parsed.data);
   }
 }
