@@ -3532,6 +3532,28 @@ ensure "field events.event_retrospective" \
     "meta":{"interface":"input-multiline","width":"full","note":"Operator notes captured during post-event close-out (Sprint 1.1c flow). Surfaces in cross-country comparison (Sprint 2.6) as `tags` on top experiments to replicate."}
   }'
 
+echo "[F-WebU1 — events.external_links]"
+ensure "field events.external_links" \
+  "${DIRECTUS_URL}/fields/events/external_links" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"external_links",
+    "type":"json",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"list",
+      "width":"full",
+      "options":{
+        "fields":[
+          {"field":"label","name":"Label","type":"string","meta":{"interface":"input","required":true,"width":"half","options":{"placeholder":"Watch the recording"}}},
+          {"field":"url","name":"URL","type":"string","meta":{"interface":"input","required":true,"width":"half","options":{"placeholder":"https://..."}}},
+          {"field":"kind","name":"Kind","type":"string","meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Website","value":"website"},{"text":"Registration","value":"registration"},{"text":"Sponsor","value":"sponsor"},{"text":"Livestream","value":"livestream"},{"text":"Recording","value":"recording"},{"text":"Other","value":"other"}]}}}
+        ]
+      },
+      "note":"Related links shown on the public event page (Watch live, sponsor site, external RSVP form, recording, etc.). Each row: label + http(s) URL (required) + kind (optional taxonomy that picks the badge label)."
+    }
+  }'
+
 # ════════════════════════════════════════════════════════════════════════
 # F-S3.8 — Sponsor quarterly digest ledger (per ADR-0036)
 # ════════════════════════════════════════════════════════════════════════

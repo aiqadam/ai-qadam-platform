@@ -33,6 +33,14 @@ export interface ApiEvent {
   heroImageUrl?: string | null;
   agendaMd?: string | null;
   visibilityScope?: 'public' | 'members_only' | 'invite_only' | null;
+  // F-WebU1 — operator-curated related links (registration form, sponsor
+  // site, livestream URL, recording, etc.). Each row gets its own pill
+  // on the public event page. http(s) only; the page enforces that.
+  externalLinks?: Array<{
+    label: string;
+    url: string;
+    kind?: 'website' | 'registration' | 'sponsor' | 'livestream' | 'recording' | 'other' | null;
+  }> | null;
   // F-S5.4 — Directus `date_updated`. Used as OG-card cache buster
   // (`?v=<epoch>`) so a speaker_added / metadata edit invalidates
   // every scraper's cached preview.

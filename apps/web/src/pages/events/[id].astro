@@ -272,6 +272,37 @@ const layoutProps = {
             </section>
           )}
 
+          {event.externalLinks && event.externalLinks.length > 0 && (
+            <section style="margin: 0 0 32px;">
+              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                {t('event_detail.links')}
+              </h2>
+              <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+                {event.externalLinks.map((link) => (
+                  <li>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s, background 0.15s;"
+                    >
+                      <span
+                        class="badge mono"
+                        style="font-size: 9px; letter-spacing: 0.08em; min-width: 78px; text-align: center;"
+                      >
+                        {t(`event_detail.link_kind_${link.kind ?? 'other'}`)}
+                      </span>
+                      <span style="font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {link.label}
+                      </span>
+                      <span aria-hidden="true" style="color: var(--primary); font-size: 13px;">↗</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {speakers.length > 0 && (
             <section style="margin: 0 0 32px;">
               <div style="display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 16px;">

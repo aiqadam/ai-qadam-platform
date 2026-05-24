@@ -35,8 +35,60 @@ interface CmsEventRow {
   hero_image?: string | null;
   agenda_md?: string | null;
   visibility_scope?: ApiEvent['visibilityScope'];
+  // F-WebU1 — operator-curated list field (Directus `interface: list`).
+  // Each row is loose JSON shaped { label, url, kind? }; we tighten it
+  // in toApiEvent so consumers see the typed ApiEvent['externalLinks'].
+  external_links?: unknown;
   // F-S5.4 — used as the OG-card cache buster on /events/[id]
   date_updated?: string | null;
+}
+
+// F-WebU1 — Directus list interface can return null, [], or rows missing
+// fields when an operator partly filled a row. Filter to rows that have
+// both a label AND a syntactically valid http(s) URL — the page renders
+// the result directly without further validation.
+type ExternalLinks = NonNullable<ApiEvent['externalLinks']>;
+type ExternalLinkKind = NonNullable<ExternalLinks[number]['kind']>;
+const ALLOWED_LINK_KINDS = new Set<ExternalLinkKind>([
+  'website',
+  'registration',
+  'sponsor',
+  'livestream',
+  'recording',
+  'other',
+]);
+
+function isHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function normalizeLinkRow(item: unknown): ExternalLinks[number] | null {
+  if (!item || typeof item !== 'object') return null;
+  const row = item as { label?: unknown; url?: unknown; kind?: unknown };
+  const label = typeof row.label === 'string' ? row.label.trim() : '';
+  const url = typeof row.url === 'string' ? row.url.trim() : '';
+  if (label.length === 0 || url.length === 0) return null;
+  if (!isHttpUrl(url)) return null;
+  const kind =
+    typeof row.kind === 'string' && ALLOWED_LINK_KINDS.has(row.kind as ExternalLinkKind)
+      ? (row.kind as ExternalLinkKind)
+      : null;
+  return { label, url, kind };
+}
+
+function normalizeExternalLinks(raw: unknown): ExternalLinks | null {
+  if (!Array.isArray(raw)) return null;
+  const out: ExternalLinks = [];
+  for (const item of raw) {
+    const row = normalizeLinkRow(item);
+    if (row) out.push(row);
+  }
+  return out.length > 0 ? out : null;
 }
 
 const { CMS_URL = 'https://cms.aiqadam.org' } = process.env;
@@ -75,12 +127,13 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
     heroImageUrl,
     agendaMd: row.agenda_md ?? null,
     visibilityScope: row.visibility_scope ?? 'public',
+    externalLinks: normalizeExternalLinks(row.external_links),
     updatedAt: row.date_updated ?? null,
   };
 }
 
 const EVENT_FIELDS =
-  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,date_updated';
+  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,date_updated';
 
 // Country code from a request's Host header. Mirrors the API's
 // tenant.middleware logic so SSR + API agree on which country to query.
