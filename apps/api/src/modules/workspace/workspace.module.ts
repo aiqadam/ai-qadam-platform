@@ -34,6 +34,8 @@ import { PostEventCronController } from './post-event-cron.controller';
 import { PostEventCronService } from './post-event-cron.service';
 import { SponsorDigestsController } from './sponsor-digests.controller';
 import { SponsorDigestsService } from './sponsor-digests.service';
+import { TgBroadcastsController } from './tg-broadcasts.controller';
+import { TgBroadcastsService } from './tg-broadcasts.service';
 
 // F-S3.2 — workspace cabinet #1: member directory + cohort builder.
 // F-S3.3 — workspace cabinet #2: announcement composer (cohort →
@@ -96,6 +98,7 @@ import { SponsorDigestsService } from './sponsor-digests.service';
     DashboardService,
     PartnersService,
     SponsorDigestsService,
+    TgBroadcastsService,
     InternalAuthGuard,
   ],
   controllers: [
@@ -115,6 +118,7 @@ import { SponsorDigestsService } from './sponsor-digests.service';
     DashboardController,
     PartnersController,
     SponsorDigestsController,
+    TgBroadcastsController,
   ],
   exports: [
     MembersService,

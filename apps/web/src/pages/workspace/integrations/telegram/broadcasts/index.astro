@@ -1,0 +1,35 @@
+---
+import TgBroadcastsList from '../../../../../components/workspace/TgBroadcastsList';
+import Layout from '../../../../../layouts/Layout.astro';
+
+// #294 PR-a — operator cabinet for tg_broadcasts (read view).
+// PR-b adds composer (new / edit), PR-c adds segment targeting,
+// PR-d adds send-now + scheduler controls, PR-e adds analytics.
+//
+// Per ADR-0032 every operator tool SSOs via Authentik; gating
+// happens inside the React island (bootstrap → 401 → anon redirect,
+// 403 → forbidden message).
+
+export const prerender = false;
+---
+
+<Layout
+  title="Broadcasts · Telegram · AI Qadam workspace"
+  description="Compose, schedule, and review Telegram broadcasts."
+>
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace/integrations/telegram">← Telegram</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Broadcasts
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      Operator-authored Telegram broadcasts. PR-a is the read view; compose / segments / scheduler
+      land in PR-b / PR-c / PR-d.
+    </p>
+    <TgBroadcastsList client:load />
+  </main>
+</Layout>

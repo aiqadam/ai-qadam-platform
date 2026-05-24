@@ -4409,6 +4409,72 @@ ensure "relation events.post_event_survey_form -> forms.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"events","field":"post_event_survey_form","related_collection":"forms","schema":{"on_delete":"SET NULL"}}'
 
+echo "[aiqadam#294 — tg_broadcasts]"
+# #294 PR-a — operator-authored Telegram broadcasts.
+#
+# Producer side of the notifier (which already consumes tg.dispatch.v1
+# envelopes per ADR-0034). Lifecycle:
+#   draft → scheduled → sending → sent (or failed)
+#
+# PR-a (this) = schema + cabinet read view. PR-b adds the composer UI,
+# PR-c adds segment targeting (tg_segments), PR-d wires send-now +
+# scheduler, PR-e adds recurring + send-history analytics.
+#
+# audience_segment is FK to tg_segments (created in PR-c); nullable
+# here so PR-a can ship the cabinet read view before segments exist —
+# operators can author drafts with a placeholder audience.
+ensure "collection tg_broadcasts" \
+  "${DIRECTUS_URL}/collections/tg_broadcasts" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"tg_broadcasts",
+    "schema":{"name":"tg_broadcasts"},
+    "meta":{
+      "icon":"campaign",
+      "note":"#294 — operator-authored Telegram broadcasts. Producer side of the notifier (ADR-0034). Lifecycle: draft → scheduled → sending → sent | failed.",
+      "archive_field":"status",
+      "archive_value":"sent",
+      "unarchive_value":"draft",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":200},"meta":{"interface":"input","width":"full","required":true,"note":"Internal name for the operator (not sent in the broadcast). E.g. \"July UZ meetup reminder\"."}},
+      {"field":"country","type":"string","schema":{"is_nullable":false,"max_length":2,"default_value":"uz"},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Uzbekistan","value":"uz"},{"text":"Kazakhstan","value":"kz"},{"text":"Tajikistan","value":"tj"}]},"note":"Country scope. Operator-scoped — country leads only see their own."}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"draft","max_length":20},"meta":{"interface":"select-dropdown","width":"half","options":{"choices":[{"text":"Draft","value":"draft"},{"text":"Scheduled","value":"scheduled"},{"text":"Sending","value":"sending"},{"text":"Sent","value":"sent"},{"text":"Failed","value":"failed"}]}}},
+      {"field":"html_body","type":"text","schema":{"is_nullable":false,"default_value":""},"meta":{"interface":"input-multiline","width":"full","required":true,"note":"Telegram-safe HTML subset: b, i, u, s, a, code, pre. PR-b adds rich-text editor + preview."}},
+      {"field":"image_asset","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file-image","width":"half","note":"Optional banner image (sent before the text). Uploaded via Directus assets."}},
+      {"field":"inline_buttons","type":"json","schema":{"is_nullable":true,"default_value":"[]"},"meta":{"interface":"list","width":"full","special":["cast-json"],"note":"Telegram inline buttons. Shape: [{label, url}]. Max 8 per Telegram API. PR-b adds the dedicated builder UI."}},
+      {"field":"audience_segment","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","note":"FK to tg_segments (PR-c). Null = no segment chosen yet (draft). Required before send-now / schedule."}},
+      {"field":"scheduled_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","note":"Set when status=scheduled. The scheduler cron (PR-d) picks rows where scheduled_at <= now."}},
+      {"field":"sent_at","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","width":"half","readonly":true,"note":"Set when the dispatcher finishes enqueueing the segment (PR-d)."}},
+      {"field":"sent_count","type":"integer","schema":{"is_nullable":true,"default_value":0},"meta":{"interface":"input","width":"half","readonly":true,"note":"Total members enqueued in tg.dispatch.v1 outbox. Delivered count comes from notifier audit table (PR-e analytics view)."}},
+      {"field":"failure_reason","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","readonly":true,"note":"Populated when status=failed. Operator-readable; the original DirectusError / send error."}},
+      {"field":"created_by","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"select-dropdown-m2o","width":"half","readonly":true,"special":["user-created"],"display":"related-values","display_options":{"template":"{{first_name}} {{last_name}}"},"note":"Auto-set to the cabinet user (Directus user id, not platform user id)."}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation tg_broadcasts.image_asset -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/tg_broadcasts/image_asset" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"tg_broadcasts","field":"image_asset","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation tg_broadcasts.created_by -> directus_users.id" \
+  "${DIRECTUS_URL}/relations/tg_broadcasts/created_by" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"tg_broadcasts","field":"created_by","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
+
+ensure "relation tg_broadcasts.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/tg_broadcasts/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"tg_broadcasts","field":"country","related_collection":"countries","schema":{"on_delete":"NO ACTION"}}'
+
+# audience_segment FK is added in PR-c when tg_segments lands. Keeping
+# the column as uuid here so PR-a can ship the cabinet read view
+# without coupling to a not-yet-shipped collection.
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
