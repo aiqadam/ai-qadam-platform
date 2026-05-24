@@ -39,6 +39,11 @@ interface CmsEventRow {
   // Each row is loose JSON shaped { label, url, kind? }; we tighten it
   // in toApiEvent so consumers see the typed ApiEvent['externalLinks'].
   external_links?: unknown;
+  // F-WebU2 — Directus decimal fields come back as strings via the REST
+  // adapter when the driver uses pg's `numeric` type. We accept either
+  // shape and coerce in toApiEvent.
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   // F-S5.4 — used as the OG-card cache buster on /events/[id]
   date_updated?: string | null;
 }
@@ -91,6 +96,17 @@ function normalizeExternalLinks(raw: unknown): ExternalLinks | null {
   return out.length > 0 ? out : null;
 }
 
+// F-WebU2 — coerce a Directus decimal (string | number) to a finite
+// number in the valid range; null otherwise. Both lat and lng must
+// resolve for the embed to render.
+function parseCoord(raw: unknown, min: number, max: number): number | null {
+  if (raw == null) return null;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n)) return null;
+  if (n < min || n > max) return null;
+  return n;
+}
+
 const { CMS_URL = 'https://cms.aiqadam.org' } = process.env;
 const BASE = CMS_URL;
 
@@ -128,12 +144,14 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
     agendaMd: row.agenda_md ?? null,
     visibilityScope: row.visibility_scope ?? 'public',
     externalLinks: normalizeExternalLinks(row.external_links),
+    latitude: parseCoord(row.latitude, -90, 90),
+    longitude: parseCoord(row.longitude, -180, 180),
     updatedAt: row.date_updated ?? null,
   };
 }
 
 const EVENT_FIELDS =
-  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,date_updated';
+  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,latitude,longitude,date_updated';
 
 // Country code from a request's Host header. Mirrors the API's
 // tenant.middleware logic so SSR + API agree on which country to query.

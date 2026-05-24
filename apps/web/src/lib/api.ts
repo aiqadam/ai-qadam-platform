@@ -41,6 +41,11 @@ export interface ApiEvent {
     url: string;
     kind?: 'website' | 'registration' | 'sponsor' | 'livestream' | 'recording' | 'other' | null;
   }> | null;
+  // F-WebU2 — venue coordinates in decimal degrees. Both must be present
+  // for the public event page to render the OpenStreetMap embed; if
+  // either is null the page falls back to the existing map_url link.
+  latitude?: number | null;
+  longitude?: number | null;
   // F-S5.4 — Directus `date_updated`. Used as OG-card cache buster
   // (`?v=<epoch>`) so a speaker_added / metadata edit invalidates
   // every scraper's cached preview.

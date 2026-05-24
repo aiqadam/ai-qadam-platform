@@ -3554,6 +3554,28 @@ ensure "field events.external_links" \
     }
   }'
 
+echo "[F-WebU2 — events.latitude]"
+ensure "field events.latitude" \
+  "${DIRECTUS_URL}/fields/events/latitude" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"latitude",
+    "type":"decimal",
+    "schema":{"is_nullable":true,"numeric_precision":9,"numeric_scale":6},
+    "meta":{"interface":"input","width":"half","options":{"placeholder":"41.311081"},"note":"Venue latitude in decimal degrees (-90 to 90). Paired with longitude to render an OpenStreetMap embed on the public event page. Both must be set."}
+  }'
+
+echo "[F-WebU2 — events.longitude]"
+ensure "field events.longitude" \
+  "${DIRECTUS_URL}/fields/events/longitude" \
+  "${DIRECTUS_URL}/fields/events" \
+  '{
+    "field":"longitude",
+    "type":"decimal",
+    "schema":{"is_nullable":true,"numeric_precision":9,"numeric_scale":6},
+    "meta":{"interface":"input","width":"half","options":{"placeholder":"69.279729"},"note":"Venue longitude in decimal degrees (-180 to 180). Paired with latitude to render an OpenStreetMap embed on the public event page. Both must be set."}
+  }'
+
 # ════════════════════════════════════════════════════════════════════════
 # F-S3.8 — Sponsor quarterly digest ledger (per ADR-0036)
 # ════════════════════════════════════════════════════════════════════════
