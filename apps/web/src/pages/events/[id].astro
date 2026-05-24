@@ -2,7 +2,7 @@
 import EventShareButtons from '../../components/EventShareButtons';
 import { RegistrationSidebar } from '../../components/RegistrationSidebar';
 import Layout from '../../layouts/Layout.astro';
-import { fetchEvent, fetchEventMaterials, fetchEventPhotos, fetchEventSpeakers } from '../../lib/cms';
+import { fetchEvent, fetchEventMaterials, fetchEventPhotos, fetchEventSpeakers, fetchEventSponsors } from '../../lib/cms';
 import { getLocale, makeT } from '../../lib/i18n';
 
 // Event detail page per design screen s1-3 (desktop) / s1-4 (mobile).
@@ -41,6 +41,7 @@ const speakers = isGated ? [] : await fetchEventSpeakers(event.id);
 const confirmedSpeakers = speakers.filter((s) => s.status === 'confirmed');
 const allMaterials = isGated ? [] : await fetchEventMaterials(event.id);
 const photos = isGated ? [] : await fetchEventPhotos(event.id);
+const sponsors = isGated ? [] : await fetchEventSponsors(event.id);
 
 // F-WebU4 — detect YouTube / Vimeo URLs and turn them into privacy-
 // friendly embed URLs (youtube-nocookie.com so no tracking cookie is
@@ -632,6 +633,66 @@ function tabHref(tab: Tab): string {
               eventUrl={`${Astro.url.origin}/events/${event.id}`}
               client:load
             />
+
+            {sponsors.length > 0 && (
+              <section style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+                <p
+                  class="section-eyebrow"
+                  style="margin: 0 0 12px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+                >
+                  {t('event_detail.sponsors')}
+                </p>
+                <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px;">
+                  {sponsors.map((s) => {
+                    const inner = (
+                      <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card);">
+                        {s.sponsor.logoUrl ? (
+                          <img
+                            src={s.sponsor.logoUrl}
+                            alt={s.sponsor.name}
+                            loading="lazy"
+                            style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px; background: var(--background); flex-shrink: 0;"
+                          />
+                        ) : (
+                          <div
+                            aria-hidden="true"
+                            style="width: 40px; height: 40px; border-radius: 4px; background: var(--muted); flex-shrink: 0;"
+                          />
+                        )}
+                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;">
+                          <p style="font-weight: 600; font-size: 13px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {s.sponsor.name}
+                          </p>
+                          <span
+                            class="badge mono"
+                            style="font-size: 9px; letter-spacing: 0.08em; padding: 1px 6px; align-self: flex-start;"
+                          >
+                            {t(`event_detail.sponsor_tier_${s.tier}`)}
+                          </span>
+                          {s.customMessage && (
+                            <p style="font-size: 11px; color: var(--muted-foreground); margin: 2px 0 0;">{s.customMessage}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                    return s.sponsor.website ? (
+                      <li>
+                        <a
+                          href={s.sponsor.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style="text-decoration: none; color: inherit; display: block;"
+                        >
+                          {inner}
+                        </a>
+                      </li>
+                    ) : (
+                      <li>{inner}</li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
           </div>
         </div>
       </div>

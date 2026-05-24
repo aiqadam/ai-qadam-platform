@@ -13,7 +13,7 @@
 // don't change. The snake_case → camelCase + country → countryCode
 // translation happens here.
 
-import type { ApiEvent, EventMaterial, EventPhoto, EventSpeaker } from './api';
+import type { ApiEvent, EventMaterial, EventPhoto, EventSpeaker, EventSponsor } from './api';
 
 interface CmsEventRow {
   id: string;
@@ -124,6 +124,7 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat mapper; each field's `?? null` adds 1 to score. Extract into a const FIELD_MAP if this grows further.
 function toApiEvent(row: CmsEventRow, registeredCount = 0): ApiEvent {
   const heroImageUrl = row.hero_image ? `${BASE}/assets/${row.hero_image}` : null;
   return {
@@ -554,6 +555,72 @@ export async function fetchEventPhotos(eventId: string): Promise<EventPhoto[]> {
       .filter((p): p is EventPhoto => p !== null);
   } catch (err) {
     console.error('[cms] fetchEventPhotos failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ──────────── F-WebU11 — event sponsors (cross-tab sidebar) ──────────
+//
+// Public read of event_sponsors with a deep-join to sponsors. Rows
+// without a resolvable sponsor (deleted org, restricted by status
+// filter) are dropped. Sorted by order_index.
+
+interface CmsEventSponsorRow {
+  id: string;
+  tier: EventSponsor['tier'];
+  custom_message: string | null;
+  sort_order: number;
+  sponsor: {
+    id?: string | null;
+    name?: string | null;
+    slug?: string | null;
+    logo?: string | null;
+    website?: string | null;
+  } | null;
+}
+
+const ALLOWED_SPONSOR_TIERS = new Set<EventSponsor['tier']>([
+  'presenting',
+  'gold',
+  'silver',
+  'bronze',
+  'community',
+]);
+
+function normalizeSponsorRow(row: CmsEventSponsorRow): EventSponsor | null {
+  const s = row.sponsor;
+  if (!s?.id || !s.name?.trim()) return null;
+  const tier = ALLOWED_SPONSOR_TIERS.has(row.tier) ? row.tier : 'community';
+  return {
+    id: row.id,
+    tier,
+    customMessage: row.custom_message?.trim() || null,
+    orderIndex: row.sort_order,
+    sponsor: {
+      id: s.id,
+      name: s.name.trim(),
+      slug: s.slug ?? '',
+      logoUrl: s.logo ? `${BASE}/assets/${s.logo}` : null,
+      website: s.website ? normalizeMaterialUrl(s.website) : null,
+    },
+  };
+}
+
+export async function fetchEventSponsors(eventId: string): Promise<EventSponsor[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields:
+        'id,tier,custom_message,sort_order,sponsor.id,sponsor.name,sponsor.slug,sponsor.logo,sponsor.website',
+      sort: 'sort_order',
+      limit: '40',
+    });
+    const body = await get<{ data: CmsEventSponsorRow[] }>(
+      `/items/event_sponsors?${params.toString()}`,
+    );
+    return body.data.map(normalizeSponsorRow).filter((s): s is EventSponsor => s !== null);
+  } catch (err) {
+    console.error('[cms] fetchEventSponsors failed:', err instanceof Error ? err.message : err);
     return [];
   }
 }

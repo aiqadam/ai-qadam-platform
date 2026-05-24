@@ -3750,6 +3750,104 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════
+# F-WebU11 — event_sponsors junction (per-event sponsorship)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Same sponsor org can sponsor multiple events at different tiers; the
+# tier on the `sponsors` collection itself is org-level + currently
+# unused. Per-event tier + custom message lives here. Surfaces in the
+# sidebar of /events/[id] (cross-tab).
+
+echo "[F-WebU11 — event_sponsors]"
+ensure "collection event_sponsors" \
+  "${DIRECTUS_URL}/collections/event_sponsors" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_sponsors",
+    "schema":{"name":"event_sponsors"},
+    "meta":{
+      "icon":"verified",
+      "note":"Sponsors attached to a specific event. tier here overrides the org-level (sponsors.tier) for this event only.",
+      "sort_field":"sort_order"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"sponsor","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"tier","type":"string","schema":{"is_nullable":false,"default_value":"community","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "options":{"choices":[
+          {"text":"Presenting","value":"presenting"},
+          {"text":"Gold","value":"gold"},
+          {"text":"Silver","value":"silver"},
+          {"text":"Bronze","value":"bronze"},
+          {"text":"Community","value":"community"}
+        ]}
+      }},
+      {"field":"custom_message","type":"string","schema":{"is_nullable":true,"max_length":200},"meta":{"interface":"input","width":"full","options":{"placeholder":"\"Powered by …\" (optional)"}}},
+      {"field":"sort_order","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation event_sponsors.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_sponsors/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_sponsors","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation event_sponsors.sponsor -> sponsors.id" \
+  "${DIRECTUS_URL}/relations/event_sponsors/sponsor" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_sponsors","field":"sponsor","related_collection":"sponsors","schema":{"on_delete":"RESTRICT"}}'
+
+# Public-policy read on event_sponsors AND sponsors so the customer
+# page can deep-read sponsor.name / sponsor.logo / sponsor.website via
+# `?fields=sponsor.*`. We grant a *restricted* set on `sponsors` (name,
+# slug, country, status, logo, website, description) — rep_user + the
+# unused org-level tier stay private.
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_sponsors&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm event_sponsors/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"event_sponsors", action:"read", permissions:{}, fields:["*"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm event_sponsors/read (public, created)"
+    else
+      echo "  ✗ perm event_sponsors/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+  # And the restricted sponsors read (status=active only, public-safe fields)
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=sponsors&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm sponsors/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"sponsors", action:"read", permissions:{"status":{"_eq":"active"}}, fields:["id","name","slug","country","status","logo","website","description"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm sponsors/read (public, created — restricted fields, status=active)"
+    else
+      echo "  ✗ perm sponsors/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public reads for event_sponsors + sponsors."
+fi
+
+# ════════════════════════════════════════════════════════════════════════
 # F-S3.8 — Sponsor quarterly digest ledger (per ADR-0036)
 # ════════════════════════════════════════════════════════════════════════
 #

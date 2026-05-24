@@ -99,6 +99,24 @@ export interface EventPhoto {
   orderIndex: number;
 }
 
+// F-WebU11 — per-event sponsorship row, deep-joined to the sponsor
+// org record. Surfaces in the right sidebar of /events/[id] cross-tab.
+// Tier here OVERRIDES the org-level (sponsors.tier) since the same
+// sponsor can be Gold at one event, Community at another.
+export interface EventSponsor {
+  id: string;
+  tier: 'presenting' | 'gold' | 'silver' | 'bronze' | 'community';
+  customMessage: string | null;
+  orderIndex: number;
+  sponsor: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    website: string | null;
+  };
+}
+
 const { INTERNAL_API_URL = 'http://localhost:3000' } = process.env;
 const BASE = INTERNAL_API_URL;
 
