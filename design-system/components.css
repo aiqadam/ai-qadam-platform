@@ -143,6 +143,57 @@
   border: 1px solid var(--border);
 }
 
+/* ---------- Pill-row click-through (kind badge + label + ↗) ---------- *
+ * Shared by event detail Related-links + Materials sections (F-WebU1,
+ * F-WebU3, F-WebU8). Compose: <a class="pill-row" target="_blank" …>
+ *   <span class="pill-row__badge badge mono">KIND</span>
+ *   <span class="pill-row__label">Label</span>
+ *   <span class="pill-row__arrow" aria-hidden="true">↗</span>
+ * </a>
+ * The list wrapper (.pill-row__list) zeroes <ul> defaults so the row
+ * doesn't need wrapper styling at each call site.                       */
+.pill-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 150ms var(--ease-out), background 150ms var(--ease-out);
+}
+.pill-row:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+  background: color-mix(in oklch, var(--muted) 30%, transparent);
+}
+.pill-row__badge {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  min-width: 78px;
+  text-align: center;
+}
+.pill-row__label {
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pill-row__arrow {
+  color: var(--primary);
+  font-size: 13px;
+}
+.pill-row__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .pagination {
   display: inline-flex;
   align-items: center;

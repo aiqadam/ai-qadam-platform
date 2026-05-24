@@ -7,12 +7,22 @@ import { getLocale, makeT } from '../../lib/i18n';
 
 // Event detail page per design screen s1-3 (desktop) / s1-4 (mobile).
 //
-// F-S3.10-b: consume the enrichment fields shipped in F-S3.10-a — hero
-// image, venue+address+map_url, agenda_md, speaker lineup, OG short
-// description, visibility_scope gate. Fields are nullable so events
-// pre-dating the schema upgrade keep rendering with the v1 gradient
-// hero + single-line location.
+// F-WebU8 — restructured into four fixed tabs (Upcoming / Live /
+// Finished / Forum). Tab strip and stage-content surfaces are always
+// present; only the default selection is computed from event timing.
+// Tabs are driven by ?tab= so the URL is deep-linkable and SSR only
+// renders the active content. Sidebar (Register + Share) is cross-tab.
+//
+// Prior slices preserved:
+//   F-S3.10-a/b — hero/venue/agenda/visibility schema + render
+//   F-WebU1     — external_links pills
+//   F-WebU2     — OSM lat/lng iframe
+//   F-WebU3     — event_materials section
+//   F-WebU4     — inline YouTube/Vimeo recording embeds
 export const prerender = false;
+
+const VALID_TABS = ['upcoming', 'live', 'finished', 'forum'] as const;
+type Tab = (typeof VALID_TABS)[number];
 
 const { id } = Astro.params as { id: string };
 const event = await fetchEvent(Astro.request, id);
@@ -24,9 +34,6 @@ if (!event) {
 // members_only / invite_only: render the gate body and skip the data
 // payload. v1 uses the refresh cookie as the signed-in hint — its
 // presence means the API issued a session; absence means anonymous.
-// We don't enforce membership-level checks server-side yet (that's
-// F-S3.10-c); a logged-in operator-tier visitor sees the full page
-// even for invite_only events. The API will gate registration itself.
 const signedInHint = Astro.cookies.get('aiqadam-refresh')?.value !== undefined;
 const isGated = (event.visibilityScope === 'members_only' || event.visibilityScope === 'invite_only') && !signedInHint;
 
@@ -46,12 +53,10 @@ function recordingEmbedSrc(url: string): string | null {
     return null;
   }
   const host = parsed.hostname.toLowerCase();
-  // YouTube — short link
   if (host === 'youtu.be') {
-    const id = parsed.pathname.slice(1).split('/')[0] ?? '';
-    return /^[\w-]{6,}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+    const ytId = parsed.pathname.slice(1).split('/')[0] ?? '';
+    return /^[\w-]{6,}$/.test(ytId) ? `https://www.youtube-nocookie.com/embed/${ytId}` : null;
   }
-  // YouTube — watch / embed / shorts
   if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
     const v = parsed.searchParams.get('v');
     if (v && /^[\w-]{6,}$/.test(v)) return `https://www.youtube-nocookie.com/embed/${v}`;
@@ -60,7 +65,6 @@ function recordingEmbedSrc(url: string): string | null {
       return `https://www.youtube-nocookie.com/embed/${segs[1]}`;
     }
   }
-  // Vimeo
   if (host === 'vimeo.com' || host.endsWith('.vimeo.com')) {
     const m = parsed.pathname.match(/^\/(\d+)/);
     if (m?.[1]) return `https://player.vimeo.com/video/${m[1]}`;
@@ -163,11 +167,8 @@ function renderAgenda(md: string): string {
 }
 const agendaHtml = event.agendaMd ? renderAgenda(event.agendaMd) : null;
 
-// F-WebU2 — OpenStreetMap embed. Privacy-friendly (no API key, no
-// third-party tracking). Renders only when both coordinates are set;
-// otherwise the page falls back to the existing map_url click-through.
-// The bbox is a small box (~500m) centred on the marker; viewers can
-// click "View larger map" inside the iframe to open OSM full-page.
+// F-WebU2 — OpenStreetMap embed. Renders only when both coordinates
+// are set; the fallback is the existing map_url click-through.
 const lat = event.latitude;
 const lng = event.longitude;
 const hasCoords = lat != null && lng != null;
@@ -175,21 +176,35 @@ const mapEmbedSrc = hasCoords
   ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005},${lat - 0.005},${lng + 0.005},${lat + 0.005}&layer=mapnik&marker=${lat},${lng}`
   : null;
 
+// F-WebU8 — auto-generated Google + Yandex Maps deep-links. OSM tiles
+// occasionally mis-render specific venues (e.g. IT Park Tashkent points
+// at the city centre instead of Mirzo-Ulug'bek district); operators
+// don't pick a provider — we generate all three from whatever data is
+// available, prefer coordinates, fall back to free-text address.
+const addressQuery = (event.address ?? event.venue ?? event.location ?? '').trim();
+const externalMaps: { google: string; yandex: string } | null = (() => {
+  if (hasCoords) {
+    return {
+      google: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+      yandex: `https://yandex.com/maps/?ll=${lng},${lat}&z=17&pt=${lng},${lat},pm2rdm`,
+    };
+  }
+  if (addressQuery.length === 0) return null;
+  const enc = encodeURIComponent(addressQuery);
+  return {
+    google: `https://www.google.com/maps/search/?api=1&query=${enc}`,
+    yandex: `https://yandex.com/maps/?text=${enc}`,
+  };
+})();
+
 // F-S5.4 — generated OG card. Cache-busted by `v` so a speaker_added or
-// metadata edit invalidates every scraper's cached preview. Public
-// events only — the endpoint 404s for members_only/invite_only.
-// Falls back to hero_image if the event is gated or the card endpoint
-// is disabled.
+// metadata edit invalidates every scraper's cached preview.
 const cacheBuster = event.updatedAt ? Date.parse(event.updatedAt) : Date.parse(event.startsAt);
-const isPubliclyShareable =
-  !event.visibilityScope || event.visibilityScope === 'public';
+const isPubliclyShareable = !event.visibilityScope || event.visibilityScope === 'public';
 const ogCardUrl = isPubliclyShareable
   ? `${origin}/events/${event.id}/og-card.png?v=${cacheBuster}`
   : (event.heroImageUrl ?? null);
 
-// Layout props built conditionally so we omit ogImage entirely when we
-// have nothing to point at — exactOptionalPropertyTypes rejects
-// `ogImage: undefined`.
 const layoutProps = {
   title: `${event.title} · AI Qadam`,
   description: ogDescription,
@@ -197,6 +212,27 @@ const layoutProps = {
   canonical: eventUrl,
   ...(ogCardUrl ? { ogImage: ogCardUrl } : {}),
 };
+
+// F-WebU8 — tab routing. Validate the ?tab= param against the closed
+// set; pick a sensible default from the event's clock relative to
+// (starts_at, ends_at). Fully empty content (no recordings on a past
+// event, no livestream URL) still falls back to upcoming-style empty
+// states so the page never looks broken.
+const tabParam = Astro.url.searchParams.get('tab');
+const tabRequested: Tab | null = tabParam && (VALID_TABS as readonly string[]).includes(tabParam)
+  ? (tabParam as Tab)
+  : null;
+const now = Date.now();
+const startsAtMs = Date.parse(event.startsAt);
+const endsAtMs = Date.parse(event.endsAt);
+const defaultTab: Tab =
+  now >= endsAtMs ? 'finished' : now >= startsAtMs ? 'live' : 'upcoming';
+const activeTab: Tab = tabRequested ?? defaultTab;
+
+const eventBasePath = `/events/${event.id}`;
+function tabHref(tab: Tab): string {
+  return tab === defaultTab && !tabRequested ? eventBasePath : `${eventBasePath}?tab=${tab}`;
+}
 ---
 
 <Layout {...layoutProps}>
@@ -267,208 +303,255 @@ const layoutProps = {
         </a>
       </div>
     ) : (
-      <div
-        style="max-width: 1180px; margin: 0 auto; padding: 32px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px;"
-      >
-        <div>
-          <div
-            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px;"
-          >
-            <div>
-              <p
-                class="section-eyebrow"
-                style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
-              >
-                {t('event_detail.date')}
-              </p>
-              <p style="font-size: 14px; margin: 0;">{fullDate}</p>
-              <p style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 2px 0 0;">
-                {startTime} — {endTime}
-              </p>
-            </div>
-            <div>
-              <p
-                class="section-eyebrow"
-                style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
-              >
-                {event.venue ? t('event_detail.venue') : t('event_detail.location')}
-              </p>
-              <p style="font-size: 14px; margin: 0;">
-                {event.venue ?? event.location ?? t('home.location_tba')}
-              </p>
-              {event.address && (
-                <p style="font-size: 13px; color: var(--muted-foreground); margin: 2px 0 0;">{event.address}</p>
-              )}
-              {event.mapUrl && (
-                <p style="font-size: 12px; margin: 4px 0 0;">
-                  <a href={event.mapUrl} target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none;">
-                    {t('event_detail.view_map')} →
-                  </a>
-                </p>
-              )}
-            </div>
-          </div>
-
-          {mapEmbedSrc && (
-            <section style="margin: 0 0 24px;">
-              <iframe
-                src={mapEmbedSrc}
-                title={t('event_detail.map_title')}
-                loading="lazy"
-                style="width: 100%; height: 280px; border: 1px solid var(--border); border-radius: 8px; display: block;"
-              />
-            </section>
-          )}
-
-          <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
-            {t('event_detail.about')}
-          </h2>
-          <p style="font-size: 15px; line-height: 1.65; color: var(--muted-foreground); margin: 0 0 24px; white-space: pre-line;">
-            {event.description}
-          </p>
-
-          {agendaHtml && (
-            <section style="margin: 0 0 32px;">
-              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
-                {t('event_detail.agenda')}
-              </h2>
-              <div style="font-size: 14px; line-height: 1.65; color: var(--muted-foreground);" set:html={agendaHtml} />
-            </section>
-          )}
-
-          {event.externalLinks && event.externalLinks.length > 0 && (
-            <section style="margin: 0 0 32px;">
-              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
-                {t('event_detail.links')}
-              </h2>
-              <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
-                {event.externalLinks.map((link) => (
-                  <li>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s, background 0.15s;"
-                    >
-                      <span
-                        class="badge mono"
-                        style="font-size: 9px; letter-spacing: 0.08em; min-width: 78px; text-align: center;"
-                      >
-                        {t(`event_detail.link_kind_${link.kind ?? 'other'}`)}
-                      </span>
-                      <span style="font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        {link.label}
-                      </span>
-                      <span aria-hidden="true" style="color: var(--primary); font-size: 13px;">↗</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {speakers.length > 0 && (
-            <section style="margin: 0 0 32px;">
-              <div style="display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 16px;">
-                <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0;">
-                  {t('event_detail.speakers')}
-                </h2>
-                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground);">
-                  {t('event_detail.speakers_confirmed_of', { confirmed: confirmedSpeakers.length, total: speakers.length })}
-                </span>
-              </div>
-              <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
-                {speakers.map((s) => (
-                  <li style="border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
-                    <p style="font-weight: 600; font-size: 14px; margin: 0 0 2px;">
-                      {s.handle ? (
-                        <a href={`/u/${s.handle}`} style="color: inherit; text-decoration: none;">
-                          {s.displayName ?? `@${s.handle}`}
-                        </a>
-                      ) : (
-                        s.displayName ?? '—'
-                      )}
-                    </p>
-                    {s.jobTitle && (
-                      <p style="font-size: 12px; color: var(--muted-foreground); margin: 0 0 8px;">{s.jobTitle}</p>
-                    )}
-                    {s.talkTitle && (
-                      <p style="font-size: 13px; margin: 8px 0 0;"><em>{s.talkTitle}</em></p>
-                    )}
-                    {s.status === 'accepted' && (
-                      <span class="badge mono" style="margin-top: 8px; display: inline-block; font-size: 9px;">PENDING</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {recordings.length > 0 && (
-            <section style="margin: 0 0 32px;">
-              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
-                {t('event_detail.recordings')}
-              </h2>
-              <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px;">
-                {recordings.map((r) => (
-                  <li>
-                    <p style="font-size: 13px; color: var(--muted-foreground); margin: 0 0 8px;">{r.title}</p>
-                    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border);">
-                      <iframe
-                        src={r.embedSrc}
-                        title={r.title}
-                        loading="lazy"
-                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowfullscreen
-                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {materials.length > 0 && (
-            <section style="margin: 0 0 32px;">
-              <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
-                {t('event_detail.materials')}
-              </h2>
-              <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
-                {materials.map((m) => (
-                  <li>
-                    <a
-                      href={m.url ?? m.fileUrl ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s, background 0.15s;"
-                    >
-                      <span
-                        class="badge mono"
-                        style="font-size: 9px; letter-spacing: 0.08em; min-width: 78px; text-align: center;"
-                      >
-                        {t(`event_detail.material_kind_${m.kind}`)}
-                      </span>
-                      <span style="font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        {m.title}
-                      </span>
-                      <span aria-hidden="true" style="color: var(--primary); font-size: 13px;">↗</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+      <div style="max-width: 1180px; margin: 0 auto; padding: 24px 32px 32px;">
+        <div class="tabs" role="tablist" aria-label={t('event_detail.tabs_label')}>
+          {VALID_TABS.map((tab) => (
+            <a
+              class:list={['tab', { active: activeTab === tab }]}
+              role="tab"
+              aria-selected={activeTab === tab ? 'true' : 'false'}
+              href={tabHref(tab)}
+            >
+              {t(`event_detail.tab_${tab}`)}
+            </a>
+          ))}
         </div>
 
-        <div>
-          <RegistrationSidebar event={event} client:load />
-          <EventShareButtons
-            eventId={event.id}
-            eventTitle={event.title}
-            eventUrl={`${Astro.url.origin}/events/${event.id}`}
-            client:load
-          />
+        <div
+          style="padding-top: 24px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px;"
+        >
+          <div role="tabpanel" aria-label={t(`event_detail.tab_${activeTab}`)}>
+            {activeTab === 'upcoming' && (
+              <>
+                <div
+                  style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px;"
+                >
+                  <div>
+                    <p
+                      class="section-eyebrow"
+                      style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+                    >
+                      {t('event_detail.date')}
+                    </p>
+                    <p style="font-size: 14px; margin: 0;">{fullDate}</p>
+                    <p style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 2px 0 0;">
+                      {startTime} — {endTime}
+                    </p>
+                  </div>
+                  <div>
+                    <p
+                      class="section-eyebrow"
+                      style="margin-bottom: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground);"
+                    >
+                      {event.venue ? t('event_detail.venue') : t('event_detail.location')}
+                    </p>
+                    <p style="font-size: 14px; margin: 0;">
+                      {event.venue ?? event.location ?? t('home.location_tba')}
+                    </p>
+                    {event.address && (
+                      <p style="font-size: 13px; color: var(--muted-foreground); margin: 2px 0 0;">{event.address}</p>
+                    )}
+                  </div>
+                </div>
+
+                {mapEmbedSrc && (
+                  <section style="margin: 0 0 24px;">
+                    <iframe
+                      src={mapEmbedSrc}
+                      title={t('event_detail.map_title')}
+                      loading="lazy"
+                      style="width: 100%; height: 280px; border: 1px solid var(--border); border-radius: 8px; display: block;"
+                    />
+                  </section>
+                )}
+
+                {externalMaps && (
+                  <section style="margin: 0 0 32px; display: flex; flex-wrap: wrap; gap: 8px;">
+                    <a
+                      href={externalMaps.google}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="btn btn-ghost btn-sm"
+                    >
+                      {t('event_detail.open_google_maps')} ↗
+                    </a>
+                    <a
+                      href={externalMaps.yandex}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="btn btn-ghost btn-sm"
+                    >
+                      {t('event_detail.open_yandex_maps')} ↗
+                    </a>
+                    {event.mapUrl && (
+                      <a
+                        href={event.mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn btn-ghost btn-sm"
+                      >
+                        {t('event_detail.view_map')} ↗
+                      </a>
+                    )}
+                  </section>
+                )}
+
+                <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                  {t('event_detail.about')}
+                </h2>
+                <p style="font-size: 15px; line-height: 1.65; color: var(--muted-foreground); margin: 0 0 24px; white-space: pre-line;">
+                  {event.description}
+                </p>
+
+                {agendaHtml && (
+                  <section style="margin: 0 0 32px;">
+                    <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                      {t('event_detail.agenda')}
+                    </h2>
+                    <div style="font-size: 14px; line-height: 1.65; color: var(--muted-foreground);" set:html={agendaHtml} />
+                  </section>
+                )}
+
+                {event.externalLinks && event.externalLinks.length > 0 && (
+                  <section style="margin: 0 0 32px;">
+                    <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                      {t('event_detail.links')}
+                    </h2>
+                    <ul class="pill-row__list">
+                      {event.externalLinks.map((link) => (
+                        <li>
+                          <a class="pill-row" href={link.url} target="_blank" rel="noopener noreferrer">
+                            <span class="pill-row__badge badge mono">
+                              {t(`event_detail.link_kind_${link.kind ?? 'other'}`)}
+                            </span>
+                            <span class="pill-row__label">{link.label}</span>
+                            <span class="pill-row__arrow" aria-hidden="true">↗</span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {speakers.length > 0 && (
+                  <section style="margin: 0 0 32px;">
+                    <div style="display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 16px;">
+                      <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0;">
+                        {t('event_detail.speakers')}
+                      </h2>
+                      <span style="font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground);">
+                        {t('event_detail.speakers_confirmed_of', { confirmed: confirmedSpeakers.length, total: speakers.length })}
+                      </span>
+                    </div>
+                    <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
+                      {speakers.map((s) => (
+                        <li style="border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                          <p style="font-weight: 600; font-size: 14px; margin: 0 0 2px;">
+                            {s.handle ? (
+                              <a href={`/u/${s.handle}`} style="color: inherit; text-decoration: none;">
+                                {s.displayName ?? `@${s.handle}`}
+                              </a>
+                            ) : (
+                              s.displayName ?? '—'
+                            )}
+                          </p>
+                          {s.jobTitle && (
+                            <p style="font-size: 12px; color: var(--muted-foreground); margin: 0 0 8px;">{s.jobTitle}</p>
+                          )}
+                          {s.talkTitle && (
+                            <p style="font-size: 13px; margin: 8px 0 0;"><em>{s.talkTitle}</em></p>
+                          )}
+                          {s.status === 'accepted' && (
+                            <span class="badge mono" style="margin-top: 8px; display: inline-block; font-size: 9px;">PENDING</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {materials.length > 0 && (
+                  <section style="margin: 0 0 32px;">
+                    <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                      {t('event_detail.materials')}
+                    </h2>
+                    <ul class="pill-row__list">
+                      {materials.map((m) => (
+                        <li>
+                          <a class="pill-row" href={m.url ?? m.fileUrl ?? '#'} target="_blank" rel="noopener noreferrer">
+                            <span class="pill-row__badge badge mono">
+                              {t(`event_detail.material_kind_${m.kind}`)}
+                            </span>
+                            <span class="pill-row__label">{m.title}</span>
+                            <span class="pill-row__arrow" aria-hidden="true">↗</span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </>
+            )}
+
+            {activeTab === 'live' && (
+              <div class="empty-state" style="margin: 24px 0;">
+                <div class="empty-icon" aria-hidden="true">📡</div>
+                <p class="empty-heading">{t('event_detail.tab_live_empty_title')}</p>
+                <p class="empty-desc">{t('event_detail.tab_live_empty_body')}</p>
+              </div>
+            )}
+
+            {activeTab === 'finished' && (
+              recordings.length > 0 ? (
+                <section style="margin: 0 0 32px;">
+                  <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px;">
+                    {t('event_detail.recordings')}
+                  </h2>
+                  <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px;">
+                    {recordings.map((r) => (
+                      <li>
+                        <p style="font-size: 13px; color: var(--muted-foreground); margin: 0 0 8px;">{r.title}</p>
+                        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border);">
+                          <iframe
+                            src={r.embedSrc}
+                            title={r.title}
+                            loading="lazy"
+                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowfullscreen
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : (
+                <div class="empty-state" style="margin: 24px 0;">
+                  <div class="empty-icon" aria-hidden="true">📼</div>
+                  <p class="empty-heading">{t('event_detail.tab_finished_empty_title')}</p>
+                  <p class="empty-desc">{t('event_detail.tab_finished_empty_body')}</p>
+                </div>
+              )
+            )}
+
+            {activeTab === 'forum' && (
+              <div class="empty-state" style="margin: 24px 0;">
+                <div class="empty-icon" aria-hidden="true">💬</div>
+                <p class="empty-heading">{t('event_detail.tab_forum_empty_title')}</p>
+                <p class="empty-desc">{t('event_detail.tab_forum_empty_body')}</p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <RegistrationSidebar event={event} client:load />
+            <EventShareButtons
+              eventId={event.id}
+              eventTitle={event.title}
+              eventUrl={`${Astro.url.origin}/events/${event.id}`}
+              client:load
+            />
+          </div>
         </div>
       </div>
     )}
