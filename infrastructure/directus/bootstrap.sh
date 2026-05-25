@@ -1601,6 +1601,26 @@ ensure "field directus_users.telegram_opted_out_at" \
     }
   }'
 
+echo "[directus_users.gdpr_deleted_at]"
+# #362 — GDPR self-service soft-delete marker. Set when member calls
+# DELETE /v1/telegram/me. 30-day window during which re-linking via
+# /link clears the marker (member recovery). After 30 days, the
+# gdpr-hard-delete cron anonymizes registrations + drops the user row.
+ensure "field directus_users.gdpr_deleted_at" \
+  "${DIRECTUS_URL}/fields/directus_users/gdpr_deleted_at" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"gdpr_deleted_at",
+    "type":"dateTime",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"datetime",
+      "width":"half",
+      "readonly":true,
+      "note":"#362 — Set when member self-deletes via DELETE /v1/telegram/me. 30-day soft-delete window for recovery via re-link. Cron purges members where gdpr_deleted_at < now-30d."
+    }
+  }'
+
 # ════════════════════════════════════════════════════════════════════════
 # directus_users.country — member-level tenancy attribute (Bot-B PR-1b)
 # ════════════════════════════════════════════════════════════════════════

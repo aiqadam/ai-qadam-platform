@@ -37,6 +37,7 @@ import {
   type FormSummary,
   TelegramFormsService,
 } from './telegram-forms.service';
+import { type DataExport, type DeleteResult, TelegramGdprService } from './telegram-gdpr.service';
 import { type MeRegistration, TelegramMeService } from './telegram-me.service';
 import {
   type PreferencesResult,
@@ -91,6 +92,23 @@ const cancelRegistrationSchema = z.object({
   telegram_user_id: z
     .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
     .transform((v) => BigInt(v)),
+});
+
+// #362 — GDPR self-service body. Both endpoints take tg_user_id; delete
+// also requires confirm_member_id (proof the user knows which account
+// they're nuking — prevents accidental wrong-account deletes if a bot
+// service token leak ever happens).
+const gdprExportQuerySchema = z.object({
+  tg_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .transform((v) => BigInt(v)),
+});
+
+const gdprDeleteSchema = z.object({
+  tg_user_id: z
+    .union([z.number().int().positive().finite(), z.string().regex(/^[1-9]\d*$/)])
+    .transform((v) => BigInt(v)),
+  confirm_member_id: z.string().uuid(),
 });
 
 // aiqadam#308 — POST /invites/redeem body (stub validates shape;
@@ -589,6 +607,7 @@ export class TelegramController {
     private readonly checkinService: TelegramCheckinService,
     private readonly preferences: TelegramPreferencesService,
     private readonly feedback: TelegramFeedbackService,
+    private readonly gdpr: TelegramGdprService,
   ) {}
 
   @Get('whoami')
@@ -617,6 +636,47 @@ export class TelegramController {
     }
     const items = await this.me.listMyRegistrations(parsed.data.tg_user_id);
     return { items };
+  }
+
+  // GET /v1/telegram/me/data-export?tg_user_id=<id>
+  //   #362. Full JSON dump of the member's data: profile defaults,
+  //   preferences, registrations, check-ins, feedback submissions.
+  //   Bot delivers as a downloadable .json attachment via /export.
+  //
+  //   200: DataExport (see telegram-gdpr.service.ts)
+  //   400: bad tg_user_id
+  //   404: { error: 'member_not_found' }
+  //   401/503: TelegramAuthGuard
+  @Get('me/data-export')
+  async exportMyData(@Query() query: unknown): Promise<DataExport> {
+    const parsed = gdprExportQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.gdpr.exportData(parsed.data.tg_user_id);
+  }
+
+  // DELETE /v1/telegram/me
+  //   #362. GDPR self-service soft-delete. Sets gdpr_deleted_at on the
+  //   member; the bot informs the user of the 30-day recovery window.
+  //   Re-linking via /link within the window clears the marker;
+  //   gdpr-hard-delete cron purges after the window expires.
+  //
+  //   Body: { tg_user_id, confirm_member_id }
+  //     confirm_member_id MUST match the member resolved by tg_user_id
+  //     — proof the caller knows which account they're nuking.
+  //
+  //   200: { deleted_at, hard_delete_after }
+  //   404: { error: 'member_not_found' | 'member_id_mismatch' }
+  //   401/503: TelegramAuthGuard
+  @Delete('me')
+  @HttpCode(HttpStatus.OK)
+  async deleteMyAccount(@Body() body: unknown): Promise<DeleteResult> {
+    const parsed = gdprDeleteSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.gdpr.deleteAccount(parsed.data.tg_user_id, parsed.data.confirm_member_id);
   }
 
   // POST /v1/telegram/checkin/:token
