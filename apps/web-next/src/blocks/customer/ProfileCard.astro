@@ -1,0 +1,161 @@
+---
+// L3 block — <ProfileCard>.
+//
+// Public member profile surface. v2 first cut renders the headline
+// (avatar initials, display name, subtitle) + bio (markdown-lite) +
+// three stat cards (attended / registered / points) + a compact list
+// of recent attended events.
+//
+// Data-in/element-out: receives a PublicProfile. The page fetched it
+// via fetchPublicProfile(req, handle).
+//
+// `mode` prop: 'public' renders the read-only surface used by
+// /u/[handle]. 'self' is reserved for /me — that path consumes a
+// dedicated editor block (Phase 1.5b) and uses ProfileCard as the
+// header above the editor.
+//
+// 52-week activity heatmap from v1 is deferred to a follow-up — it's a
+// pure presentational layer over recentEvents, easy to add later
+// without changing this block's contract.
+//
+// Wiring: docs/architecture/wiring-map.md → directus_users.
+
+import type { PublicProfile } from '../../lib/types';
+
+interface Props {
+  profile: PublicProfile;
+  mode?: 'public' | 'self' | undefined;
+}
+
+const { profile, mode = 'public' } = Astro.props;
+
+function avatarSeed(name: string): string {
+  const parts = name.split(/[\s._]+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? name[0] ?? '?';
+  const b = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+  return `${a}${b}`.toUpperCase();
+}
+
+const displayName = profile.displayName ?? profile.handle;
+const seed = avatarSeed(displayName);
+const subtitle = [profile.jobTitle, profile.employerName].filter(Boolean).join(' · ');
+
+function renderBio(md: string): string {
+  const escape = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return md
+    .split(/\n\s*\n/)
+    .map((block) => {
+      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) return '';
+      if (lines.every((l) => l.startsWith('- '))) {
+        return `<ul class="list-disc pl-5 mb-3 text-muted-foreground">${lines
+          .map((l) => `<li>${escape(l.slice(2))}</li>`)
+          .join('')}</ul>`;
+      }
+      return `<p class="mb-3 text-muted-foreground leading-relaxed">${lines
+        .map(escape)
+        .join('<br/>')}</p>`;
+    })
+    .filter(Boolean)
+    .join('');
+}
+
+const bioHtml = profile.bioMd ? renderBio(profile.bioMd) : null;
+const recentForList = profile.recentEvents.slice(0, 6);
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+// `mode` is accepted for future divergence (self vs public renders).
+// Reference it so TS doesn't flag the prop as unused under strict.
+void mode;
+---
+
+<section class="mx-auto max-w-3xl px-6 py-12">
+  <header class="flex items-start gap-5 pb-6 mb-6 border-b border-border">
+    <div
+      class="w-16 h-16 rounded-full flex items-center justify-center font-mono text-sm font-semibold bg-secondary text-secondary-foreground shrink-0"
+      aria-hidden="true"
+    >
+      {seed}
+    </div>
+    <div class="min-w-0 flex-1">
+      <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+        @{profile.handle}
+      </p>
+      <h1
+        class="font-display text-3xl font-semibold tracking-tight text-foreground mb-1"
+      >
+        {displayName}
+      </h1>
+      {subtitle && (
+        <p class="text-sm text-muted-foreground">{subtitle}</p>
+      )}
+    </div>
+  </header>
+
+  {bioHtml && (
+    <section class="mb-8">
+      <h2 class="font-display text-base font-semibold text-foreground mb-2">About</h2>
+      <div class="text-sm" set:html={bioHtml} />
+    </section>
+  )}
+
+  <dl class="grid grid-cols-3 gap-3 mb-10">
+    <div class="rounded-lg border border-border bg-card p-3 text-center">
+      <dt class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+        Attended
+      </dt>
+      <dd class="font-display text-2xl font-semibold text-foreground">
+        {profile.attendedCount}
+      </dd>
+    </div>
+    <div class="rounded-lg border border-border bg-card p-3 text-center">
+      <dt class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+        Registered
+      </dt>
+      <dd class="font-display text-2xl font-semibold text-foreground">
+        {profile.registeredCount}
+      </dd>
+    </div>
+    <div class="rounded-lg border border-border bg-card p-3 text-center">
+      <dt class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+        Points
+      </dt>
+      <dd class="font-display text-2xl font-semibold text-foreground">
+        {profile.totalPoints}
+      </dd>
+    </div>
+  </dl>
+
+  {recentForList.length > 0 && (
+    <section>
+      <h2 class="font-display text-base font-semibold text-foreground mb-3">
+        Recent events
+      </h2>
+      <ul class="space-y-2 list-none p-0 m-0">
+        {recentForList.map((ev) => (
+          <li>
+            <a
+              href={`/events/${ev.eventId}`}
+              class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-border bg-card no-underline text-inherit hover:border-primary/40 transition-colors"
+            >
+              <span class="text-sm truncate">{ev.title}</span>
+              <span class="font-mono text-[10px] text-muted-foreground shrink-0">
+                {shortDate(ev.startsAt)}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <slot />
+</section>

@@ -59,7 +59,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<MaterialsList>` | `@/blocks/customer` | `materials: EventMaterial[], heading?` | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `event_materials` |
 | `<RegistrationCTA>` | `@/blocks/customer` | `eventId: string, capacity: number\|null, registeredCount: number` (React island — uses `useAuth` + `useMyRegistrationStatus` + register/cancel mutations from `lib/use-registrations`) | `pages/events/[id].astro` (PR 1.4) | Storyless — interactive island needs provider mocks (see §Provider-coupled blocks below) | `registrations` (read + write) |
 | `<ShareButtons>` | `@/blocks/customer` | `eventId, eventTitle, eventUrl` | `pages/events/[id].astro` (PR 1.4) | Astro-only — no story | n/a (uses `lib/share-urls.ts` builder) |
-| `<ProfileCard>` | `@/blocks/customer` | `member, mode: 'public' \| 'self'` | — | — | `directus_users` + member graph |
+| `<ProfileCard>` | `@/blocks/customer` | `profile: PublicProfile, mode?: 'public'\|'self'` (accepts `<slot/>` so /me can mount the editor under the public card) | `pages/u/[handle].astro` (PR 1.5a); planned `pages/me/profile.astro` (PR 1.5b) | Astro-only — no story | `directus_users` (via `/v1/users/:handle/profile`) |
 | `<ConsentList>` | `@/blocks/customer` | `consents, onToggle` | — | — | `member_consents` |
 | `<SkillTagger>` | `@/blocks/customer` | `tags, onAdd, onRemove, kind: 'skill' \| 'interest'` | — | — | `member_skills` / `_interests` |
 | `<Leaderboard>` | `@/blocks/customer` | `entries: LeaderboardEntry[]` | — | — | `point_awards` agg |

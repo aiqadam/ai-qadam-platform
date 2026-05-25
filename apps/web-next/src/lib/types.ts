@@ -77,3 +77,29 @@ export interface EventSponsor {
     website: string | null;
   };
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — public profiles (/u/[handle])
+// ---------------------------------------------------------------------------
+
+export interface PublicProfile {
+  handle: string;
+  displayName: string | null;
+  // Headline stats — surfaced on the profile page header.
+  attendedCount: number;
+  registeredCount: number;
+  totalPoints: number;
+  // Enrichment fields. Always present in the response; null when the
+  // underlying directus_users column / FK is unset.
+  bioMd: string | null;
+  jobTitle: string | null;
+  employerName: string | null;
+  // Tenant-scoped attended events, newest-first, cap 50. Powers the
+  // recent-events list + (future) activity heatmap.
+  recentEvents: Array<{
+    eventId: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+  }>;
+}

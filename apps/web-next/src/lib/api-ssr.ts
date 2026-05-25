@@ -86,3 +86,28 @@ export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | n
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// /v1/users/:handle/profile — public member profile.
+// ---------------------------------------------------------------------------
+
+import type { PublicProfile } from './types';
+export type { PublicProfile } from './types';
+
+export async function fetchPublicProfile(
+  req: Request,
+  handle: string,
+): Promise<PublicProfile | null> {
+  if (!handle || handle.length === 0) return null;
+  try {
+    return await get<PublicProfile>(req, `/v1/users/${encodeURIComponent(handle)}/profile`);
+  } catch (err) {
+    // 404 (unknown handle) + network failure: same return — page
+    // 302s to /leaderboard (matches v1 behavior).
+    console.error(
+      `[api-ssr] /v1/users/${handle}/profile failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}

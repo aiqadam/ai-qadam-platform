@@ -189,9 +189,37 @@ aggregates:
     stale_time: 30
 ```
 
-### `directus_users` + member graph (`member_skills`, `member_interests`, `member_employments`, `member_consents`, `member_badges`)
+### `directus_users` — public profile READ live as of PR 1.5a
 
-> Placeholder — filled in PR 1.5 + 1.6.
+```yaml
+data_source: directus_users
+description: Member identity row. /v1/users/:handle/profile is the public read-only API.
+
+customer_blocks:
+  - block: ProfileCard
+    page: apps/web-next/src/pages/u/[handle].astro (PR 1.5a)
+    operation: read
+    fields_read: [handle, display_name, bio_md, job_title, employer_name, total_points, attended/registered counts, recent_events[]]
+  - block: ProfileCard      # planned mode='self'
+    page: apps/web-next/src/pages/me/profile.astro (PR 1.5b)
+    operation: read
+  - block: ConsentList      # PR 1.5b — writes member_consents
+    page: apps/web-next/src/pages/me/profile.astro
+    operation: write
+  - block: SkillTagger      # PR 1.5b — writes member_skills / _interests / _employments
+    page: apps/web-next/src/pages/me/profile.astro
+    operation: write
+
+operator_blocks: []   # placeholder — Phase 3.6 (members directory uplift)
+
+ssr_fetcher: apps/web-next/src/lib/api-ssr.ts → fetchPublicProfile(req, handle)
+api_endpoint: GET /v1/users/:handle/profile (Host header → tenant filter; deep-reads registrations for recent_events)
+fallback: null → page 302s to /leaderboard
+```
+
+### `member_skills`, `member_interests`, `member_employments`, `member_consents`, `member_badges`
+
+> Placeholder — filled in PR 1.5b (editor blocks for skills, interests, employments, consents) + a future Phase 3 cabinet for member-badge management.
 
 ### `point_awards`
 

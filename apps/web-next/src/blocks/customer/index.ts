@@ -6,6 +6,7 @@ export { default as EventDetail } from './EventDetail.astro';
 export { default as EventsGrid } from './EventsGrid.astro';
 export { default as Hero } from './Hero.astro';
 export { default as MaterialsList } from './MaterialsList.astro';
+export { default as ProfileCard } from './ProfileCard.astro';
 export { RegistrationCTA } from './RegistrationCTA';
 export { default as ShareButtons } from './ShareButtons.astro';
 export { default as SpeakerGrid } from './SpeakerGrid.astro';

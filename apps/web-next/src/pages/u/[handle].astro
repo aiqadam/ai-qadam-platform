@@ -1,0 +1,46 @@
+---
+// @generated-from gen:page
+// slug: u/[handle]
+// generated: 2026-05-26
+//
+// Phase 1.5a — customer-facing public profile per ADR-0038.
+//
+// Composition only (L4): fetch the public profile by handle from
+// apps/api, render via the <ProfileCard> L3 block in mode='public'.
+//
+// 404 / unknown handle → 302 to /leaderboard (matches v1).
+//
+// Wiring: docs/architecture/wiring-map.md → directus_users.
+//
+// SSR — needs the request Host header to forward to /v1/users/:handle/profile
+// (the API's per-country tenant filter).
+export const prerender = false;
+
+import { PageHead } from '../../blocks/common';
+import { ProfileCard } from '../../blocks/customer';
+import Layout from '../../layouts/Layout.astro';
+import { fetchPublicProfile } from '../../lib/api-ssr';
+
+const { handle } = Astro.params as { handle: string };
+const profile = await fetchPublicProfile(Astro.request, handle);
+
+if (!profile) {
+  return Astro.redirect('/leaderboard', 302);
+}
+
+const displayName = profile.displayName ?? profile.handle;
+const description = profile.bioMd
+  ? profile.bioMd.slice(0, 200)
+  : `${displayName} on AI Qadam — ${profile.attendedCount} events attended, ${profile.totalPoints} points.`;
+---
+
+<Layout title={`${displayName} · AI Qadam (next)`} description={description}>
+  <PageHead
+    slot="head"
+    title={`${displayName} · AI Qadam (next)`}
+    description={description}
+  />
+  <main>
+    <ProfileCard profile={profile} mode="public" />
+  </main>
+</Layout>
