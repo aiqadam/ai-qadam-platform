@@ -1,0 +1,78 @@
+---
+// L3 common block — <MarkdownBody>.
+//
+// Renders user-authored markdown-lite content (event description,
+// agenda, member bio) into safe HTML. Replaces three copy-pasted
+// renderAgenda / renderBio helpers in EventDetail.astro +
+// ProfileCard.astro with a single source of truth.
+//
+// The grammar matches v1 web's helper: split on blank lines into
+// blocks; if every line in a block starts with "- " it becomes a
+// `<ul>` with `<li>` items, otherwise a `<p>` with `<br/>`-joined
+// lines. Full CommonMark / inline `*emphasis*` is deliberately
+// unsupported — Phase 2 may add micromark + sanitize-html once we
+// know operators actually want it. Today's content is line-wrapped
+// paragraphs with the occasional bullet list; this covers it.
+//
+// Safety: every user-authored fragment runs through `escape()` which
+// neutralizes &/</> before HTML reaches `set:html`. There are no raw
+// passthroughs.
+//
+// Data-in/element-out: receives the raw markdown via props. Pages
+// or other blocks reach for `<MarkdownBody>` instead of inlining a
+// renderer.
+
+interface Props {
+  content: string | null | undefined;
+  // Tone variant. 'muted' (default) renders paragraphs in muted-
+  // foreground tone (event agenda, profile bio); 'body' renders in
+  // foreground tone (article body in the future). Same grammar, just
+  // a different paragraph class.
+  variant?: 'muted' | 'body';
+  // Tailwind classes appended to the outer wrapper (e.g. text-sm /
+  // text-base / leading-relaxed). Empty by default so callers stay
+  // in control of typography.
+  class?: string;
+}
+
+const { content, variant = 'muted', class: extraClass = '' } = Astro.props;
+
+function escape(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function render(md: string, paraClass: string, listClass: string): string {
+  const blocks = md.split(/\n\s*\n/);
+  return blocks
+    .map((block) => {
+      const lines = block
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length === 0) return '';
+      if (lines.every((l) => l.startsWith('- '))) {
+        const items = lines.map((l) => `<li>${escape(l.slice(2))}</li>`).join('');
+        return `<ul class="${listClass}">${items}</ul>`;
+      }
+      return `<p class="${paraClass}">${lines.map(escape).join('<br/>')}</p>`;
+    })
+    .filter(Boolean)
+    .join('');
+}
+
+const PARA_CLASS_BY_VARIANT: Record<'muted' | 'body', string> = {
+  muted: 'mb-3 text-muted-foreground leading-relaxed',
+  body: 'mb-3 text-foreground leading-relaxed',
+};
+const LIST_CLASS_BY_VARIANT: Record<'muted' | 'body', string> = {
+  muted: 'list-disc pl-5 mb-3 text-muted-foreground',
+  body: 'list-disc pl-5 mb-3 text-foreground',
+};
+
+const html =
+  content && content.trim().length > 0
+    ? render(content, PARA_CLASS_BY_VARIANT[variant], LIST_CLASS_BY_VARIANT[variant])
+    : null;
+---
+
+{html && <div class={extraClass} set:html={html} />}

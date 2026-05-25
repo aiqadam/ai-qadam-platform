@@ -90,7 +90,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<EmptyState>` | `@/blocks/common` | `heading: string, description?, icon?` (CTAs composed outside the block) | `<EventsGrid>` fallback (PR 1.2); planned `<MembersList>`, `<MaterialsList>`, etc. | Astro-only — no story | n/a |
 | `<DateTime>` | `@/blocks/common` | `value: string, format: 'date' \| 'datetime' \| 'time'` | — | — | n/a |
 | `<TimeRange>` | `@/blocks/common` | `start: string, end: string` | — | — | n/a |
-| `<MarkdownBody>` | `@/blocks/common` | `content: string` | — | — | n/a |
+| `<MarkdownBody>` | `@/blocks/common` | `content: string \| null \| undefined, variant?: 'muted' \| 'body', class?: string` (markdown-lite: blank-line blocks → `<p>` or `<ul>`, `- ` bullets, full HTML escape) | `<EventDetail>` description + agenda; `<ProfileCard>` bio (both PR 1.8a) | Astro-only — no story | n/a (pure presentation) |
 | `<CountrySwitcher>` | `@/blocks/common` | `current: CountryCode` | — | — | useAuth() |
 | `<LocaleSwitcher>` | `@/blocks/common` | `current: Locale` | — | — | i18n |
 

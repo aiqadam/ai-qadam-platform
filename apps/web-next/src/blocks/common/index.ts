@@ -3,4 +3,5 @@
 
 export { default as AuthGate } from './AuthGate.astro';
 export { default as EmptyState } from './EmptyState.astro';
+export { default as MarkdownBody } from './MarkdownBody.astro';
 export { default as PageHead } from './PageHead.astro';
