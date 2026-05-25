@@ -4636,6 +4636,88 @@ else
   echo "  ⚠ Public policy not found — skipping public read for site_settings."
 fi
 
+# ════════════════════════════════════════════════════════════════════════
+# C-3a — press_page (true singleton — content for /press page)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Replaces the hardcoded prose at the top of /press: hero title +
+# company boilerplate paragraph + press contact SLA + guidance. Headshot
+# files + logo files stay in marketing_assets and /public/brand
+# respectively per ADR-0025. Team-member bios are coming in C-3b
+# (separate team_members collection).
+#
+# Singleton (`meta.singleton: true`) — one row globally.
+
+echo "[press_page]"
+ensure "collection press_page" \
+  "${DIRECTUS_URL}/collections/press_page" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"press_page",
+    "schema":{"name":"press_page"},
+    "meta":{
+      "icon":"newspaper",
+      "singleton":true,
+      "note":"Public press / media kit page content. One row, public-readable."
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"hero_title","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"full","note":"H1 at the top of /press."}},
+      {"field":"company_boilerplate","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"One-paragraph company description used under the hero on /press. Also reusable in press releases."}},
+      {"field":"seo_description","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Meta description for /press. Used by Google + social card."}},
+      {"field":"contact_response_sla","type":"string","schema":{"is_nullable":true,"max_length":255},"meta":{"interface":"input","width":"half","note":"e.g. \"one business day; faster on weekdays\""}},
+      {"field":"contact_guidance","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Sub-line under the press contact email. Welcomes embargoes, interviews, fact-checks, etc."}}
+    ]
+  }'
+
+# Seed singleton with the same prose currently hardcoded in press.astro.
+count=$(curl -s -H "${H_AUTH}" "${DIRECTUS_URL}/items/press_page?limit=1&fields=id" \
+  | jq -r '.data | length' 2>/dev/null || echo 0)
+if [ "${count}" = "0" ]; then
+  body='{
+    "hero_title":"AI Qadam — for journalists, partners, and event organizers",
+    "company_boilerplate":"Founded by Binali Rustamov in 2026, AI Qadam is run by a distributed team of country leads with a working community across all three Central Asian republics. Below: brand assets, founder bios, a fact sheet, and how to reach us.",
+    "seo_description":"AI Qadam media kit — logo, brand assets, founder + COO bios, fact sheet, and press contact for journalists, partners, and event organizers.",
+    "contact_response_sla":"Reaches Binali within one business day; faster on weekdays.",
+    "contact_guidance":"Embargo requests, interview asks, and fact-checks all welcome here."
+  }'
+  code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/items/press_page" --data "${body}")
+  if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    echo "  + press_page (seeded with defaults)"
+  else
+    echo "  ✗ press_page seed HTTP ${code}"
+    head -c 300 /tmp/directus-resp; echo
+  fi
+else
+  echo "  ✓ press_page (already seeded)"
+fi
+
+ensure_perm "perm press_page/read" press_page read '{}'
+
+# Public-policy read so anon visitors to /press can fetch.
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=press_page&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm press_page/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"press_page", action:"read", permissions:{}, fields:["*"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm press_page/read (public, created)"
+    else
+      echo "  ✗ perm press_page/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy not found — skipping public read for press_page."
+fi
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

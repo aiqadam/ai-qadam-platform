@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { fetchMarketingAssets } from '../lib/cms';
+import { fetchMarketingAssets, fetchPressPage } from '../lib/cms';
 
 // Public press / media kit page. F-S0.9b (Tier-2 wire-up): wired to
 // Directus `marketing_assets` per ADR-0025 for the asset classes that
@@ -19,9 +19,6 @@ import { fetchMarketingAssets } from '../lib/cms';
 // variables. SSG-friendly except for the marketing_assets fetch which
 // runs at request time (Directus state changes; we want the page fresh).
 
-const description =
-  'AI Qadam media kit — logo, brand assets, founder + COO bios, fact sheet, and press contact for journalists, partners, and event organizers.';
-
 // Tier 1 assets (per ADR-0025): logos / favicons / brand mark stay in
 // git at apps/web/public/brand/. Edited only by engineers via PR.
 const logos = [
@@ -33,12 +30,18 @@ const logos = [
 // Tier 2 assets from Directus marketing_assets. Each call returns an
 // empty array on Directus failure / no approved assets — the empty
 // branches in the markup below handle that with UX §1.4 copy.
-const [headshots, factSheets, quarterlyDigests, pressCoverage] = await Promise.all([
+// C-3a — pressPage singleton sources hero/boilerplate/contact prose
+// from Directus; falls back to the hardcoded defaults if the collection
+// is missing (e.g. before bootstrap.sh has been run against prod).
+const [headshots, factSheets, quarterlyDigests, pressCoverage, pressPage] = await Promise.all([
   fetchMarketingAssets({ category: 'press-headshot', limit: 8 }),
   fetchMarketingAssets({ category: 'fact-sheet', limit: 1 }),
   fetchMarketingAssets({ category: 'quarterly-digest', limit: 4 }),
   fetchMarketingAssets({ category: 'press-coverage', limit: 12 }),
+  fetchPressPage(),
 ]);
+
+const description = pressPage.seoDescription;
 
 // Match headshots to leadership by title-prefix. Uploader names assets
 // like "Binali Rustamov — founder headshot" so a startsWith match is
@@ -89,12 +92,10 @@ const palette = [
       <h1
         style="font-family: var(--font-display); font-weight: 600; font-size: 42px; line-height: 1.15; margin: 0 0 16px; max-width: 780px;"
       >
-        AI Qadam — for journalists, partners, and event organizers
+        {pressPage.heroTitle}
       </h1>
       <p style="font-size: 17px; line-height: 1.55; max-width: 760px; color: var(--muted-foreground); margin: 0;">
-        Founded by Binali Rustamov in 2026, AI Qadam is run by a distributed team of
-        country leads with a working community across all three Central Asian republics.
-        Below: brand assets, founder bios, a fact sheet, and how to reach us.
+        {pressPage.companyBoilerplate}
       </p>
     </section>
 
@@ -109,10 +110,10 @@ const palette = [
       </p>
       <p style="font-size: 17px; margin: 0 0 8px;">
         Email <a href="mailto:press@aiqadam.org" style="color: var(--primary);">press@aiqadam.org</a>.
-        Reaches Binali within one business day; faster on weekdays.
+        {pressPage.contactResponseSla}
       </p>
       <p style="font-size: 14px; color: var(--muted-foreground); margin: 0;">
-        Embargo requests, interview asks, and fact-checks all welcome here.
+        {pressPage.contactGuidance}
       </p>
     </section>
 

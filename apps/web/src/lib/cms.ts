@@ -393,6 +393,56 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
   }
 }
 
+// C-3a — press_page singleton. Editorial content for the /press page.
+// Same shape as site_settings: graceful fallback to hardcoded defaults
+// so the page renders identically when the collection is missing.
+export interface PressPage {
+  heroTitle: string;
+  companyBoilerplate: string;
+  seoDescription: string;
+  contactResponseSla: string;
+  contactGuidance: string;
+}
+
+interface CmsPressPageRow {
+  hero_title?: string | null;
+  company_boilerplate?: string | null;
+  seo_description?: string | null;
+  contact_response_sla?: string | null;
+  contact_guidance?: string | null;
+}
+
+const PRESS_PAGE_DEFAULTS: PressPage = {
+  heroTitle: 'AI Qadam — for journalists, partners, and event organizers',
+  companyBoilerplate:
+    'Founded by Binali Rustamov in 2026, AI Qadam is run by a distributed team of country leads with a working community across all three Central Asian republics. Below: brand assets, founder bios, a fact sheet, and how to reach us.',
+  seoDescription:
+    'AI Qadam media kit — logo, brand assets, founder + COO bios, fact sheet, and press contact for journalists, partners, and event organizers.',
+  contactResponseSla: 'Reaches Binali within one business day; faster on weekdays.',
+  contactGuidance: 'Embargo requests, interview asks, and fact-checks all welcome here.',
+};
+
+function normalizePressPage(row: CmsPressPageRow): PressPage {
+  return {
+    heroTitle: row.hero_title || PRESS_PAGE_DEFAULTS.heroTitle,
+    companyBoilerplate: row.company_boilerplate || PRESS_PAGE_DEFAULTS.companyBoilerplate,
+    seoDescription: row.seo_description || PRESS_PAGE_DEFAULTS.seoDescription,
+    contactResponseSla: row.contact_response_sla || PRESS_PAGE_DEFAULTS.contactResponseSla,
+    contactGuidance: row.contact_guidance || PRESS_PAGE_DEFAULTS.contactGuidance,
+  };
+}
+
+export async function fetchPressPage(): Promise<PressPage> {
+  try {
+    const body = await get<{ data: CmsPressPageRow | CmsPressPageRow[] }>('/items/press_page');
+    const row = Array.isArray(body.data) ? body.data[0] : body.data;
+    return row ? normalizePressPage(row) : PRESS_PAGE_DEFAULTS;
+  } catch (err) {
+    console.error('[cms] fetchPressPage failed:', err instanceof Error ? err.message : err);
+    return PRESS_PAGE_DEFAULTS;
+  }
+}
+
 export interface HomepageStats {
   pastEventsCount: number;
   partnersCount: number;
