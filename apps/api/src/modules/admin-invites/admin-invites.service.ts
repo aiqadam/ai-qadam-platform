@@ -39,9 +39,24 @@ const COUNTRY_LEAD_GROUPS: ReadonlySet<string> = new Set([
   'country_lead_tj',
 ]);
 
+// Map RoleGroup (the admin-form choice + Directus storage key) to the
+// Authentik group name. Some are 1:1 (super-admin) and some bridge
+// (country_lead_uz -> aiqadam-country-lead-uz). aiqadam-staff has no
+// Authentik counterpart yet — resolveGroupNames will silently drop it
+// until that group exists. Every consumed invite ALSO gets
+// `aiqadam-mail-users` so the operator's @aiqadam.org mailbox works.
+const ROLE_GROUP_TO_AUTHENTIK: Record<RoleGroup, string> = {
+  'aiqadam-super-admin': 'aiqadam-super-admin',
+  'aiqadam-staff': 'aiqadam-staff',
+  country_lead_uz: 'aiqadam-country-lead-uz',
+  country_lead_kz: 'aiqadam-country-lead-kz',
+  country_lead_tj: 'aiqadam-country-lead-tj',
+};
+const MAIL_USERS_GROUP = 'aiqadam-mail-users';
+
 export interface CreateInviteInput {
   email: string;
-  display_name?: string | undefined;
+  display_name: string;
   role_groups: RoleGroup[];
   country?: 'uz' | 'kz' | 'tj' | 'xx' | undefined;
   delivery_channel: 'email' | 'telegram' | 'copy_paste';
@@ -144,12 +159,27 @@ export class AdminInvitesService {
     // Create Authentik user FIRST so a failure aborts before we have an
     // orphan invite row. Authentik 4xx (e.g. email already taken) maps
     // to 409 Conflict so the caller gets a meaningful status.
-    const username = this.usernameFromEmail(input.email);
+    //
+    // username is derived from display_name (firstname.lastname) to
+    // match the engineer-account convention (viktor.drukker,
+    // binali.rustamov, ...). Deriving from email local-part would
+    // produce wrong handles for recovery-style addresses like
+    // kambetbayeva@gmail.com (would yield "kambetbayeva" instead of
+    // "aigerim.kambetbayeva"). Lesson paid for 2026-05-25.
+    //
+    // attributes.upn + attributes.mailboxEmail wire the operator into
+    // (a) work-email sign-in at login.aiqadam.org (identification stage
+    // matches upn per [[reference-authentik-identification-upn]]) and
+    // (b) DMS mailbox auth (Dovecot LDAP filter matches mailboxEmail
+    // per [[reference-authentik-ldap-outpost]]).
+    const username = this.usernameFromDisplayName(input.display_name);
+    const workEmail = `${username}@aiqadam.org`;
     const ak = await this.authentik
       .createUser({
         email: input.email,
         username,
-        name: input.display_name ?? username,
+        name: input.display_name,
+        attributes: { upn: workEmail, mailboxEmail: workEmail },
       })
       .catch((err: unknown) => {
         if (err instanceof AuthentikError && err.status >= 400 && err.status < 500) {
@@ -365,6 +395,42 @@ export class AdminInvitesService {
       throw new ConflictException('invite_missing_authentik_user');
     }
     await this.authentik.setPassword(row.authentik_user_id, input.password);
+
+    // Idempotent: re-set upn + mailboxEmail at consume time too. New
+    // invites get them at create; legacy pending invites (created
+    // pre-2026-05-26) won't, so this is the safety net. usernameFromEmail
+    // below uses the row's stored email which is the OPERATOR'S personal
+    // recovery email — the display_name we picked at create-time isn't
+    // round-tripped through Directus, so we re-derive from the Authentik
+    // user record instead.
+    const akUser = await this.authentik.getUserById(row.authentik_user_id);
+    if (akUser != null) {
+      const workEmail = `${akUser.username}@aiqadam.org`;
+      const currentAttrs = (akUser.attributes ?? {}) as Record<string, unknown>;
+      if (currentAttrs.upn !== workEmail || currentAttrs.mailboxEmail !== workEmail) {
+        await this.authentik.patchAttributes(row.authentik_user_id, {
+          ...currentAttrs,
+          upn: workEmail,
+          mailboxEmail: workEmail,
+        });
+      }
+    }
+
+    // Assign Authentik groups derived from invite.role_groups + the
+    // standing aiqadam-mail-users membership (so the operator's
+    // @aiqadam.org mailbox is reachable via IMAP/SMTP). setUserGroups
+    // is a REPLACE — fine here because the invitee is freshly-created
+    // with no other group memberships to preserve.
+    const authentikGroupNames = [
+      ...row.role_groups.map((rg) => ROLE_GROUP_TO_AUTHENTIK[rg]).filter((n): n is string => !!n),
+      MAIL_USERS_GROUP,
+    ];
+    const resolvedGroups = await this.authentik.resolveGroupNames(authentikGroupNames);
+    await this.authentik.setUserGroups(
+      row.authentik_user_id,
+      resolvedGroups.map((g) => g.pk),
+    );
+
     const now = new Date().toISOString();
     await this.directus.patch(`/items/operator_invites/${encodeURIComponent(row.id)}`, {
       status: 'consumed',
@@ -435,9 +501,24 @@ export class AdminInvitesService {
     }
   }
 
-  private usernameFromEmail(email: string): string {
-    const local = email.split('@')[0] ?? email;
-    return local.toLowerCase().replace(/[^a-z0-9.]/g, '');
+  // "Aigerim Kambetbayeva" -> "aigerim.kambetbayeva".
+  // Whitespace collapses to single dots; everything not [a-z0-9.] is
+  // stripped (handles Cyrillic, accents, punctuation). Repeated dots
+  // collapse. Leading/trailing dots are trimmed. Result feeds username,
+  // upn, and mailboxEmail — so it must be a stable, RFC-5321-safe
+  // local-part.
+  private usernameFromDisplayName(displayName: string): string {
+    const slug = displayName
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '.')
+      .replace(/[^a-z0-9.]/g, '')
+      .replace(/\.+/g, '.')
+      .replace(/^\.+|\.+$/g, '');
+    if (slug.length === 0) {
+      throw new BadRequestException('display_name_unusable');
+    }
+    return slug;
   }
 }
 

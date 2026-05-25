@@ -168,6 +168,15 @@ export class AuthentikClient {
     });
   }
 
+  // Overwrite the user's attributes JSON. Callers should usually
+  // merge-and-pass to avoid wiping unrelated keys — Authentik treats
+  // the value as a literal replacement of the attributes object.
+  async patchAttributes(userPk: number, attributes: Record<string, unknown>): Promise<void> {
+    await this.request<unknown>('PATCH', `/api/v3/core/users/${userPk}/`, {
+      attributes,
+    });
+  }
+
   async disableUser(userPk: number): Promise<void> {
     await this.request<unknown>('PATCH', `/api/v3/core/users/${userPk}/`, {
       is_active: false,

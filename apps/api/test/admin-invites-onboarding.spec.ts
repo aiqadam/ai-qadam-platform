@@ -26,6 +26,10 @@ type FakeAuthentik = {
   disableUser: ReturnType<typeof vi.fn>;
   createUser: ReturnType<typeof vi.fn>;
   isConfigured: ReturnType<typeof vi.fn>;
+  getUserById: ReturnType<typeof vi.fn>;
+  setUserGroups: ReturnType<typeof vi.fn>;
+  patchAttributes: ReturnType<typeof vi.fn>;
+  resolveGroupNames: ReturnType<typeof vi.fn>;
 };
 
 type FakeBridge = { resolveDirectusId: ReturnType<typeof vi.fn> };
@@ -70,6 +74,29 @@ beforeEach(() => {
     disableUser: vi.fn(),
     createUser: vi.fn(),
     isConfigured: vi.fn().mockReturnValue(true),
+    getUserById: vi.fn().mockResolvedValue({
+      pk: 99,
+      username: 'aigerim.k',
+      email: 'aigerim.k@aiqadam.org',
+      name: 'Aigerim K.',
+      is_active: true,
+      uid: 'ak-uid',
+      groups: [],
+      groups_obj: [],
+      // Default: attributes ALREADY populated correctly. Tests covering
+      // the legacy-invite path override this with attributes: {}.
+      attributes: {
+        upn: 'aigerim.k@aiqadam.org',
+        mailboxEmail: 'aigerim.k@aiqadam.org',
+      },
+    }),
+    setUserGroups: vi.fn().mockResolvedValue(undefined),
+    patchAttributes: vi.fn().mockResolvedValue(undefined),
+    resolveGroupNames: vi
+      .fn()
+      .mockImplementation(async (names: string[]) =>
+        names.map((name, i) => ({ pk: `pk-${name}-${i}`, name, is_superuser: false, users: [] })),
+      ),
   };
   bridge = { resolveDirectusId: vi.fn().mockResolvedValue('directus-uuid-of-caller') };
   audit = { emit: vi.fn().mockResolvedValue(undefined) };
@@ -141,6 +168,82 @@ describe('consumeInvite', () => {
     expect(patch.aup_version).toBe(AUP_CURRENT_VERSION);
     expect(typeof patch.consumed_at).toBe('string');
     expect(typeof patch.aup_accepted_at).toBe('string');
+  });
+
+  // Without the next two assertions, the operator can sign in but
+  // lands in NO groups — no Workspace tile, no mailbox. Closed
+  // 2026-05-26 after the Aigerim manual rescue.
+  it('assigns role groups + aiqadam-mail-users on consume', async () => {
+    directus.get.mockResolvedValueOnce({
+      data: [pendingRow({ role_groups: ['aiqadam-super-admin'] })],
+    });
+    await svc.consumeInvite({
+      token: VALID_TOKEN,
+      password: 'a-strong-passw0rd!',
+      aup_accepted: true,
+    });
+    expect(authentik.resolveGroupNames).toHaveBeenCalledWith([
+      'aiqadam-super-admin',
+      'aiqadam-mail-users',
+    ]);
+    const [userPk, groupPks] = authentik.setUserGroups.mock.calls[0] ?? [];
+    expect(userPk).toBe(99);
+    expect(groupPks).toEqual(['pk-aiqadam-super-admin-0', 'pk-aiqadam-mail-users-1']);
+  });
+
+  it('country_lead_* role_groups map to aiqadam-country-lead-<tenant>', async () => {
+    directus.get.mockResolvedValueOnce({
+      data: [pendingRow({ role_groups: ['country_lead_kz'] })],
+    });
+    await svc.consumeInvite({
+      token: VALID_TOKEN,
+      password: 'a-strong-passw0rd!',
+      aup_accepted: true,
+    });
+    expect(authentik.resolveGroupNames).toHaveBeenCalledWith([
+      'aiqadam-country-lead-kz',
+      'aiqadam-mail-users',
+    ]);
+  });
+
+  it('does NOT re-PATCH attributes when upn + mailboxEmail are already correct', async () => {
+    // Default mock has correct attributes — this is the post-fix
+    // create-then-consume case. Re-patching would be a no-op anyway,
+    // but skipping the API call is cleaner + faster.
+    directus.get.mockResolvedValueOnce({ data: [pendingRow()] });
+    await svc.consumeInvite({
+      token: VALID_TOKEN,
+      password: 'a-strong-passw0rd!',
+      aup_accepted: true,
+    });
+    expect(authentik.patchAttributes).not.toHaveBeenCalled();
+  });
+
+  it('re-PATCHes attributes for legacy invites created pre-fix (empty attributes)', async () => {
+    // Pre-2026-05-26 createInvite calls didn't set upn / mailboxEmail.
+    // Consume must back-fill them so login.aiqadam.org work-email
+    // sign-in works for the operator.
+    authentik.getUserById.mockResolvedValueOnce({
+      pk: 99,
+      username: 'aigerim.k',
+      email: 'aigerim.k@aiqadam.org',
+      name: 'Aigerim K.',
+      is_active: true,
+      uid: 'ak-uid',
+      groups: [],
+      groups_obj: [],
+      attributes: {},
+    });
+    directus.get.mockResolvedValueOnce({ data: [pendingRow()] });
+    await svc.consumeInvite({
+      token: VALID_TOKEN,
+      password: 'a-strong-passw0rd!',
+      aup_accepted: true,
+    });
+    expect(authentik.patchAttributes).toHaveBeenCalledWith(99, {
+      upn: 'aigerim.k@aiqadam.org',
+      mailboxEmail: 'aigerim.k@aiqadam.org',
+    });
   });
 
   it('rejects when aup_accepted is false', async () => {

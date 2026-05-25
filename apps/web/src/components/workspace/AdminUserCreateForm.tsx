@@ -150,7 +150,7 @@ export default function AdminUserCreateForm(): ReactElement {
       },
       body: JSON.stringify({
         email,
-        display_name: displayName || undefined,
+        display_name: displayName.trim(),
         role_groups: [role],
         delivery_channel: deliveryChannel,
         notes: notes || undefined,
@@ -171,24 +171,28 @@ export default function AdminUserCreateForm(): ReactElement {
   return (
     <form onSubmit={onSubmit} style={panelStyle()}>
       <label style={labelStyle()}>
-        <span>Email (use first.last@aiqadam.org for staff)</span>
+        <span>Full name (e.g. "Aigerim Kambetbayeva") *</span>
+        <input
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          required
+          minLength={1}
+          maxLength={120}
+          placeholder="Firstname Lastname"
+          style={inputStyle()}
+        />
+      </label>
+
+      <label style={labelStyle()}>
+        <span>Personal email (recovery destination — NOT the sign-in identifier) *</span>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
           maxLength={254}
-          style={inputStyle()}
-        />
-      </label>
-
-      <label style={labelStyle()}>
-        <span>Display name (optional)</span>
-        <input
-          type="text"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          maxLength={120}
+          placeholder="their.personal@gmail.com"
           style={inputStyle()}
         />
       </label>

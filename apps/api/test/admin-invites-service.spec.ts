@@ -25,6 +25,11 @@ type FakeAuthentik = {
   createUser: ReturnType<typeof vi.fn>;
   disableUser: ReturnType<typeof vi.fn>;
   isConfigured: ReturnType<typeof vi.fn>;
+  getUserById: ReturnType<typeof vi.fn>;
+  setPassword: ReturnType<typeof vi.fn>;
+  setUserGroups: ReturnType<typeof vi.fn>;
+  patchAttributes: ReturnType<typeof vi.fn>;
+  resolveGroupNames: ReturnType<typeof vi.fn>;
 };
 type FakeBridge = {
   resolveDirectusId: ReturnType<typeof vi.fn>;
@@ -69,6 +74,25 @@ beforeEach(() => {
     }),
     disableUser: vi.fn().mockResolvedValue(undefined),
     isConfigured: vi.fn().mockReturnValue(true),
+    getUserById: vi.fn().mockResolvedValue({
+      pk: 99,
+      username: 'aigerim.k',
+      email: 'aigerim.k@aiqadam.org',
+      name: 'Aigerim K.',
+      is_active: true,
+      uid: 'ak-uid',
+      groups: [],
+      groups_obj: [],
+      attributes: {},
+    }),
+    setPassword: vi.fn().mockResolvedValue(undefined),
+    setUserGroups: vi.fn().mockResolvedValue(undefined),
+    patchAttributes: vi.fn().mockResolvedValue(undefined),
+    resolveGroupNames: vi
+      .fn()
+      .mockImplementation(async (names: string[]) =>
+        names.map((name, i) => ({ pk: `pk-${name}-${i}`, name, is_superuser: false, users: [] })),
+      ),
   };
   bridge = {
     resolveDirectusId: vi.fn().mockResolvedValue('directus-uuid-of-caller'),
@@ -129,11 +153,43 @@ describe('createInvite — happy path', () => {
     expect(row.created_by).toBe('directus-uuid-of-caller');
     expect(bridge.resolveDirectusId).toHaveBeenCalledWith('caller-uuid');
 
-    // Authentik received the email and a slugified username.
+    // Authentik received the email + slugified username AND the
+    // identity-model attributes (upn + mailboxEmail). Without these,
+    // the operator cannot sign in with their @aiqadam.org work email
+    // and Dovecot LDAP auth doesn't match — closed 2026-05-26 after
+    // the Aigerim manual-fix lesson.
     expect(authentik.createUser).toHaveBeenCalledWith({
       email: 'Aigerim.K@aiqadam.org',
       username: 'aigerim.k',
       name: 'Aigerim K.',
+      attributes: {
+        upn: 'aigerim.k@aiqadam.org',
+        mailboxEmail: 'aigerim.k@aiqadam.org',
+      },
+    });
+  });
+
+  it('username + upn + mailboxEmail derive from display_name, not email local-part', async () => {
+    // The 2026-05-25 bug: I derived "kambetbayeva" from her gmail and
+    // had to rename to "aigerim.kambetbayeva" later. This test pins
+    // the corrected behaviour.
+    await svc.createInvite(
+      {
+        email: 'kambetbayeva@gmail.com',
+        display_name: 'Aigerim Kambetbayeva',
+        role_groups: ['aiqadam-super-admin'],
+        delivery_channel: 'copy_paste',
+      },
+      'caller',
+    );
+    expect(authentik.createUser).toHaveBeenCalledWith({
+      email: 'kambetbayeva@gmail.com',
+      username: 'aigerim.kambetbayeva',
+      name: 'Aigerim Kambetbayeva',
+      attributes: {
+        upn: 'aigerim.kambetbayeva@aiqadam.org',
+        mailboxEmail: 'aigerim.kambetbayeva@aiqadam.org',
+      },
     });
   });
 
@@ -141,6 +197,7 @@ describe('createInvite — happy path', () => {
     const res = await svc.createInvite(
       {
         email: 'a@aiqadam.org',
+        display_name: 'Anonymous Tester',
         role_groups: ['aiqadam-staff'],
         delivery_channel: 'copy_paste',
       },
@@ -156,10 +213,30 @@ describe('createInvite — validation', () => {
   it('rejects empty role_groups', async () => {
     await expect(
       svc.createInvite(
-        { email: 'x@y.org', role_groups: [], delivery_channel: 'copy_paste' },
+        {
+          email: 'x@y.org',
+          display_name: 'X Y',
+          role_groups: [],
+          delivery_channel: 'copy_paste',
+        },
         'caller',
       ),
     ).rejects.toThrow(/role_groups_empty/);
+    expect(authentik.createUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects display_name that slugifies to empty (e.g. emoji-only)', async () => {
+    await expect(
+      svc.createInvite(
+        {
+          email: 'x@y.org',
+          display_name: '🦊',
+          role_groups: ['aiqadam-staff'],
+          delivery_channel: 'copy_paste',
+        },
+        'caller',
+      ),
+    ).rejects.toThrow(/display_name_unusable/);
     expect(authentik.createUser).not.toHaveBeenCalled();
   });
 
@@ -171,6 +248,7 @@ describe('createInvite — validation', () => {
       svc.createInvite(
         {
           email: 'dup@aiqadam.org',
+          display_name: 'Dup User',
           role_groups: ['aiqadam-staff'],
           delivery_channel: 'copy_paste',
         },
@@ -185,6 +263,7 @@ describe('createInvite — validation', () => {
       svc.createInvite(
         {
           email: 'a@aiqadam.org',
+          display_name: 'A Lead',
           role_groups: ['country_lead_kz'],
           country: 'kz',
           delivery_channel: 'copy_paste',
@@ -236,6 +315,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     const res = await svc.createInvite(
       {
         email: 'binali.rustamov@aiqadam.org',
+        display_name: 'Binali Rustamov',
         role_groups: ['aiqadam-super-admin'],
         delivery_channel: 'copy_paste',
         destination_gmail: 'binali.personal@gmail.com',
@@ -260,6 +340,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     const res = await svc.createInvite(
       {
         email: 'binali.rustamov@aiqadam.org',
+        display_name: 'Binali Rustamov',
         role_groups: ['aiqadam-super-admin'],
         delivery_channel: 'copy_paste',
       },
@@ -274,6 +355,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     const res = await svc.createInvite(
       {
         email: 'volunteer@gmail.com',
+        display_name: 'Volunteer X',
         role_groups: ['aiqadam-staff'],
         delivery_channel: 'copy_paste',
         destination_gmail: 'volunteer@gmail.com',
@@ -292,6 +374,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     const res = await svc.createInvite(
       {
         email: 'binali.rustamov@aiqadam.org',
+        display_name: 'Binali Rustamov',
         role_groups: ['aiqadam-super-admin'],
         delivery_channel: 'copy_paste',
         destination_gmail: 'binali.personal@gmail.com',
@@ -317,6 +400,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     const res = await svc.createInvite(
       {
         email: 'binali.rustamov@aiqadam.org',
+        display_name: 'Binali Rustamov',
         role_groups: ['aiqadam-super-admin'],
         delivery_channel: 'copy_paste',
         destination_gmail: 'binali.personal@gmail.com',
@@ -334,6 +418,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     const res = await svc.createInvite(
       {
         email: 'binali.rustamov@aiqadam.org',
+        display_name: 'Binali Rustamov',
         role_groups: ['aiqadam-super-admin'],
         delivery_channel: 'copy_paste',
         destination_gmail: 'binali.personal@gmail.com',
@@ -365,6 +450,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     const res = await svc.createInvite(
       {
         email: 'binali.rustamov@aiqadam.org',
+        display_name: 'Binali Rustamov',
         role_groups: ['aiqadam-super-admin'],
         delivery_channel: 'copy_paste',
         destination_gmail: 'binali.personal@gmail.com',
@@ -384,6 +470,7 @@ describe('createInvite — F-S2.8 email automation', () => {
     await svc.createInvite(
       {
         email: 'binali.rustamov@aiqadam.org',
+        display_name: 'Binali Rustamov',
         role_groups: ['aiqadam-super-admin'],
         delivery_channel: 'copy_paste',
         destination_gmail: 'binali.personal@gmail.com',

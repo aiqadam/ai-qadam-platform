@@ -33,7 +33,13 @@ import { SuperAdminGuard } from './super-admin.guard';
 const createSchema = z
   .object({
     email: z.string().trim().toLowerCase().email().max(254),
-    display_name: z.string().trim().min(1).max(120).optional(),
+    // display_name is REQUIRED — it drives the Authentik username
+    // (firstname.lastname), upn (<user>@aiqadam.org), and mailboxEmail.
+    // Deriving from the email local-part produces broken handles for
+    // recovery-style addresses (e.g. kambetbayeva@gmail.com would yield
+    // "kambetbayeva" instead of "aigerim.kambetbayeva"). Lesson paid for
+    // 2026-05-25.
+    display_name: z.string().trim().min(1).max(120),
     role_groups: z
       .array(z.enum([...ALLOWED_ROLE_GROUPS] as [RoleGroup, ...RoleGroup[]]))
       .min(1)
