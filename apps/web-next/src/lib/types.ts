@@ -158,3 +158,19 @@ export interface MeProfileFull {
   consents: ConsentSummary[];
   skills: MemberSkill[];
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/leaderboard
+// ---------------------------------------------------------------------------
+
+export const LEADERBOARD_WINDOWS = ['all', 'year', 'quarter'] as const;
+export type LeaderboardWindow = (typeof LEADERBOARD_WINDOWS)[number];
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  email: string;
+  displayName: string | null;
+  handle: string | null;
+  totalPoints: number;
+}

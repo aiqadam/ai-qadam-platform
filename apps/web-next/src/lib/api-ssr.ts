@@ -111,3 +111,24 @@ export async function fetchPublicProfile(
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// /v1/leaderboard — tenant-scoped points leaderboard.
+// ---------------------------------------------------------------------------
+
+import type { LeaderboardEntry, LeaderboardWindow } from './types';
+export type { LeaderboardEntry, LeaderboardWindow } from './types';
+
+export async function fetchLeaderboard(
+  req: Request,
+  limit = 20,
+  window: LeaderboardWindow = 'all',
+): Promise<LeaderboardEntry[]> {
+  try {
+    const qs = new URLSearchParams({ limit: String(limit), window }).toString();
+    return await get<LeaderboardEntry[]>(req, `/v1/leaderboard?${qs}`);
+  } catch (err) {
+    console.error('[api-ssr] /v1/leaderboard failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}

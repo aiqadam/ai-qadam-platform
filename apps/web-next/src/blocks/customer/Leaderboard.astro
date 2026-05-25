@@ -1,0 +1,210 @@
+---
+// L3 block — <Leaderboard>.
+//
+// Top-3 podium + Strava-style ranked table. Tabs for `all | year |
+// quarter` time windows. Each row links to /u/[handle] when a public
+// handle exists.
+//
+// Data-in/element-out: receives entries + the currently-active
+// window. The page (L4) reads ?window= and fetches via
+// fetchLeaderboard(req, limit, window).
+//
+// Country / streak / rank-change columns are placeholders in v1 +
+// stay placeholders in v2 first cut — they need data-shape changes
+// in the API. Member-row highlighting ("Your row") also deferred to
+// avoid an SSR identity round-trip on every render.
+//
+// Wiring: docs/architecture/wiring-map.md → point_awards.
+
+import EmptyState from '../common/EmptyState.astro';
+import type { LeaderboardEntry, LeaderboardWindow } from '../../lib/types';
+import { LEADERBOARD_WINDOWS } from '../../lib/types';
+
+interface Props {
+  entries: LeaderboardEntry[];
+  window: LeaderboardWindow;
+}
+
+const { entries, window } = Astro.props;
+
+const WINDOW_LABEL: Record<LeaderboardWindow, string> = {
+  all: 'All time',
+  year: 'This year',
+  quarter: 'This quarter',
+};
+
+function windowHref(target: LeaderboardWindow): string {
+  return target === 'all' ? '/leaderboard' : `/leaderboard?window=${target}`;
+}
+
+function displayNameFor(e: LeaderboardEntry): string {
+  if (e.displayName) return e.displayName;
+  return e.email.split('@')[0] ?? e.email;
+}
+
+function avatarSeed(e: LeaderboardEntry): string {
+  const n = displayNameFor(e);
+  const parts = n.split(/[\s._]+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? n[0] ?? '?';
+  const b = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+  return `${a}${b}`.toUpperCase();
+}
+
+const podium = entries.slice(0, 3);
+const tableRows = entries.slice(3);
+
+// Podium order — silver / gold / bronze (so the middle is gold).
+const PODIUM_ORDER: Array<{ idx: number; kind: 'gold' | 'silver' | 'bronze' }> = [
+  { idx: 1, kind: 'silver' },
+  { idx: 0, kind: 'gold' },
+  { idx: 2, kind: 'bronze' },
+];
+
+const PODIUM_RING: Record<'gold' | 'silver' | 'bronze', string> = {
+  gold: 'ring-2 ring-amber-500/60',
+  silver: 'ring-2 ring-zinc-400/60',
+  bronze: 'ring-2 ring-orange-700/60',
+};
+---
+
+<section class="mx-auto max-w-5xl px-6 py-12">
+  <header class="mb-8">
+    <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground mb-1">
+      Leaderboard
+    </h1>
+    <p class="text-sm text-muted-foreground">
+      Points earned by attending events, sharing, organizing, and contributing.
+    </p>
+  </header>
+
+  <nav class="flex flex-wrap gap-2 mb-6" aria-label="Time window">
+    {
+      LEADERBOARD_WINDOWS.map((w) => {
+        const active = w === window;
+        const cls = active
+          ? 'inline-flex items-center px-3 py-1.5 rounded-md border border-border bg-muted text-foreground font-mono text-xs tracking-wide no-underline'
+          : 'inline-flex items-center px-3 py-1.5 rounded-md border border-border bg-card text-muted-foreground font-mono text-xs tracking-wide no-underline hover:text-foreground transition-colors';
+        return (
+          <a href={windowHref(w)} class={cls} aria-current={active ? 'page' : undefined}>
+            {WINDOW_LABEL[w]}
+          </a>
+        );
+      })
+    }
+  </nav>
+
+  {
+    entries.length === 0 ? (
+      <EmptyState
+        heading="No leaderboard data yet"
+        description="Points appear once members start attending events."
+        icon="🏆"
+      />
+    ) : (
+      <>
+        {podium.length > 0 && (
+          <ol class="grid grid-cols-3 gap-3 mb-10 list-none p-0">
+            {PODIUM_ORDER.map(({ idx, kind }) => {
+              const e = podium[idx];
+              if (!e) return null;
+              const name = displayNameFor(e);
+              const inner = (
+                <div class="flex flex-col items-center px-4 py-5">
+                  <div
+                    class={`w-14 h-14 mb-3 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground font-mono text-sm font-semibold ${PODIUM_RING[kind]}`}
+                  >
+                    {avatarSeed(e)}
+                  </div>
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    #{e.rank} · {kind}
+                  </span>
+                  <span class="text-sm font-semibold text-foreground text-center line-clamp-2">
+                    {name}
+                  </span>
+                  <span class="font-display text-xl font-semibold text-primary mt-2">
+                    {e.totalPoints}
+                  </span>
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    points
+                  </span>
+                </div>
+              );
+              return (
+                <li class="rounded-xl border border-border bg-card">
+                  {e.handle ? (
+                    <a href={`/u/${e.handle}`} class="block no-underline text-inherit">
+                      {inner}
+                    </a>
+                  ) : (
+                    inner
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+
+        {tableRows.length > 0 && (
+          <div class="rounded-xl border border-border bg-card overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-muted/50">
+                <tr class="text-left">
+                  <th class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-4 py-2 w-12">
+                    #
+                  </th>
+                  <th class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-4 py-2">
+                    Member
+                  </th>
+                  <th class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-4 py-2 text-right w-24">
+                    Points
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableRows.map((e) => {
+                  const name = displayNameFor(e);
+                  return (
+                    <tr class="border-t border-border">
+                      <td class="font-mono text-xs text-muted-foreground px-4 py-2.5">
+                        {e.rank}
+                      </td>
+                      <td class="px-4 py-2.5">
+                        {e.handle ? (
+                          <a
+                            href={`/u/${e.handle}`}
+                            class="inline-flex items-center gap-2 no-underline text-inherit hover:text-primary transition-colors"
+                          >
+                            <span
+                              class="w-7 h-7 rounded-full inline-flex items-center justify-center bg-secondary text-secondary-foreground font-mono text-[10px] font-semibold"
+                              aria-hidden="true"
+                            >
+                              {avatarSeed(e)}
+                            </span>
+                            <span>{name}</span>
+                          </a>
+                        ) : (
+                          <span class="inline-flex items-center gap-2">
+                            <span
+                              class="w-7 h-7 rounded-full inline-flex items-center justify-center bg-secondary text-secondary-foreground font-mono text-[10px] font-semibold"
+                              aria-hidden="true"
+                            >
+                              {avatarSeed(e)}
+                            </span>
+                            <span>{name}</span>
+                          </span>
+                        )}
+                      </td>
+                      <td class="font-display text-sm text-right px-4 py-2.5">
+                        {e.totalPoints}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    )
+  }
+</section>

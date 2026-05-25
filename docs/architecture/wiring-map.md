@@ -265,9 +265,33 @@ api_endpoints:
 > - `member_interests` + `member_employments` — Phase 1.5c (interests + employments editors).
 > - `member_badges` — Phase 3 cabinet for badge grant/audit.
 
-### `point_awards`
+### `point_awards` — LIVE as of PR 1.6
 
-> Placeholder — filled in PR 1.6.
+```yaml
+data_source: point_awards
+description: Append-only point grants per member. Aggregated by the API into the leaderboard view.
+
+customer_blocks:
+  - block: Leaderboard
+    page: apps/web-next/src/pages/leaderboard.astro (PR 1.6)
+    operation: read (aggregate)
+    fields_read: [rank, userId, email, displayName, handle, totalPoints]
+
+operator_blocks: []   # placeholder — Phase 3.4 "Points & badges cabinet"
+
+ssr_fetcher: apps/web-next/src/lib/api-ssr.ts → fetchLeaderboard(req, limit, window)
+api_endpoint: GET /v1/leaderboard?limit=N&window=all|year|quarter (Host header → tenant filter; aggregates point_awards.amount grouped by user)
+fallback: [] (page renders EmptyState block; API outage doesn't break the page)
+
+aggregates:
+  top_N_per_country:
+    formula: sum(amount) over point_awards filtered by tenant + window, grouped by user, sorted desc
+    surfaces:
+      - Leaderboard at /leaderboard (PR 1.6)
+      - planned KpiTile.top_3 at /workspace dashboard (Phase 2)
+    query_key: [leaderboard, <window>]
+    stale_time: 60
+```
 
 ### `site_settings` (singleton) — LIVE under apps/web-next/ as of PR 1.1
 

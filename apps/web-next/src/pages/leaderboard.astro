@@ -1,0 +1,47 @@
+---
+// @generated-from gen:page
+// slug: leaderboard
+// generated: 2026-05-26
+//
+// Phase 1.6 — customer-facing /leaderboard per ADR-0038.
+//
+// Composition only (L4): parse ?window=all|year|quarter from the URL,
+// fetch the top-20 leaderboard for that window, render via the
+// <Leaderboard> block.
+//
+// Wiring: docs/architecture/wiring-map.md → point_awards.
+//
+// SSR — needs the request Host header to forward to /v1/leaderboard
+// (the API's per-country tenant filter).
+export const prerender = false;
+
+import { PageHead } from '../blocks/common';
+import { Leaderboard } from '../blocks/customer';
+import Layout from '../layouts/Layout.astro';
+import { fetchLeaderboard } from '../lib/api-ssr';
+import { LEADERBOARD_WINDOWS, type LeaderboardWindow } from '../lib/types';
+
+const url = new URL(Astro.request.url);
+const rawWindow = url.searchParams.get('window');
+const activeWindow: LeaderboardWindow = (LEADERBOARD_WINDOWS as readonly string[]).includes(
+  rawWindow ?? '',
+)
+  ? (rawWindow as LeaderboardWindow)
+  : 'all';
+
+const entries = await fetchLeaderboard(Astro.request, 20, activeWindow);
+---
+
+<Layout
+  title="Leaderboard · AI Qadam (next)"
+  description="Top AI Qadam community members by points earned through events, sharing, and contributing."
+>
+  <PageHead
+    slot="head"
+    title="Leaderboard · AI Qadam (next)"
+    description="Top AI Qadam community members by points earned."
+  />
+  <main>
+    <Leaderboard entries={entries} window={activeWindow} />
+  </main>
+</Layout>

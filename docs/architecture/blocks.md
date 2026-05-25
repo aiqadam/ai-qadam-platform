@@ -62,8 +62,8 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<ProfileCard>` | `@/blocks/customer` | `profile: PublicProfile, mode?: 'public'\|'self'` (accepts `<slot/>` so /me can mount the editor under the public card) | `pages/u/[handle].astro` (PR 1.5a); planned `pages/me/profile.astro` (PR 1.5b) | Astro-only — no story | `directus_users` (via `/v1/users/:handle/profile`) |
 | `<ConsentList>` | `@/blocks/customer` | _(no props — reads via `useMyFullProfile()` + writes via `useUpdateConsent()` from `lib/use-me-profile`)_ | `pages/me/profile.astro` (PR 1.5b) | Storyless — interactive island needs provider mocks | `member_consents` (read+write) |
 | `<SkillTagger>` | `@/blocks/customer` | _(no props — reads via `useMyFullProfile()` + writes via `useAddSkill` / `useRemoveSkill`)_; PR 1.5b ships skills only — interests + employments come in 1.5c | `pages/me/profile.astro` (PR 1.5b) | Storyless — interactive island needs provider mocks | `member_skills` (read+write) |
-| `<Leaderboard>` | `@/blocks/customer` | `entries: LeaderboardEntry[]` | — | — | `point_awards` agg |
-| `<AvatarStack>` | `@/blocks/customer` | `members: MemberRef[], max?` | — | — | n/a |
+| `<Leaderboard>` | `@/blocks/customer` | `entries: LeaderboardEntry[], window: LeaderboardWindow` | `pages/leaderboard.astro` (PR 1.6) | Astro-only — no story | `point_awards` (aggregate) |
+| `<AvatarStack>` | `@/blocks/customer` | _(deferred — Leaderboard renders avatar initials inline; extract when a second consumer needs it)_ | — | — | n/a |
 | `<ForumThread>` | `@/blocks/customer` | `eventId, questions: EventQuestion[]` | — | — | `event_questions` |
 | `<AppFooter>` | `@/blocks/customer` | `(no props — reads site_settings via L1)` | — | — | `site_settings` |
 
