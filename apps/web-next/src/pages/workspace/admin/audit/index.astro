@@ -1,0 +1,48 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/admin/audit
+// generated: 2026-05-26
+//
+// Phase 2.5a — super-admin audit cabinet per ADR-0038 + ADR-0033.
+//
+// Composition only (L4): renders <AuditLogList> inside the super-admin
+// auth gate. Filter chips + DataTable live in the island.
+//
+// Wiring: docs/architecture/wiring-map.md → audit_events.
+//
+// SSR — the role gate reads Astro.locals.auth set by the middleware
+// from the Authentik OIDC session cookie.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { AuditLogList, Breadcrumbs, PageShell } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Audit log · AI Qadam workspace"
+  description="Append-only log of operator actions + selected member actions."
+>
+  <PageHead
+    slot="head"
+    title="Audit log · AI Qadam workspace"
+    description="Append-only log of operator actions + selected member actions."
+  />
+  <AuthGate role="aiqadam-super-admin" signInLabel="Super-admin only — sign in">
+    <PageShell
+      title="Audit log"
+      description="Append-only operator + selected member actions. Capped at 200 most recent matching rows."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Admin', href: '/workspace/admin' },
+          { label: 'Audit' },
+        ]}
+      />
+      <AuditLogList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

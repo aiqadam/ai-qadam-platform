@@ -81,7 +81,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<Form>` | `@/blocks/workspace` | `schema: ZodSchema, onSubmit, defaultValues` | — | — | n/a (Zod-bound) |
 | `<Wizard>` | `@/blocks/workspace` | `steps, onComplete, current?` | — | — | n/a |
 | `<AsyncSelect>` | `@/blocks/workspace` | `loadOptions, value, onChange` | — | — | various |
-| `<AuditLogList>` | `@/blocks/workspace` | `events: AuditEvent[]` | — | — | `audit_events` |
+| `<AuditLogList>` | `@/blocks/workspace` | _(no props — owns severity + event-prefix + country filter state; reads via `useAuditEvents` from `lib/use-audit`; capped at 200 rows)_ | `pages/workspace/admin/audit/index.astro` (PR 2.5a) | Storyless — interactive island needs provider mocks | `/v1/admin/audit/events` |
 | `<FormBuilder>` | `@/blocks/workspace` | `form, onChange` | — | — | `forms` |
 
 ### Cross-cutting blocks — `apps/web-next/src/blocks/common/`

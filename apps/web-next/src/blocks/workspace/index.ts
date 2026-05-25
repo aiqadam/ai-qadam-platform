@@ -4,6 +4,7 @@
 // folder split; `common` blocks live next to both for cross-cutting
 // concerns like <PageHead> and <AppFooter>.
 
+export { AuditLogList } from './AuditLogList';
 export { default as Breadcrumbs } from './Breadcrumbs.astro';
 export { DashboardKpis } from './DashboardKpis';
 export { DataTable } from './DataTable';

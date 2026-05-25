@@ -309,3 +309,27 @@ export interface CountryMetrics {
   csat_avg: number | null;
   csat_count: number;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/admin/audit (super-admin audit log)
+//
+// Append-only log of operator actions + selected member actions.
+// Per ADR-0033 the full payload + actor are only visible to super-admin;
+// /v1/me/access-log returns a redacted slice for the member themselves.
+// ---------------------------------------------------------------------------
+
+export const AUDIT_SEVERITIES = ['info', 'high', 'critical'] as const;
+export type AuditSeverity = (typeof AUDIT_SEVERITIES)[number];
+
+export interface AuditEventSummary {
+  id: string;
+  event: string;
+  severity: AuditSeverity;
+  actor_id: string | null;
+  actor_email: string | null;
+  target_kind: string | null;
+  target_id: string | null;
+  country: string | null;
+  payload_json: Record<string, unknown> | null;
+  ts: string;
+}

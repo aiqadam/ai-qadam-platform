@@ -421,20 +421,25 @@ ssr_fetcher: none — React island fetches client-side via apiClient (page is op
 fallback: error surface in DataTable; pagination defaults to page 1
 ```
 
-### `audit_events`
+### `audit_events` — LIVE as of PR 2.5a
 
 ```yaml
 data_source: audit_events
-description: Append-only log of operator actions (and selected member actions).
+description: Append-only log of operator actions + selected member actions. Per ADR-0033 super-admin only; redacted slice surfaces on /me/access-log for self-view (PR 2.5a ships /workspace/admin/audit; /me/access-log lands as a customer-side surface in a later PR).
 
 customer_blocks: []   # never surfaced to customers
 
 operator_blocks:
-  - block: AuditLogList
+  - block: AuditLogList (composes <DataTable>)
     cabinet: /workspace/admin/audit
     operation: read
+    hooks: lib/use-audit.ts → useAuditEvents
 
-aggregates: {}
+api_endpoints:
+  - GET /v1/admin/audit/events?severity=&event_prefix=&country=&limit=  (AuthGuard + SuperAdminGuard)
+
+ssr_fetcher: none — island fetches client-side (super-admin only)
+fallback: error surface in DataTable
 ```
 
 ### `tg_broadcasts`, `tg_segments`, `forms`, `form_submissions`
