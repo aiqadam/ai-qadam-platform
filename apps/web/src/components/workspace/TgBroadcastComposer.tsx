@@ -52,6 +52,7 @@ interface FormState {
   country: string;
   html_body: string;
   buttons: BroadcastButton[];
+  audience_segment: string | null;
   // ISO local datetime-input value (YYYY-MM-DDTHH:mm). Convert to UTC
   // ISO before posting.
   scheduled_local: string;
@@ -111,6 +112,7 @@ function blankForm(): FormState {
     country: 'uz',
     html_body: '',
     buttons: [],
+    audience_segment: null,
     scheduled_local: '',
     intent: 'save_draft',
     recurrence: 'none',
@@ -124,6 +126,7 @@ function detailToForm(d: BroadcastDetail): FormState {
     country: d.country,
     html_body: d.html_body,
     buttons: d.inline_buttons,
+    audience_segment: d.audience_segment,
     scheduled_local: d.scheduled_at ? isoToLocalInput(d.scheduled_at) : '',
     intent: d.status === 'scheduled' ? 'schedule' : 'save_draft',
     recurrence: d.recurrence ?? 'none',
@@ -462,6 +465,10 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
         </p>
       </fieldset>
 
+      {isEditMode && f.audience_segment && (
+        <RateLimitWarning segmentId={f.audience_segment} accessToken={state.accessToken} />
+      )}
+
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button
           type="submit"
@@ -502,6 +509,88 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
       </div>
     </form>
   );
+}
+
+// #391 — per-tenant rate-limit warning. Fetches the audience segment's
+// match_count and derives an estimated drain time at the global
+// 30/sec Telegram throttle (ADR-0034). Big sends get a ⚠ chip so the
+// operator thinks about timing before "Send now ▶".
+const TG_GLOBAL_THROTTLE_PER_SEC = 30;
+const BIG_SEND_THRESHOLD = 10_000;
+
+interface RateLimitWarningProps {
+  segmentId: string;
+  accessToken: string;
+}
+
+async function fetchSegmentCount(segmentId: string, accessToken: string): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `/api/v1/workspace/tg-segments/${encodeURIComponent(segmentId)}/preview`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as { match_count: number };
+    return body.match_count;
+  } catch {
+    return null;
+  }
+}
+
+function RateLimitWarning({ segmentId, accessToken }: RateLimitWarningProps): ReactElement | null {
+  const [count, setCount] = useState<number | null>(null);
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setCount(null);
+    setErrored(false);
+    void fetchSegmentCount(segmentId, accessToken).then((n) => {
+      if (!active) return;
+      if (n === null) setErrored(true);
+      else setCount(n);
+    });
+    return () => {
+      active = false;
+    };
+  }, [segmentId, accessToken]);
+
+  if (errored) return null;
+  if (count === null) {
+    return (
+      <div style={rateLimitChipStyle(false)} data-testid="composer-rate-limit">
+        Estimating audience…
+      </div>
+    );
+  }
+
+  const isBigSend = count >= BIG_SEND_THRESHOLD;
+  return (
+    <div style={rateLimitChipStyle(isBigSend)} data-testid="composer-rate-limit">
+      {isBigSend && '⚠ '}~{count.toLocaleString()} recipients · {formatEta(count)}
+      {isBigSend && ' — plan timing accordingly.'}
+    </div>
+  );
+}
+
+function formatEta(count: number): string {
+  if (count <= 60) return 'sends in under a minute';
+  const seconds = Math.ceil(count / TG_GLOBAL_THROTTLE_PER_SEC);
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `est. ~${minutes} min to drain`;
+  const hours = Math.ceil(minutes / 60);
+  return `est. ~${hours} h to drain`;
+}
+
+function rateLimitChipStyle(warn: boolean): React.CSSProperties {
+  return {
+    padding: '8px 12px',
+    borderRadius: 6,
+    fontSize: 13,
+    border: `1px solid ${warn ? '#dc2626' : 'var(--border)'}`,
+    background: warn ? 'rgba(220, 38, 38, 0.08)' : 'var(--muted)',
+    color: warn ? '#dc2626' : 'var(--muted-foreground)',
+  };
 }
 
 // ─── styles ──────────────────────────────────────────────────────────────
