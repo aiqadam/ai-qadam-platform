@@ -124,6 +124,23 @@ export default function TgBroadcastsList(): ReactElement {
     setState(await bootstrap());
   };
 
+  // #391 — clone a past broadcast into a fresh draft. Lands the
+  // operator in the composer at /broadcasts/<new-id> so they can
+  // tweak title + schedule then send.
+  const duplicate = async (broadcastId: string): Promise<void> => {
+    if (state.phase !== 'ready') return;
+    const res = await fetch(
+      `/api/v1/workspace/tg-broadcasts/${encodeURIComponent(broadcastId)}/duplicate`,
+      { method: 'POST', headers: { Authorization: `Bearer ${state.accessToken}` } },
+    );
+    if (!res.ok) {
+      window.alert(`Duplicate failed (HTTP ${res.status}).`);
+      return;
+    }
+    const { id } = (await res.json()) as { id: string };
+    window.location.assign(`/workspace/integrations/telegram/broadcasts/${id}`);
+  };
+
   return (
     <>
       <div style={{ marginBottom: 16 }}>
@@ -175,16 +192,27 @@ export default function TgBroadcastsList(): ReactElement {
                 </td>
                 <td style={tdStyle()}>{formatDate(b.date_created)}</td>
                 <td style={tdStyle()}>
-                  {b.status === 'sending' && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {b.status === 'sending' && (
+                      <button
+                        type="button"
+                        onClick={() => void cancel(b.id)}
+                        style={cancelButtonStyle()}
+                        data-testid={`cancel-${b.id}`}
+                      >
+                        Cancel
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => void cancel(b.id)}
-                      style={cancelButtonStyle()}
-                      data-testid={`cancel-${b.id}`}
+                      onClick={() => void duplicate(b.id)}
+                      style={duplicateButtonStyle()}
+                      data-testid={`duplicate-${b.id}`}
+                      title="Clone this broadcast into a fresh draft"
                     >
-                      Cancel
+                      Duplicate
                     </button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -193,6 +221,18 @@ export default function TgBroadcastsList(): ReactElement {
       )}
     </>
   );
+}
+
+function duplicateButtonStyle(): React.CSSProperties {
+  return {
+    padding: '4px 10px',
+    background: 'transparent',
+    color: 'var(--foreground)',
+    border: '1px solid var(--border)',
+    borderRadius: 4,
+    fontSize: 12,
+    cursor: 'pointer',
+  };
 }
 
 function cancelButtonStyle(): React.CSSProperties {

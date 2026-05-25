@@ -234,6 +234,24 @@ export class TgBroadcastsController {
     return this.broadcasts.cancel(parsed.data, current.sent_count);
   }
 
+  // #391 — minimal template-library slice. Clones any past broadcast
+  // into a fresh draft; new row's title is prefixed "Copy of ", all
+  // other content (body, buttons, audience_segment, recurrence) is
+  // copied verbatim. status='draft', sent_* and failure_reason cleared.
+  //
+  //   201: BroadcastDetail (the new draft)
+  //   401: AuthGuard
+  //   404: { error: 'broadcast_not_found' }
+  @Post(':id/duplicate')
+  @HttpCode(HttpStatus.CREATED)
+  async duplicate(@Param('id') id: string): Promise<BroadcastDetail> {
+    const parsed = idParamSchema.safeParse(id);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.broadcasts.duplicate(parsed.data);
+  }
+
   // #294 PR-e — per-broadcast delivery analytics. Reads tg_send_log
   // for rows with delivery_key prefix `bdc:${id}:`. Counts are
   // best-effort point-in-time (notifier audit lags real delivery by

@@ -181,6 +181,25 @@ export class TgBroadcastsService {
     return rowToDetail(res.data);
   }
 
+  // #391 — minimal template-library slice. Clones any past broadcast
+  // (any status) into a fresh draft. New row carries title prefixed
+  // with "Copy of ", same body/buttons/segment/recurrence, but
+  // status='draft', no scheduled_at, no sent_*, no failure_reason.
+  // Eliminates re-typing for operators who send the same shape
+  // (event reminders, post-event thanks) repeatedly.
+  async duplicate(sourceId: string): Promise<BroadcastDetail> {
+    const source = await this.get(sourceId);
+    return this.create({
+      title: prefixCopyTitle(source.title),
+      country: source.country,
+      html_body: source.html_body,
+      image_asset: source.image_asset,
+      inline_buttons: source.inline_buttons,
+      audience_segment: source.audience_segment,
+      recurrence: source.recurrence,
+    });
+  }
+
   // #391 — operator-initiated cancel of an in-flight send. Service
   // validates the state machine (only 'sending' can be cancelled — a
   // scheduled or draft row uses the regular edit path). The sender
@@ -257,6 +276,18 @@ export function sanitizeButtons(raw: unknown): BroadcastButton[] {
     out.push({ label, url });
   }
   return out;
+}
+
+// #391 — prefix a duplicate's title with "Copy of " (capped at the
+// existing 200-char title limit). Repeated duplicates don't stack
+// "Copy of Copy of …" — operators can edit the title on the new draft.
+const TITLE_MAX = 200;
+const COPY_PREFIX = 'Copy of ';
+
+export function prefixCopyTitle(source: string): string {
+  if (source.startsWith(COPY_PREFIX)) return source.slice(0, TITLE_MAX);
+  const prefixed = `${COPY_PREFIX}${source}`;
+  return prefixed.slice(0, TITLE_MAX);
 }
 
 // #294 PR-e — narrow operator-supplied / legacy-null recurrence to the

@@ -288,6 +288,63 @@ describe('TgBroadcastsService.update', () => {
   });
 });
 
+// ─── #391 duplicate — minimal template-library slice ────────────────────
+
+describe('prefixCopyTitle', () => {
+  it('adds the prefix when source has none', async () => {
+    const { prefixCopyTitle } = await import('../src/modules/workspace/tg-broadcasts.service');
+    expect(prefixCopyTitle('July UZ reminder')).toBe('Copy of July UZ reminder');
+  });
+  it('does not stack the prefix when source already starts with it', async () => {
+    const { prefixCopyTitle } = await import('../src/modules/workspace/tg-broadcasts.service');
+    expect(prefixCopyTitle('Copy of July UZ reminder')).toBe('Copy of July UZ reminder');
+  });
+  it('truncates to the 200-char title limit', async () => {
+    const { prefixCopyTitle } = await import('../src/modules/workspace/tg-broadcasts.service');
+    const long = 'X'.repeat(199);
+    expect(prefixCopyTitle(long)).toHaveLength(200);
+    expect(prefixCopyTitle(long).startsWith('Copy of ')).toBe(true);
+  });
+});
+
+describe('TgBroadcastsService.duplicate', () => {
+  it('clones body, buttons, segment, recurrence into a new draft', async () => {
+    const source = {
+      ...ROW,
+      id: 'src-1',
+      title: 'Hello',
+      status: 'sent' as const,
+      audience_segment: 'seg-9',
+      recurrence: 'weekly',
+    };
+    const get = vi.fn().mockResolvedValue({ data: source });
+    const post = vi.fn().mockResolvedValue({
+      data: { ...source, id: 'new-1', title: 'Copy of Hello', status: 'draft' },
+    });
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, post }));
+    const out = await svc.duplicate('src-1');
+    expect(out.id).toBe('new-1');
+    expect(out.title).toBe('Copy of Hello');
+    expect(post).toHaveBeenCalledWith(
+      '/items/tg_broadcasts',
+      expect.objectContaining({
+        title: 'Copy of Hello',
+        status: 'draft',
+        audience_segment: 'seg-9',
+        recurrence: 'weekly',
+      }),
+    );
+  });
+
+  it('throws NotFound when source broadcast is missing', async () => {
+    const get = vi.fn().mockResolvedValue({ data: null });
+    const post = vi.fn();
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, post }));
+    await expect(svc.duplicate('nope')).rejects.toThrow(NotFoundException);
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
 // ─── #391 cancel — mid-flight operator stop ──────────────────────────────
 
 describe('TgBroadcastsService.cancel', () => {
