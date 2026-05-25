@@ -29,6 +29,7 @@ import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { WorkspaceFormsController } from './forms.controller';
 import { WorkspaceFormsService } from './forms.service';
+import { InternalCronStatusController } from './internal-cron-status.controller';
 import { MembersController } from './members.controller';
 import { MembersService } from './members.service';
 import { PartnersController } from './partners.controller';
@@ -132,6 +133,7 @@ import { TgSegmentsService } from './tg-segments.service';
     SponsorDigestsController,
     TgBroadcastsController,
     TgSegmentsController,
+    InternalCronStatusController,
     TgBroadcastsCronController,
     WorkspaceFormsController,
   ],

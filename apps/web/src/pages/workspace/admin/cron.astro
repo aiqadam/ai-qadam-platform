@@ -1,0 +1,32 @@
+---
+import InternalCronStatusTable from '../../../components/workspace/InternalCronStatusTable';
+import Layout from '../../../layouts/Layout.astro';
+
+// #392 — operator visibility for the 10 in-process @Cron ticks.
+// Reads from GET /v1/workspace/internal-cron/status which surfaces
+// sidecar metadata written by TickLockService.withLock.
+
+export const prerender = false;
+---
+
+<Layout
+  title="Scheduled jobs · AI Qadam workspace"
+  description="Last-fire health for in-process scheduled jobs."
+>
+  <main style="max-width: 1180px; margin: 0 auto; padding: 40px 32px;">
+    <p style="margin: 0 0 8px; font-size: 13px;">
+      <a href="/workspace">← Workspace</a>
+    </p>
+    <h1
+      style="font-family: var(--font-display); font-weight: 600; font-size: 32px; margin: 0 0 8px;"
+    >
+      Scheduled jobs
+    </h1>
+    <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 24px;">
+      In-process cron ticks for the platform — last fire, duration, outcome. Metadata is read from
+      a Redis sidecar with a 24-hour sliding TTL; ticks that haven't fired in 24h render as
+      "never fired".
+    </p>
+    <InternalCronStatusTable client:load />
+  </main>
+</Layout>

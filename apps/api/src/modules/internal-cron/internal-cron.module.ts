@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import Redis from 'ioredis';
 import { env } from '../../config/env';
+import { TickHealthService } from './tick-health.service';
 import { TICK_LOCK_REDIS, TickLockService } from './tick-lock.service';
 
 // In-platform replacement for external GHA / systemd-timer cron.
@@ -41,7 +42,8 @@ import { TICK_LOCK_REDIS, TickLockService } from './tick-lock.service';
         }),
     },
     TickLockService,
+    TickHealthService,
   ],
-  exports: [TickLockService, ScheduleModule],
+  exports: [TickLockService, TickHealthService, ScheduleModule],
 })
 export class InternalCronModule {}

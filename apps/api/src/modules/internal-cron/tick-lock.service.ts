@@ -65,14 +65,85 @@ export class TickLockService {
   }
 
   // Convenience: acquire, run, release. Returns the function result OR
-  // undefined when the lock was held by another replica.
+  // undefined when the lock was held by another replica. Also writes a
+  // sidecar metadata key (`tick-meta:<name>`) so the observability
+  // surface (#392) can answer "when did this last fire, how long,
+  // did it succeed."
   async withLock<T>(name: string, ttlSec: number, fn: () => Promise<T>): Promise<T | undefined> {
     const acquired = await this.acquire(name, ttlSec);
     if (!acquired) return undefined;
+    const startedAt = new Date();
+    let outcome: TickOutcome = 'success';
+    let errorMessage: string | null = null;
     try {
       return await fn();
+    } catch (err) {
+      outcome = 'failed';
+      errorMessage = err instanceof Error ? err.message.slice(0, 500) : 'unknown';
+      throw err;
     } finally {
-      await this.release(name);
+      // Metadata + release in parallel; both are best-effort, and
+      // release should never wait on metadata I/O.
+      const finishedAt = new Date();
+      await Promise.allSettled([
+        this.writeMetadata(name, {
+          last_started_at: startedAt.toISOString(),
+          last_finished_at: finishedAt.toISOString(),
+          last_duration_ms: finishedAt.getTime() - startedAt.getTime(),
+          last_outcome: outcome,
+          last_error: errorMessage,
+          last_holder: this.holderId,
+        }),
+        this.release(name),
+      ]);
     }
   }
+
+  // #392 — write the sidecar metadata key. 24h sliding TTL so a
+  // long-silent tick eventually disappears from the cabinet (operators
+  // see "never fired in last 24h" instead of stale data).
+  private async writeMetadata(name: string, partial: TickMetadataPartial): Promise<void> {
+    const key = `tick-meta:${name}`;
+    try {
+      // Read prior consecutive_failures so we can increment on failure
+      // / reset on success — operators want to spot streaks.
+      const prior = await this.redis.get(key);
+      let consecutive_failures = 0;
+      if (prior) {
+        try {
+          const parsed = JSON.parse(prior) as { consecutive_failures?: number };
+          consecutive_failures = parsed.consecutive_failures ?? 0;
+        } catch {
+          // bad data, treat as fresh
+        }
+      }
+      const meta: TickMetadata = {
+        name,
+        ...partial,
+        consecutive_failures: partial.last_outcome === 'failed' ? consecutive_failures + 1 : 0,
+      };
+      await this.redis.set(key, JSON.stringify(meta), 'EX', 86_400);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`writeMetadata(${name}) failed: ${reason}`);
+    }
+  }
+}
+
+// #392 — tick observability shape. Sidecar key `tick-meta:<name>` lets
+// operators see last-fire + outcome + duration without scraping logs.
+export type TickOutcome = 'success' | 'failed';
+
+interface TickMetadataPartial {
+  last_started_at: string;
+  last_finished_at: string;
+  last_duration_ms: number;
+  last_outcome: TickOutcome;
+  last_error: string | null;
+  last_holder: string;
+}
+
+export interface TickMetadata extends TickMetadataPartial {
+  name: string;
+  consecutive_failures: number;
 }
