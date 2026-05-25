@@ -226,3 +226,66 @@ export interface MemberSearchResult {
   page: number;
   limit: number;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/admin/invites (super-admin operator-onboarding cabinet)
+//
+// ADR-0035: invite-link flow replaces CLI user-create. Super-admin lists
+// pending/consumed/revoked invites + creates new ones; mailboxEmail +
+// CF Email Routing + Resend per-operator key auto-provision when the
+// destination_gmail field is supplied for an @aiqadam.org email.
+// ---------------------------------------------------------------------------
+
+export const INVITE_ROLE_GROUPS = [
+  'aiqadam-super-admin',
+  'aiqadam-staff',
+  'country_lead_uz',
+  'country_lead_kz',
+  'country_lead_tj',
+] as const;
+export type InviteRoleGroup = (typeof INVITE_ROLE_GROUPS)[number];
+
+export const INVITE_DELIVERY_CHANNELS = ['email', 'telegram', 'copy_paste'] as const;
+export type InviteDeliveryChannel = (typeof INVITE_DELIVERY_CHANNELS)[number];
+
+export const INVITE_COUNTRIES = ['uz', 'kz', 'tj', 'xx'] as const;
+export type InviteCountry = (typeof INVITE_COUNTRIES)[number];
+
+export type InviteStatus = 'pending' | 'consumed' | 'revoked' | 'expired';
+
+export interface InviteSummary {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role_groups: InviteRoleGroup[];
+  country: InviteCountry | null;
+  status: InviteStatus;
+  token_prefix: string;
+  created_at: string;
+  expires_at: string;
+  delivery_channel: InviteDeliveryChannel | null;
+}
+
+export interface CreateInviteBody {
+  email: string;
+  display_name: string;
+  role_groups: InviteRoleGroup[];
+  delivery_channel: InviteDeliveryChannel;
+  country?: InviteCountry;
+  notes?: string;
+  destination_gmail?: string;
+}
+
+export interface CreateInviteResult {
+  invite_id: string;
+  invite_url: string;
+  token_prefix: string;
+  expires_at: string;
+  email_automation?: {
+    cf_rule_id?: string;
+    cf_rule_already_existed?: boolean;
+    resend_key_id?: string;
+    resend_key_plaintext?: string;
+    partial_failures: string[];
+  };
+}

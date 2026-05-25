@@ -6,5 +6,6 @@
 
 export { default as Breadcrumbs } from './Breadcrumbs.astro';
 export { DataTable } from './DataTable';
+export { InvitesList } from './InvitesList';
 export { MembersList } from './MembersList';
 export { default as PageShell } from './PageShell.astro';

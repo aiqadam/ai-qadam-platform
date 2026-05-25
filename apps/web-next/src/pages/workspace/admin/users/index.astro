@@ -1,0 +1,52 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/admin/users
+// generated: 2026-05-26
+//
+// Phase 2.3a — operator invites cabinet per ADR-0038 + ADR-0035.
+//
+// Composition only (L4): renders <InvitesList> inside the super-admin
+// auth gate. The list/create form contract lives in the island; this
+// page only owns the shell + role gate.
+//
+// Wiring: docs/architecture/wiring-map.md → operator_invites.
+//
+// SSR — the role gate reads Astro.locals.auth set by the middleware
+// from the Authentik OIDC session cookie.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { Breadcrumbs, InvitesList, PageShell } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Operator invites · AI Qadam workspace"
+  description="Create, list, and revoke operator invitation links (ADR-0035)."
+>
+  <PageHead
+    slot="head"
+    title="Operator invites · AI Qadam workspace"
+    description="Create, list, and revoke operator invitation links (ADR-0035)."
+  />
+  <AuthGate
+    role="aiqadam-super-admin"
+    signInLabel="Super-admin only — sign in"
+  >
+    <PageShell
+      title="Operator invites"
+      description="ADR-0035 invite-link flow. Replaces CLI user-create."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Admin', href: '/workspace/admin' },
+          { label: 'Invites' },
+        ]}
+      />
+      <InvitesList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

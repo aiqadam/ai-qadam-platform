@@ -351,9 +351,32 @@ aggregates: {}
 
 > Placeholders — filled in PR 3.4.
 
-### `operator_invites`, `countries`
+### `operator_invites` — LIVE as of PR 2.3a
 
-> Placeholders — filled in PR 3.5.
+```yaml
+data_source: operator_invites  (ADR-0035 invite-link flow over admin_invites Directus table)
+description: Super-admin operator-onboarding surface. Lists pending/consumed/revoked invites; creates new ones; revokes pending. Replaces the deprecated CLI user-create path.
+
+customer_blocks: []   # never surfaced to customers
+
+operator_blocks:
+  - block: InvitesList (composes <DataTable>)
+    cabinet: /workspace/admin/users
+    operation: read+write+revoke
+    hooks: lib/use-invites.ts → useInvites, useCreateInvite, useRevokeInvite
+
+api_endpoints:
+  - GET    /v1/admin/invites?status=   (AuthGuard + SuperAdminGuard)
+  - POST   /v1/admin/invites           (AuthGuard + SuperAdminGuard; returns plaintext invite_url ONCE)
+  - DELETE /v1/admin/invites/:id       (revoke pending; AuthGuard + SuperAdminGuard)
+
+ssr_fetcher: none — island fetches client-side (page is super-admin only, no SEO requirement)
+fallback: error surface in DataTable + create-form
+```
+
+### `countries`
+
+> Placeholder — filled in PR 3.5.
 
 ### `workspace_members` — LIVE as of PR 2.2
 
