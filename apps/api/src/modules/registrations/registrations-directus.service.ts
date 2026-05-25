@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { BadgeAwarderService } from '../badges/badge-awarder.service';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
 import {
@@ -67,6 +68,7 @@ export class RegistrationsDirectusService {
     private readonly directus: DirectusClient,
     private readonly bridge: DirectusUsersBridgeService,
     private readonly eulas: EulaService,
+    private readonly badges: BadgeAwarderService,
   ) {}
 
   // POST: idempotently create (or fetch existing non-cancelled) registration
@@ -295,6 +297,18 @@ export class RegistrationsDirectusService {
         referrerUserId: row.referred_by,
         eventCountry: row.event.country,
       });
+    }
+    // C-4b-2 — evaluate count_attended badge rules for the attendee.
+    // Errors are swallowed by the awarder; never blocks check-in.
+    try {
+      await this.badges.onAttendanceRecorded({
+        refereeUserId: row.user,
+        eventId: row.event.id,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `badge awarder threw for user=${row.user} event=${row.event.id}: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
     }
     return {
       registration: toView({ ...patched.data, event: patched.data.event.id }),

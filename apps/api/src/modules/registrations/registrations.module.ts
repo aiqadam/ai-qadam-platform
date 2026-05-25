@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DB, db } from '../../db';
 import { AuthModule } from '../auth/auth.module';
+import { BadgesModule } from '../badges/badges.module';
 import { DirectusModule } from '../directus/directus.module';
 import { EulaModule } from '../eula/eula.module';
 import { CheckinController } from './checkin.controller';
@@ -14,7 +15,7 @@ import { RegistrationsController } from './registrations.controller';
 // happen as Directus flows now.
 
 @Module({
-  imports: [AuthModule, DirectusModule, EulaModule],
+  imports: [AuthModule, DirectusModule, EulaModule, BadgesModule],
   providers: [{ provide: DB, useValue: db }, RegistrationsDirectusService],
   controllers: [RegistrationsController, CheckinController],
 })
