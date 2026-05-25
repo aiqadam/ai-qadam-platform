@@ -1,0 +1,75 @@
+---
+// L3 block — <AuthGate>.
+//
+// Server-side auth gate for content that should only render to
+// authenticated members (and optionally to members in a specific
+// Authentik group). Uses Astro.locals.auth which the SSR middleware
+// populated; if absent (anon) renders the fallback slot or a default
+// sign-in CTA.
+//
+// Composition:
+//
+//   <AuthGate>
+//     <p>Only authed members see this.</p>
+//     <p slot="fallback">Sign in to view.</p>
+//   </AuthGate>
+//
+//   <AuthGate role="aiqadam-super-admin">
+//     <p>Only super-admins see this.</p>
+//   </AuthGate>
+//
+// Use cases:
+//   - members_only / invite_only event detail content
+//   - "engineer-only" panels on shared pages (until full RBAC sync)
+//
+// Wiring: docs/architecture/wiring-map.md → directus_users (via
+// useAuth().me.groups SSR blob).
+
+interface Props {
+  role?: string | string[] | undefined;
+  signInLabel?: string | undefined;
+  signInHref?: string | undefined;
+}
+
+const { role, signInLabel = 'Sign in to view', signInHref } = Astro.props;
+const auth = Astro.locals.auth;
+const isAuthed = auth?.me != null;
+
+const requiredRoles: string[] = role
+  ? Array.isArray(role)
+    ? role
+    : [role]
+  : [];
+
+const userRoles: string[] = auth?.me?.groups ?? [];
+const roleSatisfied =
+  requiredRoles.length === 0 || requiredRoles.some((r) => userRoles.includes(r));
+
+const visible = isAuthed && roleSatisfied;
+
+const fallbackHref =
+  signInHref ??
+  `/api/v1/auth/login?next=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`;
+---
+
+{
+  visible ? (
+    <slot />
+  ) : (
+    <slot name="fallback">
+      <div class="rounded-xl border border-dashed border-border bg-card px-6 py-8 text-center">
+        <p class="text-sm text-muted-foreground mb-3">
+          {isAuthed ? "You don't have access to this content." : signInLabel}
+        </p>
+        {!isAuthed && (
+          <a
+            href={fallbackHref}
+            class="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            Sign in
+          </a>
+        )}
+      </div>
+    </slot>
+  )
+}

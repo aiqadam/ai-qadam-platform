@@ -102,65 +102,70 @@ const agendaHtml = event.agendaMd ? renderAgenda(event.agendaMd) : null;
   </div>
 </section>
 
-<section class="mx-auto max-w-5xl px-6 py-8">
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 mb-6 border-b border-border">
-    <div>
-      <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-        Date
-      </p>
-      <p class="text-sm text-foreground">{fullDate}</p>
-      <p class="font-mono text-xs text-muted-foreground mt-1">
-        {startTime} — {endTime}
-      </p>
+<div class="mx-auto max-w-5xl px-6 py-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
+  <div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 mb-6 border-b border-border">
+      <div>
+        <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+          Date
+        </p>
+        <p class="text-sm text-foreground">{fullDate}</p>
+        <p class="font-mono text-xs text-muted-foreground mt-1">
+          {startTime} — {endTime}
+        </p>
+      </div>
+      <div>
+        <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+          {event.venue ? 'Venue' : 'Location'}
+        </p>
+        <p class="text-sm text-foreground">
+          {event.venue ?? event.location ?? 'Location TBA'}
+        </p>
+        {event.address && (
+          <p class="text-xs text-muted-foreground mt-1">{event.address}</p>
+        )}
+      </div>
     </div>
-    <div>
-      <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-        {event.venue ? 'Venue' : 'Location'}
-      </p>
-      <p class="text-sm text-foreground">
-        {event.venue ?? event.location ?? 'Location TBA'}
-      </p>
-      {event.address && (
-        <p class="text-xs text-muted-foreground mt-1">{event.address}</p>
-      )}
-    </div>
+
+    <h2 class="font-display text-xl font-semibold text-foreground mb-3">About</h2>
+    <p class="text-base text-muted-foreground leading-relaxed mb-8 whitespace-pre-line">
+      {event.description}
+    </p>
+
+    {agendaHtml && (
+      <section class="mb-10">
+        <h2 class="font-display text-xl font-semibold text-foreground mb-3">Agenda</h2>
+        <div class="text-sm leading-relaxed" set:html={agendaHtml} />
+      </section>
+    )}
+
+    {event.externalLinks && event.externalLinks.length > 0 && (
+      <section class="mb-10">
+        <h2 class="font-display text-xl font-semibold text-foreground mb-3">Links</h2>
+        <ul class="space-y-2 list-none p-0 m-0">
+          {event.externalLinks.map((link) => (
+            <li>
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-card no-underline text-inherit hover:border-primary/40 transition-colors"
+              >
+                <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground tracking-wider shrink-0">
+                  {LINK_KIND_LABEL[link.kind ?? 'other'] ?? 'LINK'}
+                </span>
+                <span class="text-sm flex-1 truncate">{link.label}</span>
+                <span class="text-xs text-muted-foreground shrink-0" aria-hidden="true">↗</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <slot />
   </div>
-
-  <h2 class="font-display text-xl font-semibold text-foreground mb-3">About</h2>
-  <p class="text-base text-muted-foreground leading-relaxed mb-8 whitespace-pre-line">
-    {event.description}
-  </p>
-
-  {agendaHtml && (
-    <section class="mb-10">
-      <h2 class="font-display text-xl font-semibold text-foreground mb-3">Agenda</h2>
-      <div class="text-sm leading-relaxed" set:html={agendaHtml} />
-    </section>
-  )}
-
-  {event.externalLinks && event.externalLinks.length > 0 && (
-    <section class="mb-10">
-      <h2 class="font-display text-xl font-semibold text-foreground mb-3">Links</h2>
-      <ul class="space-y-2 list-none p-0 m-0">
-        {event.externalLinks.map((link) => (
-          <li>
-            <a
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-card no-underline text-inherit hover:border-primary/40 transition-colors"
-            >
-              <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground tracking-wider shrink-0">
-                {LINK_KIND_LABEL[link.kind ?? 'other'] ?? 'LINK'}
-              </span>
-              <span class="text-sm flex-1 truncate">{link.label}</span>
-              <span class="text-xs text-muted-foreground shrink-0" aria-hidden="true">↗</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )}
-
-  <slot />
-</section>
+  <aside class="lg:sticky lg:top-4 self-start">
+    <slot name="sidebar" />
+  </aside>
+</div>

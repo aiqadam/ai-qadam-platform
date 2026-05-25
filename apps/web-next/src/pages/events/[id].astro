@@ -3,21 +3,28 @@
 // slug: events/[id]
 // generated: 2026-05-26
 //
-// Phase 1.3 — customer-facing event detail per ADR-0038.
+// Phase 1.3 + 1.4 — customer-facing event detail per ADR-0038.
 //
 // Composition only (L4): fetch event detail from apps/api + speakers
 // / materials / sponsors from Directus, hand the typed payloads to
-// the L3 blocks. Sidebar (registration CTA + share buttons) lands
-// in PR 1.4.
+// the L3 blocks. Sidebar (RegistrationCTA + ShareButtons) renders
+// via the EventDetail block's `sidebar` slot.
 //
 // Wiring: docs/architecture/wiring-map.md → events + event_speakers
-// + event_materials + event_sponsors.
+// + event_materials + event_sponsors + registrations.
 //
 // SSR — needs the request Host header to forward to /v1/events (the
 // API's per-country tenant filter).
 export const prerender = false;
 
-import { EventDetail, MaterialsList, SpeakerGrid, SponsorWall } from '../../blocks/customer';
+import {
+  EventDetail,
+  MaterialsList,
+  RegistrationCTA,
+  ShareButtons,
+  SpeakerGrid,
+  SponsorWall,
+} from '../../blocks/customer';
 import { PageHead } from '../../blocks/common';
 import Layout from '../../layouts/Layout.astro';
 import { fetchEvent } from '../../lib/api-ssr';
@@ -35,6 +42,8 @@ const [speakers, materials, sponsors] = await Promise.all([
   fetchEventMaterials(event.id),
   fetchEventSponsors(event.id),
 ]);
+
+const canonicalUrl = `${Astro.url.protocol}//${Astro.url.host}/events/${event.id}`;
 ---
 
 <Layout
@@ -48,6 +57,19 @@ const [speakers, materials, sponsors] = await Promise.all([
   />
   <main>
     <EventDetail event={event}>
+      <RegistrationCTA
+        slot="sidebar"
+        eventId={event.id}
+        capacity={event.capacity}
+        registeredCount={event.registeredCount}
+        client:load
+      />
+      <ShareButtons
+        slot="sidebar"
+        eventId={event.id}
+        eventTitle={event.title}
+        eventUrl={canonicalUrl}
+      />
       <SpeakerGrid speakers={speakers} />
       <MaterialsList materials={materials} />
       <SponsorWall sponsors={sponsors} />

@@ -57,8 +57,8 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<SpeakerGrid>` | `@/blocks/customer` | `speakers: EventSpeaker[]` | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `event_speakers` |
 | `<SponsorWall>` | `@/blocks/customer` | `sponsors: EventSponsor[], heading?` | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `event_sponsors` |
 | `<MaterialsList>` | `@/blocks/customer` | `materials: EventMaterial[], heading?` | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `event_materials` |
-| `<RegistrationCTA>` | `@/blocks/customer` | `eventId, capacity, count` | — | — | `registrations` |
-| `<ShareButtons>` | `@/blocks/customer` | `url, title` | — | — | n/a |
+| `<RegistrationCTA>` | `@/blocks/customer` | `eventId: string, capacity: number\|null, registeredCount: number` (React island — uses `useAuth` + `useMyRegistrationStatus` + register/cancel mutations from `lib/use-registrations`) | `pages/events/[id].astro` (PR 1.4) | Storyless — interactive island needs provider mocks (see §Provider-coupled blocks below) | `registrations` (read + write) |
+| `<ShareButtons>` | `@/blocks/customer` | `eventId, eventTitle, eventUrl` | `pages/events/[id].astro` (PR 1.4) | Astro-only — no story | n/a (uses `lib/share-urls.ts` builder) |
 | `<ProfileCard>` | `@/blocks/customer` | `member, mode: 'public' \| 'self'` | — | — | `directus_users` + member graph |
 | `<ConsentList>` | `@/blocks/customer` | `consents, onToggle` | — | — | `member_consents` |
 | `<SkillTagger>` | `@/blocks/customer` | `tags, onAdd, onRemove, kind: 'skill' \| 'interest'` | — | — | `member_skills` / `_interests` |
@@ -86,13 +86,27 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
 | `<PageHead>` | `@/blocks/common` | `title: string, description?: string` (build-aside: OG / canonical deliberately omitted; expand at cutover) | `pages/index.astro` (PR 1.1) | Astro-only — no story | n/a |
-| `<AuthGate>` | `@/blocks/common` | `role?: string \| string[], fallback?, children` | — | — | useAuth() |
+| `<AuthGate>` | `@/blocks/common` | `role?: string \| string[], signInLabel?, signInHref?` (Astro — reads `Astro.locals.auth`) | available for `members_only` / engineer-only surfaces (PR 1.4) | Astro-only — no story | `Astro.locals.auth.me.groups` (server-verified SSR blob) |
 | `<EmptyState>` | `@/blocks/common` | `heading: string, description?, icon?` (CTAs composed outside the block) | `<EventsGrid>` fallback (PR 1.2); planned `<MembersList>`, `<MaterialsList>`, etc. | Astro-only — no story | n/a |
 | `<DateTime>` | `@/blocks/common` | `value: string, format: 'date' \| 'datetime' \| 'time'` | — | — | n/a |
 | `<TimeRange>` | `@/blocks/common` | `start: string, end: string` | — | — | n/a |
 | `<MarkdownBody>` | `@/blocks/common` | `content: string` | — | — | n/a |
 | `<CountrySwitcher>` | `@/blocks/common` | `current: CountryCode` | — | — | useAuth() |
 | `<LocaleSwitcher>` | `@/blocks/common` | `current: Locale` | — | — | i18n |
+
+## Provider-coupled blocks
+
+Interactive React blocks that consume L1 hooks via React Context
+(`useAuth`, `useQueryClient`) cannot ship a Storybook story until
+`apps/storybook/` has a decorator wrapping every story in a synthetic
+`<RuntimeProvider>` (QueryClient + AuthProvider) and mocks the
+hook fetch surface — most cleanly with MSW.
+
+Pending: a Phase 2 follow-up adds the decorator + MSW handlers. Until
+then, blocks tagged "Storyless — interactive island needs provider
+mocks" in the catalogue ship without a story.
+
+Affected blocks today: `<RegistrationCTA>` (PR 1.4).
 
 ## Storyless Astro blocks
 

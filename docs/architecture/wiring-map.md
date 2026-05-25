@@ -155,7 +155,7 @@ fallback: [] (block renders nothing; rest of page unaffected)
 > Placeholder — filled in Phase 1.7 (forum / questions) and a future
 > finished-tab follow-up (photos).
 
-### `registrations`
+### `registrations` — LIVE under apps/web-next/ as of PR 1.4
 
 ```yaml
 data_source: registrations
@@ -163,13 +163,20 @@ description: Per-event registration row (status: registered | waitlisted | cance
 
 customer_blocks:
   - block: RegistrationCTA
-    page: /events/[id]
+    page: apps/web-next/src/pages/events/[id].astro (PR 1.4)
     operation: both
+    hooks: lib/use-registrations.ts → useMyRegistrationStatus, useRegisterForEvent, useCancelRegistration
 
 operator_blocks:
-  - block: DataTable (RegistrationsList)
+  - block: DataTable (RegistrationsList)   # placeholder — Phase 2
     cabinet: /workspace/events/[id]
     operation: read
+
+api_endpoints:
+  - GET /v1/registrations (list current user's registrations)
+  - POST /v1/events/:id/register (create — body optional, accepts referredBy + acquisitionSource)
+  - DELETE /v1/events/:id/register (cancel)
+mutation_invalidation: ['registrations', 'me'] (any sub-key — covers the by-event query too)
 
 aggregates:
   per_event_registered_count:

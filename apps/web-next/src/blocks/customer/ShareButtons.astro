@@ -1,0 +1,43 @@
+---
+// L3 block — <ShareButtons>.
+//
+// Three-channel share row (Telegram, X, LinkedIn) with UTM-tracked URLs.
+// Anonymous-mode only in PR 1.4 — member referral-code injection (the
+// per-member ?ref= attribution loop) ships in Phase 1.5 when the
+// member-graph blocks land and we have a place to fetch referral codes
+// SSR-side.
+//
+// Data-in/element-out: receives eventId + eventTitle + eventUrl from
+// the page. The share-URL builder is pure.
+
+import { buildAllShareLinks } from '../../lib/share-urls';
+
+interface Props {
+  eventId: string;
+  eventTitle: string;
+  eventUrl: string;
+}
+
+const { eventId, eventTitle, eventUrl } = Astro.props;
+const links = buildAllShareLinks({ eventId, eventTitle, eventUrl });
+---
+
+<section class="mt-4 pt-4 border-t border-border">
+  <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Share</p>
+  <ul class="flex flex-wrap gap-2 list-none p-0 m-0">
+    {
+      links.map((l) => (
+        <li>
+          <a
+            href={l.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card text-xs no-underline text-foreground hover:border-primary/40 transition-colors"
+          >
+            {l.label} ↗
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</section>

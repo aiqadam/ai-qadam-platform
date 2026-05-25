@@ -106,3 +106,8 @@ export function useRegistrations(): UseQueryResult<RegistrationRow[], Error> {
     },
   });
 }
+
+// PR 1.4 — registration hooks (useMyRegistrationStatus + register /
+// cancel mutations) live in lib/use-registrations.ts so blocks can
+// import them. The ADR-0038 lock blocks `lib/api-*` imports from
+// blocks; the `use-*` filename convention is the safe path.
