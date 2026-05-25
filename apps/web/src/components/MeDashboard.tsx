@@ -1,6 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { type ReactElement, useEffect, useState } from 'react';
-import { type AuthMe, getAuthState, signOut } from '../lib/auth-bootstrap';
+import { type AuthMe, getAuthState } from '../lib/auth-bootstrap';
 
 // /me dashboard per design s3-2 + U-Me1a uplift. Client-side island:
 //   1. getAuthState() — shared bootstrap, deduped with other islands.
@@ -94,10 +94,6 @@ async function bootstrap(): Promise<State> {
     },
   };
 }
-
-// Sign-out logic moved to lib/auth-bootstrap so the same flow is
-// reused by NavAccountMenu without duplicating the refresh + revoke
-// dance. See `signOut` import above.
 
 function nextHere(): string {
   return `${window.location.pathname}${window.location.search}`;
@@ -925,9 +921,6 @@ function Dashboard({ session, suggestedEvents }: DashboardProps): ReactElement {
           >
             Preferences
           </a>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => void signOut()}>
-            Sign out
-          </button>
         </div>
       </header>
 
@@ -935,11 +928,10 @@ function Dashboard({ session, suggestedEvents }: DashboardProps): ReactElement {
 
       {nextEvent && <NextEventHero entry={nextEvent} />}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         <StatCard label="Upcoming" value={upcoming.length} />
         <StatCard label="Attended" value={attended.length} />
         <StatCard label="On waitlist" value={waitlisted.length} />
-        <StatCard label="Points" value="—" hint="See the leaderboard" />
       </div>
 
       <ActivityHeatmap attended={attended} />
