@@ -333,6 +333,16 @@ Error (RFC 7807):
 
 Measured in CI with Lighthouse. PRs that regress these are blocked.
 
+### Design system tokens (apps/web-next/)
+
+ADR-0038 §Locks #1 forbids inline `style=` in blocks/pages and hardcoded colors/sizes/radii outside L2 atoms. The mechanism in `apps/web-next/`:
+
+- **Canonical tokens** live in `design-system/tokens.css` (OKLCH values, single source of truth). v1 and v2 both import this file.
+- **Tailwind v4 bridge** is the `@theme inline` block in `apps/web-next/src/styles/globals.css`. It maps each token to a Tailwind utility namespace (e.g. `--primary` → `--color-primary` → `bg-primary`/`text-primary`). `inline` means no copy — token edits in `design-system/` reflow every atom immediately.
+- **L2 atoms** (`apps/web-next/src/kit/*`) bind via the Tailwind utilities; never `bg-[#hexvalue]` and never raw `var(--token)` lookups.
+
+When you add or rename a token in `design-system/tokens.css`, also add the matching line in the `@theme inline` block — otherwise the new token exists but no Tailwind utility exposes it (and renamed tokens silently fall back to whatever Tailwind defaults to). This coupling is brittle by design: it keeps the bridge minimal. If tokens.css ever moves to a generated/typed format, the bridge generates from the same source and this rule goes away.
+
 ---
 
 ## Part IX — Logging and observability
