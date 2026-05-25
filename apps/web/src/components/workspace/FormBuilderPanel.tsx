@@ -28,8 +28,12 @@ interface FormField {
   key: string;
   label: string;
   required?: boolean;
-  placeholder?: string;
-  scale?: { min: number; max: number; min_label?: string; max_label?: string };
+  // `| undefined` on optional fields for the strict-mode
+  // exactOptionalPropertyTypes flow-through.
+  placeholder?: string | undefined;
+  scale?:
+    | { min: number; max: number; min_label?: string | undefined; max_label?: string | undefined }
+    | undefined;
   options?: { value: string; label: string }[];
 }
 
@@ -517,41 +521,108 @@ function FieldEditor({
           <span>Required</span>
         </label>
       </Row>
-      {field.type === 'scale' && (
-        <Row>
-          <Label>Scale</Label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="number"
-              value={field.scale?.min ?? 0}
-              onChange={(e) =>
-                onChange({
-                  scale: { ...(field.scale ?? { min: 0, max: 10 }), min: Number(e.target.value) },
-                })
-              }
-              style={{ ...inputStyle, width: 80 }}
-            />
-            <span style={{ alignSelf: 'center', color: 'var(--muted-foreground)' }}>to</span>
-            <input
-              type="number"
-              value={field.scale?.max ?? 10}
-              onChange={(e) =>
-                onChange({
-                  scale: { ...(field.scale ?? { min: 0, max: 10 }), max: Number(e.target.value) },
-                })
-              }
-              style={{ ...inputStyle, width: 80 }}
-            />
-          </div>
-        </Row>
-      )}
-      {(field.type === 'select_one' || field.type === 'select_many') && (
-        <OptionsEditor
-          options={field.options ?? []}
-          onChange={(options) => onChange({ options })}
-        />
-      )}
+      <PerTypeEditor field={field} onChange={onChange} />
     </div>
+  );
+}
+
+// Per-field-type editor controls. Extracted from FieldEditor so the
+// parent stays under the cognitive-complexity budget AND new field
+// types can plug their editor in one place without touching the
+// orchestrator.
+function PerTypeEditor({
+  field,
+  onChange,
+}: {
+  field: FormField;
+  onChange: (p: Partial<FormField>) => void;
+}): ReactElement | null {
+  if (field.type === 'short_text' || field.type === 'long_text') {
+    return <TextPlaceholderEditor field={field} onChange={onChange} />;
+  }
+  if (field.type === 'scale') {
+    return <ScaleEditor field={field} onChange={onChange} />;
+  }
+  if (field.type === 'select_one' || field.type === 'select_many') {
+    return (
+      <OptionsEditor options={field.options ?? []} onChange={(options) => onChange({ options })} />
+    );
+  }
+  return null;
+}
+
+function TextPlaceholderEditor({
+  field,
+  onChange,
+}: {
+  field: FormField;
+  onChange: (p: Partial<FormField>) => void;
+}): ReactElement {
+  return (
+    <Row>
+      <Label>Placeholder (optional)</Label>
+      <input
+        type="text"
+        value={field.placeholder ?? ''}
+        onChange={(e) => onChange({ placeholder: e.target.value || undefined })}
+        placeholder="hint text shown in the empty field"
+        style={inputStyle}
+      />
+    </Row>
+  );
+}
+
+function ScaleEditor({
+  field,
+  onChange,
+}: {
+  field: FormField;
+  onChange: (p: Partial<FormField>) => void;
+}): ReactElement {
+  const scale = field.scale ?? { min: 0, max: 10 };
+  const patch = (p: Partial<typeof scale>): void => {
+    onChange({ scale: { ...scale, ...p } });
+  };
+  return (
+    <>
+      <Row>
+        <Label>Scale</Label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            type="number"
+            value={scale.min}
+            onChange={(e) => patch({ min: Number(e.target.value) })}
+            style={{ ...inputStyle, width: 80 }}
+          />
+          <span style={{ alignSelf: 'center', color: 'var(--muted-foreground)' }}>to</span>
+          <input
+            type="number"
+            value={scale.max}
+            onChange={(e) => patch({ max: Number(e.target.value) })}
+            style={{ ...inputStyle, width: 80 }}
+          />
+        </div>
+      </Row>
+      <Row>
+        <Label>Scale anchor labels (optional)</Label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            type="text"
+            value={scale.min_label ?? ''}
+            onChange={(e) => patch({ min_label: e.target.value || undefined })}
+            placeholder="left label (e.g. Not at all)"
+            style={inputStyle}
+          />
+          <input
+            type="text"
+            value={scale.max_label ?? ''}
+            onChange={(e) => patch({ max_label: e.target.value || undefined })}
+            placeholder="right label (e.g. Very likely)"
+            style={inputStyle}
+          />
+        </div>
+      </Row>
+    </>
   );
 }
 
