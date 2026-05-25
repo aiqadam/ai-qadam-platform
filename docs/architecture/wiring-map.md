@@ -343,7 +343,29 @@ fallback: SITE_SETTINGS_DEFAULTS (page renders even when Directus is unreachable
 aggregates: {}
 ```
 
-### `partners`, `sponsors`, `marketing_assets`, `press_page`, `landing_pages`
+### `partners` — LIVE as of PR 2.5b (list cabinet only; detail page pending)
+
+```yaml
+data_source: partners  (Directus partners collection — sponsors + employers + product partners share one row)
+description: Operator directory of all three partner roles. PR 2.5b ships the read-only list with role chips; per-partner detail (audiences + kit assets) is a follow-up.
+
+customer_blocks: []   # never surfaced raw to customers (sponsor logos surface via separate <SponsorWall> block)
+
+operator_blocks:
+  - block: PartnersList (composes <DataTable>)
+    cabinet: /workspace/partners
+    operation: read
+    hooks: lib/use-partners.ts → usePartners
+
+api_endpoints:
+  - GET /v1/workspace/partners       (AuthGuard — any signed-in operator)
+  - GET /v1/workspace/partners/:slug (detail; cabinet consumer pending)
+
+ssr_fetcher: none — island fetches client-side
+fallback: error surface in DataTable
+```
+
+### `sponsors`, `marketing_assets`, `press_page`, `landing_pages`
 
 > Placeholders — filled in PR 3.1, 3.2, 3.3.
 

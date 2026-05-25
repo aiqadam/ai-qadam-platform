@@ -1,0 +1,44 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/partners
+// generated: 2026-05-26
+//
+// Phase 2.5b — Partners cabinet per ADR-0038 + ADR-0033 (F-S3.5).
+//
+// Composition only (L4): renders <PartnersList> inside the operator
+// auth gate. Detail page (audiences + kit assets) is a follow-up.
+//
+// Wiring: docs/architecture/wiring-map.md → partners.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, PageShell, PartnersList } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Partners · AI Qadam workspace"
+  description="Active sponsors, employers, and product partners."
+>
+  <PageHead
+    slot="head"
+    title="Partners · AI Qadam workspace"
+    description="Active sponsors, employers, and product partners."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Partners"
+      description="Active sponsors, employers, and product partners. Detail pages (audiences + kit assets) land in a follow-up."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Partners' },
+        ]}
+      />
+      <PartnersList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

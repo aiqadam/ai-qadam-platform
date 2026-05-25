@@ -333,3 +333,26 @@ export interface AuditEventSummary {
   payload_json: Record<string, unknown> | null;
   ts: string;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/partners (sponsor + employer + product-partner directory)
+//
+// F-S3.5 cabinet — operator-visible directory of partners. The same
+// row spans sponsor / employer / product-partner roles via the
+// is_* flags; the cabinet renders all three with role chips.
+// ---------------------------------------------------------------------------
+
+export type PartnerStatus = 'active' | 'pending' | 'archived';
+
+export interface PartnerSummary {
+  id: string;
+  name: string;
+  slug: string;
+  country: string | null;
+  industry: string | null;
+  website: string | null;
+  is_sponsor: boolean;
+  is_employer: boolean;
+  is_product_partner: boolean;
+  status: PartnerStatus;
+}
