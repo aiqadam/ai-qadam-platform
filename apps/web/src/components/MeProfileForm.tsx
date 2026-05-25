@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactElement, useEffect, useState } from 'react';
+import { getAuthState } from '../lib/auth-bootstrap';
 
 // F-S3.6 — /me/profile island.
 //
@@ -129,12 +130,9 @@ type State =
   | { phase: 'error'; message: string };
 
 async function bootstrap(): Promise<State> {
-  const refresh = await fetch('/api/v1/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (!refresh.ok) return { phase: 'anon' };
-  const { accessToken } = (await refresh.json()) as { accessToken: string };
+  const auth = await getAuthState();
+  if (!auth) return { phase: 'anon' };
+  const { accessToken } = auth;
 
   const res = await fetch('/api/v1/me/profile', {
     headers: { Authorization: `Bearer ${accessToken}` },

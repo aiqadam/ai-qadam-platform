@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from 'react';
+import { getAuthState } from '../lib/auth-bootstrap';
 
 // F-S3.9 — /me/referrals island. Issues + shows the member's referral
 // code with the share URL. Idempotent: re-clicking "Get my code" returns
@@ -32,9 +33,9 @@ type State =
 
 async function bootstrap(): Promise<State> {
   try {
-    const r = await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' });
-    if (!r.ok) return { phase: 'anon' };
-    const { accessToken } = (await r.json()) as { accessToken: string };
+    const auth = await getAuthState();
+    if (!auth) return { phase: 'anon' };
+    const { accessToken } = auth;
     const [mine, statsRes] = await Promise.all([
       fetch('/api/v1/referrals/mine', { headers: { Authorization: `Bearer ${accessToken}` } }),
       fetch('/api/v1/referrals/mine/stats', {

@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from 'react';
+import { getAuthState } from '../lib/auth-bootstrap';
 
 // Sprint 5.5/6 — /me/preferences island.
 //
@@ -43,12 +44,9 @@ type State =
   | { phase: 'error'; message: string };
 
 async function bootstrap(): Promise<State> {
-  const refresh = await fetch('/api/v1/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (!refresh.ok) return { phase: 'anon' };
-  const { accessToken } = (await refresh.json()) as { accessToken: string };
+  const auth = await getAuthState();
+  if (!auth) return { phase: 'anon' };
+  const { accessToken } = auth;
 
   const listRes = await fetch('/api/v1/me/preferences/consents', {
     headers: { Authorization: `Bearer ${accessToken}` },

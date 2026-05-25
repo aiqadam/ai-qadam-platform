@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from 'react';
+import { getAuthState } from '../lib/auth-bootstrap';
 
 function signInUrl(): string {
   const next =
@@ -31,13 +32,9 @@ const SEV_COLOR: Record<Severity, string> = {
 };
 
 async function bootstrap(): Promise<State> {
-  const refresh = await fetch('/api/v1/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (refresh.status === 401) return { phase: 'anon' };
-  if (!refresh.ok) return { phase: 'probe_error', httpStatus: refresh.status };
-  const { accessToken } = (await refresh.json()) as { accessToken: string };
+  const auth = await getAuthState();
+  if (!auth) return { phase: 'anon' };
+  const { accessToken } = auth;
   const res = await fetch('/api/v1/me/access-log', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
