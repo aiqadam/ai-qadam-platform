@@ -274,6 +274,25 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
     );
   };
 
+  // #391 — send a single test envelope to the operator's own Telegram
+  // chat. Doesn't touch the broadcast row; useful for visual preview
+  // before going live with the real segment.
+  const sendTestToMe = async (): Promise<void> => {
+    if (!state.form.id) return;
+    setState({ ...state, submitting: true, error: null });
+    const res = await fetch(
+      `/api/v1/workspace/tg-broadcasts/${encodeURIComponent(state.form.id)}/send-test`,
+      { method: 'POST', headers: { Authorization: `Bearer ${state.accessToken}` } },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      setState({ ...state, submitting: false, error: `Test send failed: ${text}` });
+      return;
+    }
+    setState({ ...state, submitting: false, error: null });
+    window.alert('Test sent to your Telegram. Check your DMs (it has a [TEST] prefix).');
+  };
+
   const f = state.form;
   const isEditMode = f.id !== null;
   return (
@@ -456,15 +475,26 @@ export default function TgBroadcastComposer({ mode, broadcastId }: Props): React
               : 'Save draft'}
         </button>
         {isEditMode && (
-          <button
-            type="button"
-            onClick={() => void sendNow()}
-            disabled={state.submitting}
-            style={dangerButtonStyle(state.submitting)}
-            data-testid="composer-send-now"
-          >
-            Send now ▶
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => void sendTestToMe()}
+              disabled={state.submitting}
+              style={secondaryButtonStyle()}
+              data-testid="composer-send-test"
+            >
+              📤 Test to me
+            </button>
+            <button
+              type="button"
+              onClick={() => void sendNow()}
+              disabled={state.submitting}
+              style={dangerButtonStyle(state.submitting)}
+              data-testid="composer-send-now"
+            >
+              Send now ▶
+            </button>
+          </>
         )}
         <a href="/workspace/integrations/telegram/broadcasts" style={secondaryButtonStyle()}>
           Cancel

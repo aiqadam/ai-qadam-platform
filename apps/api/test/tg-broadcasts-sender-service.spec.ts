@@ -80,12 +80,14 @@ describe('TgBroadcastsSenderService.sendNow guards', () => {
     const segments = { get: vi.fn() };
     const directus = { get: vi.fn(), patch: vi.fn() };
     const outbox = { publish: vi.fn() };
+    const locks = { withLock: vi.fn() };
     const db = { transaction: vi.fn() };
     const svc = new TgBroadcastsSenderService(
       directus as never,
       broadcasts as never,
       segments as never,
       outbox as never,
+      locks as never,
       db as never,
     );
     return { svc, broadcasts, segments, directus, outbox, db };
@@ -118,5 +120,124 @@ describe('TgBroadcastsSenderService.sendNow guards', () => {
       audience_segment: '11111111-1111-4111-8111-111111111111',
     });
     await expect(svc.sendNow('bdc-1')).rejects.toThrow(BadRequestException);
+  });
+});
+
+// ─── #391 sendTest guard-rail tests ──────────────────────────────────────
+
+describe('TgBroadcastsSenderService.sendTest', () => {
+  async function makeService(opts: {
+    bdcOverrides?: { html_body?: string };
+    operatorRow?: {
+      id: string;
+      telegram_user_id: string | number | null;
+      telegram_opted_out_at: string | null;
+      country: string | null;
+    } | null;
+  }) {
+    const { TgBroadcastsSenderService } = await import(
+      '../src/modules/workspace/tg-broadcasts-sender.service'
+    );
+    const fakeBdc = {
+      id: 'bdc-1',
+      title: 't',
+      country: 'uz',
+      status: 'draft' as const,
+      html_body: opts.bdcOverrides?.html_body ?? '<b>body</b>',
+      image_asset: null,
+      inline_buttons: [],
+      audience_segment: null,
+      scheduled_at: null,
+      sent_at: null,
+      sent_count: 0,
+      failure_reason: null,
+      has_image: false,
+      inline_buttons_count: 0,
+      recurrence: 'none' as const,
+      created_by: null,
+      date_created: '2026-05-25T00:00:00Z',
+      date_updated: null,
+    };
+    const broadcasts = { get: vi.fn().mockResolvedValue(fakeBdc) };
+    const segments = { get: vi.fn() };
+    const directus = {
+      get: vi.fn().mockResolvedValue({ data: opts.operatorRow === null ? [] : [opts.operatorRow] }),
+      patch: vi.fn(),
+    };
+    const outbox = { publish: vi.fn().mockResolvedValue(undefined) };
+    const locks = { withLock: vi.fn() };
+    const db = {
+      transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn({});
+      }),
+    };
+    const svc = new TgBroadcastsSenderService(
+      directus as never,
+      broadcasts as never,
+      segments as never,
+      outbox as never,
+      locks as never,
+      db as never,
+    );
+    return { svc, broadcasts, directus, outbox, db };
+  }
+
+  it('rejects with empty_body when broadcast has no html_body', async () => {
+    const { svc } = await makeService({ bdcOverrides: { html_body: '' } });
+    await expect(svc.sendTest('bdc-1', 'op-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects with operator_not_telegram_linked when operator has no tg id', async () => {
+    const { svc } = await makeService({
+      operatorRow: {
+        id: 'op-1',
+        telegram_user_id: null,
+        telegram_opted_out_at: null,
+        country: 'uz',
+      },
+    });
+    await expect(svc.sendTest('bdc-1', 'op-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects with operator_not_telegram_linked when operator row missing', async () => {
+    const { svc } = await makeService({ operatorRow: null });
+    await expect(svc.sendTest('bdc-1', 'op-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects with operator_opted_out when telegram_opted_out_at is set', async () => {
+    const { svc } = await makeService({
+      operatorRow: {
+        id: 'op-1',
+        telegram_user_id: 123456789,
+        telegram_opted_out_at: '2026-05-01T00:00:00Z',
+        country: 'uz',
+      },
+    });
+    await expect(svc.sendTest('bdc-1', 'op-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('publishes a test envelope with test-prefixed delivery_key + [TEST] body prefix', async () => {
+    const { svc, outbox } = await makeService({
+      operatorRow: {
+        id: 'op-1',
+        telegram_user_id: 123456789,
+        telegram_opted_out_at: null,
+        country: 'uz',
+      },
+    });
+    const result = await svc.sendTest('bdc-1', 'op-1');
+    expect(result).toMatchObject({
+      broadcast_id: 'bdc-1',
+      sent_to_member_id: 'op-1',
+      sent_to_chat_id: 123456789,
+    });
+    expect(outbox.publish).toHaveBeenCalledTimes(1);
+    const envelope = (
+      outbox.publish.mock.calls[0]?.[1] as {
+        payload: { payload: { delivery_key: string; template: { text: string } } };
+      }
+    ).payload.payload;
+    expect(envelope.delivery_key).toMatch(/^bdc:bdc-1:test:[0-9a-f-]{36}$/);
+    expect(envelope.template.text.startsWith('[TEST]')).toBe(true);
   });
 });

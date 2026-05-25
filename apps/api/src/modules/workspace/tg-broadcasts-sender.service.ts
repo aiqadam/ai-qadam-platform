@@ -38,6 +38,16 @@ export interface SendNowResult {
   sent_at: string;
 }
 
+// #391 — operator-only test envelope result. Doesn't touch the
+// broadcast row's status/sent_count; just confirms the dispatch
+// envelope was enqueued for the operator's own Telegram chat.
+export interface SendTestResult {
+  broadcast_id: string;
+  sent_to_member_id: string;
+  sent_to_chat_id: number;
+  sent_at: string;
+}
+
 interface RecipientRow {
   id: string; // directus_users.id
   telegram_user_id: string | number | null;
@@ -230,6 +240,107 @@ export class TgBroadcastsSenderService {
     const query = `fields=id,telegram_user_id,country&page=${page}&limit=${USERS_PAGE_SIZE}&filter=${filterParam}`;
     const res = await this.directus.get<{ data: RecipientRow[] }>(`/users?${query}`);
     return res.data;
+  }
+
+  // #391 — Send a single test envelope to the caller's own Telegram
+  // chat. Operator preview before going live with a real segment.
+  //
+  // The broadcast row is NOT touched (no status flip, no sent_at,
+  // no sent_count). Delivery key includes a fresh UUID so repeated
+  // tests don't dedup against each other in tg_send_log.
+  //
+  //   200: { broadcast_id, sent_to_member_id, sent_to_chat_id, sent_at }
+  //   400: { error: 'operator_not_telegram_linked' | 'operator_opted_out' | 'empty_body' }
+  //   404: { error: 'broadcast_not_found' }
+  async sendTest(broadcastId: string, operatorDirectusId: string): Promise<SendTestResult> {
+    const bdc = await this.broadcasts.get(broadcastId);
+    if (!bdc.html_body || bdc.html_body.length === 0) {
+      throw new BadRequestException({ error: 'empty_body' });
+    }
+    // Fetch the operator's tg id straight from Directus. This is the
+    // same /users path the resolver uses; we filter to one row by id.
+    const filter = encodeURIComponent(JSON.stringify({ id: { _eq: operatorDirectusId } }));
+    const res = await this.directus.get<{
+      data: Array<{
+        id: string;
+        telegram_user_id: string | number | null;
+        telegram_opted_out_at: string | null;
+        country: string | null;
+      }>;
+    }>(`/users?filter=${filter}&fields=id,telegram_user_id,telegram_opted_out_at,country&limit=1`);
+    const op = res.data[0];
+    if (!op || parseChatId(op.telegram_user_id) === null) {
+      throw new BadRequestException({ error: 'operator_not_telegram_linked' });
+    }
+    if (op.telegram_opted_out_at !== null) {
+      throw new BadRequestException({ error: 'operator_opted_out' });
+    }
+
+    // Test-suffix on delivery_key keeps tg_send_log analytics clean
+    // (real broadcast = `bdc:${id}:${user}`, tests = `bdc:${id}:test:${uuid}`).
+    // The UUID makes repeated tests unique so notifier dedup doesn't
+    // swallow them.
+    const enqueued = await this.publishTestEnvelope(bdc, op);
+    if (!enqueued) {
+      throw new BadRequestException({ error: 'publish_failed' });
+    }
+    return {
+      broadcast_id: broadcastId,
+      sent_to_member_id: op.id,
+      sent_to_chat_id: parseChatId(op.telegram_user_id) as number,
+      sent_at: new Date().toISOString(),
+    };
+  }
+
+  // Mirror of publishOne but with a test-prefixed delivery_key + no
+  // attempt to reuse the real-send keying. Stays private — the only
+  // caller is sendTest above.
+  private async publishTestEnvelope(
+    bdc: BroadcastDetail,
+    op: { id: string; telegram_user_id: string | number | null; country: string | null },
+  ): Promise<boolean> {
+    const chatId = parseChatId(op.telegram_user_id);
+    if (chatId === null) return false;
+    const envelopeId = randomUUID();
+    const deliveryKey = `bdc:${bdc.id}:test:${randomUUID()}`;
+    const envelope = {
+      schema: TELEGRAM_STREAM,
+      id: envelopeId,
+      occurred_at: new Date().toISOString(),
+      correlation_id: randomUUID(),
+      causation_id: null,
+      producer: 'aiqadam-api',
+      meta: { tenant: op.country ?? null, broadcast_id: bdc.id, test: true },
+      payload: {
+        kind: 'dm' as const,
+        target: { chat_id: chatId, member_id: op.id, tenant: op.country ?? null },
+        template: {
+          text: `[TEST]\n\n${bdc.html_body}`,
+          parse_mode: 'HTML' as const,
+          disable_web_page_preview: true,
+          media_url: null,
+          media_kind: null,
+          inline_buttons: bdc.inline_buttons.length > 0 ? buttonsToWire(bdc.inline_buttons) : null,
+        },
+        delivery_key: deliveryKey,
+        max_retries: 1, // test envelopes shouldn't burn retries on transient failures
+        expires_at: null,
+      },
+    };
+    try {
+      await this.db.transaction(async (tx) => {
+        await this.outbox.publish(tx, {
+          envelopeId,
+          stream: TELEGRAM_STREAM,
+          payload: envelope,
+        });
+      });
+      return true;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`sendTest publish failed broadcast=${bdc.id} op=${op.id}: ${reason}`);
+      return false;
+    }
   }
 
   // publishOne — build one envelope + insert into outbox in a tx.

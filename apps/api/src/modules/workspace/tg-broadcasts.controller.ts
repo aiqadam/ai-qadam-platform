@@ -9,15 +9,22 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { z } from 'zod';
 import { AuthGuard } from '../auth/auth.guard';
+import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import {
   type BroadcastAnalytics,
   TgBroadcastsAnalyticsService,
 } from './tg-broadcasts-analytics.service';
-import { type SendNowResult, TgBroadcastsSenderService } from './tg-broadcasts-sender.service';
+import {
+  type SendNowResult,
+  type SendTestResult,
+  TgBroadcastsSenderService,
+} from './tg-broadcasts-sender.service';
 import {
   type BroadcastDetail,
   type BroadcastStatus,
@@ -83,6 +90,7 @@ export class TgBroadcastsController {
     private readonly broadcasts: TgBroadcastsService,
     private readonly sender: TgBroadcastsSenderService,
     private readonly analytics: TgBroadcastsAnalyticsService,
+    private readonly directusBridge: DirectusUsersBridgeService,
   ) {}
 
   @Get()
@@ -171,6 +179,35 @@ export class TgBroadcastsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.sender.sendNow(parsed.data);
+  }
+
+  // #391 — send a single test envelope to the operator's own Telegram
+  // chat. Doesn't touch the broadcast row. Useful before going live
+  // with a real segment to preview formatting + inline buttons in
+  // real Telegram.
+  //
+  //   200: { broadcast_id, sent_to_member_id, sent_to_chat_id, sent_at }
+  //   400: { error: 'operator_not_telegram_linked' | 'operator_opted_out'
+  //                 | 'empty_body' | 'publish_failed' | 'operator_unresolved' }
+  //   401: AuthGuard
+  //   404: { error: 'broadcast_not_found' }
+  @Post(':id/send-test')
+  @HttpCode(HttpStatus.OK)
+  async sendTest(@Param('id') id: string, @Req() req: Request): Promise<SendTestResult> {
+    const parsed = idParamSchema.safeParse(id);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const operatorUserId = req.user?.sub;
+    if (!operatorUserId) {
+      // Shouldn't happen — AuthGuard set req.user. Defensive.
+      throw new BadRequestException({ error: 'operator_unresolved' });
+    }
+    const directusId = await this.directusBridge.resolveDirectusId(operatorUserId);
+    if (!directusId) {
+      throw new BadRequestException({ error: 'operator_unresolved' });
+    }
+    return this.sender.sendTest(parsed.data, directusId);
   }
 
   // #294 PR-e — per-broadcast delivery analytics. Reads tg_send_log
