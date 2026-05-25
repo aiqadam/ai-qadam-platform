@@ -39,12 +39,23 @@ interface Skill {
   id: string;
 }
 
+interface MyBadge {
+  id: string;
+  awardedAt: string;
+  key: string;
+  displayLabel: string;
+  descriptionMd: string | null;
+  icon: string | null;
+  category: 'role' | 'achievement' | 'special';
+}
+
 interface Session {
   me: AuthMe;
   accessToken: string;
   registrations: MineEntry[];
   profile: Profile | null;
   skillCount: number;
+  badges: MyBadge[];
 }
 
 type State =
@@ -73,14 +84,24 @@ async function fetchProfile(
   return { profile: body.profile, skillCount: body.skills?.length ?? 0 };
 }
 
+async function fetchBadges(accessToken: string): Promise<MyBadge[]> {
+  const res = await fetch('/api/v1/me/badges', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return [];
+  const body = (await res.json()) as { badges: MyBadge[] };
+  return body.badges;
+}
+
 async function bootstrap(): Promise<State> {
   const auth = await getAuthState();
   if (!auth) return { phase: 'anon' };
   const { me, accessToken } = auth;
 
-  const [registrations, profileBundle] = await Promise.all([
+  const [registrations, profileBundle, badges] = await Promise.all([
     fetchMine(accessToken),
     fetchProfile(accessToken),
+    fetchBadges(accessToken),
   ]);
 
   return {
@@ -91,6 +112,7 @@ async function bootstrap(): Promise<State> {
       registrations,
       profile: profileBundle.profile,
       skillCount: profileBundle.skillCount,
+      badges,
     },
   };
 }
@@ -365,6 +387,79 @@ function ActivityHeatmap({ attended }: ActivityHeatmapProps): ReactElement | nul
           );
         })}
       </div>
+    </section>
+  );
+}
+
+// C-4b-3 — recent-badges strip. Renders newest 6 (or fewer if the user
+// has fewer); section hides when 0 — no empty-state noise on /me until
+// the member earns their first badge from attending an event. Icons
+// come from badge_definitions.icon — emoji for v1; design will swap
+// to custom artwork later (the field accepts any string).
+
+interface BadgesStripProps {
+  badges: MyBadge[];
+}
+
+const categoryTint: Record<MyBadge['category'], string> = {
+  role: 'color-mix(in oklch, oklch(0.7 0.18 280) 18%, var(--card))',
+  achievement: 'color-mix(in oklch, var(--primary) 18%, var(--card))',
+  special: 'color-mix(in oklch, oklch(0.75 0.18 50) 18%, var(--card))',
+};
+
+function BadgesStrip({ badges }: BadgesStripProps): ReactElement | null {
+  if (badges.length === 0) return null;
+  const recent = badges.slice(0, 6);
+  return (
+    <section>
+      <h2
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 500,
+          fontSize: 11,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--muted-foreground)',
+          margin: '0 0 10px',
+        }}
+      >
+        Badges
+      </h2>
+      <ul
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 10,
+        }}
+      >
+        {recent.map((b) => (
+          <li
+            key={b.id}
+            title={b.descriptionMd ?? b.displayLabel}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: '1px solid var(--border)',
+              background: categoryTint[b.category],
+              fontSize: 13,
+              lineHeight: 1.2,
+            }}
+          >
+            <span style={{ fontSize: 18 }} aria-hidden="true">
+              {b.icon ?? '✦'}
+            </span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>
+              {b.displayLabel}
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -935,6 +1030,8 @@ function Dashboard({ session, suggestedEvents }: DashboardProps): ReactElement {
       </div>
 
       <ActivityHeatmap attended={attended} />
+
+      <BadgesStrip badges={session.badges} />
 
       <section>
         <h2
