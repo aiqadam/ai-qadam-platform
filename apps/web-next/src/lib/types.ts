@@ -289,3 +289,23 @@ export interface CreateInviteResult {
     partial_failures: string[];
   };
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/dashboard (operator KPI dashboard)
+//
+// Country-scoped event / registration / attendance / CSAT counters.
+// Powers the /workspace/dashboard cabinet KPI grid.
+// ---------------------------------------------------------------------------
+
+export const COUNTRY_CODES = ['uz', 'kz', 'tj', 'xx'] as const;
+export type CountryCode = (typeof COUNTRY_CODES)[number];
+
+export interface CountryMetrics {
+  country: CountryCode;
+  range_days: number;
+  events_count: number;
+  registrations_count: number;
+  attended_count: number;
+  csat_avg: number | null;
+  csat_count: number;
+}

@@ -378,6 +378,28 @@ fallback: error surface in DataTable + create-form
 
 > Placeholder — filled in PR 3.5.
 
+### `workspace_dashboard` — LIVE as of PR 2.4
+
+```yaml
+data_source: workspace_dashboard  (aggregate over events + registrations + event_ratings)
+description: Operator KPI grid. Country-scoped events / registrations / attendance / CSAT for a 7/30/90/365-day window, plus a cross-country comparison strip.
+
+customer_blocks: []   # never surfaced to customers
+
+operator_blocks:
+  - block: DashboardKpis (composes <KpiTile>)
+    cabinet: /workspace/dashboard
+    operation: read
+    hooks: lib/use-dashboard.ts → useCountryMetrics, useCrossCountryMetrics
+
+api_endpoints:
+  - GET /v1/workspace/dashboard/country?c=<cc>&days=<n>   (AuthGuard)
+  - GET /v1/workspace/dashboard/cross-country?days=<n>    (AuthGuard)
+
+ssr_fetcher: none — island fetches client-side (page is operator-only, no SEO requirement)
+fallback: error surface in tile grid / cross-country strip
+```
+
 ### `workspace_members` — LIVE as of PR 2.2
 
 ```yaml

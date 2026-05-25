@@ -1,0 +1,48 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/dashboard
+// generated: 2026-05-26
+//
+// Phase 2.4 — operator dashboard cabinet per ADR-0038.
+//
+// Composition only (L4): renders <DashboardKpis> inside the operator
+// auth gate. The country/range picker + tile grid + cross-country
+// strip all live inside the island.
+//
+// Wiring: docs/architecture/wiring-map.md → workspace_dashboard.
+//
+// SSR — the role gate reads Astro.locals.auth set by the middleware
+// from the Authentik OIDC session cookie.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, DashboardKpis, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Dashboard · AI Qadam workspace"
+  description="Country-scoped events / registrations / attendance / CSAT for the operator team."
+>
+  <PageHead
+    slot="head"
+    title="Dashboard · AI Qadam workspace"
+    description="Country-scoped events / registrations / attendance / CSAT."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Dashboard"
+      description="Events, registrations, attendance, and CSAT per country."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Dashboard' },
+        ]}
+      />
+      <DashboardKpis client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>
