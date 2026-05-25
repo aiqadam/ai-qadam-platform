@@ -51,8 +51,8 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
 | `<Hero>` | `@/blocks/customer` | `description: string, stats?: {label,value}[], primaryHref?, primaryLabel?, secondaryHref?, secondaryLabel?` | `pages/index.astro` (PR 1.1) | Astro-only — no story (see §Storyless Astro blocks below) | `site_settings.default_description` |
-| `<EventCard>` | `@/blocks/customer` | `event: ApiEvent, compact?` | — | — | `events` row |
-| `<EventsGrid>` | `@/blocks/customer` | `events: ApiEvent[], empty?: ReactNode` | — | — | derived |
+| `<EventCard>` | `@/blocks/customer` | `event: ApiEvent` | `pages/events.astro` (PR 1.2) + planned homepage strip | Astro-only — no story | `events` row |
+| `<EventsGrid>` | `@/blocks/customer` | `events: ApiEvent[], emptyHeading?, emptyDescription?` | `pages/events.astro` (PR 1.2) | Astro-only — no story | `events` (list) |
 | `<EventDetail>` | `@/blocks/customer` | `event: ApiEventDetail` | — | — | `events` + joins |
 | `<SpeakerGrid>` | `@/blocks/customer` | `speakers: EventSpeaker[]` | — | — | `event_speakers` |
 | `<SponsorWall>` | `@/blocks/customer` | `sponsors: EventSponsor[]` | — | — | `event_sponsors` |
@@ -87,7 +87,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 |---|---|---|---|---|---|
 | `<PageHead>` | `@/blocks/common` | `title: string, description?: string` (build-aside: OG / canonical deliberately omitted; expand at cutover) | `pages/index.astro` (PR 1.1) | Astro-only — no story | n/a |
 | `<AuthGate>` | `@/blocks/common` | `role?: string \| string[], fallback?, children` | — | — | useAuth() |
-| `<EmptyState>` | `@/blocks/common` | `icon?, heading, description?, cta?` | — | — | n/a |
+| `<EmptyState>` | `@/blocks/common` | `heading: string, description?, icon?` (CTAs composed outside the block) | `<EventsGrid>` fallback (PR 1.2); planned `<MembersList>`, `<MaterialsList>`, etc. | Astro-only — no story | n/a |
 | `<DateTime>` | `@/blocks/common` | `value: string, format: 'date' \| 'datetime' \| 'time'` | — | — | n/a |
 | `<TimeRange>` | `@/blocks/common` | `start: string, end: string` | — | — | n/a |
 | `<MarkdownBody>` | `@/blocks/common` | `content: string` | — | — | n/a |

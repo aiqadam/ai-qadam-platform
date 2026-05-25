@@ -1,0 +1,50 @@
+---
+// @generated-from gen:page
+// slug: events
+// generated: 2026-05-26
+//
+// Phase 1.2 — customer-facing /events list per ADR-0038.
+//
+// Composition only (L4): fetch upcoming events from apps/api via
+// SSR, hand them to <EventsGrid> (L3) which renders <EventCard>
+// rows or <EmptyState>. <PageHead> owns <head> meta.
+//
+// v1 had ?tab=upcoming|past + ?format= + ?q= filter knobs. Those
+// are deferred to a follow-up PR — Phase 1 ships the canonical
+// composition first; filter URL-state lands as a thin layer on
+// top of EventsGrid (and likely a dedicated <EventFilters> block).
+//
+// Wiring: docs/architecture/wiring-map.md → events.
+import { EventsGrid, Hero } from '../blocks/customer';
+import { PageHead } from '../blocks/common';
+import Layout from '../layouts/Layout.astro';
+import { fetchUpcomingEvents } from '../lib/api-ssr';
+
+const events = await fetchUpcomingEvents(Astro.request);
+---
+
+<Layout
+  title="Events · AI Qadam (next)"
+  description="Upcoming AI Qadam events across Central Asia — meetups, workshops, hackathons, conferences."
+>
+  <PageHead
+    slot="head"
+    title="Events · AI Qadam (next)"
+    description="Upcoming AI Qadam events across Central Asia."
+  />
+  <main>
+    <Hero
+      description="Pick the next event you want to be in the room for."
+      primaryHref="#upcoming"
+      primaryLabel="Browse upcoming"
+    />
+    <section id="upcoming" class="mx-auto max-w-5xl px-6 py-12">
+      <h2
+        class="font-display text-2xl font-semibold text-foreground mb-6"
+      >
+        Upcoming
+      </h2>
+      <EventsGrid events={events} />
+    </section>
+  </main>
+</Layout>

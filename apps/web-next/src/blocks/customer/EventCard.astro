@@ -1,0 +1,98 @@
+---
+// L3 block — <EventCard>.
+//
+// Single event preview. Renders a clickable card showing format,
+// date, title, location, capacity hint. Used in <EventsGrid> on
+// /events and (planned) on the homepage upcoming-strip.
+//
+// Data-in/element-out per ADR-0038: receives one ApiEvent prop;
+// never fetches. Date formatting + format-label lookup live inside
+// the block so consumers pass raw data through.
+//
+// Wiring: docs/architecture/wiring-map.md → events.
+
+import type { ApiEvent } from '../../lib/types';
+
+interface Props {
+  event: ApiEvent;
+}
+
+const { event } = Astro.props;
+
+const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
+  meetup: 'MEETUP',
+  workshop: 'WORKSHOP',
+  hackathon: 'HACKATHON',
+  conference: 'CONFERENCE',
+  online: 'ONLINE',
+};
+
+function platePieces(iso: string): { month: string; day: string; weekday: string } {
+  const d = new Date(iso);
+  return {
+    month: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
+    weekday: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+  };
+}
+
+function shortTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+const plate = platePieces(event.startsAt);
+const time = shortTime(event.startsAt);
+const capacityHint =
+  event.capacity != null
+    ? `${event.registeredCount} / ${event.capacity}`
+    : `${event.registeredCount} going`;
+const location = event.venue ?? event.location ?? 'Location TBA';
+---
+
+<a
+  href={`/events/${event.id}`}
+  class="group flex flex-col rounded-xl border border-border bg-card overflow-hidden transition-colors hover:border-primary/40 no-underline text-inherit"
+>
+  <div class="flex items-stretch gap-4 p-4">
+    <div
+      class="flex flex-col items-center justify-center w-16 shrink-0 rounded-md bg-muted px-2 py-3 text-center"
+      aria-hidden="true"
+    >
+      <span class="font-mono text-[10px] tracking-wider text-muted-foreground">{plate.month}</span>
+      <span class="font-display text-2xl font-semibold text-foreground leading-none mt-1">
+        {plate.day}
+      </span>
+      <span class="font-mono text-[9px] tracking-wider text-muted-foreground mt-1">
+        {plate.weekday}
+      </span>
+    </div>
+    <div class="flex flex-col min-w-0 flex-1">
+      <div class="flex items-center gap-2 mb-2">
+        <span
+          class="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground"
+        >
+          {FORMAT_LABEL[event.format]}
+        </span>
+        <span class="font-mono text-[10px] text-muted-foreground">{time}</span>
+      </div>
+      <h3
+        class="font-display text-base font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors"
+      >
+        {event.title}
+      </h3>
+      <p class="text-xs text-muted-foreground truncate">{location}</p>
+    </div>
+  </div>
+  <div
+    class="flex items-center justify-between px-4 py-2 border-t border-border bg-background/50"
+  >
+    <span class="font-mono text-[10px] text-muted-foreground">{capacityHint}</span>
+    <span class="text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+      View →
+    </span>
+  </div>
+</a>

@@ -1,0 +1,37 @@
+---
+// L3 block — <EventsGrid>.
+//
+// Responsive grid container for events. Renders one <EventCard>
+// per row item; falls back to <EmptyState> when the list is empty.
+//
+// Data-in/element-out per ADR-0038: page (L4) fetches via
+// lib/api-ssr.fetchUpcomingEvents() and passes the result down.
+//
+// Wiring: docs/architecture/wiring-map.md → events.
+
+import EmptyState from '../common/EmptyState.astro';
+import type { ApiEvent } from '../../lib/types';
+import EventCard from './EventCard.astro';
+
+interface Props {
+  events: ApiEvent[];
+  emptyHeading?: string | undefined;
+  emptyDescription?: string | undefined;
+}
+
+const {
+  events,
+  emptyHeading = 'No events scheduled yet',
+  emptyDescription = 'Check back soon — country leads are lining up the next session.',
+} = Astro.props;
+---
+
+{
+  events.length === 0 ? (
+    <EmptyState heading={emptyHeading} description={emptyDescription} icon="📅" />
+  ) : (
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {events.map((ev) => <EventCard event={ev} />)}
+    </div>
+  )
+}

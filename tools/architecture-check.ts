@@ -170,7 +170,7 @@ function checkFile(file: string, violations: Violation[]): void {
           line: lineNo,
           rule: 'no-api-import-in-blocks',
           message:
-            'Blocks must receive data via props. Move the fetch to a page-level L1 hook. See ADR-0038 §Locks #1.',
+            'Blocks must receive data via props. Move the fetch to a page-level L1 hook. (Shared types belong in lib/types.ts, not lib/api-*.) See ADR-0038 §Locks #1.',
         });
       }
     }

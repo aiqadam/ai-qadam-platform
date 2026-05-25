@@ -57,19 +57,26 @@ description: Public event records (meetup, workshop, hackathon, conference, onli
 
 customer_blocks:
   - block: EventCard
-    page: /events
+    page: apps/web-next/src/pages/events.astro (PR 1.2)
     operation: read
-  - block: EventDetail
+  - block: EventsGrid
+    page: apps/web-next/src/pages/events.astro (PR 1.2)
+    operation: read (list)
+  - block: EventDetail   # placeholder — PR 1.3
     page: /events/[id]
     operation: read
 
 operator_blocks:
-  - block: DataTable (EventsListCabinet)
+  - block: DataTable (EventsListCabinet)   # placeholder — Phase 2
     cabinet: /workspace/events
     operation: read
-  - block: Form (EventControlPanel)
+  - block: Form (EventControlPanel)   # placeholder — Phase 2
     cabinet: /workspace/events/[id]
     operation: both
+
+ssr_fetcher: apps/web-next/src/lib/api-ssr.ts → fetchUpcomingEvents(req)
+api_endpoint: GET /v1/events (host header forwards tenant → country filter)
+fallback: empty array (page renders EmptyState block; API outage doesn't break page)
 
 aggregates:
   events_this_month:
