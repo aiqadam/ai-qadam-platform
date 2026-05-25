@@ -1,0 +1,45 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/events
+// generated: 2026-05-26
+//
+// Phase 2.7a — operator Events control-panel cabinet per ADR-0038.
+//
+// Composition only (L4): renders <EventsList> inside the operator
+// auth gate. Status + country filter chips + DataTable with
+// registration counts all live in the island.
+//
+// Wiring: docs/architecture/wiring-map.md → workspace_events.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, EventsList, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Events · AI Qadam workspace"
+  description="Operator event control panel — list, status, registration counts."
+>
+  <PageHead
+    slot="head"
+    title="Events · AI Qadam workspace"
+    description="Operator event control panel."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Events"
+      description="All events the operator team manages. Detail edit + followups + OG-card regen land in follow-up PRs."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Events' },
+        ]}
+      />
+      <EventsList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

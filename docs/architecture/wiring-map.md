@@ -485,6 +485,29 @@ ssr_fetcher: none — island fetches client-side
 fallback: error surface in DataTable
 ```
 
+### `workspace_events` — LIVE (list cabinet) as of PR 2.7a
+
+```yaml
+data_source: workspace_events  (Directus events collection joined with RegistrationCounts aggregate)
+description: Operator event control panel. PR 2.7a ships the list view (status + country filters + registration counts). Detail page (PATCH metadata, followups, OG card regen) lands in follow-ups.
+
+customer_blocks: []   # customer-facing event list is the separate <EventsGrid> block over /v1/events (PR 1.2)
+
+operator_blocks:
+  - block: EventsList (composes <DataTable>)
+    cabinet: /workspace/events
+    operation: read
+    hooks: lib/use-workspace-events.ts → useWorkspaceEvents
+
+api_endpoints:
+  - GET /v1/workspace/events       (AuthGuard — country scoping rides ADR-0021 RBAC server-side)
+  - GET /v1/workspace/events/:id   (detail; cabinet consumer pending)
+  - PATCH /v1/workspace/events/:id (operator-edit; cabinet consumer pending)
+
+ssr_fetcher: none — island fetches client-side
+fallback: error surface in DataTable
+```
+
 ### `tg_broadcasts`, `tg_segments`, `forms`, `form_submissions`
 
 > Placeholders — filled in PR 2.9, 2.10.

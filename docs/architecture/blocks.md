@@ -84,6 +84,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<AuditLogList>` | `@/blocks/workspace` | _(no props — owns severity + event-prefix + country filter state; reads via `useAuditEvents` from `lib/use-audit`; capped at 200 rows)_ | `pages/workspace/admin/audit/index.astro` (PR 2.5a) | Storyless — interactive island needs provider mocks | `/v1/admin/audit/events` |
 | `<PartnersList>` | `@/blocks/workspace` | _(no props — role-chip filter state lives locally; reads via `usePartners` from `lib/use-partners`)_ | `pages/workspace/partners/index.astro` (PR 2.5b) | Storyless — interactive island needs provider mocks | `/v1/workspace/partners` |
 | `<ApprovalsList>` | `@/blocks/workspace` | _(no props — reads via `useApprovals` from `lib/use-approvals`; renders source-readiness panel + DataTable of pending items)_ | `pages/workspace/approvals/index.astro` (PR 2.5c) | Storyless — interactive island needs provider mocks | `/v1/workspace/approvals` |
+| `<EventsList>` | `@/blocks/workspace` | _(no props — status + country filter state lives locally; reads via `useWorkspaceEvents` from `lib/use-workspace-events`)_ | `pages/workspace/events/index.astro` (PR 2.7a) | Storyless — interactive island needs provider mocks | `/v1/workspace/events` |
 | `<FormBuilder>` | `@/blocks/workspace` | `form, onChange` | — | — | `forms` |
 
 ### Cross-cutting blocks — `apps/web-next/src/blocks/common/`

@@ -386,3 +386,38 @@ export interface ApprovalsResult {
   items: ApprovalItem[];
   sources: Array<{ kind: ApprovalKind; ready: boolean; note: string }>;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/events (operator event control panel)
+//
+// Naming: prefixed `Workspace*` since the customer-facing /v1/events
+// endpoint already exposes `ApiEvent` with a narrower schema. The
+// workspace shape adds RegistrationCounts + raw status.
+// ---------------------------------------------------------------------------
+
+export const WORKSPACE_EVENT_STATUSES = ['draft', 'published', 'cancelled'] as const;
+export type WorkspaceEventStatus = (typeof WORKSPACE_EVENT_STATUSES)[number];
+
+export interface WorkspaceRegistrationCounts {
+  registered: number;
+  waitlisted: number;
+  cancelled: number;
+  attended: number;
+}
+
+export interface WorkspaceEventListItem {
+  id: string;
+  title: string;
+  description: string;
+  status: WorkspaceEventStatus;
+  format: string;
+  starts_at: string;
+  ends_at: string;
+  capacity: number | null;
+  location: string | null;
+  country: string;
+  date_created: string;
+  date_updated: string | null;
+  post_event_survey_form?: string | null;
+  counts: WorkspaceRegistrationCounts;
+}
