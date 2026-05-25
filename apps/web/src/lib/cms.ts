@@ -443,6 +443,70 @@ export async function fetchPressPage(): Promise<PressPage> {
   }
 }
 
+// C-4b-1 — badge_definitions taxonomy. CRUD-managed in Directus; the web
+// just reads. Used by /me + /u/[handle] to render badge strips with the
+// proper label + icon. Empty array on failure so the badge UI degrades
+// to "no badges yet" rather than blocking the page.
+export type BadgeCategory = 'role' | 'achievement' | 'special';
+export type BadgeAwardRule =
+  | 'manual'
+  | 'count_attended'
+  | 'streak_months'
+  | 'profile_complete'
+  | 'referee_attended_count'
+  | 'early_member';
+
+export interface BadgeDefinition {
+  key: string;
+  category: BadgeCategory;
+  displayLabel: string;
+  descriptionMd: string | null;
+  icon: string | null;
+  awardRule: BadgeAwardRule;
+  threshold: number | null;
+  displayOrder: number;
+}
+
+interface CmsBadgeDefRow {
+  key: string;
+  category: BadgeCategory;
+  display_label: string;
+  description_md?: string | null;
+  icon?: string | null;
+  award_rule: BadgeAwardRule;
+  threshold?: number | null;
+  display_order?: number | null;
+}
+
+function normalizeBadgeDef(row: CmsBadgeDefRow): BadgeDefinition {
+  return {
+    key: row.key,
+    category: row.category,
+    displayLabel: row.display_label,
+    descriptionMd: row.description_md ?? null,
+    icon: row.icon ?? null,
+    awardRule: row.award_rule,
+    threshold: row.threshold ?? null,
+    displayOrder: row.display_order ?? 100,
+  };
+}
+
+export async function fetchBadgeDefinitions(): Promise<BadgeDefinition[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[active][_eq]': 'true',
+      sort: 'display_order',
+      limit: '50',
+      fields: 'key,category,display_label,description_md,icon,award_rule,threshold,display_order',
+    });
+    const body = await get<{ data: CmsBadgeDefRow[] }>(`/items/badge_definitions?${params}`);
+    return body.data.map(normalizeBadgeDef);
+  } catch (err) {
+    console.error('[cms] fetchBadgeDefinitions failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 export interface HomepageStats {
   pastEventsCount: number;
   partnersCount: number;

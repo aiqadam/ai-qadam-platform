@@ -4725,6 +4725,121 @@ else
   echo "  ⚠ Public policy not found — skipping public read for press_page."
 fi
 
+# ════════════════════════════════════════════════════════════════════════
+# C-4b-1 — badge_definitions (operator-editable badge taxonomy)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Per PM (2026-05-25): badges are CRUD-managed in Directus, not gated by
+# Authentik groups. Three categories:
+#   - role        → manual award via operator cabinet (Speaker, Sponsor,
+#                   Advisor, Country Lead, Organizer, Staff, Admin)
+#   - achievement → auto-award when a counter crosses `threshold`
+#   - special     → awarded by the existing referral / community flow
+#
+# Awarder service (Nest) reads this collection at boot, registers rule
+# handlers, and writes member_badges rows on the matching event.
+# Milestones are editable: an operator can change `threshold` on
+# event_attendee_10 from 10 to 20 and the awarder picks it up.
+
+echo "[badge_definitions]"
+ensure "collection badge_definitions" \
+  "${DIRECTUS_URL}/collections/badge_definitions" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"badge_definitions",
+    "schema":{"name":"badge_definitions"},
+    "meta":{
+      "icon":"workspace_premium",
+      "note":"Catalogue of all available badges. Operators edit labels + thresholds via Directus admin (cabinet planned in C-4 operator UX). member_badges.badge_type stores the key string here; loose-coupled by design.",
+      "sort_field":"display_order"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"key","type":"string","schema":{"is_nullable":false,"max_length":40,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"Stable identifier — matches member_badges.badge_type values. Never rename after first award; create a new key instead."}},
+      {"field":"category","type":"string","schema":{"is_nullable":false,"max_length":20},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Role","value":"role"},{"text":"Achievement","value":"achievement"},{"text":"Special","value":"special"}]}}},
+      {"field":"display_label","type":"string","schema":{"is_nullable":false,"max_length":100},"meta":{"interface":"input","width":"full","required":true}},
+      {"field":"description_md","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Shown on the badge detail view + hover."}},
+      {"field":"icon","type":"string","schema":{"is_nullable":true,"max_length":20},"meta":{"interface":"input","width":"half","note":"Emoji or short symbol. Design pass will replace these with custom artwork."}},
+      {"field":"award_rule","type":"string","schema":{"is_nullable":false,"max_length":40,"default_value":"manual"},"meta":{"interface":"select-dropdown","width":"half","required":true,"options":{"choices":[{"text":"Manual (operator awards)","value":"manual"},{"text":"Count: attended events","value":"count_attended"},{"text":"Streak: months","value":"streak_months"},{"text":"Profile complete","value":"profile_complete"},{"text":"Referee attended count","value":"referee_attended_count"},{"text":"Early member (launch month)","value":"early_member"}]}}},
+      {"field":"threshold","type":"integer","schema":{"is_nullable":true},"meta":{"interface":"input","width":"half","note":"Used by count_attended / streak_months / referee_attended_count. Operator-editable — change the bar without code."}},
+      {"field":"display_order","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
+      {"field":"active","type":"boolean","schema":{"is_nullable":false,"default_value":true},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"Turn off without deleting history. Inactive badges stop being awarded but existing awards persist."}}
+    ]
+  }'
+
+# Seed the 17 starter badges. Idempotent: check by `key` and POST only
+# when missing. Operators are expected to tweak labels + thresholds via
+# cabinet — we do not overwrite their edits on re-runs.
+seed_badge() {
+  local key="$1" body="$2"
+  local existing
+  existing=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/items/badge_definitions?filter%5Bkey%5D%5B_eq%5D=${key}&fields=id&limit=1" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${existing}" -gt 0 ]; then
+    echo "  ✓ badge_definitions/${key} (exists)"
+    return 0
+  fi
+  local code
+  code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/items/badge_definitions" --data "${body}")
+  if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    echo "  + badge_definitions/${key} (seeded)"
+  else
+    echo "  ✗ badge_definitions/${key} HTTP ${code}"
+    head -c 200 /tmp/directus-resp; echo
+  fi
+}
+
+# Role badges (manual award — operator hands them out via cabinet).
+seed_badge "admin"         '{"key":"admin","category":"role","display_label":"Admin","description_md":"Platform administrator.","icon":"🛡️","award_rule":"manual","display_order":10}'
+seed_badge "country_lead"  '{"key":"country_lead","category":"role","display_label":"Country Lead","description_md":"Leads the community in their country.","icon":"🌟","award_rule":"manual","display_order":20}'
+seed_badge "organizer"     '{"key":"organizer","category":"role","display_label":"Organizer","description_md":"Helps run events on the ground.","icon":"🎯","award_rule":"manual","display_order":30}'
+seed_badge "speaker"       '{"key":"speaker","category":"role","display_label":"Speaker","description_md":"Has given a talk at an AI Qadam event.","icon":"🎤","award_rule":"manual","display_order":40}'
+seed_badge "sponsor"       '{"key":"sponsor","category":"role","display_label":"Sponsor","description_md":"Represents a sponsoring organization.","icon":"💎","award_rule":"manual","display_order":50}'
+seed_badge "advisor"       '{"key":"advisor","category":"role","display_label":"Advisor","description_md":"Trusted advisor to the AI Qadam team.","icon":"🧭","award_rule":"manual","display_order":60}'
+seed_badge "staff"         '{"key":"staff","category":"role","display_label":"Staff","description_md":"Works on AI Qadam.","icon":"🏷️","award_rule":"manual","display_order":70}'
+
+# Achievement badges (auto-awarded when counter crosses threshold).
+seed_badge "first_event_attended" '{"key":"first_event_attended","category":"achievement","display_label":"First Event","description_md":"Attended your first AI Qadam event.","icon":"🎉","award_rule":"count_attended","threshold":1,"display_order":100}'
+seed_badge "event_attendee_5"     '{"key":"event_attendee_5","category":"achievement","display_label":"5 Events","description_md":"Attended 5 events.","icon":"🥉","award_rule":"count_attended","threshold":5,"display_order":110}'
+seed_badge "event_attendee_10"    '{"key":"event_attendee_10","category":"achievement","display_label":"10 Events","description_md":"Attended 10 events.","icon":"🥈","award_rule":"count_attended","threshold":10,"display_order":120}'
+seed_badge "event_attendee_25"    '{"key":"event_attendee_25","category":"achievement","display_label":"25 Events","description_md":"Attended 25 events.","icon":"🥇","award_rule":"count_attended","threshold":25,"display_order":130}'
+seed_badge "event_attendee_50"    '{"key":"event_attendee_50","category":"achievement","display_label":"50 Events","description_md":"Attended 50 events. Legend.","icon":"🏆","award_rule":"count_attended","threshold":50,"display_order":140}'
+seed_badge "event_streak_3"       '{"key":"event_streak_3","category":"achievement","display_label":"3-Month Streak","description_md":"Attended at least one event in 3 consecutive months.","icon":"🔥","award_rule":"streak_months","threshold":3,"display_order":150}'
+seed_badge "profile_complete"     '{"key":"profile_complete","category":"achievement","display_label":"Complete Profile","description_md":"Filled out every profile field.","icon":"✨","award_rule":"profile_complete","display_order":160}'
+seed_badge "early_member"         '{"key":"early_member","category":"achievement","display_label":"Early Member","description_md":"Joined during your country'\''s launch month.","icon":"🚀","award_rule":"early_member","display_order":170}'
+
+# Special badges (one-off, fired by specific flows).
+seed_badge "brought_a_friend"    '{"key":"brought_a_friend","category":"special","display_label":"Brought a Friend","description_md":"Someone you referred attended an event.","icon":"🤝","award_rule":"referee_attended_count","threshold":1,"display_order":200}'
+seed_badge "community_connector" '{"key":"community_connector","category":"special","display_label":"Community Connector","description_md":"Three different referrals have attended events.","icon":"🌐","award_rule":"referee_attended_count","threshold":3,"display_order":210}'
+
+# Public-policy read so /me, /u/[handle], etc. can fetch the taxonomy
+# anonymously (display labels + icons).
+ensure_perm "perm badge_definitions/read" badge_definitions read '{"active":{"_eq":true}}'
+
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=badge_definitions&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm badge_definitions/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"badge_definitions", action:"read", permissions:{active:{_eq:true}}, fields:["*"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm badge_definitions/read (public, created)"
+    else
+      echo "  ✗ perm badge_definitions/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy not found — skipping public read for badge_definitions."
+fi
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
