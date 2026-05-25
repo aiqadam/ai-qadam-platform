@@ -1,0 +1,45 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/approvals
+// generated: 2026-05-26
+//
+// Phase 2.5c — operator Approvals queue cabinet per ADR-0038 (F-S3.7).
+//
+// Composition only (L4): renders <ApprovalsList> inside the operator
+// auth gate. Source readiness panel + pending-items DataTable both
+// live in the island.
+//
+// Wiring: docs/architecture/wiring-map.md → workspace_approvals.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { ApprovalsList, Breadcrumbs, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Approvals · AI Qadam workspace"
+  description="Operator approval queue — sponsor onboardings, speaker proposals, and op-assisted interactions."
+>
+  <PageHead
+    slot="head"
+    title="Approvals · AI Qadam workspace"
+    description="Operator approval queue."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Approvals"
+      description="Pending items that need an operator decision. Source loaders flip from pending to ready as F-S3.7 follow-ups land."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Approvals' },
+        ]}
+      />
+      <ApprovalsList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

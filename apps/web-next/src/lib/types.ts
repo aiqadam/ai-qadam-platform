@@ -356,3 +356,33 @@ export interface PartnerSummary {
   is_product_partner: boolean;
   status: PartnerStatus;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/approvals (operator approval queue)
+//
+// F-S3.7 cabinet — pending sponsor onboardings, speaker proposals,
+// operator-assisted interactions. v1 ships the queue framework with
+// three source kinds; each source flips `ready: true` once its
+// loader lands.
+// ---------------------------------------------------------------------------
+
+export const APPROVAL_KINDS = [
+  'sponsor_onboarding',
+  'speaker_proposal',
+  'operator_assisted_interaction',
+] as const;
+export type ApprovalKind = (typeof APPROVAL_KINDS)[number];
+
+export interface ApprovalItem {
+  id: string;
+  kind: ApprovalKind;
+  title: string;
+  submittedAt: string;
+  summary: string;
+  href: string;
+}
+
+export interface ApprovalsResult {
+  items: ApprovalItem[];
+  sources: Array<{ kind: ApprovalKind; ready: boolean; note: string }>;
+}

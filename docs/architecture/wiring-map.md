@@ -464,6 +464,27 @@ ssr_fetcher: none — island fetches client-side (super-admin only)
 fallback: error surface in DataTable
 ```
 
+### `workspace_approvals` — LIVE as of PR 2.5c
+
+```yaml
+data_source: workspace_approvals  (queue framework over sponsor_onboarding + speaker_proposal + operator_assisted_interaction sources; v1 ships framework, source loaders flip ready as F-S3.7 follow-ups land)
+description: Operator approval queue. PR 2.5c surfaces the framework + source-readiness panel; pending-items DataTable populates as each source loader lands.
+
+customer_blocks: []   # never surfaced to customers
+
+operator_blocks:
+  - block: ApprovalsList (composes <DataTable>)
+    cabinet: /workspace/approvals
+    operation: read
+    hooks: lib/use-approvals.ts → useApprovals
+
+api_endpoints:
+  - GET /v1/workspace/approvals  (AuthGuard — any signed-in operator)
+
+ssr_fetcher: none — island fetches client-side
+fallback: error surface in DataTable
+```
+
 ### `tg_broadcasts`, `tg_segments`, `forms`, `form_submissions`
 
 > Placeholders — filled in PR 2.9, 2.10.
