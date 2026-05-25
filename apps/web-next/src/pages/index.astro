@@ -1,0 +1,54 @@
+---
+// @generated-from gen:page
+// slug: index
+// generated: 2026-05-25
+//
+// PR-0b landing page. The L3 block catalogue is empty until PR-0c/0d/0e
+// land, so this page imports zero blocks for now. Once Phase 1 (the
+// homepage migration, see docs/architecture/web-migration-plan.md row
+// 1.1) lands, this file gets replaced by a real composition of
+// <Hero> + <PageHead> + footer blocks.
+//
+// Until then the file demonstrates that:
+//   * the Coolify-deployed container is up
+//   * Authentik forward-auth gated us through (any anon visit went via
+//     auth.aiqadam.org first)
+//   * the design-system tokens are loaded (background / text colors
+//     come from globals.css → tokens.css; no inline style=)
+//
+// No fetch(), no inline style= — passes pnpm arch:check.
+import Layout from '../layouts/Layout.astro';
+
+const buildTime = new Date().toISOString();
+// Bracket access — TS noPropertyAccessFromIndexSignature complains
+// about dotted env reads, and we don't want to lie to the type system.
+const nodeEnv = process.env['NODE_ENV'] ?? 'unknown';
+const ssrAuth = Astro.locals.auth;
+const authStatus = ssrAuth ? `signed-in as ${ssrAuth.me.email}` : 'anonymous';
+---
+
+<Layout title="AI Qadam (next)">
+  <main class="container py-8">
+    <h1>Hello AI Qadam (next)</h1>
+    <p class="text-muted">
+      apps/web-next/ — the ADR-0038 greenfield build. Engineer-only via Authentik forward-auth.
+    </p>
+
+    <section class="card" role="status" aria-label="Build status">
+      <h2>Status</h2>
+      <dl>
+        <dt>Environment</dt>
+        <dd>{nodeEnv}</dd>
+        <dt>SSR rendered at</dt>
+        <dd>{buildTime}</dd>
+        <dt>Auth (SSR blob)</dt>
+        <dd>{authStatus}</dd>
+      </dl>
+    </section>
+
+    <p class="text-muted">
+      Next milestones: L2 kit (PR-0c) · L1 runtime (PR-0d) · Storybook (PR-0e) ·
+      Phase 1 customer surface.
+    </p>
+  </main>
+</Layout>

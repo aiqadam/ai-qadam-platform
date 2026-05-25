@@ -1,0 +1,46 @@
+---
+import '../styles/globals.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+// apps/web-next/ Layout — ADR-0038 greenfield build.
+//
+// Ported from apps/web/src/layouts/Layout.astro with three deltas:
+//   1) Title defaults to "AI Qadam (next)" so engineers always know
+//      they're on the build-aside, not the production site.
+//   2) <meta name="robots" content="noindex,nofollow"> — next.aiqadam.org
+//      is engineer-only behind Authentik forward-auth; even if a crawler
+//      hit a leaked URL it must NOT index v2 until cutover.
+//   3) No OG / canonical / analytics tags. Build-aside has no
+//      audience, and we don't want Plausible polluting v1 stats with
+//      engineer test traffic.
+//
+// The SSR auth blob inject is preserved verbatim — L1 (PR-0d) will
+// pick up window.__AIQADAM_AUTH__ via useAuth(), same shape as v1.
+const { title = 'AI Qadam (next)', description = 'AI Qadam web v2 — build-aside per ADR-0038.' } =
+  Astro.props;
+
+const ssrAuth = Astro.locals.auth;
+const ssrAuthInject = ssrAuth !== undefined;
+const ssrAuthJson = ssrAuthInject ? JSON.stringify(ssrAuth).replace(/</g, '\\u003c') : null;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>{title}</title>
+    <link rel="icon" type="image/png" href="/brand/aiqadam-mark.png" />
+    <slot name="head" />
+    {ssrAuthInject && <script is:inline set:html={`window.__AIQADAM_AUTH__ = ${ssrAuthJson};`} />}
+  </head>
+  <body class="min-h-screen antialiased">
+    <slot />
+  </body>
+</html>

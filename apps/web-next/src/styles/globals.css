@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* L1 design tokens — apps/web-next/ greenfield build (ADR-0038).
+ * The three design-system layers are imported here exactly as v1 does;
+ * v2 stays in lock-step with the canonical token + atom + portal CSS so
+ * a single token edit in design-system/ updates both apps until cutover.
+ *
+ * Per ADR-0038 §Locks #2, blocks/pages MUST NOT add inline style= — all
+ * styling flows through tokens here + L2 atoms (PR-0c) that bind to them.
+ */
+@import "../../../../design-system/tokens.css";
+@import "../../../../design-system/components.css";
+@import "../../../../design-system/portal.css";
+
+/* Token-driven body. Tailwind's preflight applies first; this overrides
+ * the body bg/color so they follow the active theme. */
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
