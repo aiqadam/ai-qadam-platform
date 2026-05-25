@@ -1,28 +1,57 @@
 ---
 import FormRenderer from '../../../components/FormRenderer';
 import Layout from '../../../layouts/Layout.astro';
+import { fetchEvent, fetchEventSpeakers } from '../../../lib/cms';
 import { fetchEventSurvey } from '../../../lib/forms-api';
 
-// Post-event survey page for a specific event. Picks up the form
-// attached via `events.post_event_survey_form` and renders it. When
-// no in-house form is attached, this 404s; the bot may still render
-// the external `events.feedback_survey_url` button (#322).
+// Post-event survey page for a specific event.
+//
+// Picks up the form attached via `events.post_event_survey_form` (PR-A
+// schema) and renders it with an event-context header above so the
+// respondent sees which event they're giving feedback on.
+//
+// Dynamic-per-event content (event header, speakers list) is spliced
+// in at render time — NOT in the operator-built form schema. The form
+// template stays event-agnostic + reusable across all events.
 //
 // URL conventions:
 //   /events/{slug}/survey         — operator-friendly URL
 //   /events/{uuid}/survey         — uuid fallback (when slug is null)
 //
-// The form's event_id is passed to FormRenderer so submissions are
-// scoped to this event for per-event aggregation in the cabinet.
+// When no in-house form is attached → 404; bot may still render the
+// external `events.feedback_survey_url` button (#322).
 
 export const prerender = false;
 
 const { id } = Astro.params as { id: string };
-const form = await fetchEventSurvey(Astro.request, id);
+
+// Fetch form + event metadata + confirmed speakers in parallel. The
+// form lookup is required (404 if missing); event + speakers are
+// best-effort context — we render the form even if they fail.
+const [form, event, speakers] = await Promise.all([
+  fetchEventSurvey(Astro.request, id),
+  fetchEvent(Astro.request, id).catch(() => null),
+  fetchEventSpeakers(id).catch(() => []),
+]);
 
 if (!form) {
   return new Response('No survey attached to this event', { status: 404 });
 }
+
+const confirmedSpeakers = (speakers ?? []).filter((s) => s.status === 'confirmed');
+
+const eventContext = event
+  ? {
+      title: event.title,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      location: event.location,
+      speakers: confirmedSpeakers.map((s) => ({
+        name: s.displayName,
+        talkTitle: s.talkTitle,
+      })),
+    }
+  : null;
 ---
 
 <Layout
@@ -30,6 +59,6 @@ if (!form) {
   description={form.description ?? 'Post-event feedback — your input shapes the next one.'}
 >
   <main style="max-width: 640px; margin: 0 auto; padding: 80px 32px;">
-    <FormRenderer form={form} eventId={id} client:load />
+    <FormRenderer form={form} eventId={id} eventContext={eventContext} client:load />
   </main>
 </Layout>

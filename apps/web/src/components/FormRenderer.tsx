@@ -75,12 +75,28 @@ function humanizeError(status: number, text: string): string {
   return `Submission failed (HTTP ${status}). Please try again.`;
 }
 
+// PR-D4 — dynamic event-context block spliced above the form when
+// rendered via /events/{slug}/survey. NOT part of the form schema —
+// kept on the renderer so the same operator-built template works for
+// every event without needing per-event copies. Future field-type
+// extension (`speaker_rating`) would consume the same speakers array
+// and auto-expand to N scale fields.
+export interface EventContext {
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  location: string | null;
+  speakers: Array<{ name: string | null; talkTitle: string | null }>;
+}
+
 export default function FormRenderer({
   form,
   eventId = null,
+  eventContext = null,
 }: {
   form: FormSummary;
   eventId?: string | null;
+  eventContext?: EventContext | null;
 }): ReactElement {
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [phase, setPhase] = useState<Phase>('idle');
@@ -124,6 +140,7 @@ export default function FormRenderer({
 
   return (
     <form onSubmit={(e) => void submit(e)}>
+      {eventContext && <EventContextHeader ctx={eventContext} />}
       <Panel>
         <Heading>{form.title}</Heading>
         {form.description && (
@@ -461,6 +478,95 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'inherit',
   fontSize: 14,
 };
+
+// PR-D4 — dynamic event-context card rendered above the form on the
+// /events/{slug}/survey route. Pure presentation; takes no behaviour.
+function EventContextHeader({ ctx }: { ctx: EventContext }): ReactElement {
+  return (
+    <div
+      style={{
+        padding: '20px 24px',
+        marginBottom: 16,
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        background: 'rgba(255,255,255,0.02)',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--muted-foreground)',
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          marginBottom: 6,
+        }}
+      >
+        Feedback for
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 600 }}>{ctx.title}</div>
+      <div
+        style={{
+          fontSize: 13,
+          color: 'var(--muted-foreground)',
+          marginTop: 4,
+        }}
+      >
+        {fmtEventWhen(ctx.startsAt)}
+        {ctx.location && ` · ${ctx.location}`}
+      </div>
+      {ctx.speakers.length > 0 && <SpeakersStrip speakers={ctx.speakers} />}
+    </div>
+  );
+}
+
+function SpeakersStrip({
+  speakers,
+}: {
+  speakers: Array<{ name: string | null; talkTitle: string | null }>;
+}): ReactElement {
+  return (
+    <div style={{ marginTop: 12, fontSize: 13 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--muted-foreground)',
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          marginBottom: 4,
+        }}
+      >
+        {speakers.length === 1 ? 'Speaker' : 'Speakers'}
+      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+        {speakers
+          .filter((s) => s.name)
+          .map((s, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: speaker list is read-only display, index is stable for this render
+            <li key={`spk-${i}`} style={{ marginTop: 2 }}>
+              <strong>{s.name}</strong>
+              {s.talkTitle && (
+                <span style={{ color: 'var(--muted-foreground)' }}> — {s.talkTitle}</span>
+              )}
+            </li>
+          ))}
+      </ul>
+    </div>
+  );
+}
+
+function fmtEventWhen(startsAt: string): string {
+  try {
+    return new Date(startsAt).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return startsAt;
+  }
+}
 
 function Panel({ children }: { children: React.ReactNode }): ReactElement {
   return (
