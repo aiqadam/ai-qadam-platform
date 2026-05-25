@@ -355,6 +355,27 @@ aggregates: {}
 
 > Placeholders — filled in PR 3.5.
 
+### `workspace_members` — LIVE as of PR 2.2
+
+```yaml
+data_source: workspace_members  (synthetic — server-side view over directus_users + member_employments + member_consents)
+description: Operator-facing paginated member directory. Per ADR-0033 operators NEVER touch Directus admin; this cabinet replaces it for search/filter/cohort workflows.
+
+customer_blocks: []   # never surfaced to customers
+
+operator_blocks:
+  - block: MembersList (composes <DataTable>)
+    cabinet: /workspace/members
+    operation: read
+    hooks: lib/use-members.ts → useMembersSearch
+
+api_endpoints:
+  - GET /v1/workspace/members?q=&page=&limit=  (MembersController; AuthGuard + page-level <AuthGate role="aiqadam-operators">)
+
+ssr_fetcher: none — React island fetches client-side via apiClient (page is operator-only, no SEO requirement)
+fallback: error surface in DataTable; pagination defaults to page 1
+```
+
 ### `audit_events`
 
 ```yaml

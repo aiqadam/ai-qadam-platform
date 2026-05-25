@@ -5,4 +5,6 @@
 // concerns like <PageHead> and <AppFooter>.
 
 export { default as Breadcrumbs } from './Breadcrumbs.astro';
+export { DataTable } from './DataTable';
+export { MembersList } from './MembersList';
 export { default as PageShell } from './PageShell.astro';

@@ -195,3 +195,34 @@ export interface LeaderboardEntry {
   handle: string | null;
   totalPoints: number;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/members (operator-facing member directory)
+//
+// Backs the Members cabinet under /workspace/members. Per ADR-0033
+// operators NEVER touch Directus admin; this is the surface that
+// replaces it for search/filter/cohort workflows. PR 2.2 ships the
+// read-only list with paginated DataTable; filters + cohorts come in
+// follow-ups.
+// ---------------------------------------------------------------------------
+
+export interface MemberRow {
+  id: string;
+  email: string;
+  first_name?: string | null;
+  display_name?: string | null;
+  job_title?: string | null;
+  seniority?: string | null;
+  city?: string | null;
+  industry?: string[] | null;
+  is_student?: boolean | null;
+  appear_in_directory?: boolean | null;
+  state?: string | null;
+}
+
+export interface MemberSearchResult {
+  members: MemberRow[];
+  total: number;
+  page: number;
+  limit: number;
+}

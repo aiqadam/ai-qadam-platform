@@ -1,0 +1,47 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/members
+// generated: 2026-05-26
+//
+// Phase 2.2 — operator Members cabinet per ADR-0038.
+//
+// Composition only (L4): wraps the <MembersList> island in the
+// workspace shell. Page-level role-gating via <AuthGate>: only
+// signed-in operators (members of the `aiqadam-operators` group via
+// Authentik) get past the shell; everyone else sees the sign-in CTA.
+//
+// Wiring: docs/architecture/wiring-map.md → workspace_members.
+//
+// SSR — the role gate reads Astro.locals.auth which the middleware
+// populates from the Authentik OIDC session cookie.
+export const prerender = false;
+
+import { AuthGate } from '../../../blocks/common';
+import { PageHead } from '../../../blocks/common';
+import { Breadcrumbs, MembersList, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Members · AI Qadam workspace" description="Operator member directory.">
+  <PageHead
+    slot="head"
+    title="Members · AI Qadam workspace"
+    description="Operator member directory."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Members"
+      description="Search the member directory. Filters + cohorts come in follow-up PRs."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Members' },
+        ]}
+      />
+      <MembersList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

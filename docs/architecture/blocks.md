@@ -70,9 +70,10 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
-| `<PageShell>` | `@/blocks/workspace` | `title: string, description?: string, width?: 'narrow' \| 'standard' \| 'wide'` (named slots: `breadcrumbs`, `actions`; default slot = body) | — | Astro-only — no story | n/a (presentation) |
-| `<Breadcrumbs>` | `@/blocks/workspace` | `items: { label: string, href?: string }[], class?: string` (final item rendered without link as `aria-current=page`) | — | Astro-only — no story | n/a |
-| `<DataTable>` | `@/blocks/workspace` | `columns, rows, pagination, sort, filterSlot?` | — | — | generic |
+| `<PageShell>` | `@/blocks/workspace` | `title: string, description?: string, width?: 'narrow' \| 'standard' \| 'wide'` (named slots: `breadcrumbs`, `actions`; default slot = body) | `pages/workspace/members/index.astro` (PR 2.2) | Astro-only — no story | n/a (presentation) |
+| `<Breadcrumbs>` | `@/blocks/workspace` | `items: { label: string, href?: string }[], class?: string` (final item rendered without link as `aria-current=page`) | `pages/workspace/members/index.astro` (PR 2.2) | Astro-only — no story | n/a |
+| `<DataTable>` | `@/blocks/workspace` | `columns: { key, label, render, width?, align? }[], rows: TRow[], rowKey?, pagination?: { page, totalPages, onChange }, isLoading?, errorMessage?, emptyHeading?, emptyDescription?` (React island — generic over `TRow`) | `<MembersList>` (PR 2.2) | Storyless — interactive island needs provider mocks | generic (caller provides rows) |
+| `<MembersList>` | `@/blocks/workspace` | _(no props — owns pagination + search state, reads via `useMembersSearch()` from `lib/use-members`)_ | `pages/workspace/members/index.astro` (PR 2.2) | Storyless — interactive island needs provider mocks | `/v1/workspace/members` |
 | `<KpiTile>` | `@/blocks/workspace` | `label, value, delta?, trend?` | — | — | aggregates |
 | `<ActionBar>` | `@/blocks/workspace` | `primary?, secondary?, more?` | — | — | n/a |
 | `<Form>` | `@/blocks/workspace` | `schema: ZodSchema, onSubmit, defaultValues` | — | — | n/a (Zod-bound) |
