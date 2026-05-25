@@ -4592,14 +4592,18 @@ ensure "collection site_settings" \
     ]
   }'
 
-# Seed the singleton row if missing. Idempotent: check via items endpoint,
-# create only when empty.
-count=$(curl -s -H "${H_AUTH}" "${DIRECTUS_URL}/items/site_settings?limit=1&fields=id" \
-  | jq -r '.data | length' 2>/dev/null || echo 0)
-if [ "${count}" = "0" ]; then
+# Seed the singleton row if not yet populated. Idempotent: detect "unseeded"
+# by probing a nullable, non-default field (default_description). Empty
+# singletons return the synthetic row shape with schema defaults filled in,
+# so `.data | length` was a false positive — fixed by checking the actual
+# value of an editorial field that has no schema default.
+seeded=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/items/site_settings?fields=default_description" \
+  | jq -r '.data.default_description // ""' 2>/dev/null || echo "")
+if [ -z "${seeded}" ]; then
   body='{"countries_served":3,"default_description":"Multi-tenant community platform for AI engineers across Central Asia.","telegram_url":"https://t.me/aiqadam","contact_email_partners":"partners@aiqadam.org","contact_email_press":"press@aiqadam.org"}'
   code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/items/site_settings" --data "${body}")
+    -H "${H_AUTH}" -H "${H_JSON}" -X PATCH "${DIRECTUS_URL}/items/site_settings" --data "${body}")
   if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
     echo "  + site_settings (seeded with defaults)"
   else
@@ -4671,9 +4675,12 @@ ensure "collection press_page" \
   }'
 
 # Seed singleton with the same prose currently hardcoded in press.astro.
-count=$(curl -s -H "${H_AUTH}" "${DIRECTUS_URL}/items/press_page?limit=1&fields=id" \
-  | jq -r '.data | length' 2>/dev/null || echo 0)
-if [ "${count}" = "0" ]; then
+# Same singleton-detection fix as site_settings — probe a nullable, no-
+# default editorial field rather than relying on `.data | length`.
+seeded=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/items/press_page?fields=hero_title" \
+  | jq -r '.data.hero_title // ""' 2>/dev/null || echo "")
+if [ -z "${seeded}" ]; then
   body='{
     "hero_title":"AI Qadam — for journalists, partners, and event organizers",
     "company_boilerplate":"Founded by Binali Rustamov in 2026, AI Qadam is run by a distributed team of country leads with a working community across all three Central Asian republics. Below: brand assets, founder bios, a fact sheet, and how to reach us.",
@@ -4682,7 +4689,7 @@ if [ "${count}" = "0" ]; then
     "contact_guidance":"Embargo requests, interview asks, and fact-checks all welcome here."
   }'
   code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/items/press_page" --data "${body}")
+    -H "${H_AUTH}" -H "${H_JSON}" -X PATCH "${DIRECTUS_URL}/items/press_page" --data "${body}")
   if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
     echo "  + press_page (seeded with defaults)"
   else
