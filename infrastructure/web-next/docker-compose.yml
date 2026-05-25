@@ -15,19 +15,18 @@
 # `aiqadam-super-admin` (provisioned by
 # scripts/provision-web-next-authentik.sh).
 #
-# Deploy (on prod host):
+# Bootstrap (first time only, on prod host):
 #   sudo mkdir -p /opt/aiqadam/web-next
 #   cd /opt/aiqadam/web-next
-#   sudo git clone --depth 1 git@github.com:viktordrukker/aiqadam.git source
-#   sudo cp source/infrastructure/web-next/docker-compose.yml .
+#   sudo cp <this-file> docker-compose.yml
+#   # rsync the repo into source/ (manually first time, then GHA takes over)
 #   sudo docker compose up -d --build
 #
-# Update on new merge to main:
-#   cd /opt/aiqadam/web-next/source && sudo git pull
-#   cd /opt/aiqadam/web-next && sudo docker compose up -d --build
-#
-# Auto-deploy from GHA can come later — for the build-aside window
-# manual deploys are fine. v1 (apps/web) keeps Coolify auto-deploy.
+# Updates on merge to main are automated by
+# .github/workflows/deploy-web-next.yml — GHA rsyncs the repo into
+# /opt/aiqadam/web-next/source/ and runs
+# infrastructure/web-next/deploy.sh web-next. The same workflow also
+# deploys the apps/storybook/ stack at design.aiqadam.org.
 
 name: aiqadam-web-next
 

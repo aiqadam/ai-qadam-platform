@@ -11,16 +11,17 @@
 # Authentik Embedded Outpost; only members of `aiqadam-super-admin` pass
 # (set up by scripts/provision-storybook-authentik.sh).
 #
-# Deploy (on prod host):
+# Bootstrap (first time only, on prod host):
 #   sudo mkdir -p /opt/aiqadam/storybook
 #   cd /opt/aiqadam/storybook
-#   sudo git clone --depth 1 git@github.com:viktordrukker/aiqadam.git source
-#   sudo cp source/infrastructure/storybook/docker-compose.yml .
+#   sudo cp <this-file> docker-compose.yml
+#   # rsync the repo into source/ (manually first time, then GHA takes over)
 #   sudo docker compose up -d --build
 #
-# Update on new merge to main:
-#   cd /opt/aiqadam/storybook/source && sudo git pull
-#   cd /opt/aiqadam/storybook && sudo docker compose up -d --build
+# Updates on merge to main are automated by
+# .github/workflows/deploy-web-next.yml — GHA rsyncs the repo into
+# /opt/aiqadam/storybook/source/ and runs
+# infrastructure/web-next/deploy.sh storybook.
 
 name: aiqadam-storybook
 
