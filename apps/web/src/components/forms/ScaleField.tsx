@@ -48,12 +48,14 @@ export default function ScaleField({
   for (let i = min; i <= max; i++) buttons.push(i);
   const count = buttons.length;
 
-  // Tighter spacing + smaller font for 11-button NPS (0-10) so the row
-  // stays single-line at 320px viewport without wrapping. 1-10 (10
-  // buttons) gets the standard spacing.
-  const compact = count > 10;
-  const gap = compact ? 3 : 6;
-  const fontSize = compact ? 14 : 16;
+  // Unified visual treatment for every scale length. Earlier
+  // branching on `count > 10` (compact 0-10 vs standard 1-10) made two
+  // scales on the same form render with visibly different button
+  // sizes — Viktor flagged this. CSS Grid with minmax(0, 1fr) handles
+  // width-adaptation alone; consistent gap + font keep the visual
+  // identity stable from 2-button to 11-button scales.
+  const gap = 4;
+  const fontSize = 14;
 
   return (
     <div>
