@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from 'react';
+import { type AuthMe, getAuthState } from '../lib/auth-bootstrap';
 import AppLauncher from './AppLauncher';
 
 // /workspace — the single landing surface for operators, per ADR-0032
@@ -11,37 +12,27 @@ import AppLauncher from './AppLauncher';
 // component is structured so adding role gates is a per-card change,
 // not a rewrite.
 //
-// Auth bootstrap is the same pattern as MeDashboard.tsx — refresh
-// cookie → access token → /v1/auth/me. Anon viewers see a sign-in
-// prompt, not a 401.
-
-interface Me {
-  id: string;
-  email: string;
-  authentikSubject: string;
-}
+// 2026-05-25: switched from a private bootstrap fetch to the shared
+// `getAuthState()` helper. The private fetch raced NavAccountMenu's
+// /auth/refresh call on the same page — the loser's refresh-token-
+// replay trip revoked the entire refresh family and cleared the cookie
+// mid-render, producing a "Nav says Sign in, body says signed-in as X"
+// inconsistency plus a cross-user RBAC leak window. The shared helper
+// reads the SSR-injected `window.__AIQADAM_AUTH__` blob first (zero
+// round-trips) and dedupes any fallback /refresh through a module-level
+// in-flight Promise.
 
 type State =
   | { phase: 'loading' }
   | { phase: 'anon' }
-  | { phase: 'authed'; me: Me }
+  | { phase: 'authed'; me: AuthMe }
   | { phase: 'error'; message: string };
 
 async function bootstrap(): Promise<State> {
   try {
-    const refresh = await fetch('/api/v1/auth/refresh', {
-      method: 'POST',
-      credentials: 'include',
-    });
-    if (!refresh.ok) return { phase: 'anon' };
-    const { accessToken } = (await refresh.json()) as { accessToken: string };
-
-    const meRes = await fetch('/api/v1/auth/me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!meRes.ok) return { phase: 'anon' };
-    const me = (await meRes.json()) as Me;
-    return { phase: 'authed', me };
+    const auth = await getAuthState();
+    if (!auth) return { phase: 'anon' };
+    return { phase: 'authed', me: auth.me };
   } catch (err) {
     return {
       phase: 'error',

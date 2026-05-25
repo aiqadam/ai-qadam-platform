@@ -5,11 +5,15 @@
 //   - Right cluster: country switcher + locale switcher
 //
 // Auth-conditional rendering of the right-most nav slot:
-//   - signed in (refresh cookie present)  → "Account" → /me
-//   - signed out                          → "Sign in" CTA → /auth/sign-in?next=…
-// We check the refresh-cookie SSR-side as a hint, not a verification — the
-// /me page itself re-verifies via /auth/refresh + /auth/me. The hint is
-// good enough to pick the right nav label without a JS flicker.
+//   - signed in   → "Account" → /me
+//   - signed out  → "Sign in" CTA → /auth/sign-in?next=…
+//
+// 2026-05-25: switched from a syntactic cookie-presence check to the
+// SERVER-VERIFIED auth state in `Astro.locals.auth`, populated by the
+// SSR middleware. Eliminates the "Nav says Sign in" / "body says signed
+// in as X" inconsistency that happened when an island /refresh race
+// revoked the family + cleared the cookie before SSR ran. Trusts the
+// API's confirmation, not cookie syntax.
 //
 // Country detection happens client-side from `window.location.hostname` so
 // this component stays prerender-safe (no per-request data needed). Locale
@@ -22,18 +26,11 @@ import { NavAccountMenu } from './NavAccountMenu';
 const locale = getLocale(Astro);
 const t = makeT(locale);
 
-// SSR hint — `Astro.cookies` is unavailable on prerendered pages; default
-// to "anon" so unauthenticated visitors see Sign in, which is the safe
-// fallback (worst case: a signed-in user on a prerendered page sees Sign
-// in briefly, clicks /auth/sign-in, gets a silent SSO loop and lands back
-// where they started).
-const signedInHint = (() => {
-  try {
-    return Astro.cookies.get('aiqadam-refresh')?.value != null;
-  } catch {
-    return false;
-  }
-})();
+// On prerendered pages `Astro.locals.auth` is undefined (middleware
+// doesn't run for static output). Anon fallback in that case — a
+// signed-in user on a prerendered page sees the "Sign in" CTA briefly
+// and gets silent-SSO'd back when they click it.
+const signedInHint = Astro.locals.auth?.me != null;
 
 const currentPath = `${Astro.url.pathname}${Astro.url.search}`;
 const signInHref = `/auth/sign-in?next=${encodeURIComponent(currentPath)}`;

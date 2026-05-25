@@ -1,25 +1,28 @@
 // Shared auth-bootstrap for client-side React islands.
 //
-// Why this exists: every island that needs to know "who is the user" used
-// to call `POST /api/v1/auth/refresh` + `GET /api/v1/auth/me` from its own
-// useEffect. Two islands on the same page (e.g. NavAccountMenu + MeDashboard
-// on /me) would fire both calls in parallel, racing for the same refresh-
-// token cookie. The API treats refresh tokens as single-use: one request
-// consumes the row, the other hits `RefreshTokenReplayError` → 401 →
-// cookies cleared. Whichever island lost the race rendered "anon" while
-// the winner rendered "authed", producing the inconsistent UI reported on
-// /me (nav showed engineer links but the body showed the sign-in CTA).
+// Two-layer cache:
 //
-// Fix: a module-level in-flight Promise. The first caller does the
-// network round-trip; everyone else awaits the same Promise and gets the
-// same resolved state. Astro bundles shared modules once per page, so
-// every island that imports from here participates in the same dedupe.
+// 1) `window.__AIQADAM_AUTH__` — server-injected by Layout.astro from
+//    `Astro.locals.auth` (populated by `middleware.ts` via a single
+//    server-side `/auth/refresh` + `/auth/me`). This is the FAST PATH
+//    for SSR pages: every island reads the same blob with zero network
+//    round-trips on first mount. Eliminates the parallel-island
+//    /refresh race that used to revoke refresh families on every page
+//    load and produced cross-user RBAC leaks. See middleware.ts header
+//    for the full security rationale.
 //
-// Cache is cleared on:
-//   - explicit `resetAuthState()` (e.g. after sign-out)
-//   - 60s TTL (the access token is good for 15 min; revalidating every
-//     minute keeps the page in sync with role changes without paying
-//     for a network round-trip on every island mount)
+// 2) Module-level in-flight Promise — fallback for prerendered pages
+//    (middleware doesn't run for static output, no SSR blob), explicit
+//    re-fetches after `resetAuthState()`, and 60s TTL refreshes. The
+//    first caller does the network round-trip; everyone else awaits
+//    the same Promise so we never make two parallel /refresh calls
+//    from the same page.
+
+declare global {
+  interface Window {
+    __AIQADAM_AUTH__?: AuthState | null | undefined;
+  }
+}
 
 const TTL_MS = 60_000;
 
@@ -38,6 +41,25 @@ export interface AuthState {
 let inflight: Promise<AuthState | null> | null = null;
 let resolvedAt = 0;
 let cached: AuthState | null = null;
+let consumedSsr = false;
+
+// One-shot reader for the SSR-injected blob. The blob is the result of
+// the middleware's server-side /auth/refresh + /auth/me, so on the very
+// first call after page load we use it directly with no network. We
+// consume it once and clear the window pointer so a subsequent
+// `resetAuthState()` (e.g. after sign-out) doesn't re-hydrate from a
+// stale snapshot.
+function consumeSsrBlob(): AuthState | null | undefined {
+  if (consumedSsr || typeof window === 'undefined') return undefined;
+  consumedSsr = true;
+  const blob = window.__AIQADAM_AUTH__;
+  // `undefined` = SSR didn't run (prerendered page). `null` = SSR ran
+  // and confirmed anonymous. We need to distinguish the two: only
+  // `null` is a definitive "no session" we can return immediately.
+  if (blob === undefined) return undefined;
+  window.__AIQADAM_AUTH__ = undefined;
+  return blob;
+}
 
 async function performBootstrap(): Promise<AuthState | null> {
   try {
@@ -66,6 +88,16 @@ export async function getAuthState(): Promise<AuthState | null> {
   if (cached && now - resolvedAt < TTL_MS) {
     return cached;
   }
+  // First call after page load: prefer the SSR-injected blob. Skips the
+  // network entirely on SSR pages where the middleware already did the
+  // work. Definitive `null` (= middleware ran + confirmed anon) is also
+  // honoured to avoid a wasted /refresh attempt that would just fail.
+  const ssr = consumeSsrBlob();
+  if (ssr !== undefined) {
+    cached = ssr;
+    resolvedAt = now;
+    return cached;
+  }
   if (inflight) {
     return inflight;
   }
@@ -81,10 +113,15 @@ export async function getAuthState(): Promise<AuthState | null> {
 
 // Force-reset the cache. Call after sign-out / sign-in so the next
 // island that mounts re-fetches instead of seeing stale "authed".
+// Mark the SSR blob as consumed so the post-reset call goes to the
+// network — relying on a stale SSR snapshot after sign-out would
+// resurrect the just-killed identity.
 export function resetAuthState(): void {
   cached = null;
   resolvedAt = 0;
   inflight = null;
+  consumedSsr = true;
+  if (typeof window !== 'undefined') window.__AIQADAM_AUTH__ = undefined;
 }
 
 // Sign-out flow: terminates the API session AND navigates to the IdP's

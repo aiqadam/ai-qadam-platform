@@ -44,6 +44,30 @@ const ogImageUrl = ogImage
     ? ogImage
     : `${origin}${ogImage}`
   : `${origin}/brand/aiqadam-mark.png`;
+
+// SSR auth hand-off. Astro middleware resolves `Astro.locals.auth` once
+// per request (calls /auth/refresh + /auth/me server-side, propagates the
+// rotated cookie). We serialise the result into window.__AIQADAM_AUTH__
+// so React islands can render their authenticated UI on first paint
+// without firing their own /auth/refresh — that's what created the
+// island-vs-island race that occasionally killed sessions and leaked
+// stale RBAC. See middleware.ts header for the full rationale.
+//
+// We only inject the blob when middleware actually ran (locals.auth is
+// defined — null OR object). For PRERENDERED pages the middleware is
+// skipped at build time and locals.auth stays undefined; we omit the
+// script so auth-bootstrap.ts's helper falls back to the network path
+// (same behavior as before this PR). If we always injected, a
+// build-time `null` would tell islands "you're anonymous" for every
+// signed-in visitor on a prerendered page.
+//
+// JSON.stringify + </script> escaping — Astro's `set:html` renders raw
+// (no entity encoding) so we have to neutralise the close-tag manually.
+const ssrAuth = Astro.locals.auth;
+const ssrAuthInject = ssrAuth !== undefined;
+const ssrAuthJson = ssrAuthInject
+  ? JSON.stringify(ssrAuth).replace(/</g, '\\u003c')
+  : null;
 ---
 
 <!doctype html>
@@ -87,6 +111,7 @@ const ogImageUrl = ogImage
       src="https://analytics.aiqadam.org/js/script.js"
     ></script>
     <slot name="head" />
+    {ssrAuthInject && <script is:inline set:html={`window.__AIQADAM_AUTH__ = ${ssrAuthJson};`} />}
   </head>
   <body class="min-h-screen antialiased">
     <Nav />

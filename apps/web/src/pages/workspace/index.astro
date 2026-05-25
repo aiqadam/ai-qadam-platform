@@ -1,6 +1,12 @@
 ---
 import Workspace from '../../components/Workspace';
 import Layout from '../../layouts/Layout.astro';
+
+// SSR (not prerendered) so the auth middleware runs and
+// `Astro.locals.auth` populates Layout's window.__AIQADAM_AUTH__ blob.
+// Without this the Workspace island would race NavAccountMenu on a
+// fresh /auth/refresh — the original Topic 1 cross-user RBAC bug.
+export const prerender = false;
 ---
 
 <Layout title="Workspace · AI Qadam" description="AI Qadam operator workspace — single landing for admins, sponsors, operators, and country leads.">
