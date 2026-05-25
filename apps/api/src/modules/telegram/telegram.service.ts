@@ -272,6 +272,13 @@ export class TelegramService {
         telegram_linked_at: new Date().toISOString(),
         // Re-linking clears any prior opt-out — explicit intent to receive.
         telegram_opted_out_at: null,
+        // #362 — re-link recovery. If the member self-deleted via
+        // DELETE /v1/telegram/me and is within the 30-day window,
+        // re-linking the same TG account cancels the scheduled
+        // hard-delete. Outside the window the row is already purged,
+        // so this patch is a no-op (member resolution would have
+        // returned null upstream).
+        gdpr_deleted_at: null,
       });
     } catch (err) {
       const reason = err instanceof DirectusError ? `directus_${err.status}` : 'unknown';

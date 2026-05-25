@@ -181,6 +181,8 @@ describe('TelegramService.confirmLink', () => {
         telegram_username: 'alice_tg',
         telegram_linked_at: expect.any(String),
         telegram_opted_out_at: null,
+        // #362 — re-link recovery clears any prior soft-delete marker.
+        gdpr_deleted_at: null,
       }),
     );
 
