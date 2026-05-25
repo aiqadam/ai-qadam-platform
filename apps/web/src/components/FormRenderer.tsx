@@ -1,5 +1,12 @@
 import { type FormEvent, type ReactElement, useState } from 'react';
 import type { FormField, FormSummary } from '../lib/forms-api';
+import FieldBlock from './forms/FieldBlock';
+import LongTextField from './forms/LongTextField';
+import ScaleField from './forms/ScaleField';
+import SelectManyField from './forms/SelectManyField';
+import SelectOneField from './forms/SelectOneField';
+import ShortTextField from './forms/ShortTextField';
+import YesNoField from './forms/YesNoField';
 
 // Renders an operator-built form and submits to the API.
 //
@@ -157,13 +164,14 @@ export default function FormRenderer({
           Submitting as: Anonymous
         </p>
         {form.schema.fields.map((field) => (
-          <FieldBlock
-            key={field.key}
-            field={field}
-            value={values[field.key]}
-            onChange={(v) => setField(field.key, v)}
-            disabled={phase === 'submitting'}
-          />
+          <FieldBlock key={field.key} label={field.label} required={field.required}>
+            <FieldInput
+              field={field}
+              value={values[field.key]}
+              onChange={(v) => setField(field.key, v)}
+              disabled={phase === 'submitting'}
+            />
+          </FieldBlock>
         ))}
         {error && (
           <p style={{ color: 'var(--destructive, #c00)', fontSize: 13, marginTop: 12 }}>{error}</p>
@@ -181,29 +189,11 @@ export default function FormRenderer({
   );
 }
 
-// ─── Field renderers ────────────────────────────────────────────────────────
+// ─── Field renderer dispatch ────────────────────────────────────────────────
 
-function FieldBlock({
-  field,
-  value,
-  onChange,
-  disabled,
-}: {
-  field: FormField;
-  value: unknown;
-  onChange: (v: unknown) => void;
-  disabled: boolean;
-}): ReactElement {
-  return (
-    <fieldset style={{ border: 'none', padding: 0, margin: '0 0 24px' }}>
-      <legend style={{ fontSize: 14, fontWeight: 500, marginBottom: 8, padding: 0 }}>
-        {field.label}
-        {field.required && <span style={{ color: 'var(--destructive, #c00)' }}> *</span>}
-      </legend>
-      <FieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
-    </fieldset>
-  );
-}
+// Each field type now lives in apps/web/src/components/forms/*Field.tsx
+// — single responsibility per file. This dispatcher just narrows the
+// discriminated `field.type` into the right component.
 
 function FieldInput({
   field,
@@ -219,50 +209,51 @@ function FieldInput({
   switch (field.type) {
     case 'short_text':
       return (
-        <input
-          type="text"
-          maxLength={200}
+        <ShortTextField
           value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
           disabled={disabled}
           placeholder={field.placeholder}
-          style={inputStyle}
         />
       );
     case 'long_text':
       return (
-        <textarea
-          rows={4}
-          maxLength={2000}
+        <LongTextField
           value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
           disabled={disabled}
           placeholder={field.placeholder}
-          style={{ ...inputStyle, resize: 'vertical' }}
         />
       );
-    case 'scale':
+    case 'scale': {
+      const scale = field.scale ?? { min: 0, max: 10 };
       return (
-        <ScalePicker
-          field={field}
+        <ScaleField
+          min={scale.min}
+          max={scale.max}
+          minLabel={scale.min_label}
+          maxLabel={scale.max_label}
           value={value as number | undefined}
           onChange={onChange}
           disabled={disabled}
+          fieldKey={field.key}
         />
       );
+    }
     case 'select_one':
       return (
-        <RadioGroup
-          field={field}
+        <SelectOneField
+          options={field.options ?? []}
           value={value as string | undefined}
           onChange={onChange}
           disabled={disabled}
+          fieldKey={field.key}
         />
       );
     case 'select_many':
       return (
-        <CheckboxGroup
-          field={field}
+        <SelectManyField
+          options={field.options ?? []}
           value={(value as string[]) ?? []}
           onChange={onChange}
           disabled={disabled}
@@ -270,186 +261,9 @@ function FieldInput({
       );
     case 'yes_no':
       return (
-        <YesNoPicker value={value as boolean | undefined} onChange={onChange} disabled={disabled} />
+        <YesNoField value={value as boolean | undefined} onChange={onChange} disabled={disabled} />
       );
   }
-}
-
-function ScalePicker({
-  field,
-  value,
-  onChange,
-  disabled,
-}: {
-  field: FormField;
-  value: number | undefined;
-  onChange: (v: number) => void;
-  disabled: boolean;
-}): ReactElement {
-  const scale = field.scale ?? { min: 0, max: 10 };
-  const buttons: number[] = [];
-  for (let i = scale.min; i <= scale.max; i++) buttons.push(i);
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {buttons.map((n) => (
-          <button
-            key={n}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(n)}
-            style={{
-              minWidth: 44,
-              height: 44,
-              padding: '0 8px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: value === n ? 'var(--primary)' : 'transparent',
-              color: value === n ? 'var(--primary-foreground)' : 'var(--foreground)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: disabled ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      {(scale.min_label || scale.max_label) && (
-        <p
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: 11,
-            color: 'var(--muted-foreground)',
-            margin: '6px 2px 0',
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          <span>{scale.min_label ?? ''}</span>
-          <span>{scale.max_label ?? ''}</span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-function RadioGroup({
-  field,
-  value,
-  onChange,
-  disabled,
-}: {
-  field: FormField;
-  value: string | undefined;
-  onChange: (v: string) => void;
-  disabled: boolean;
-}): ReactElement {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {(field.options ?? []).map((opt) => (
-        <label
-          key={opt.value}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <input
-            type="radio"
-            name={field.key}
-            value={opt.value}
-            checked={value === opt.value}
-            onChange={() => onChange(opt.value)}
-            disabled={disabled}
-          />
-          <span>{opt.label}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function CheckboxGroup({
-  field,
-  value,
-  onChange,
-  disabled,
-}: {
-  field: FormField;
-  value: string[];
-  onChange: (v: string[]) => void;
-  disabled: boolean;
-}): ReactElement {
-  const toggle = (v: string): void => {
-    onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
-  };
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {(field.options ?? []).map((opt) => (
-        <label
-          key={opt.value}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <input
-            type="checkbox"
-            value={opt.value}
-            checked={value.includes(opt.value)}
-            onChange={() => toggle(opt.value)}
-            disabled={disabled}
-          />
-          <span>{opt.label}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function YesNoPicker({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: boolean | undefined;
-  onChange: (v: boolean) => void;
-  disabled: boolean;
-}): ReactElement {
-  return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      {[
-        { v: true, label: 'Yes' },
-        { v: false, label: 'No' },
-      ].map(({ v, label }) => (
-        <button
-          key={label}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(v)}
-          style={{
-            minWidth: 80,
-            padding: '10px 16px',
-            borderRadius: 10,
-            border: '1px solid var(--border)',
-            background: value === v ? 'var(--primary)' : 'transparent',
-            color: value === v ? 'var(--primary-foreground)' : 'var(--foreground)',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -467,17 +281,6 @@ function stripEmptyValues(values: Record<string, unknown>): Record<string, unkno
   }
   return out;
 }
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  background: 'var(--background)',
-  color: 'var(--foreground)',
-  fontFamily: 'inherit',
-  fontSize: 14,
-};
 
 // PR-D4 — dynamic event-context card rendered above the form on the
 // /events/{slug}/survey route. Pure presentation; takes no behaviour.
