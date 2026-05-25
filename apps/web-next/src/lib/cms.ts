@@ -120,7 +120,7 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
 // renders the rest of the surface.
 // ---------------------------------------------------------------------------
 
-import type { EventMaterial, EventSpeaker, EventSponsor } from './types';
+import type { EventMaterial, EventQuestion, EventSpeaker, EventSponsor } from './types';
 
 interface CmsEventSpeakerRow {
   id: string;
@@ -274,6 +274,67 @@ export async function fetchEventSponsors(eventId: string): Promise<EventSponsor[
       .filter((s): s is EventSponsor => s !== null);
   } catch (err) {
     console.error('[cms] fetchEventSponsors failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// event_questions — per-event Q&A thread.
+//
+// Directus public-policy grants read on event_questions filtered to
+// status=published; anon viewers see existing questions, signed-in
+// viewers POST via apps/api (/v1/events/:id/questions). Pages render
+// the initial SSR list; the React island mounts on top + appends.
+// ---------------------------------------------------------------------------
+
+interface CmsEventQuestionRow {
+  id: string;
+  parent_question: string | null;
+  question_text: string;
+  is_pinned: boolean;
+  is_answered: boolean;
+  date_created: string;
+  user: {
+    id?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+}
+
+function normalizeQuestionRow(row: CmsEventQuestionRow): EventQuestion {
+  const u = row.user;
+  const first = u?.first_name?.trim() ?? '';
+  const last = u?.last_name?.trim() ?? '';
+  const displayName = `${first} ${last}`.trim() || null;
+  return {
+    id: row.id,
+    questionText: row.question_text,
+    parentQuestionId: row.parent_question,
+    isPinned: row.is_pinned === true,
+    isAnswered: row.is_answered === true,
+    createdAt: row.date_created,
+    author: {
+      displayName,
+      directusUserId: u?.id ?? null,
+    },
+  };
+}
+
+export async function fetchEventQuestions(eventId: string): Promise<EventQuestion[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields:
+        'id,parent_question,question_text,is_pinned,is_answered,date_created,user.id,user.first_name,user.last_name',
+      sort: '-is_pinned,date_created',
+      limit: '100',
+    });
+    const body = await get<{ data: CmsEventQuestionRow[] }>(
+      `/items/event_questions?${params.toString()}`,
+    );
+    return body.data.map(normalizeQuestionRow);
+  } catch (err) {
+    console.error('[cms] fetchEventQuestions failed:', err instanceof Error ? err.message : err);
     return [];
   }
 }

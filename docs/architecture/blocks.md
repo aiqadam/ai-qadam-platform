@@ -64,7 +64,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<SkillTagger>` | `@/blocks/customer` | _(no props — reads via `useMyFullProfile()` + writes via `useAddSkill` / `useRemoveSkill`)_; PR 1.5b ships skills only — interests + employments come in 1.5c | `pages/me/profile.astro` (PR 1.5b) | Storyless — interactive island needs provider mocks | `member_skills` (read+write) |
 | `<Leaderboard>` | `@/blocks/customer` | `entries: LeaderboardEntry[], window: LeaderboardWindow` | `pages/leaderboard.astro` (PR 1.6) | Astro-only — no story | `point_awards` (aggregate) |
 | `<AvatarStack>` | `@/blocks/customer` | _(deferred — Leaderboard renders avatar initials inline; extract when a second consumer needs it)_ | — | — | n/a |
-| `<ForumThread>` | `@/blocks/customer` | `eventId, questions: EventQuestion[]` | — | — | `event_questions` |
+| `<ForumThread>` | `@/blocks/customer` | `eventId: string, eventTitle: string, initialQuestions: EventQuestion[]` (React island — anon read seeded via SSR-prop; signed-in post via `useAuth()` + `usePostQuestion()` from `lib/use-event-forum`) | `pages/events/[id].astro` (PR 1.7) | Storyless — interactive island needs provider mocks | `event_questions` (read SSR via Directus Public policy; write via `/v1/events/:id/questions`) |
 | `<AppFooter>` | `@/blocks/customer` | `(no props — reads site_settings via L1)` | — | — | `site_settings` |
 
 ### Operator workspace blocks — `apps/web-next/src/blocks/workspace/`
@@ -106,7 +106,7 @@ Pending: a Phase 2 follow-up adds the decorator + MSW handlers. Until
 then, blocks tagged "Storyless — interactive island needs provider
 mocks" in the catalogue ship without a story.
 
-Affected blocks today: `<RegistrationCTA>` (PR 1.4).
+Affected blocks today: `<RegistrationCTA>` (PR 1.4), `<ConsentList>` + `<SkillTagger>` (PR 1.5b), `<ForumThread>` (PR 1.7).
 
 ## Storyless Astro blocks
 

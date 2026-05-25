@@ -5,6 +5,7 @@ export { ConsentList } from './ConsentList';
 export { default as EventCard } from './EventCard.astro';
 export { default as EventDetail } from './EventDetail.astro';
 export { default as EventsGrid } from './EventsGrid.astro';
+export { ForumThread } from './ForumThread';
 export { default as Hero } from './Hero.astro';
 export { default as Leaderboard } from './Leaderboard.astro';
 export { default as MaterialsList } from './MaterialsList.astro';

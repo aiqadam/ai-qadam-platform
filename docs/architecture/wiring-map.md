@@ -150,10 +150,34 @@ ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchEventSponsors(eventId)
 fallback: [] (block renders nothing; rest of page unaffected)
 ```
 
-### `event_photos`, `event_questions`
+### `event_questions` — LIVE under apps/web-next/ as of PR 1.7
 
-> Placeholder — filled in Phase 1.7 (forum / questions) and a future
-> finished-tab follow-up (photos).
+```yaml
+data_source: event_questions
+description: Per-event Q&A thread. Anon read via Directus Public policy; signed-in post via apps/api.
+
+customer_blocks:
+  - block: ForumThread
+    page: apps/web-next/src/pages/events/[id].astro (PR 1.7)
+    operation: both
+    initial_data: SSR-fetched via fetchEventQuestions (Directus)
+    hooks: lib/use-event-forum.ts → usePostQuestion
+
+operator_blocks:
+  - block: DataTable (QuestionsList + pin/answer moderation)  # placeholder — Phase 2
+    cabinet: /workspace/events/[id]
+    operation: read+write
+
+api_endpoints:
+  - POST /v1/events/:id/questions  (apps/api EventQuestionsController; body { questionText, parentQuestionId? })
+
+ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchEventQuestions(eventId)
+fallback: [] (block still renders composer; existing list comes back empty)
+```
+
+### `event_photos`
+
+> Placeholder — filled in a future finished-tab follow-up (photos).
 
 ### `registrations` — LIVE under apps/web-next/ as of PR 1.4
 

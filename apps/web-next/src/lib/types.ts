@@ -79,6 +79,27 @@ export interface EventSponsor {
 }
 
 // ---------------------------------------------------------------------------
+// Directus — per-event Q&A thread (anon read, signed-in post).
+//
+// Backs <ForumThread> on /events/[id]. Pinned questions float to the
+// top; non-pinned sort newest-first. parentQuestionId is reserved for
+// the future deep-thread tree but renders flat in v1 (matches v1 web).
+// ---------------------------------------------------------------------------
+
+export interface EventQuestion {
+  id: string;
+  questionText: string;
+  parentQuestionId: string | null;
+  isPinned: boolean;
+  isAnswered: boolean;
+  createdAt: string;
+  author: {
+    displayName: string | null;
+    directusUserId: string | null;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // apps/api — public profiles (/u/[handle])
 // ---------------------------------------------------------------------------
 

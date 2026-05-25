@@ -19,6 +19,7 @@ export const prerender = false;
 
 import {
   EventDetail,
+  ForumThread,
   MaterialsList,
   RegistrationCTA,
   ShareButtons,
@@ -28,7 +29,12 @@ import {
 import { PageHead } from '../../blocks/common';
 import Layout from '../../layouts/Layout.astro';
 import { fetchEvent } from '../../lib/api-ssr';
-import { fetchEventMaterials, fetchEventSpeakers, fetchEventSponsors } from '../../lib/cms';
+import {
+  fetchEventMaterials,
+  fetchEventQuestions,
+  fetchEventSpeakers,
+  fetchEventSponsors,
+} from '../../lib/cms';
 
 const { id } = Astro.params as { id: string };
 const event = await fetchEvent(Astro.request, id);
@@ -37,10 +43,11 @@ if (!event) {
   return Astro.redirect('/events', 302);
 }
 
-const [speakers, materials, sponsors] = await Promise.all([
+const [speakers, materials, sponsors, questions] = await Promise.all([
   fetchEventSpeakers(event.id),
   fetchEventMaterials(event.id),
   fetchEventSponsors(event.id),
+  fetchEventQuestions(event.id),
 ]);
 
 const canonicalUrl = `${Astro.url.protocol}//${Astro.url.host}/events/${event.id}`;
@@ -73,6 +80,12 @@ const canonicalUrl = `${Astro.url.protocol}//${Astro.url.host}/events/${event.id
       <SpeakerGrid speakers={speakers} />
       <MaterialsList materials={materials} />
       <SponsorWall sponsors={sponsors} />
+      <ForumThread
+        client:load
+        eventId={event.id}
+        eventTitle={event.title}
+        initialQuestions={questions}
+      />
     </EventDetail>
   </main>
 </Layout>
