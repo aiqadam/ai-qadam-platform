@@ -65,7 +65,6 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<Leaderboard>` | `@/blocks/customer` | `entries: LeaderboardEntry[], window: LeaderboardWindow` | `pages/leaderboard.astro` (PR 1.6) | Astro-only — no story | `point_awards` (aggregate) |
 | `<AvatarStack>` | `@/blocks/customer` | _(deferred — Leaderboard renders avatar initials inline; extract when a second consumer needs it)_ | — | — | n/a |
 | `<ForumThread>` | `@/blocks/customer` | `eventId: string, eventTitle: string, initialQuestions: EventQuestion[]` (React island — anon read seeded via SSR-prop; signed-in post via `useAuth()` + `usePostQuestion()` from `lib/use-event-forum`) | `pages/events/[id].astro` (PR 1.7) | Storyless — interactive island needs provider mocks | `event_questions` (read SSR via Directus Public policy; write via `/v1/events/:id/questions`) |
-| `<AppFooter>` | `@/blocks/customer` | `(no props — reads site_settings via L1)` | — | — | `site_settings` |
 
 ### Operator workspace blocks — `apps/web-next/src/blocks/workspace/`
 
@@ -86,6 +85,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
 | `<PageHead>` | `@/blocks/common` | `title: string, description?: string` (build-aside: OG / canonical deliberately omitted; expand at cutover) | `pages/index.astro` (PR 1.1) | Astro-only — no story | n/a |
+| `<AppFooter>` | `@/blocks/common` | _(no props — fetches site_settings via `fetchSiteSettings()` with graceful default)_ | every page via `Layout.astro` (PR 1.8c) | Astro-only — no story | `site_settings` |
 | `<AuthGate>` | `@/blocks/common` | `role?: string \| string[], signInLabel?, signInHref?` (Astro — reads `Astro.locals.auth`) | available for `members_only` / engineer-only surfaces (PR 1.4) | Astro-only — no story | `Astro.locals.auth.me.groups` (server-verified SSR blob) |
 | `<EmptyState>` | `@/blocks/common` | `heading: string, description?, icon?` (CTAs composed outside the block) | `<EventsGrid>` fallback (PR 1.2); planned `<MembersList>`, `<MaterialsList>`, etc. | Astro-only — no story | n/a |
 | `<DateTime>` | `@/blocks/common` | `value: string, format: 'long' \| 'short' \| 'time' \| 'datetime', class?: string` (en-US locale; emits `<time datetime=...>` for SR + crawlers) | `<EventDetail>` hero; `<ProfileCard>` recent-events list (both PR 1.8b) | Astro-only — no story | n/a |

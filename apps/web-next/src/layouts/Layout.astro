@@ -1,5 +1,6 @@
 ---
 import '../styles/globals.css';
+import AppFooter from '../blocks/common/AppFooter.astro';
 import RuntimeProvider from '../lib/RuntimeProvider';
 
 interface Props {
@@ -47,6 +48,7 @@ const ssrAuthJson = ssrAuthInject ? JSON.stringify(ssrAuth).replace(/</g, '\\u00
   <body class="min-h-screen antialiased">
     <RuntimeProvider client:load initial={ssrAuth}>
       <slot />
+      <AppFooter />
     </RuntimeProvider>
   </body>
 </html>
