@@ -21,6 +21,7 @@
 // Wiring: docs/architecture/wiring-map.md → directus_users.
 
 import type { PublicProfile } from '../../lib/types';
+import DateTime from '../common/DateTime.astro';
 import MarkdownBody from '../common/MarkdownBody.astro';
 
 interface Props {
@@ -42,14 +43,6 @@ const seed = avatarSeed(displayName);
 const subtitle = [profile.jobTitle, profile.employerName].filter(Boolean).join(' · ');
 
 const recentForList = profile.recentEvents.slice(0, 6);
-
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 // `mode` is accepted for future divergence (self vs public renders).
 // Reference it so TS doesn't flag the prop as unused under strict.
@@ -126,9 +119,11 @@ void mode;
               class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-border bg-card no-underline text-inherit hover:border-primary/40 transition-colors"
             >
               <span class="text-sm truncate">{ev.title}</span>
-              <span class="font-mono text-[10px] text-muted-foreground shrink-0">
-                {shortDate(ev.startsAt)}
-              </span>
+              <DateTime
+                value={ev.startsAt}
+                format="short"
+                class="font-mono text-[10px] text-muted-foreground shrink-0"
+              />
             </a>
           </li>
         ))}

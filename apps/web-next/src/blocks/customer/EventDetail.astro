@@ -15,7 +15,9 @@
 // Wiring: docs/architecture/wiring-map.md → events.
 
 import type { ApiEvent } from '../../lib/types';
+import DateTime from '../common/DateTime.astro';
 import MarkdownBody from '../common/MarkdownBody.astro';
+import TimeRange from '../common/TimeRange.astro';
 
 interface Props {
   event: ApiEvent;
@@ -30,23 +32,6 @@ const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
   conference: 'CONFERENCE',
   online: 'ONLINE',
 };
-
-const fullDate = new Date(event.startsAt).toLocaleDateString('en-US', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-});
-const startTime = new Date(event.startsAt).toLocaleTimeString('en-US', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
-const endTime = new Date(event.endsAt).toLocaleTimeString('en-US', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
 
 const LINK_KIND_LABEL: Record<string, string> = {
   website: 'WEBSITE',
@@ -87,10 +72,12 @@ const LINK_KIND_LABEL: Record<string, string> = {
         <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
           Date
         </p>
-        <p class="text-sm text-foreground">{fullDate}</p>
-        <p class="font-mono text-xs text-muted-foreground mt-1">
-          {startTime} — {endTime}
-        </p>
+        <DateTime value={event.startsAt} format="long" class="text-sm text-foreground" />
+        <TimeRange
+          start={event.startsAt}
+          end={event.endsAt}
+          class="block font-mono text-xs text-muted-foreground mt-1"
+        />
       </div>
       <div>
         <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">

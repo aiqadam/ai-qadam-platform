@@ -1,0 +1,52 @@
+---
+// L3 common block — <DateTime>.
+//
+// Renders an ISO timestamp string as a localized date/time. One block
+// replaces the half-dozen ad-hoc `new Date(iso).toLocaleDateString(...)`
+// calls scattered across EventDetail / ProfileCard / future surfaces.
+//
+// Phase 1.8b ships three preset formats; add more by extending the
+// `format` discriminated union below + the `INTL_OPTIONS` map.
+//
+//   'long'      — "Monday, 14 May 2026"   (event-detail hero)
+//   'short'     — "May 14, 2026"          (profile recent-events list)
+//   'time'      — "14:30"  (24h)          (event-detail start/end times)
+//   'datetime'  — "May 14, 2026, 14:30"   (audit logs / future)
+//
+// Locale is fixed to 'en-US' for now — when the i18n layer lands
+// (Phase 2) this block takes a locale prop instead. The chosen formats
+// match v1 web's current output verbatim so no visual delta on cutover.
+
+interface Props {
+  value: string;
+  format: 'long' | 'short' | 'time' | 'datetime';
+  class?: string;
+}
+
+const { value, format, class: extraClass = '' } = Astro.props;
+
+const INTL_OPTIONS: Record<Props['format'], Intl.DateTimeFormatOptions> = {
+  long: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
+  short: { month: 'short', day: 'numeric', year: 'numeric' },
+  time: { hour: '2-digit', minute: '2-digit', hour12: false },
+  datetime: {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  },
+};
+
+const parsed = new Date(value);
+const ms = parsed.getTime();
+const text = Number.isFinite(ms)
+  ? new Intl.DateTimeFormat('en-US', INTL_OPTIONS[format]).format(parsed)
+  : '';
+
+// Emit ISO in the `datetime` attribute so assistive tech + crawlers
+// get machine-readable timestamps regardless of the localized text.
+---
+
+<time datetime={value} class={extraClass}>{text}</time>

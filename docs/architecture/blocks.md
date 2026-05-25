@@ -88,8 +88,8 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<PageHead>` | `@/blocks/common` | `title: string, description?: string` (build-aside: OG / canonical deliberately omitted; expand at cutover) | `pages/index.astro` (PR 1.1) | Astro-only — no story | n/a |
 | `<AuthGate>` | `@/blocks/common` | `role?: string \| string[], signInLabel?, signInHref?` (Astro — reads `Astro.locals.auth`) | available for `members_only` / engineer-only surfaces (PR 1.4) | Astro-only — no story | `Astro.locals.auth.me.groups` (server-verified SSR blob) |
 | `<EmptyState>` | `@/blocks/common` | `heading: string, description?, icon?` (CTAs composed outside the block) | `<EventsGrid>` fallback (PR 1.2); planned `<MembersList>`, `<MaterialsList>`, etc. | Astro-only — no story | n/a |
-| `<DateTime>` | `@/blocks/common` | `value: string, format: 'date' \| 'datetime' \| 'time'` | — | — | n/a |
-| `<TimeRange>` | `@/blocks/common` | `start: string, end: string` | — | — | n/a |
+| `<DateTime>` | `@/blocks/common` | `value: string, format: 'long' \| 'short' \| 'time' \| 'datetime', class?: string` (en-US locale; emits `<time datetime=...>` for SR + crawlers) | `<EventDetail>` hero; `<ProfileCard>` recent-events list (both PR 1.8b) | Astro-only — no story | n/a |
+| `<TimeRange>` | `@/blocks/common` | `start: string, end: string, class?: string` (renders `HH:MM — HH:MM`; cross-day adds weekday prefix) | `<EventDetail>` hero (PR 1.8b) | Astro-only — no story | n/a |
 | `<MarkdownBody>` | `@/blocks/common` | `content: string \| null \| undefined, variant?: 'muted' \| 'body', class?: string` (markdown-lite: blank-line blocks → `<p>` or `<ul>`, `- ` bullets, full HTML escape) | `<EventDetail>` description + agenda; `<ProfileCard>` bio (both PR 1.8a) | Astro-only — no story | n/a (pure presentation) |
 | `<CountrySwitcher>` | `@/blocks/common` | `current: CountryCode` | — | — | useAuth() |
 | `<LocaleSwitcher>` | `@/blocks/common` | `current: Locale` | — | — | i18n |

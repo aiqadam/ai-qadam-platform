@@ -1,0 +1,52 @@
+---
+// L3 common block — <TimeRange>.
+//
+// Renders an inclusive `HH:MM — HH:MM` window for an event (24h
+// clock). Single source of truth so callers don't have to wire two
+// `<DateTime format="time">` blocks + an em-dash by hand.
+//
+// If both timestamps fall on the same calendar day (which is the
+// only case in v1 today), the output is "14:30 — 17:00". If they
+// span days (overnight hackathon), the output adds the end date:
+// "14:30 — Sat 13:00". Same intl rules as <DateTime>.
+
+interface Props {
+  start: string;
+  end: string;
+  class?: string;
+}
+
+const { start, end, class: extraClass = '' } = Astro.props;
+
+const startDate = new Date(start);
+const endDate = new Date(end);
+
+function fmtTime(d: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+}
+function fmtWeekday(d: Date): string {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(d);
+}
+
+const sameDay =
+  startDate.getUTCFullYear() === endDate.getUTCFullYear() &&
+  startDate.getUTCMonth() === endDate.getUTCMonth() &&
+  startDate.getUTCDate() === endDate.getUTCDate();
+
+const startText = Number.isFinite(startDate.getTime()) ? fmtTime(startDate) : '';
+const endText = Number.isFinite(endDate.getTime())
+  ? sameDay
+    ? fmtTime(endDate)
+    : `${fmtWeekday(endDate)} ${fmtTime(endDate)}`
+  : '';
+---
+
+<span class={extraClass}>
+  <time datetime={start}>{startText}</time>
+  {' — '}
+  <time datetime={end}>{endText}</time>
+</span>
