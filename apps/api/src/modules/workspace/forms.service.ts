@@ -119,6 +119,74 @@ export interface FormRow {
   submission_count: number;
 }
 
+// PR-D2 — single submission row for the responses inbox. `member` is
+// the deep-joined directus_users projection; null when respondent
+// chose Anonymous (or member resolution failed).
+export interface SubmissionRow {
+  id: string;
+  form: string;
+  event: string | null;
+  is_anonymous: boolean;
+  member: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  } | null;
+  telegram_user_id: string | null;
+  payload: Record<string, unknown>;
+  source: 'web' | 'bot' | 'email';
+  language: string | null;
+  status: 'new' | 'triaged' | 'closed';
+  date_created: string;
+}
+
+// Per-field aggregate. Discriminated on `type` so the UI can render
+// the right widget without sniffing the field schema separately.
+export type FieldAggregate =
+  | {
+      type: 'short_text' | 'long_text';
+      key: string;
+      label: string;
+      response_count: number;
+    }
+  | {
+      type: 'scale';
+      key: string;
+      label: string;
+      response_count: number;
+      mean: number | null;
+      // histogram[i] = number of responses with value i (sparse map ok)
+      distribution: Array<{ value: number; count: number }>;
+      min: number;
+      max: number;
+    }
+  | {
+      type: 'select_one' | 'select_many';
+      key: string;
+      label: string;
+      response_count: number;
+      counts: Array<{ value: string; label: string; count: number }>;
+    }
+  | {
+      type: 'yes_no';
+      key: string;
+      label: string;
+      response_count: number;
+      yes: number;
+      no: number;
+    };
+
+export interface FormAggregate {
+  form_id: string;
+  form_title: string;
+  total_responses: number;
+  anonymous_count: number;
+  attributed_count: number;
+  by_event: Array<{ event_id: string | null; count: number }>;
+  fields: FieldAggregate[];
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -199,6 +267,40 @@ export class WorkspaceFormsService {
     return this.update(id, { status: 'archived' });
   }
 
+  // ─── Submissions read (PR-D2) ─────────────────────────────────────────────
+
+  async listSubmissions(
+    formId: string,
+    opts: { limit?: number; offset?: number; eventId?: string | null } = {},
+  ): Promise<SubmissionRow[]> {
+    if (!isUuid(formId)) throw new NotFoundException({ error: 'form_not_found' });
+    const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+    const offset = Math.max(opts.offset ?? 0, 0);
+    const filters: string[] = [`filter[form][_eq]=${encodeURIComponent(formId)}`];
+    if (opts.eventId) filters.push(`filter[event][_eq]=${encodeURIComponent(opts.eventId)}`);
+    const query = [
+      ...filters,
+      'fields=id,form,event,is_anonymous,member.id,member.first_name,member.last_name,member.email,telegram_user_id,payload,source,language,status,date_created',
+      'sort=-date_created',
+      `limit=${limit}`,
+      `offset=${offset}`,
+    ].join('&');
+    const res = await this.directus.get<{ data: SubmissionRow[] }>(
+      `/items/form_submissions?${query}`,
+    );
+    return res.data;
+  }
+
+  // Computes per-field aggregates over ALL submissions for this form
+  // (no pagination — the cabinet renders the aggregate header once).
+  // For thousands of responses this becomes a hot path; v1 fetches +
+  // walks in-memory. Materialize to a stats row when it bites.
+  async aggregateForm(formId: string): Promise<FormAggregate> {
+    const form = await this.getById(formId);
+    const submissions = await this.listSubmissions(formId, { limit: 500 });
+    return computeAggregate(form, submissions);
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   private async findBySlug(slug: string): Promise<{ id: string } | null> {
@@ -236,4 +338,151 @@ export class WorkspaceFormsService {
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+// ─── Aggregate computation (exported for tests) ─────────────────────────────
+
+// Walks the operator-defined schema and computes per-field aggregates
+// over the submission set. Returns an empty/default aggregate for fields
+// that received no responses; UI can render "no data yet" instead of
+// hiding the field.
+export function computeAggregate(form: FormRow, submissions: SubmissionRow[]): FormAggregate {
+  const parsed = FORM_SCHEMA_ZOD.safeParse(form.schema);
+  const fields = parsed.success ? parsed.data.fields : [];
+
+  const anonymous_count = submissions.filter((s) => s.is_anonymous).length;
+  const byEvent = new Map<string | null, number>();
+  for (const s of submissions) {
+    byEvent.set(s.event, (byEvent.get(s.event) ?? 0) + 1);
+  }
+
+  return {
+    form_id: form.id,
+    form_title: form.title,
+    total_responses: submissions.length,
+    anonymous_count,
+    attributed_count: submissions.length - anonymous_count,
+    by_event: Array.from(byEvent.entries()).map(([event_id, count]) => ({ event_id, count })),
+    fields: fields.map((field) => aggregateField(field, submissions)),
+  };
+}
+
+function aggregateField(
+  field: {
+    type: string;
+    key: string;
+    label: string;
+    options?: Array<{ value: string; label: string }>;
+  },
+  submissions: SubmissionRow[],
+): FieldAggregate {
+  const values = submissions.map((s) => s.payload[field.key]).filter((v) => v != null && v !== '');
+  if (field.type === 'short_text' || field.type === 'long_text') {
+    return {
+      type: field.type,
+      key: field.key,
+      label: field.label,
+      response_count: values.length,
+    };
+  }
+  if (field.type === 'scale') {
+    return aggregateScale(field as { key: string; label: string }, values);
+  }
+  if (field.type === 'select_one') {
+    return aggregateSelectOne(
+      field as { key: string; label: string; options?: Array<{ value: string; label: string }> },
+      values,
+    );
+  }
+  if (field.type === 'select_many') {
+    return aggregateSelectMany(
+      field as { key: string; label: string; options?: Array<{ value: string; label: string }> },
+      values,
+    );
+  }
+  // yes_no
+  let yes = 0;
+  let no = 0;
+  for (const v of values) {
+    if (v === true) yes++;
+    else if (v === false) no++;
+  }
+  return {
+    type: 'yes_no',
+    key: field.key,
+    label: field.label,
+    response_count: yes + no,
+    yes,
+    no,
+  };
+}
+
+function aggregateScale(field: { key: string; label: string }, values: unknown[]): FieldAggregate {
+  const nums = values.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  const distMap = new Map<number, number>();
+  let sum = 0;
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (const n of nums) {
+    sum += n;
+    if (n < min) min = n;
+    if (n > max) max = n;
+    distMap.set(n, (distMap.get(n) ?? 0) + 1);
+  }
+  return {
+    type: 'scale',
+    key: field.key,
+    label: field.label,
+    response_count: nums.length,
+    mean: nums.length === 0 ? null : sum / nums.length,
+    distribution: Array.from(distMap.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value - b.value),
+    min: nums.length === 0 ? 0 : min,
+    max: nums.length === 0 ? 0 : max,
+  };
+}
+
+function aggregateSelectOne(
+  field: { key: string; label: string; options?: Array<{ value: string; label: string }> },
+  values: unknown[],
+): FieldAggregate {
+  const opts = field.options ?? [];
+  const counts = new Map<string, number>();
+  for (const v of values) {
+    if (typeof v === 'string') counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  return {
+    type: 'select_one',
+    key: field.key,
+    label: field.label,
+    response_count: values.length,
+    counts: opts.map((o) => ({ value: o.value, label: o.label, count: counts.get(o.value) ?? 0 })),
+  };
+}
+
+function aggregateSelectMany(
+  field: { key: string; label: string; options?: Array<{ value: string; label: string }> },
+  values: unknown[],
+): FieldAggregate {
+  const opts = field.options ?? [];
+  const counts = collectMultiSelectCounts(values);
+  return {
+    type: 'select_many',
+    key: field.key,
+    label: field.label,
+    response_count: values.length,
+    counts: opts.map((o) => ({ value: o.value, label: o.label, count: counts.get(o.value) ?? 0 })),
+  };
+}
+
+function collectMultiSelectCounts(values: unknown[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const v of values) {
+    if (!Array.isArray(v)) continue;
+    for (const x of v) {
+      if (typeof x === 'string') counts.set(x, (counts.get(x) ?? 0) + 1);
+    }
+  }
+  return counts;
 }

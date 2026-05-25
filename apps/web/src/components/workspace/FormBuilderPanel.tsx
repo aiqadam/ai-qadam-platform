@@ -208,6 +208,13 @@ function AuthedBuilder({
             <span style={{ fontSize: 12, color: 'var(--destructive, #c00)' }}>{savingError}</span>
           )}
           <a
+            href={`/workspace/forms/${formId}/responses`}
+            className="btn"
+            style={{ textDecoration: 'none' }}
+          >
+            View responses ({draft.submission_count})
+          </a>
+          <a
             href={`/forms/${draft.slug}`}
             target="_blank"
             rel="noopener noreferrer"

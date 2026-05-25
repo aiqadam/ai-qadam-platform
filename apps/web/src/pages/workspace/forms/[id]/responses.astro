@@ -1,0 +1,19 @@
+---
+import FormResponsesPanel from '../../../../components/workspace/FormResponsesPanel';
+import Layout from '../../../../layouts/Layout.astro';
+
+// Operator responses inbox for a single form. Aggregates header (NPS
+// avg, distribution, yes/no counts) + raw response table. Linked from
+// the form builder header.
+
+export const prerender = false;
+
+const { id } = Astro.params as { id: string };
+---
+
+<Layout
+  title="Responses · AI Qadam workspace"
+  description="Aggregated stats + raw response inbox for an operator-built form."
+>
+  <FormResponsesPanel formId={id} client:load />
+</Layout>

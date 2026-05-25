@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -16,7 +17,9 @@ import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import {
+  type FormAggregate,
   type FormRow,
+  type SubmissionRow,
   WorkspaceFormsService,
   createFormSchema,
   patchFormSchema,
@@ -87,6 +90,42 @@ export class WorkspaceFormsController {
   async archive(@Req() req: Request, @Param('id') id: string): Promise<{ form: FormRow }> {
     requireUser(req);
     return { form: await this.forms.archive(id) };
+  }
+
+  // PR-D2 — operator inbox for collected responses + per-field aggregates.
+  // Both endpoints AuthGuard-gated; per-country scoping rides on the
+  // existing Directus policy filter via the operator's bridge token.
+  //
+  // /submissions — raw response list. Caps at 500/page; UI paginates.
+  // /aggregate   — computed stats (NPS mean, distribution histogram,
+  //                yes/no counts, select counts, text response counts).
+
+  @Get(':id/submissions')
+  async submissions(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Query('limit') limitRaw?: string,
+    @Query('offset') offsetRaw?: string,
+    @Query('event_id') eventId?: string,
+  ): Promise<{ submissions: SubmissionRow[] }> {
+    requireUser(req);
+    const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 100;
+    const offset = offsetRaw ? Number.parseInt(offsetRaw, 10) : 0;
+    const submissions = await this.forms.listSubmissions(id, {
+      limit: Number.isFinite(limit) ? limit : 100,
+      offset: Number.isFinite(offset) ? offset : 0,
+      eventId: eventId ?? null,
+    });
+    return { submissions };
+  }
+
+  @Get(':id/aggregate')
+  async aggregate(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ): Promise<{ aggregate: FormAggregate }> {
+    requireUser(req);
+    return { aggregate: await this.forms.aggregateForm(id) };
   }
 }
 
