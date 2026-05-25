@@ -1,8 +1,7 @@
 ---
 import FormRenderer from '../../../components/FormRenderer';
 import Layout from '../../../layouts/Layout.astro';
-import { fetchEvent, fetchEventSpeakers } from '../../../lib/cms';
-import { fetchEventSurvey } from '../../../lib/forms-api';
+import { fetchEventSurvey, fetchSurveyEventContext } from '../../../lib/forms-api';
 
 // Post-event survey page for a specific event.
 //
@@ -20,38 +19,27 @@ import { fetchEventSurvey } from '../../../lib/forms-api';
 //
 // When no in-house form is attached → 404; bot may still render the
 // external `events.feedback_survey_url` button (#322).
+//
+// PR-D9 — event context (title, speakers) is fetched via the bot's
+// telegram API rather than anonymous Directus reads, because
+// event_speakers + speakers + directus_users do NOT grant public
+// Directus read. fetchSurveyEventContext wraps the existing public
+// route through the authenticated API container.
 
 export const prerender = false;
 
 const { id } = Astro.params as { id: string };
 
-// Fetch form + event metadata + confirmed speakers in parallel. The
-// form lookup is required (404 if missing); event + speakers are
-// best-effort context — we render the form even if they fail.
-const [form, event, speakers] = await Promise.all([
+// Form lookup is required (404 if missing); event context is
+// best-effort — we render the form even if it fails.
+const [form, eventContext] = await Promise.all([
   fetchEventSurvey(Astro.request, id),
-  fetchEvent(Astro.request, id).catch(() => null),
-  fetchEventSpeakers(id).catch(() => []),
+  fetchSurveyEventContext(Astro.request, id).catch(() => null),
 ]);
 
 if (!form) {
   return new Response('No survey attached to this event', { status: 404 });
 }
-
-const confirmedSpeakers = (speakers ?? []).filter((s) => s.status === 'confirmed');
-
-const eventContext = event
-  ? {
-      title: event.title,
-      startsAt: event.startsAt,
-      endsAt: event.endsAt,
-      location: event.location,
-      speakers: confirmedSpeakers.map((s) => ({
-        name: s.displayName,
-        talkTitle: s.talkTitle,
-      })),
-    }
-  : null;
 ---
 
 <Layout
