@@ -1,0 +1,29 @@
+---
+// @generated-from gen:page
+// slug: _kit-smoke
+// generated: 2026-05-25
+//
+// PR-0c smoke page — renders one instance of every L2 atom shipped by
+// src/kit/ so engineers can eyeball the token theme. Hidden under
+// next.aiqadam.org/_kit-smoke (engineer-only via forward-auth).
+//
+// REMOVABLE after PR-0e (Storybook) ships — Storybook becomes the
+// canonical discovery surface for atoms + blocks. Tracked in PR-0c
+// description as follow-up debt.
+//
+// No fetch(), no inline style=, no L3 blocks (catalogue still empty).
+// The smoke island is the only consumer of @/kit before PR-1.* lands.
+import Layout from '../layouts/Layout.astro';
+import KitSmoke from '../islands/KitSmoke';
+---
+
+<Layout title="kit smoke · AI Qadam (next)">
+  <main class="container mx-auto py-8">
+    <h1 class="mb-2 text-2xl font-semibold">L2 kit smoke</h1>
+    <p class="mb-8 text-sm text-muted-foreground">
+      One instance of every atom in <code class="font-mono">src/kit/</code>. Remove after Storybook
+      (PR-0e) ships.
+    </p>
+    <KitSmoke client:load />
+  </main>
+</Layout>
