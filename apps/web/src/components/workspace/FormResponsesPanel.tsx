@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useState } from 'react';
+import { type ReactElement, useEffect, useMemo, useState } from 'react';
 
 // Operator responses inbox for a single form. Two stacked sections:
 //   1. Aggregate header — per-field rollup (NPS mean + histogram,
@@ -145,6 +145,29 @@ function AuthedResponses({
   aggregate: FormAggregate;
   submissions: SubmissionRow[];
 }): ReactElement {
+  // PR-D10 — per-event filter. Aggregate cards + raw table both narrow
+  // when an event is selected. v1 does the filtering client-side from
+  // the full submission set we already fetched (capped at 500 by the
+  // server); when forms scale to thousands per event we'll move
+  // filtering server-side via the existing ?event_id= query param.
+  const [eventFilter, setEventFilter] = useState<string | 'all'>('all');
+
+  const filteredSubmissions = useMemo(
+    () =>
+      eventFilter === 'all'
+        ? submissions
+        : submissions.filter((s) => (s.event ?? '') === eventFilter),
+    [submissions, eventFilter],
+  );
+
+  // Recompute aggregate over the filtered set when a specific event is
+  // selected. "All events" uses the server-computed aggregate verbatim
+  // (which already covers ALL submissions, paginated or not).
+  const effectiveAggregate = useMemo(
+    () => (eventFilter === 'all' ? aggregate : recomputeAggregate(aggregate, filteredSubmissions)),
+    [aggregate, filteredSubmissions, eventFilter],
+  );
+
   return (
     <Shell>
       <header style={{ marginBottom: 24 }}>
@@ -158,22 +181,215 @@ function AuthedResponses({
           {aggregate.form_title}
         </h1>
         <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 6 }}>
-          {aggregate.total_responses} {aggregate.total_responses === 1 ? 'response' : 'responses'}
-          {aggregate.anonymous_count > 0 && ` · ${aggregate.anonymous_count} anonymous`}
+          {effectiveAggregate.total_responses}{' '}
+          {effectiveAggregate.total_responses === 1 ? 'response' : 'responses'}
+          {effectiveAggregate.anonymous_count > 0 &&
+            ` · ${effectiveAggregate.anonymous_count} anonymous`}
           {aggregate.by_event.length > 1 && ` · ${aggregate.by_event.length} events`}
         </div>
       </header>
 
-      {aggregate.total_responses === 0 ? (
+      {aggregate.by_event.length > 1 && (
+        <EventFilter aggregate={aggregate} selected={eventFilter} onChange={setEventFilter} />
+      )}
+
+      {effectiveAggregate.total_responses === 0 ? (
         <EmptyState />
       ) : (
         <>
-          <AggregateSection aggregate={aggregate} />
-          <SubmissionsTable submissions={submissions} />
+          <AggregateSection aggregate={effectiveAggregate} />
+          <SubmissionsTable submissions={filteredSubmissions} />
         </>
       )}
     </Shell>
   );
+}
+
+// PR-D10 — per-event filter chips. Shows one chip per event_id that
+// has submissions (sourced from the server-computed `by_event` so it
+// reflects ALL submissions, not just the paginated 500).
+function EventFilter({
+  aggregate,
+  selected,
+  onChange,
+}: {
+  aggregate: FormAggregate;
+  selected: string | 'all';
+  onChange: (next: string | 'all') => void;
+}): ReactElement {
+  const totalAll = aggregate.total_responses;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 24,
+        paddingBottom: 16,
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--muted-foreground)',
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          alignSelf: 'center',
+          marginRight: 4,
+        }}
+      >
+        Filter
+      </span>
+      <Chip active={selected === 'all'} onClick={() => onChange('all')}>
+        All events ({totalAll})
+      </Chip>
+      {aggregate.by_event.map((b) => {
+        const id = b.event_id ?? 'no-event';
+        const label = b.event_id ? shortenEventId(b.event_id) : 'No event';
+        return (
+          <Chip
+            key={id}
+            active={selected === (b.event_id ?? '')}
+            onClick={() => onChange(b.event_id ?? '')}
+          >
+            {label} ({b.count})
+          </Chip>
+        );
+      })}
+    </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: '6px 12px',
+        borderRadius: 999,
+        border: '1px solid var(--border)',
+        background: active ? 'var(--primary)' : 'transparent',
+        color: active ? 'var(--primary-foreground)' : 'var(--foreground)',
+        fontSize: 12,
+        fontFamily: 'var(--font-mono)',
+        cursor: 'pointer',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function shortenEventId(id: string): string {
+  // Show first 8 chars of uuid as a recognizable handle (matches the
+  // events cabinet's row-id display convention).
+  return id.length > 8 ? `evt ${id.slice(0, 8)}` : id;
+}
+
+// Per-event re-aggregation (text/select/scale/yes_no/speaker_rating)
+// using the same shapes the server computes. Kept here as a small pure
+// reducer; if it grows, move to a shared util alongside the API.
+function recomputeAggregate(base: FormAggregate, subs: SubmissionRow[]): FormAggregate {
+  const anonymousCount = subs.filter((s) => s.is_anonymous).length;
+  return {
+    ...base,
+    total_responses: subs.length,
+    anonymous_count: anonymousCount,
+    attributed_count: subs.length - anonymousCount,
+    fields: base.fields.map((f) => recomputeFieldAggregate(f, subs)),
+  };
+}
+
+function recomputeFieldAggregate(f: FieldAggregate, subs: SubmissionRow[]): FieldAggregate {
+  const values = subs.map((s) => s.payload[f.key]).filter((v) => v != null && v !== '');
+  if (f.type === 'short_text' || f.type === 'long_text') {
+    return { ...f, response_count: values.length };
+  }
+  if (f.type === 'scale') return recomputeScale(f, values);
+  if (f.type === 'yes_no') return recomputeYesNo(f, values);
+  if (f.type === 'select_one' || f.type === 'select_many') return recomputeSelect(f, values);
+  return f;
+}
+
+function recomputeScale(
+  f: Extract<FieldAggregate, { type: 'scale' }>,
+  values: unknown[],
+): FieldAggregate {
+  const nums = values.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  const distMap = new Map<number, number>();
+  let sum = 0;
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (const n of nums) {
+    sum += n;
+    if (n < min) min = n;
+    if (n > max) max = n;
+    distMap.set(n, (distMap.get(n) ?? 0) + 1);
+  }
+  return {
+    ...f,
+    response_count: nums.length,
+    mean: nums.length === 0 ? null : sum / nums.length,
+    distribution: Array.from(distMap.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value - b.value),
+    min: nums.length === 0 ? 0 : min,
+    max: nums.length === 0 ? 0 : max,
+  };
+}
+
+function recomputeYesNo(
+  f: Extract<FieldAggregate, { type: 'yes_no' }>,
+  values: unknown[],
+): FieldAggregate {
+  let yes = 0;
+  let no = 0;
+  for (const v of values) {
+    if (v === true) yes++;
+    else if (v === false) no++;
+  }
+  return { ...f, response_count: yes + no, yes, no };
+}
+
+function recomputeSelect(
+  f: Extract<FieldAggregate, { type: 'select_one' | 'select_many' }>,
+  values: unknown[],
+): FieldAggregate {
+  const counts = countSelectValues(values);
+  return {
+    ...f,
+    response_count: values.length,
+    counts: f.counts.map((c) => ({ ...c, count: counts.get(c.value) ?? 0 })),
+  };
+}
+
+function countSelectValues(values: unknown[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const v of values) {
+    if (typeof v === 'string') {
+      counts.set(v, (counts.get(v) ?? 0) + 1);
+      continue;
+    }
+    if (Array.isArray(v)) collectFromArray(v, counts);
+  }
+  return counts;
+}
+
+function collectFromArray(arr: unknown[], counts: Map<string, number>): void {
+  for (const x of arr) {
+    if (typeof x === 'string') counts.set(x, (counts.get(x) ?? 0) + 1);
+  }
 }
 
 function EmptyState(): ReactElement {

@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { z } from 'zod';
+import { track } from '../../lib/ops-events';
 import { DirectusClient, DirectusError } from '../directus/directus.client';
 
 // aiqadam — in-house forms-builder. PR-B (API) of the foundation set
@@ -255,6 +256,18 @@ export class TelegramFormsService {
     const created = await this.directus.post<{
       data: { id: string; date_created: string };
     }>('/items/form_submissions', buildSubmissionRow(form.id, input, member?.id ?? null));
+
+    // PR-D10 — fire-and-forget Plausible event so operators see
+    // submission volume + per-form + per-event + per-source breakdown
+    // on analytics.aiqadam.org without needing to open the cabinet.
+    // ops-events.track() is bounded + never throws (per its own contract).
+    void track('forms.submission_created', {
+      form_slug: form.slug,
+      form_country: form.country,
+      source: input.source ?? 'web',
+      is_anonymous: input.is_anonymous ? 'true' : 'false',
+      ...(input.event_id ? { event_id: input.event_id } : {}),
+    });
 
     return {
       submission_id: created.data.id,
