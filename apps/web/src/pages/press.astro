@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { fetchMarketingAssets, fetchPressPage } from '../lib/cms';
+import { fetchMarketingAssets, fetchPressPage, fetchTeamMembers } from '../lib/cms';
 
 // Public press / media kit page. F-S0.9b (Tier-2 wire-up): wired to
 // Directus `marketing_assets` per ADR-0025 for the asset classes that
@@ -33,26 +33,26 @@ const logos = [
 // C-3a — pressPage singleton sources hero/boilerplate/contact prose
 // from Directus; falls back to the hardcoded defaults if the collection
 // is missing (e.g. before bootstrap.sh has been run against prod).
-const [headshots, factSheets, quarterlyDigests, pressCoverage, pressPage] = await Promise.all([
-  fetchMarketingAssets({ category: 'press-headshot', limit: 8 }),
-  fetchMarketingAssets({ category: 'fact-sheet', limit: 1 }),
-  fetchMarketingAssets({ category: 'quarterly-digest', limit: 4 }),
-  fetchMarketingAssets({ category: 'press-coverage', limit: 12 }),
-  fetchPressPage(),
-]);
+const [headshots, factSheets, quarterlyDigests, pressCoverage, pressPage, leadership] =
+  await Promise.all([
+    fetchMarketingAssets({ category: 'press-headshot', limit: 8 }),
+    fetchMarketingAssets({ category: 'fact-sheet', limit: 1 }),
+    fetchMarketingAssets({ category: 'quarterly-digest', limit: 4 }),
+    fetchMarketingAssets({ category: 'press-coverage', limit: 12 }),
+    fetchPressPage(),
+    fetchTeamMembers({ pressPageOnly: true, limit: 8 }),
+  ]);
 
 const description = pressPage.seoDescription;
 
-// Match headshots to leadership by title-prefix. Uploader names assets
-// like "Binali Rustamov — founder headshot" so a startsWith match is
-// robust; if no match, the placeholder card renders instead. Sort in
-// the cms helper is -date_created, so a newer rev replaces an older
-// one automatically.
-function findHeadshot(forName: string): (typeof headshots)[0] | undefined {
-  return headshots.find((h) => h.title.toLowerCase().startsWith(forName.toLowerCase()));
+// Match headshots to leadership by first-token of the team_members.name.
+// Uploader names assets like "Binali Rustamov — founder headshot" so a
+// startsWith match against the first name is robust. Sort in the cms
+// helper is -date_created → newer rev replaces older automatically.
+function findHeadshot(fullName: string): (typeof headshots)[0] | undefined {
+  const firstToken = fullName.split(/\s+/)[0]?.toLowerCase() ?? fullName.toLowerCase();
+  return headshots.find((h) => h.title.toLowerCase().startsWith(firstToken));
 }
-const binaliHeadshot = findHeadshot('Binali');
-const viktorHeadshot = findHeadshot('Viktor');
 const latestFactSheet = factSheets[0];
 
 // Brand color palette — exact values from design-system/tokens.css. Surfaced
@@ -128,87 +128,52 @@ const palette = [
       >
         Leadership
       </p>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-        <article
-          style="padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); display: flex; flex-direction: column; gap: 14px;"
-        >
-          {binaliHeadshot ? (
-            <a
-              href={binaliHeadshot.fileUrl}
-              download
-              style="display: block; height: 200px; border-radius: 8px; background: var(--muted); overflow: hidden;"
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+        {leadership.map((m) => {
+          const shot = findHeadshot(m.name);
+          return (
+            <article
+              style="padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); display: flex; flex-direction: column; gap: 14px;"
             >
-              <img
-                src={binaliHeadshot.thumbnailUrl ?? binaliHeadshot.fileUrl}
-                alt={binaliHeadshot.title}
-                style="width: 100%; height: 100%; object-fit: cover; display: block;"
-                loading="lazy"
-              />
-            </a>
-          ) : (
-            <div
-              aria-hidden="true"
-              style="height: 200px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase;"
-            >
-              Headshot — coming soon
-            </div>
-          )}
-          <div>
-            <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0 0 4px;">
-              Binali Rustamov
-            </h2>
-            <p
-              style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 0 0 12px; letter-spacing: 0.04em;"
-            >
-              Founder
-            </p>
-            <p style="font-size: 15px; line-height: 1.55; color: var(--card-foreground); margin: 0;">
-              Voice for vision posts, big-deal welcomes, founder essays, and
-              quarterly digest sign-off. Speaks for AI Qadam on milestone
-              announcements and press attribution.
-            </p>
-          </div>
-        </article>
-        <article
-          style="padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); display: flex; flex-direction: column; gap: 14px;"
-        >
-          {viktorHeadshot ? (
-            <a
-              href={viktorHeadshot.fileUrl}
-              download
-              style="display: block; height: 200px; border-radius: 8px; background: var(--muted); overflow: hidden;"
-            >
-              <img
-                src={viktorHeadshot.thumbnailUrl ?? viktorHeadshot.fileUrl}
-                alt={viktorHeadshot.title}
-                style="width: 100%; height: 100%; object-fit: cover; display: block;"
-                loading="lazy"
-              />
-            </a>
-          ) : (
-            <div
-              aria-hidden="true"
-              style="height: 200px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase;"
-            >
-              Headshot — coming soon
-            </div>
-          )}
-          <div>
-            <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0 0 4px;">
-              Viktor Drukker
-            </h2>
-            <p
-              style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 0 0 12px; letter-spacing: 0.04em;"
-            >
-              COO + Head of Vibe Code &amp; Platform Operations
-            </p>
-            <p style="font-size: 15px; line-height: 1.55; color: var(--card-foreground); margin: 0;">
-              Voice for platform updates, ops emails, build-in-public content,
-              and operator-side communications. Reviews every AI-generated
-              brand asset before it ships.
-            </p>
-          </div>
-        </article>
+              {shot ? (
+                <a
+                  href={shot.fileUrl}
+                  download
+                  style="display: block; height: 200px; border-radius: 8px; background: var(--muted); overflow: hidden;"
+                >
+                  <img
+                    src={shot.thumbnailUrl ?? shot.fileUrl}
+                    alt={shot.title}
+                    style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                    loading="lazy"
+                  />
+                </a>
+              ) : (
+                <div
+                  aria-hidden="true"
+                  style="height: 200px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.06em; text-transform: uppercase;"
+                >
+                  Headshot — coming soon
+                </div>
+              )}
+              <div>
+                <h2 style="font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0 0 4px;">
+                  {m.name}
+                </h2>
+                <p
+                  style="font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); margin: 0 0 12px; letter-spacing: 0.04em;"
+                >
+                  {m.title}
+                </p>
+                {m.bioMd && (
+                  <p style="font-size: 15px; line-height: 1.55; color: var(--card-foreground); margin: 0;">
+                    {m.bioMd}
+                  </p>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
 

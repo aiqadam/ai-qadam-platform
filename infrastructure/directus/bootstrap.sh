@@ -4840,6 +4840,106 @@ else
   echo "  ⚠ Public policy not found — skipping public read for badge_definitions."
 fi
 
+# ════════════════════════════════════════════════════════════════════════
+# C-3b — team_members (operator-editable leadership directory)
+# ════════════════════════════════════════════════════════════════════════
+#
+# Per PM (2026-05-25, option D): one collection for everyone the org
+# wants to surface — founder, COO, country leads, advisors, organizers,
+# staff. `appear_on_press_page` controls visibility on /press; future
+# audiences (about page, country splash) can filter the same collection
+# differently.
+#
+# Headshots stay in marketing_assets (existing flow). The page joins by
+# title-prefix match (findHeadshot('Binali')) — same as today; this PR
+# changes only the source of the name/title/bio prose.
+
+echo "[team_members]"
+ensure "collection team_members" \
+  "${DIRECTUS_URL}/collections/team_members" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"team_members",
+    "schema":{"name":"team_members"},
+    "meta":{
+      "icon":"groups",
+      "note":"People shown on /press, /about, country splash, etc. Each row carries name + title + bio + role. Headshots are matched by name-prefix against marketing_assets uploads.",
+      "sort_field":"display_order"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"name","type":"string","schema":{"is_nullable":false,"max_length":120},"meta":{"interface":"input","width":"half","required":true,"note":"Full display name. The /press headshot picker matches by first-name prefix, so keep the first token consistent with the uploaded asset title."}},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":200},"meta":{"interface":"input","width":"half","required":true,"note":"Role / title shown under the name (e.g. \"Founder\" or \"COO + Head of Platform Operations\")."}},
+      {"field":"role","type":"string","schema":{"is_nullable":false,"max_length":40,"default_value":"other"},"meta":{
+        "interface":"select-dropdown","width":"half","required":true,
+        "options":{"choices":[
+          {"text":"Founder","value":"founder"},
+          {"text":"COO","value":"coo"},
+          {"text":"Country Lead","value":"country_lead"},
+          {"text":"Advisor","value":"advisor"},
+          {"text":"Organizer","value":"organizer"},
+          {"text":"Staff","value":"staff"},
+          {"text":"Other","value":"other"}
+        ]}
+      }},
+      {"field":"bio_md","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-multiline","width":"full","note":"Short bio (markdown). 1–3 sentences works best on /press cards."}},
+      {"field":"display_order","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
+      {"field":"appear_on_press_page","type":"boolean","schema":{"is_nullable":false,"default_value":false},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"Render this member in the leadership grid on /press. Turn off to hide without deleting the row."}},
+      {"field":"active","type":"boolean","schema":{"is_nullable":false,"default_value":true},"meta":{"interface":"boolean","special":["cast-boolean"],"width":"half","note":"Master switch — inactive rows never render anywhere."}}
+    ]
+  }'
+
+# Seed Binali + Viktor with the current hardcoded prose. Idempotent on
+# name. Operators tweak via Directus admin from here.
+seed_team_member() {
+  local name="$1" body="$2"
+  local existing
+  existing=$(curl -s -H "${H_AUTH}" \
+    --get --data-urlencode "filter[name][_eq]=${name}" \
+    "${DIRECTUS_URL}/items/team_members?fields=id&limit=1" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${existing}" -gt 0 ]; then
+    echo "  ✓ team_members/${name} (exists)"
+    return 0
+  fi
+  local code
+  code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/items/team_members" --data "${body}")
+  if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    echo "  + team_members/${name} (seeded)"
+  else
+    echo "  ✗ team_members/${name} HTTP ${code}"
+    head -c 200 /tmp/directus-resp; echo
+  fi
+}
+
+seed_team_member "Binali Rustamov" '{"name":"Binali Rustamov","title":"Founder","role":"founder","bio_md":"Voice for vision posts, big-deal welcomes, founder essays, and quarterly digest sign-off. Speaks for AI Qadam on milestone announcements and press attribution.","display_order":10,"appear_on_press_page":true}'
+seed_team_member "Viktor Drukker" '{"name":"Viktor Drukker","title":"COO + Head of Vibe Code & Platform Operations","role":"coo","bio_md":"Voice for platform updates, ops emails, build-in-public content, and operator-side communications. Reviews every AI-generated brand asset before it ships.","display_order":20,"appear_on_press_page":true}'
+
+ensure_perm "perm team_members/read" team_members read '{"active":{"_eq":true}}'
+
+if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=team_members&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ perm team_members/read (public, exists)"
+  else
+    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+      '{policy:$pol, collection:"team_members", action:"read", permissions:{active:{_eq:true}}, fields:["*"]}')
+    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
+      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
+    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+      echo "  + perm team_members/read (public, created)"
+    else
+      echo "  ✗ perm team_members/read HTTP ${code}"
+      head -c 300 /tmp/directus-resp; echo
+    fi
+  fi
+else
+  echo "  ⚠ Public policy not found — skipping public read for team_members."
+fi
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"

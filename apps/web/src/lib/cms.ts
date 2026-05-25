@@ -443,6 +443,69 @@ export async function fetchPressPage(): Promise<PressPage> {
   }
 }
 
+// C-3b — team_members directory. CRUD-managed in Directus. /press
+// reads the rows where appear_on_press_page=true; future pages
+// (/about, country splash) can filter the same collection differently.
+// Headshots stay matched by name-prefix against marketing_assets.
+export type TeamMemberRole =
+  | 'founder'
+  | 'coo'
+  | 'country_lead'
+  | 'advisor'
+  | 'organizer'
+  | 'staff'
+  | 'other';
+
+export interface TeamMember {
+  name: string;
+  title: string;
+  role: TeamMemberRole;
+  bioMd: string | null;
+  displayOrder: number;
+}
+
+interface CmsTeamMemberRow {
+  name: string;
+  title: string;
+  role: TeamMemberRole;
+  bio_md?: string | null;
+  display_order?: number | null;
+}
+
+function normalizeTeamMember(row: CmsTeamMemberRow): TeamMember {
+  return {
+    name: row.name,
+    title: row.title,
+    role: row.role,
+    bioMd: row.bio_md ?? null,
+    displayOrder: row.display_order ?? 100,
+  };
+}
+
+interface FetchTeamMembersOpts {
+  pressPageOnly?: boolean;
+  limit?: number;
+}
+
+export async function fetchTeamMembers(opts?: FetchTeamMembersOpts): Promise<TeamMember[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[active][_eq]': 'true',
+      sort: 'display_order',
+      limit: String(opts?.limit ?? 50),
+      fields: 'name,title,role,bio_md,display_order',
+    });
+    if (opts?.pressPageOnly) {
+      params.set('filter[appear_on_press_page][_eq]', 'true');
+    }
+    const body = await get<{ data: CmsTeamMemberRow[] }>(`/items/team_members?${params}`);
+    return body.data.map(normalizeTeamMember);
+  } catch (err) {
+    console.error('[cms] fetchTeamMembers failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 // C-4b-1 — badge_definitions taxonomy. CRUD-managed in Directus; the web
 // just reads. Used by /me + /u/[handle] to render badge strips with the
 // proper label + icon. Empty array on failure so the badge UI degrades
