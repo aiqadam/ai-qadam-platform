@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { env } from '../../config/env';
 import { DirectusClient } from '../directus/directus.client';
+import { EmailService } from '../email/email.service';
+import { firstEventWelcome } from '../email/templates/first-event-welcome';
 
 // C-4b-2 — BadgeAwarderService.
 //
@@ -39,7 +42,48 @@ interface BadgeDefinitionRow {
 export class BadgeAwarderService {
   private readonly logger = new Logger(BadgeAwarderService.name);
 
-  constructor(private readonly directus: DirectusClient) {}
+  constructor(
+    private readonly directus: DirectusClient,
+    private readonly email: EmailService,
+  ) {}
+
+  // C-4b-2b — first-event-welcome dispatch.
+  //
+  // Called from registrations register() right after the row is inserted.
+  // If this is the user's first-ever registration (any status), fires the
+  // welcome email (template at apps/api/src/modules/email/templates/
+  // first-event-welcome.ts). Idempotent because the "first-ever" check
+  // counts the user's total registrations; if they cancelled and
+  // re-registered, they don't get a second welcome.
+  //
+  // Failure is swallowed — never blocks the register() flow.
+  async onRegistrationCreated(input: {
+    directusUserId: string;
+    recipientEmail: string;
+    recipientName?: string | undefined;
+    eventTitle: string;
+    eventStartsAt: Date;
+  }): Promise<void> {
+    try {
+      const total = await this.countRegistrationsFor(input.directusUserId);
+      if (total > 1) return; // not their first
+      const message = firstEventWelcome({
+        recipientEmail: input.recipientEmail,
+        ...(input.recipientName ? { recipientName: input.recipientName } : {}),
+        eventTitle: input.eventTitle,
+        eventStartsAt: input.eventStartsAt,
+        webBaseUrl: env.WEB_BASE_URL,
+      });
+      await this.email.send(message);
+      this.logger.log(
+        `first-event-welcome sent to=${input.recipientEmail} event=${input.eventTitle}`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `onRegistrationCreated failed user=${input.directusUserId}: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+  }
 
   // Called from registrations checkin() after status flips to 'attended'.
   // Failure must never block check-in — wrap in try/catch at the caller.
@@ -61,6 +105,14 @@ export class BadgeAwarderService {
   }
 
   // ─── internals ────────────────────────────────────────────────────────
+
+  private async countRegistrationsFor(directusUserId: string): Promise<number> {
+    const filter = encodeURIComponent(JSON.stringify({ user: { _eq: directusUserId } }));
+    const body = await this.directus.get<{ data: Array<{ count: { id: number | string } }> }>(
+      `/items/registrations?filter=${filter}&aggregate[count]=id`,
+    );
+    return Number(body.data[0]?.count?.id ?? 0);
+  }
 
   private async countAttendedFor(directusUserId: string): Promise<number> {
     const filter = encodeURIComponent(

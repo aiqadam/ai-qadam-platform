@@ -139,7 +139,46 @@ export class RegistrationsDirectusService {
     const settled = await this.directus.get<{ data: RegistrationRow }>(
       `/items/registrations/${created.data.id}`,
     );
+
+    await this.maybeFireFirstEventWelcome({
+      directusUserId,
+      eventId: input.eventId,
+      registrationId: created.data.id,
+    });
+
     return toView(settled.data);
+  }
+
+  // C-4b-2b — first-event welcome trigger. Extracted so register() stays
+  // under the noExcessiveCognitiveComplexity ceiling. Best-effort —
+  // every branch swallows its error; never blocks register().
+  private async maybeFireFirstEventWelcome(input: {
+    directusUserId: string;
+    eventId: string;
+    registrationId: string;
+  }): Promise<void> {
+    try {
+      const [userRow, eventRow] = await Promise.all([
+        this.directus.get<{ data: { email: string | null; first_name: string | null } }>(
+          `/items/directus_users/${input.directusUserId}?fields=email,first_name`,
+        ),
+        this.directus.get<{ data: { title: string; starts_at: string } }>(
+          `/items/events/${input.eventId}?fields=title,starts_at`,
+        ),
+      ]);
+      if (!userRow.data.email) return;
+      await this.badges.onRegistrationCreated({
+        directusUserId: input.directusUserId,
+        recipientEmail: userRow.data.email,
+        ...(userRow.data.first_name ? { recipientName: userRow.data.first_name } : {}),
+        eventTitle: eventRow.data.title,
+        eventStartsAt: new Date(eventRow.data.starts_at),
+      });
+    } catch (err) {
+      this.logger.warn(
+        `first-event-welcome lookup failed user=${input.directusUserId} reg=${input.registrationId}: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
   }
 
   // DELETE: flip the active reg's status to cancelled. Returns null if no
