@@ -56,5 +56,45 @@
         }
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "include": ["apps/web-next/src/blocks/**", "apps/web-next/src/pages/**"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "../lib/api-client": "ADR-0038 §Locks #1: blocks/pages may not import apiClient directly. Use an L1 query hook (useMyProfile, useEvent, ...).",
+                  "../../lib/api-client": "ADR-0038 §Locks #1: blocks/pages may not import apiClient directly. Use an L1 query hook.",
+                  "../../../lib/api-client": "ADR-0038 §Locks #1: blocks/pages may not import apiClient directly. Use an L1 query hook."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "include": ["apps/web-next/src/blocks/**"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "../lib/api-queries": "ADR-0038 §Locks #1: blocks must receive data via props. Only pages may import L1 query hooks.",
+                  "../../lib/api-queries": "ADR-0038 §Locks #1: blocks must receive data via props. Only pages may import L1 query hooks.",
+                  "../../../lib/api-queries": "ADR-0038 §Locks #1: blocks must receive data via props. Only pages may import L1 query hooks."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

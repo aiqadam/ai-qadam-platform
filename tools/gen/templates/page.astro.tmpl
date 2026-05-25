@@ -1,0 +1,20 @@
+---
+// @generated-from gen:page
+// slug: {{slug}}
+// generated: {{date}}
+//
+// Edit this page freely. Keep it as L4 composition only:
+//   - import L3 blocks from ../blocks/
+//   - pass props through
+//   - no fetch(), no inline style=
+// See docs/adr/0038-web-4-layer-architecture.md.
+import Layout from '../layouts/Layout.astro';
+import { PageHead } from '../blocks/common';
+---
+
+<Layout>
+  <PageHead slot="head" title="{{title}}" />
+  <main>
+    {/* Compose L3 blocks here. */}
+  </main>
+</Layout>

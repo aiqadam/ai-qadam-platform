@@ -1,0 +1,18 @@
+---
+// @generated-from gen:cabinet
+// slug: {{slug}}
+// generated: {{date}}
+//
+// Operator cabinet at /workspace/{{slug}}/. Compose L3 workspace blocks
+// (PageShell, Breadcrumbs, DataTable, KpiTile, ...). No bespoke
+// shell/loading/error scaffolding — those are blocks.
+// See docs/adr/0038-web-4-layer-architecture.md.
+import Layout from '../../../layouts/Layout.astro';
+import { PageShell } from '../../../blocks/workspace';
+---
+
+<Layout>
+  <PageShell slot="shell" title="{{title}}" breadcrumbs={[{ label: '{{title}}' }]}>
+    {/* Compose L3 workspace blocks here. */}
+  </PageShell>
+</Layout>

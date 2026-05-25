@@ -34,6 +34,28 @@ Supporting: [`ARCHITECTURE.md`](../ARCHITECTURE.md), [`SECURITY.md`](../SECURITY
 
 ---
 
+## 0.2 Block-First Pre-Flight Gate 0 (ADR-0038)
+
+**Applies to any agent task that creates or edits files under `apps/web-next/`.**
+
+`apps/web/` is grandfathered and exempt. `apps/web-next/` is the locked greenfield build (see [ADR-0038](./adr/0038-web-4-layer-architecture.md) and [`docs/architecture/web-next-kickoff.md`](./architecture/web-next-kickoff.md)).
+
+Before writing ANY code under `apps/web-next/`, the agent must:
+
+1. Read [`docs/adr/0038-web-4-layer-architecture.md`](./adr/0038-web-4-layer-architecture.md) (the 4-layer architecture + Locks list).
+2. Read [`docs/architecture/blocks.md`](./architecture/blocks.md) (the L3 block catalogue).
+3. Search for an existing block matching the feature.
+4. If a block matches: import it from `apps/web-next/src/blocks/<group>`, pass props, ship.
+5. If no block matches: open a **block-proposal PR first** (block source + Storybook story + catalogue entry). Get it accepted. Then compose in the consumer PR.
+6. If creating a new page or cabinet: run `pnpm gen:page <slug>` or `pnpm gen:cabinet <slug>`. **Do not hand-write** the file — `tools/architecture-check.ts` rejects new files under `apps/web-next/src/pages/` without the `@generated-from` marker.
+7. Before opening the PR, run `pnpm arch:check` locally; the husky pre-commit hook also runs `pnpm arch:check --staged`.
+8. If the PR adds/edits a block, update `docs/architecture/blocks.md` in the same PR (Lock #4 — arch-check enforces).
+9. If the PR changes data wiring, update `docs/architecture/wiring-map.md` in the same PR.
+
+The PR template carries the same checklist; both the human and the agent must tick the boxes.
+
+---
+
 ## 1. Concurrency primitives
 
 ### 1.1 Worktree isolation (mandatory)

@@ -23,12 +23,16 @@
     "lint": "biome check .",
     "fix": "biome check --write .",
     "format": "biome format --write .",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "arch:check": "tsx tools/architecture-check.ts",
+    "gen:page": "tsx tools/gen/page.ts",
+    "gen:cabinet": "tsx tools/gen/cabinet.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
+    "tsx": "^4.22.3",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   }
