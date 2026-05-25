@@ -50,7 +50,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
-| `<Hero>` | `@/blocks/customer` | `title, subtitle, ctaPrimary, ctaSecondary?, background?` | — | — | `site_settings.hero_*` |
+| `<Hero>` | `@/blocks/customer` | `description: string, stats?: {label,value}[], primaryHref?, primaryLabel?, secondaryHref?, secondaryLabel?` | `pages/index.astro` (PR 1.1) | Astro-only — no story (see §Storyless Astro blocks below) | `site_settings.default_description` |
 | `<EventCard>` | `@/blocks/customer` | `event: ApiEvent, compact?` | — | — | `events` row |
 | `<EventsGrid>` | `@/blocks/customer` | `events: ApiEvent[], empty?: ReactNode` | — | — | derived |
 | `<EventDetail>` | `@/blocks/customer` | `event: ApiEventDetail` | — | — | `events` + joins |
@@ -85,7 +85,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
-| `<PageHead>` | `@/blocks/common` | `title, description?, canonical?, ogImage?, ogType?` | — | — | n/a |
+| `<PageHead>` | `@/blocks/common` | `title: string, description?: string` (build-aside: OG / canonical deliberately omitted; expand at cutover) | `pages/index.astro` (PR 1.1) | Astro-only — no story | n/a |
 | `<AuthGate>` | `@/blocks/common` | `role?: string \| string[], fallback?, children` | — | — | useAuth() |
 | `<EmptyState>` | `@/blocks/common` | `icon?, heading, description?, cta?` | — | — | n/a |
 | `<DateTime>` | `@/blocks/common` | `value: string, format: 'date' \| 'datetime' \| 'time'` | — | — | n/a |
@@ -94,13 +94,35 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<CountrySwitcher>` | `@/blocks/common` | `current: CountryCode` | — | — | useAuth() |
 | `<LocaleSwitcher>` | `@/blocks/common` | `current: Locale` | — | — | i18n |
 
+## Storyless Astro blocks
+
+Storybook in `apps/storybook/` uses `@storybook/react-vite`. React
+components in `apps/web-next/src/kit/` render natively; **Astro
+components do not**. Pure-presentation blocks shipped as `.astro` (no
+client-side interaction — Hero, PageHead, EventCard listing, AppFooter,
+DateTime, MarkdownBody) deliberately ship without a Storybook story
+in this build period. The block's source file IS the documentation;
+the catalogue row above declares prop shape + consumers + data source.
+
+Blocks that need a story:
+- Every L2 atom in `src/kit/` (React).
+- Every L3 block that uses React hooks or Radix primitives (Dialog,
+  Drawer, Toast-emitting forms, DataTable, AsyncSelect, Form,
+  Wizard, FormBuilder, AuditLogList).
+
+When we hit a critical mass of interactive React blocks (Phase 2),
+we may revisit by adding `@storybook/addon-astro` or React-shim
+wrappers. Until then, the Astro-only blocks are signed off via
+this catalogue entry + an arch-check pass.
+
 ## Adding a block — PR checklist
 
 When opening a PR that adds a new block:
 
 - [ ] File under `apps/web-next/src/blocks/{customer,workspace,common}/`
 - [ ] Exported from `apps/web-next/src/blocks/{customer,workspace,common}/index.ts`
-- [ ] Story under `apps/storybook/stories/blocks/`
+- [ ] If the block is **React** (.tsx): Story under `apps/storybook/stories/blocks/`
+- [ ] If the block is **Astro** (.astro): catalogue entry notes "Astro-only — no story" (per §Storyless Astro blocks)
 - [ ] Entry in this catalogue with import path, props, data source, Story link
-- [ ] If the block writes data: entry in [`wiring-map.md`](./wiring-map.md)
+- [ ] If the block reads/writes a Directus collection: entry in [`wiring-map.md`](./wiring-map.md)
 - [ ] No `fetch()`, no inline styles, no imports from `lib/api-*`

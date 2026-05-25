@@ -125,7 +125,7 @@ aggregates:
 
 > Placeholder — filled in PR 1.6.
 
-### `site_settings` (singleton)
+### `site_settings` (singleton) — LIVE under apps/web-next/ as of PR 1.1
 
 ```yaml
 data_source: site_settings
@@ -133,16 +133,20 @@ description: Singleton with homepage hero, footer, contact info, brand variants.
 
 customer_blocks:
   - block: Hero
-    page: /
+    page: apps/web-next/src/pages/index.astro
     operation: read
-  - block: AppFooter
+    fields_read: [default_description, telegram_url, countries_served]
+  - block: AppFooter   # placeholder — PR 1.8
     page: <Layout-global>
     operation: read
 
 operator_blocks:
-  - block: Form (SiteSettingsCabinet)
+  - block: Form (SiteSettingsCabinet)   # placeholder — PR 3.2
     cabinet: /workspace/site-settings
     operation: both
+
+ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchSiteSettings()
+fallback: SITE_SETTINGS_DEFAULTS (page renders even when Directus is unreachable)
 
 aggregates: {}
 ```

@@ -1,0 +1,93 @@
+---
+// L3 block — <Hero>.
+//
+// Homepage identity hero. Reads SiteSettings + a list of "stats" the
+// page assembles (countries served / members / events shipped) so the
+// block stays data-in / element-out (ADR-0038 §Locks). Renders the
+// AI Qadam brand promise + a primary CTA pointing at /events.
+//
+// Per docs/architecture/wiring-map.md → site_settings: this block is
+// the customer-side reader of the site_settings singleton's hero
+// fields (defaultDescription). The operator side (PR 3.2) edits the
+// same row via a SiteSettingsCabinet form.
+//
+// Future Phase-1 PRs may layer this hero on top of the next-upcoming
+// event card (à la v1's HomeHero). For now we keep the brand-anchored
+// shape and let the events list (PR 1.2) live as its own block below
+// the hero — easier to wire, easier to keep working when no events
+// are scheduled, and matches the ADR-0038 "compose, don't merge"
+// principle.
+
+interface Stat {
+  label: string;
+  value: string;
+}
+
+interface Props {
+  description: string;
+  stats?: Stat[] | undefined;
+  primaryHref?: string | undefined;
+  primaryLabel?: string | undefined;
+  secondaryHref?: string | undefined;
+  secondaryLabel?: string | undefined;
+}
+
+const {
+  description,
+  stats = [],
+  primaryHref = '/events',
+  primaryLabel = 'Browse events',
+  secondaryHref,
+  secondaryLabel,
+} = Astro.props;
+---
+
+<section class="border-b border-border bg-background">
+  <div class="mx-auto max-w-5xl px-6 py-20 sm:py-24 text-center">
+    <p
+      class="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6"
+    >
+      AI Qadam — community platform
+    </p>
+    <h1
+      class="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-foreground mb-6 max-w-3xl mx-auto"
+    >
+      AI engineers, building together across Central Asia.
+    </h1>
+    <p class="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+      {description}
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-3">
+      <a
+        href={primaryHref}
+        class="inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground px-6 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors"
+      >
+        {primaryLabel}
+      </a>
+      {
+        secondaryHref && secondaryLabel && (
+          <a
+            href={secondaryHref}
+            class="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-6 py-2.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            {secondaryLabel}
+          </a>
+        )
+      }
+    </div>
+    {
+      stats.length > 0 && (
+        <dl class="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-2xl mx-auto">
+          {stats.map((s) => (
+            <div class="text-center">
+              <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                {s.label}
+              </dt>
+              <dd class="font-display text-3xl font-semibold text-foreground">{s.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )
+    }
+  </div>
+</section>
