@@ -145,8 +145,29 @@ export class TgSegmentsService {
   // list before enqueueing dispatches.
   async preview(id: string): Promise<SegmentPreview> {
     const segment = await this.get(id);
-    const filter = buildResolverFilter(segment.criteria, segment.country);
-    // Aggregate count first (cheap).
+    return this.previewCriteria(segment.criteria, segment.country, id);
+  }
+
+  // #393 — preview a draft criteria block without persisting first. Used by
+  // the cabinet builder's live-preview as operators tweak chips. Validates
+  // criteria (throws BadRequest on shape violations) before resolving.
+  async previewDraft(
+    criteria: unknown,
+    country: string,
+  ): Promise<Omit<SegmentPreview, 'segment_id'>> {
+    validateCriteria(criteria);
+    const result = await this.previewCriteria(criteria, country, 'draft');
+    // segment_id='draft' is a marker; callers (cabinet) ignore it.
+    const { segment_id: _ignored, ...rest } = result;
+    return rest;
+  }
+
+  private async previewCriteria(
+    criteria: SegmentCriteria,
+    country: string,
+    segmentId: string,
+  ): Promise<SegmentPreview> {
+    const filter = buildResolverFilter(criteria, country);
     const filterParam = encodeURIComponent(JSON.stringify(filter));
     const countQuery = `aggregate[count]=id&filter=${filterParam}`;
     const countRes = await this.directus.get<{
@@ -154,7 +175,6 @@ export class TgSegmentsService {
     }>(`/users?${countQuery}`);
     const match_count = Number(countRes.data[0]?.count?.id ?? 0);
 
-    // Sample 5 names for operator confidence. Anonymized to "First L."
     let sample: { display_name: string }[] = [];
     if (match_count > 0) {
       const sampleQuery = `fields=first_name,last_name&limit=5&filter=${filterParam}`;
@@ -163,7 +183,7 @@ export class TgSegmentsService {
       }>(`/users?${sampleQuery}`);
       sample = sampleRes.data.map((r) => ({ display_name: anonymizeName(r) }));
     }
-    return { segment_id: id, match_count, sample };
+    return { segment_id: segmentId, match_count, sample };
   }
 }
 

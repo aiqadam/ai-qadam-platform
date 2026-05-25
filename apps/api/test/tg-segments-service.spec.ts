@@ -257,3 +257,46 @@ describe('TgSegmentsService.preview', () => {
     expect(get).toHaveBeenCalledTimes(2); // get + count, no sample
   });
 });
+
+// ─── #393 — previewDraft (live preview without persisting) ──────────────
+
+describe('TgSegmentsService.previewDraft', () => {
+  it('validates criteria before resolving (rejects unsupported field)', async () => {
+    const svc = new TgSegmentsService(fakeDirectus({ get: vi.fn() }));
+    await expect(svc.previewDraft({ _and: [{ secret_field: { _eq: 1 } }] }, 'uz')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('rejects criteria without _and/_or wrapper', async () => {
+    const svc = new TgSegmentsService(fakeDirectus({ get: vi.fn() }));
+    await expect(svc.previewDraft({ country: { _eq: 'uz' } }, 'uz')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('returns match_count + sample (no segment_id leakage)', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [{ count: { id: 42 } }] })
+      .mockResolvedValueOnce({
+        data: [{ first_name: 'Viktor', last_name: 'D' }],
+      });
+    const svc = new TgSegmentsService(fakeDirectus({ get }));
+    const out = await svc.previewDraft({ _and: [{ country: { _eq: 'uz' } }] }, 'uz');
+    expect(out).toEqual({
+      match_count: 42,
+      sample: [{ display_name: 'Viktor D.' }],
+    });
+    expect(out).not.toHaveProperty('segment_id');
+  });
+
+  it('skips sample query when count=0 (same short-circuit as preview)', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ data: [{ count: { id: 0 } }] });
+    const svc = new TgSegmentsService(fakeDirectus({ get }));
+    const out = await svc.previewDraft({ _and: [{ country: { _eq: 'uz' } }] }, 'uz');
+    expect(out.match_count).toBe(0);
+    expect(out.sample).toEqual([]);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+});

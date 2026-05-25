@@ -1,7 +1,9 @@
 import { type FormEvent, type ReactElement, useEffect, useState } from 'react';
+import CriteriaBuilder, { type Criteria } from './CriteriaBuilder';
 
-// #294 PR-c — segments cabinet. List + JSON-edit composer (richer
-// criteria builder lands later). Preview button hits the resolver.
+// #294 PR-c — segments cabinet. #393 swaps the JSON-edit textarea for a
+// friendly CriteriaBuilder (chip pickers + event/topic dropdowns) with
+// live debounced preview.
 
 interface SegmentSummary {
   id: string;
@@ -33,10 +35,17 @@ type State =
 interface NewForm {
   name: string;
   country: string;
-  criteriaJson: string;
+  criteria: Criteria;
+  // #393 — debounced preview state; null until first preview call
+  // returns. Refreshes on every criteria/country edit (debounced 500ms).
+  preview:
+    | { match_count: number; sample: { display_name: string }[] }
+    | { error: string }
+    | 'loading'
+    | null;
 }
 
-const DEFAULT_CRITERIA = JSON.stringify({ _and: [{ country: { _eq: 'uz' } }] }, null, 2);
+const DEFAULT_CRITERIA: Criteria = { _and: [] };
 
 function signInUrl(): string {
   const next =
@@ -88,7 +97,7 @@ export default function TgSegmentsList(): ReactElement {
   const startCreate = (): void => {
     setState({
       ...state,
-      creating: { name: '', country: 'uz', criteriaJson: DEFAULT_CRITERIA },
+      creating: { name: '', country: 'uz', criteria: DEFAULT_CRITERIA, preview: null },
     });
   };
 
@@ -99,13 +108,6 @@ export default function TgSegmentsList(): ReactElement {
   const submitCreate = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     if (!state.creating) return;
-    let criteria: unknown;
-    try {
-      criteria = JSON.parse(state.creating.criteriaJson);
-    } catch {
-      setState({ ...state, saveError: 'Criteria JSON is malformed.' });
-      return;
-    }
     const res = await fetch('/api/v1/workspace/tg-segments', {
       method: 'POST',
       headers: {
@@ -115,7 +117,7 @@ export default function TgSegmentsList(): ReactElement {
       body: JSON.stringify({
         name: state.creating.name,
         country: state.creating.country,
-        criteria,
+        criteria: state.creating.criteria,
       }),
     });
     if (!res.ok) {
@@ -192,24 +194,22 @@ export default function TgSegmentsList(): ReactElement {
                 <option value="tj">Tajikistan</option>
               </select>
             </label>
-            <label style={labelStyle()}>
-              Criteria (JSON — supports country, linked_within_days, registered_for_event,
-              preferred_topics)
-              <textarea
-                required
-                value={state.creating.criteriaJson}
-                onChange={(e) =>
-                  setState({
-                    ...state,
-                    creating: state.creating
-                      ? { ...state.creating, criteriaJson: e.target.value }
-                      : null,
-                  })
-                }
-                rows={10}
-                style={{ ...inputStyle(), fontFamily: 'var(--font-mono)' }}
-              />
-            </label>
+            <CriteriaBuilder
+              criteria={state.creating.criteria}
+              country={state.creating.country}
+              accessToken={state.accessToken}
+              onChange={(next) =>
+                setState({
+                  ...state,
+                  creating: state.creating ? { ...state.creating, criteria: next } : null,
+                })
+              }
+            />
+            <DraftPreview
+              accessToken={state.accessToken}
+              country={state.creating.country}
+              criteria={state.creating.criteria}
+            />
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="submit" style={primaryButtonStyle()}>
                 Save segment
@@ -363,4 +363,83 @@ function errorBoxStyle(): React.CSSProperties {
     borderRadius: 6,
     fontSize: 14,
   };
+}
+
+// ─── #393 — live debounced preview ──────────────────────────────────────
+
+interface DraftPreviewProps {
+  accessToken: string;
+  country: string;
+  criteria: Criteria;
+}
+
+// 500ms debounce so chip-by-chip edits don't hammer the resolver. State
+// is local to this component because the parent doesn't care about the
+// preview value — only the operator does (visual confidence check).
+function DraftPreview({ accessToken, country, criteria }: DraftPreviewProps): ReactElement {
+  const [state, setState] = useState<
+    | 'idle'
+    | 'loading'
+    | { match_count: number; sample: { display_name: string }[] }
+    | { error: string }
+  >('idle');
+
+  useEffect(() => {
+    const handle = setTimeout(async () => {
+      setState('loading');
+      try {
+        const res = await fetch('/api/v1/workspace/tg-segments/preview', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ country, criteria }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          setState({ error: `HTTP ${res.status}: ${text.slice(0, 200)}` });
+          return;
+        }
+        const body = (await res.json()) as {
+          match_count: number;
+          sample: { display_name: string }[];
+        };
+        setState(body);
+      } catch (e) {
+        setState({ error: e instanceof Error ? e.message : 'fetch failed' });
+      }
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [accessToken, country, criteria]);
+
+  return (
+    <div
+      style={{
+        padding: 10,
+        border: '1px dashed var(--border)',
+        borderRadius: 6,
+        fontSize: 13,
+      }}
+      data-testid="draft-preview"
+    >
+      <strong>Preview:</strong>{' '}
+      {state === 'idle' && <span style={mutedStyle()}>Edit criteria to preview match count</span>}
+      {state === 'loading' && <span style={mutedStyle()}>Calculating…</span>}
+      {typeof state === 'object' && 'error' in state && (
+        <span style={mutedStyle()}>Error: {state.error}</span>
+      )}
+      {typeof state === 'object' && 'match_count' in state && (
+        <span>
+          <strong>{state.match_count}</strong> matching members
+          {state.sample.length > 0 && (
+            <span style={mutedStyle()}>
+              {' '}
+              (e.g. {state.sample.map((s) => s.display_name).join(', ')})
+            </span>
+          )}
+        </span>
+      )}
+    </div>
+  );
 }

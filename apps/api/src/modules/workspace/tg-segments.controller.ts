@@ -48,6 +48,13 @@ const updateSchema = z
   })
   .strict();
 
+// #393 — preview-draft body. Same loose criteria shape as create
+// (service validates structurally); country needed for scope intersection.
+const previewDraftSchema = z.object({
+  country: z.string().regex(/^[a-z]{2}$/),
+  criteria: z.record(z.unknown()),
+});
+
 @Controller('v1/workspace/tg-segments')
 @UseGuards(AuthGuard)
 export class TgSegmentsController {
@@ -80,6 +87,23 @@ export class TgSegmentsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.segments.preview(parsed.data);
+  }
+
+  // #393 — preview a draft criteria block without persisting first.
+  // Used by the cabinet builder's live-preview as operators tweak chips
+  // before saving. Validation errors come back as 400 with the
+  // supported-fields hint (same shape as create).
+  //
+  //   200: { match_count, sample[5 anonymized names] }
+  //   400: { error: 'invalid_criteria', reason, supported? }
+  @Post('preview')
+  @HttpCode(HttpStatus.OK)
+  async previewDraft(@Body() body: unknown): Promise<Omit<SegmentPreview, 'segment_id'>> {
+    const parsed = previewDraftSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.segments.previewDraft(parsed.data.criteria, parsed.data.country);
   }
 
   @Post()
