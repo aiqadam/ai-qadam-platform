@@ -40,6 +40,19 @@ interface EventDetail {
   country: string;
   counts: RegistrationCounts;
   followups: EventFollowup[];
+  // PR-D3 — FK to forms.id when the operator has attached an in-house
+  // form as the post-event survey.
+  post_event_survey_form?: string | null;
+}
+
+// PR-D3 — minimal form summary used by the survey picker. Same shape
+// as the workspace forms list returns; we only need id/slug/title/country.
+interface FormSummary {
+  id: string;
+  slug: string;
+  title: string;
+  country: string;
+  status: 'draft' | 'published' | 'archived';
 }
 
 type State =
@@ -143,6 +156,7 @@ function Panel({ accessToken, initial, onChange }: PanelProps): ReactElement {
       <CountsRow counts={initial.counts} capacity={initial.capacity} />
       <RegenerateSocialCardButton eventId={initial.id} accessToken={accessToken} />
       <EditForm event={initial} accessToken={accessToken} onSaved={onChange} />
+      <PostEventSurveyPicker event={initial} accessToken={accessToken} onSaved={onChange} />
       {phase === 'post' && <CsatSummaryCard eventId={initial.id} accessToken={accessToken} />}
       <FollowupsList
         event={initial}
@@ -555,11 +569,13 @@ interface EditFormProps {
 }
 
 interface PatchBody {
-  title: string;
-  description: string;
-  status: EventDetail['status'];
-  location: string | null;
-  capacity: number | null;
+  title?: string;
+  description?: string;
+  status?: EventDetail['status'];
+  location?: string | null;
+  capacity?: number | null;
+  // PR-D3 — picker writes only this field; other keys stay omitted.
+  post_event_survey_form?: string | null;
 }
 
 function parseCapacity(raw: string): number | null {
@@ -939,6 +955,179 @@ function FollowupNotesEditor(props: FollowupNotesEditorProps): ReactElement {
       </div>
     </div>
   );
+}
+
+// PR-D3 — operator picks which form template to attach as the
+// post-event survey. Bot's T+24h survey nudge + /events/{slug}/survey
+// public route both render the picked form. Detach = null FK → bot
+// falls back to events.feedback_survey_url external link (#322) if set,
+// else no survey button at all.
+
+interface PostEventSurveyPickerProps {
+  event: EventDetail;
+  accessToken: string;
+  onSaved: (next: EventDetail) => void;
+}
+
+function PostEventSurveyPicker({
+  event,
+  accessToken,
+  onSaved,
+}: PostEventSurveyPickerProps): ReactElement {
+  const [forms, setForms] = useState<FormSummary[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(event.post_event_survey_form ?? null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetchForms(accessToken)
+      .then(setForms)
+      .catch(() => setForms([]));
+  }, [accessToken]);
+
+  if (forms == null) {
+    return (
+      <Section title="Post-event survey">
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>Loading…</p>
+      </Section>
+    );
+  }
+  return (
+    <PostEventSurveyPickerBody
+      event={event}
+      accessToken={accessToken}
+      onSaved={onSaved}
+      forms={forms}
+      selected={selected}
+      setSelected={setSelected}
+      saving={saving}
+      setSaving={setSaving}
+      err={err}
+      setErr={setErr}
+    />
+  );
+}
+
+interface PostEventSurveyPickerBodyProps extends PostEventSurveyPickerProps {
+  forms: FormSummary[];
+  selected: string | null;
+  setSelected: (s: string | null) => void;
+  saving: boolean;
+  setSaving: (b: boolean) => void;
+  err: string | null;
+  setErr: (s: string | null) => void;
+}
+
+function PostEventSurveyPickerBody({
+  event,
+  accessToken,
+  onSaved,
+  forms,
+  selected,
+  setSelected,
+  saving,
+  setSaving,
+  err,
+  setErr,
+}: PostEventSurveyPickerBodyProps): ReactElement {
+  const dirty = (selected ?? null) !== (event.post_event_survey_form ?? null);
+
+  const onSave = async (): Promise<void> => {
+    setSaving(true);
+    setErr(null);
+    try {
+      const next = await patchEvent(event.id, accessToken, {
+        post_event_survey_form: selected,
+      });
+      onSaved(next);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Country-scope: only forms in this event's country are pickable.
+  // (Server-side scoping is the real guarantee; this is just UX.)
+  const eligible = forms.filter((f) => f.country === event.country && f.status !== 'archived');
+
+  return (
+    <Section title="Post-event survey">
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted-foreground)' }}>
+        Pick a form from{' '}
+        <a
+          href="/workspace/forms"
+          style={{ color: 'var(--foreground)', textDecoration: 'underline' }}
+        >
+          /workspace/forms
+        </a>{' '}
+        to render at <code>/events/{event.id}/survey</code> + offer to attendees T+24h after ends_at
+        via the bot.
+      </p>
+      {eligible.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+          No forms in country <code>{event.country}</code> yet.{' '}
+          <a
+            href="/workspace/forms"
+            style={{ color: 'var(--foreground)', textDecoration: 'underline' }}
+          >
+            Build one →
+          </a>
+        </div>
+      ) : (
+        <>
+          <Field label="Form template">
+            <select
+              value={selected ?? ''}
+              onChange={(e) => setSelected(e.target.value === '' ? null : e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— None attached —</option>
+              {eligible.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.title} ({f.status})
+                </option>
+              ))}
+            </select>
+          </Field>
+          {selected && (
+            <p style={{ fontSize: 12, margin: '8px 0 0' }}>
+              <a
+                href={`/workspace/forms/${selected}/responses`}
+                style={{ color: 'var(--muted-foreground)', textDecoration: 'underline' }}
+              >
+                View responses ↗
+              </a>
+            </p>
+          )}
+          {err && (
+            <p style={{ fontSize: 12, color: 'var(--destructive, #c00)', margin: '8px 0 0' }}>
+              {err}
+            </p>
+          )}
+          <div style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!dirty || saving}
+              onClick={() => void onSave()}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
+async function fetchForms(accessToken: string): Promise<FormSummary[]> {
+  const r = await fetch('/api/v1/workspace/forms', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!r.ok) return [];
+  const { forms } = (await r.json()) as { forms: FormSummary[] };
+  return forms;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }): ReactElement {

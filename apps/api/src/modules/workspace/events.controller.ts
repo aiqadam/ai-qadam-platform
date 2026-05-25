@@ -45,6 +45,9 @@ const patchEventSchema = z.object({
   ends_at: z.string().datetime().optional(),
   capacity: z.number().int().min(0).nullable().optional(),
   location: z.string().trim().max(255).nullable().optional(),
+  // PR-D3 — attach / detach a forms-library template as the
+  // post-event survey. UUID FK to forms.id, or null to detach.
+  post_event_survey_form: z.string().uuid().nullable().optional(),
 });
 
 const upsertFollowupSchema = z.object({

@@ -36,6 +36,10 @@ export interface EventRow {
   country: string;
   date_created: string;
   date_updated: string | null;
+  // PR-D3 — FK to forms.id; null when no in-house survey is attached.
+  // Coexists with events.feedback_survey_url (external URL escape
+  // hatch from #322): in-house form wins when both are set.
+  post_event_survey_form?: string | null;
 }
 
 export interface RegistrationCounts {
@@ -225,6 +229,9 @@ export interface PatchEventInput {
   ends_at?: string | undefined;
   capacity?: number | null | undefined;
   location?: string | null | undefined;
+  // PR-D3 — operator picks the in-house form template attached as
+  // post-event survey. Nullable to "detach" the form.
+  post_event_survey_form?: string | null | undefined;
 }
 
 export interface UpsertFollowupInput {
