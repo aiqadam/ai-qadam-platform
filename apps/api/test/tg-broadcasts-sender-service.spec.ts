@@ -241,3 +241,126 @@ describe('TgBroadcastsSenderService.sendTest', () => {
     expect(envelope.template.text.startsWith('[TEST]')).toBe(true);
   });
 });
+
+// ─── #391 cancel-mid-flight ──────────────────────────────────────────────
+
+describe('TgBroadcastsSenderService.sendNow — cancel mid-flight', () => {
+  it('bails the enumerate loop and skips markSent when status flips to cancelled', async () => {
+    const { TgBroadcastsSenderService } = await import(
+      '../src/modules/workspace/tg-broadcasts-sender.service'
+    );
+    const fakeBdc = {
+      id: 'bdc-1',
+      title: 't',
+      country: 'uz',
+      status: 'draft' as const,
+      html_body: '<b>body</b>',
+      image_asset: null,
+      inline_buttons: [],
+      audience_segment: 'seg-1',
+      scheduled_at: null,
+      sent_at: null,
+      sent_count: 0,
+      failure_reason: null,
+      has_image: false,
+      inline_buttons_count: 0,
+      recurrence: 'none' as const,
+      created_by: null,
+      date_created: '2026-05-25T00:00:00Z',
+      date_updated: null,
+    };
+    const broadcasts = { get: vi.fn().mockResolvedValue(fakeBdc) };
+    const segments = {
+      get: vi.fn().mockResolvedValue({ id: 'seg-1', country: 'uz', criteria: {} }),
+    };
+    // Two GET shapes:
+    //   1. cancel-poll: /items/tg_broadcasts/bdc-1?fields=status → status='cancelled'
+    //   2. resolver:    /users?... (unused if poll trips immediately)
+    const directus = {
+      get: vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/items/tg_broadcasts/bdc-1?fields=status')) {
+          return { data: { status: 'cancelled' } };
+        }
+        return { data: [] };
+      }),
+      patch: vi.fn().mockResolvedValue({ data: fakeBdc }),
+    };
+    const outbox = { publish: vi.fn() };
+    const locks = { withLock: vi.fn() };
+    const db = { transaction: vi.fn() };
+    const svc = new TgBroadcastsSenderService(
+      directus as never,
+      broadcasts as never,
+      segments as never,
+      outbox as never,
+      locks as never,
+      db as never,
+    );
+
+    const result = await svc.sendNow('bdc-1');
+
+    expect(result.cancelled).toBe(true);
+    expect(result.sent_count).toBe(0);
+    // markSending PATCH happened; markSent must NOT have happened.
+    const patches = directus.patch.mock.calls.map((c) => c[1] as { status?: string });
+    expect(patches.some((p) => p.status === 'sending')).toBe(true);
+    expect(patches.some((p) => p.status === 'sent')).toBe(false);
+    // Resolver was never queried because the cancel-poll tripped first.
+    expect(outbox.publish).not.toHaveBeenCalled();
+  });
+
+  it('completes normally when cancel-poll returns non-cancelled status', async () => {
+    const { TgBroadcastsSenderService } = await import(
+      '../src/modules/workspace/tg-broadcasts-sender.service'
+    );
+    const fakeBdc = {
+      id: 'bdc-1',
+      title: 't',
+      country: 'uz',
+      status: 'draft' as const,
+      html_body: '<b>body</b>',
+      image_asset: null,
+      inline_buttons: [],
+      audience_segment: 'seg-1',
+      scheduled_at: null,
+      sent_at: null,
+      sent_count: 0,
+      failure_reason: null,
+      has_image: false,
+      inline_buttons_count: 0,
+      recurrence: 'none' as const,
+      created_by: null,
+      date_created: '2026-05-25T00:00:00Z',
+      date_updated: null,
+    };
+    const broadcasts = { get: vi.fn().mockResolvedValue(fakeBdc) };
+    const segments = {
+      get: vi.fn().mockResolvedValue({ id: 'seg-1', country: 'uz', criteria: {} }),
+    };
+    const directus = {
+      get: vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('?fields=status')) return { data: { status: 'sending' } };
+        return { data: [] }; // empty recipients page → loop ends
+      }),
+      patch: vi.fn().mockResolvedValue({ data: fakeBdc }),
+    };
+    const outbox = { publish: vi.fn() };
+    const locks = { withLock: vi.fn() };
+    const db = { transaction: vi.fn() };
+    const svc = new TgBroadcastsSenderService(
+      directus as never,
+      broadcasts as never,
+      segments as never,
+      outbox as never,
+      locks as never,
+      db as never,
+    );
+
+    const result = await svc.sendNow('bdc-1');
+
+    expect(result.cancelled).toBe(false);
+    expect(result.sent_count).toBe(0);
+    const patches = directus.patch.mock.calls.map((c) => c[1] as { status?: string });
+    expect(patches.some((p) => p.status === 'sent')).toBe(true);
+  });
+});

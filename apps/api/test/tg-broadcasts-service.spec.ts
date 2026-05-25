@@ -288,6 +288,35 @@ describe('TgBroadcastsService.update', () => {
   });
 });
 
+// ─── #391 cancel — mid-flight operator stop ──────────────────────────────
+
+describe('TgBroadcastsService.cancel', () => {
+  it('rejects when current status is not sending', async () => {
+    const get = vi.fn().mockResolvedValue({ data: { ...ROW, status: 'draft' } });
+    const patch = vi.fn();
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    await expect(svc.cancel('bdc-1', 0)).rejects.toThrow(BadRequestException);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('flips status to cancelled and stamps sent_at + sent_count when sending', async () => {
+    const sending = { ...ROW, status: 'sending' as const };
+    const get = vi.fn().mockResolvedValue({ data: sending });
+    const patch = vi
+      .fn()
+      .mockResolvedValue({ data: { ...sending, status: 'cancelled', sent_count: 42 } });
+    const svc = new TgBroadcastsService(fakeDirectusFull({ get, patch }));
+    const out = await svc.cancel('bdc-1', 42);
+    expect(out.status).toBe('cancelled');
+    expect(patch).toHaveBeenCalledWith(
+      '/items/tg_broadcasts/bdc-1',
+      expect.objectContaining({ status: 'cancelled', sent_count: 42 }),
+    );
+    const body = patch.mock.calls[0]?.[1] as { sent_at: string };
+    expect(body.sent_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
 // ─── #294 PR-e — recurrence helpers ──────────────────────────────────────
 
 describe('normalizeRecurrence', () => {

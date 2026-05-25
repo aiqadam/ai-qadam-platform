@@ -8,7 +8,16 @@ import { DirectusClient } from '../directus/directus.client';
 // collection lands. PR-b adds the composer UI, PR-c segments,
 // PR-d send-now + scheduler, PR-e recurring + analytics.
 
-export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+export type BroadcastStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'sending'
+  | 'sent'
+  | 'failed'
+  // #391 — operator cancels a send mid-flight; sender drains and stops
+  // enqueuing further envelopes. Already-queued envelopes still deliver
+  // (the notifier owns Redis streams), so cancel = "stop adding more."
+  | 'cancelled';
 export type BroadcastRecurrence = 'none' | 'weekly' | 'monthly';
 
 export interface BroadcastSummary {
@@ -169,6 +178,30 @@ export class TgBroadcastsService {
     if (!res.data) {
       throw new NotFoundException({ error: 'broadcast_not_found' });
     }
+    return rowToDetail(res.data);
+  }
+
+  // #391 — operator-initiated cancel of an in-flight send. Service
+  // validates the state machine (only 'sending' can be cancelled — a
+  // scheduled or draft row uses the regular edit path). The sender
+  // polls status between pages and bails when it sees 'cancelled'.
+  // sent_at is stamped so analytics can close out the broadcast.
+  async cancel(id: string, sent_count: number): Promise<BroadcastDetail> {
+    const current = await this.get(id);
+    if (current.status !== 'sending') {
+      throw new BadRequestException({
+        error: 'not_cancellable',
+        reason: `broadcast is ${current.status}; only 'sending' can be cancelled`,
+      });
+    }
+    const res = await this.directus.patch<{ data: BroadcastRow }>(
+      `/items/tg_broadcasts/${encodeURIComponent(id)}`,
+      {
+        status: 'cancelled',
+        sent_at: new Date().toISOString(),
+        sent_count,
+      },
+    );
     return rowToDetail(res.data);
   }
 }

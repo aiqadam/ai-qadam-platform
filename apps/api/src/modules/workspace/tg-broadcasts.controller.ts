@@ -39,7 +39,7 @@ import {
 // Operator-scope filtering by country happens here (rather than via
 // Directus permissions) so the same DirectusClient can serve both views.
 
-const STATUSES = ['draft', 'scheduled', 'sending', 'sent', 'failed'] as const;
+const STATUSES = ['draft', 'scheduled', 'sending', 'sent', 'failed', 'cancelled'] as const;
 
 const listQuerySchema = z.object({
   country: z
@@ -208,6 +208,30 @@ export class TgBroadcastsController {
       throw new BadRequestException({ error: 'operator_unresolved' });
     }
     return this.sender.sendTest(parsed.data, directusId);
+  }
+
+  // #391 — operator cancels an in-flight send. Flips status to
+  // 'cancelled'; the sender polls between recipient pages and bails on
+  // the next poll. Already-queued envelopes in Redis streams will
+  // still deliver (notifier owns them); cancel only stops the
+  // producer from enqueuing more.
+  //
+  //   200: BroadcastDetail
+  //   400: { error: 'not_cancellable', reason }
+  //   401: AuthGuard
+  //   404: { error: 'broadcast_not_found' }
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  async cancel(@Param('id') id: string): Promise<BroadcastDetail> {
+    const parsed = idParamSchema.safeParse(id);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    // sent_count snapshot: read current row's sent_count (or 0 if unset)
+    // so the cancelled row reflects how many envelopes were enqueued
+    // before the operator hit the button.
+    const current = await this.broadcasts.get(parsed.data);
+    return this.broadcasts.cancel(parsed.data, current.sent_count);
   }
 
   // #294 PR-e — per-broadcast delivery analytics. Reads tg_send_log

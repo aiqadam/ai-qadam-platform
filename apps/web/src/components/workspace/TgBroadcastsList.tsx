@@ -3,7 +3,7 @@ import { type ReactElement, useEffect, useState } from 'react';
 // #294 PR-a — read-view cabinet for tg_broadcasts. Composer + send-now
 // land in PR-b / PR-d. Same auth-bootstrap pattern as TelegramCabinet.
 
-type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled';
 
 interface BroadcastSummary {
   id: string;
@@ -28,7 +28,7 @@ type State =
   | { phase: 'anon' }
   | { phase: 'forbidden' }
   | { phase: 'probe_error'; httpStatus: number }
-  | { phase: 'ready'; items: BroadcastSummary[] };
+  | { phase: 'ready'; accessToken: string; items: BroadcastSummary[] };
 
 function signInUrl(): string {
   const next =
@@ -55,7 +55,7 @@ async function bootstrap(): Promise<State> {
   if (!res.ok) return { phase: 'probe_error', httpStatus: res.status };
 
   const { items } = (await res.json()) as { items: BroadcastSummary[] };
-  return { phase: 'ready', items };
+  return { phase: 'ready', accessToken, items };
 }
 
 const STATUS_LABEL: Record<BroadcastStatus, string> = {
@@ -64,6 +64,7 @@ const STATUS_LABEL: Record<BroadcastStatus, string> = {
   sending: 'Sending',
   sent: 'Sent',
   failed: 'Failed',
+  cancelled: 'Cancelled',
 };
 
 const STATUS_COLOR: Record<BroadcastStatus, string> = {
@@ -72,6 +73,7 @@ const STATUS_COLOR: Record<BroadcastStatus, string> = {
   sending: '#d97706',
   sent: '#16a34a',
   failed: '#dc2626',
+  cancelled: '#475569',
 };
 
 export default function TgBroadcastsList(): ReactElement {
@@ -100,6 +102,28 @@ export default function TgBroadcastsList(): ReactElement {
   if (state.phase === 'probe_error')
     return <p style={mutedStyle()}>Failed to load broadcasts (HTTP {state.httpStatus}).</p>;
 
+  // #391 — operator cancels an in-flight send. Re-fetch after to
+  // reflect the flipped status + final partial sent_count.
+  const cancel = async (broadcastId: string): Promise<void> => {
+    if (
+      !window.confirm(
+        'Cancel this in-flight broadcast? Already-queued envelopes will still deliver; only further enqueues stop.',
+      )
+    )
+      return;
+    if (state.phase !== 'ready') return;
+    const res = await fetch(
+      `/api/v1/workspace/tg-broadcasts/${encodeURIComponent(broadcastId)}/cancel`,
+      { method: 'POST', headers: { Authorization: `Bearer ${state.accessToken}` } },
+    );
+    if (!res.ok) {
+      window.alert(`Cancel failed (HTTP ${res.status}). The send may have already finished.`);
+      return;
+    }
+    setState({ phase: 'bootstrap' });
+    setState(await bootstrap());
+  };
+
   return (
     <>
       <div style={{ marginBottom: 16 }}>
@@ -121,6 +145,7 @@ export default function TgBroadcastsList(): ReactElement {
               <th style={thStyle()}>Scheduled</th>
               <th style={thStyle()}>Sent</th>
               <th style={thStyle()}>Created</th>
+              <th style={thStyle()} />
             </tr>
           </thead>
           <tbody>
@@ -149,6 +174,18 @@ export default function TgBroadcastsList(): ReactElement {
                   {b.sent_at ? `${b.sent_count} · ${formatDate(b.sent_at)}` : '—'}
                 </td>
                 <td style={tdStyle()}>{formatDate(b.date_created)}</td>
+                <td style={tdStyle()}>
+                  {b.status === 'sending' && (
+                    <button
+                      type="button"
+                      onClick={() => void cancel(b.id)}
+                      style={cancelButtonStyle()}
+                      data-testid={`cancel-${b.id}`}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -156,6 +193,18 @@ export default function TgBroadcastsList(): ReactElement {
       )}
     </>
   );
+}
+
+function cancelButtonStyle(): React.CSSProperties {
+  return {
+    padding: '4px 10px',
+    background: 'transparent',
+    color: '#dc2626',
+    border: '1px solid #dc2626',
+    borderRadius: 4,
+    fontSize: 12,
+    cursor: 'pointer',
+  };
 }
 
 function newButtonStyle(): React.CSSProperties {

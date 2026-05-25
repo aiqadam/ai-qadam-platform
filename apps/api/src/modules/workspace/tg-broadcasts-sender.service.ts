@@ -36,6 +36,9 @@ export interface SendNowResult {
   sent_count: number;
   skipped_count: number;
   sent_at: string;
+  // #391 — true when the loop bailed because the operator flipped
+  // status='cancelled'. sent_count is the partial count at bail time.
+  cancelled: boolean;
 }
 
 // #391 — operator-only test envelope result. Doesn't touch the
@@ -113,19 +116,27 @@ export class TgBroadcastsSenderService {
 
     try {
       const result = await this.enumerateAndDispatch(bdc);
-      await this.markSent(broadcastId, result.sent_count);
-      // #294 PR-e — recurring: clone the row for the next anchor.
-      // Snapshot-on-fire (not template+instance) — the new row carries
-      // the current body/buttons, so future edits to the source don't
-      // retroactively change already-sent history.
-      if (bdc.recurrence !== 'none') {
-        await this.cloneForNextAnchor(bdc);
+      // #391 — cancel-mid-flight: enumerateAndDispatch checks status
+      // between pages and returns cancelled=true if the operator
+      // flipped status='cancelled' (via the cancel endpoint). In that
+      // case the service has already stamped 'cancelled' + sent_at;
+      // don't overwrite with 'sent'.
+      if (!result.cancelled) {
+        await this.markSent(broadcastId, result.sent_count);
+        // #294 PR-e — recurring: clone the row for the next anchor.
+        // Snapshot-on-fire (not template+instance) — the new row carries
+        // the current body/buttons, so future edits to the source don't
+        // retroactively change already-sent history. Skipped on cancel.
+        if (bdc.recurrence !== 'none') {
+          await this.cloneForNextAnchor(bdc);
+        }
       }
       return {
         broadcast_id: broadcastId,
         sent_count: result.sent_count,
         skipped_count: result.skipped_count,
         sent_at: new Date().toISOString(),
+        cancelled: result.cancelled,
       };
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown';
@@ -211,6 +222,7 @@ export class TgBroadcastsSenderService {
   private async enumerateAndDispatch(bdc: BroadcastDetail): Promise<{
     sent_count: number;
     skipped_count: number;
+    cancelled: boolean;
   }> {
     if (!bdc.audience_segment) {
       throw new BadRequestException({ error: 'no_audience_segment' });
@@ -221,6 +233,13 @@ export class TgBroadcastsSenderService {
     let skipped = 0;
     let page = 1;
     while (sent + skipped < MAX_RECIPIENTS) {
+      // #391 — cancel poll BEFORE the next page fetch so we bail
+      // at page boundaries (worst case = one page worth of envelopes
+      // still flush before stop, ~3-5s at 30/s throttle).
+      if (await this.isCancelled(bdc.id)) {
+        this.logger.log(`broadcast=${bdc.id} cancelled mid-flight after sent=${sent}`);
+        return { sent_count: sent, skipped_count: skipped, cancelled: true };
+      }
       const recipients = await this.fetchRecipientsPage(filter, page);
       if (recipients.length === 0) break;
       for (const r of recipients) {
@@ -232,7 +251,23 @@ export class TgBroadcastsSenderService {
       if (recipients.length < USERS_PAGE_SIZE) break;
       page += 1;
     }
-    return { sent_count: sent, skipped_count: skipped };
+    return { sent_count: sent, skipped_count: skipped, cancelled: false };
+  }
+
+  // #391 — cheap status re-fetch for the cancel-mid-flight poll.
+  // Failures default to "not cancelled" so a transient Directus blip
+  // doesn't bail an otherwise-fine send.
+  private async isCancelled(broadcastId: string): Promise<boolean> {
+    try {
+      const res = await this.directus.get<{ data: { status: string } | null }>(
+        `/items/tg_broadcasts/${encodeURIComponent(broadcastId)}?fields=status`,
+      );
+      return res.data?.status === 'cancelled';
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(`cancel-poll failed broadcast=${broadcastId}: ${reason}`);
+      return false;
+    }
   }
 
   private async fetchRecipientsPage(filter: unknown, page: number): Promise<RecipientRow[]> {
