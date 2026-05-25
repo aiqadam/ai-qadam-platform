@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DirectusClient } from '../directus/directus.client';
 import { InteractionsService } from '../interactions/interactions.service';
+import { TickLockService } from '../internal-cron/tick-lock.service';
 
 // F-S1.4b — T-7 speaker brief cron.
 //
@@ -80,7 +82,18 @@ export class EventSpeakerBriefsService {
   constructor(
     private readonly directus: DirectusClient,
     private readonly interactions: InteractionsService,
+    private readonly locks: TickLockService,
   ) {}
+
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async scheduledTick(): Promise<void> {
+    await this.locks.withLock('event-speaker-briefs', 540, async () => {
+      const r = await this.tick();
+      if (r.dispatched.length > 0) {
+        this.logger.log(`scheduledTick dispatched=${r.dispatched.length}`);
+      }
+    });
+  }
 
   async tick(): Promise<TickResult> {
     const result: TickResult = { evaluated: 0, dispatched: [], skipped: [], errors: [] };

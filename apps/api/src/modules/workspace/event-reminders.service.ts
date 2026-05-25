@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DirectusClient } from '../directus/directus.client';
 import { InteractionsService } from '../interactions/interactions.service';
+import { TickLockService } from '../internal-cron/tick-lock.service';
 
 // F-S1.4 — pre-event reminder cron.
 //
@@ -95,7 +97,21 @@ export class EventRemindersService {
   constructor(
     private readonly directus: DirectusClient,
     private readonly interactions: InteractionsService,
+    private readonly locks: TickLockService,
   ) {}
+
+  // In-process scheduler tick — fires every 10 min. Redis lock means
+  // only one api replica per cluster runs per tick. The
+  // InternalAuthGuard /tick endpoint stays as an operator escape hatch.
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async scheduledTick(): Promise<void> {
+    await this.locks.withLock('event-reminders', 540, async () => {
+      const r = await this.tick();
+      if (r.evaluated > 0) {
+        this.logger.log(`scheduledTick evaluated=${r.evaluated} dispatched=${r.dispatched.length}`);
+      }
+    });
+  }
 
   async tick(): Promise<TickResult> {
     const dispatched: TickResult['dispatched'] = [];

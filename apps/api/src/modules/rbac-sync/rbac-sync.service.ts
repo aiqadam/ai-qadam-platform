@@ -1,9 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
 import { AuditEventsService } from '../audit/audit-events.service';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
+import { TickLockService } from '../internal-cron/tick-lock.service';
 import { DirectusPolicyApplier } from './directus-policy-applier';
 import { type ExpectedState, computeExpectedState } from './group-mapping';
 
@@ -64,7 +66,21 @@ export class RbacSyncService {
     private readonly directusBridge: DirectusUsersBridgeService,
     private readonly audit: AuditEventsService,
     private readonly directusApplier: DirectusPolicyApplier,
+    private readonly locks: TickLockService,
   ) {}
+
+  // Nightly poll — 03:30 UTC per ADR-0021 §5 (replaces the deleted
+  // .github/workflows/rbac-poll.yml). Belt-and-braces for the
+  // Authentik webhook; same intakeWebhook path so behaviour is identical.
+  @Cron('30 3 * * *')
+  async scheduledTick(): Promise<void> {
+    await this.locks.withLock('rbac-sync-poll', 540, async () => {
+      const r = await this.pollAllUsers();
+      this.logger.log(
+        `scheduledTick scanned=${r.scanned} jobs_created=${r.jobs_created} errors=${r.errors}`,
+      );
+    });
+  }
 
   async intakeWebhook(input: IntakeInput): Promise<IntakeResult> {
     // ADR-0021 §5: do NOT trust the webhook payload's group list alone

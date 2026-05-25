@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DB, type Db } from '../../db';
 import { DirectusClient } from '../directus/directus.client';
+import { TickLockService } from '../internal-cron/tick-lock.service';
 import { OutboxPublisher } from '../telegram/outbox-publisher.service';
 import {
   type BroadcastButton,
@@ -52,8 +54,23 @@ export class TgBroadcastsSenderService {
     private readonly broadcasts: TgBroadcastsService,
     private readonly segments: TgSegmentsService,
     private readonly outbox: OutboxPublisher,
+    private readonly locks: TickLockService,
     @Inject(DB) private readonly db: Db,
   ) {}
+
+  // In-process scheduler tick. Fires every minute; Redis lock means
+  // only one api replica per cluster actually runs sendDue() per minute.
+  // The InternalAuthGuard /tick endpoint stays as an operator escape
+  // hatch for force-trigger.
+  @Cron(CronExpression.EVERY_MINUTE)
+  async scheduledTick(): Promise<void> {
+    await this.locks.withLock('tg-broadcasts-send-due', 540, async () => {
+      const result = await this.sendDue();
+      if (result.tick_count > 0) {
+        this.logger.log(`scheduledTick fired ${result.tick_count} broadcasts`);
+      }
+    });
+  }
 
   async sendNow(broadcastId: string): Promise<SendNowResult> {
     const bdc = await this.broadcasts.get(broadcastId);

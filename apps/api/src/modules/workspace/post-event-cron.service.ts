@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DirectusClient } from '../directus/directus.client';
 import { InteractionsService } from '../interactions/interactions.service';
+import { TickLockService } from '../internal-cron/tick-lock.service';
 import { CsatService } from './csat.service';
 
 // F-S1.1c — post-event followup cron.
@@ -56,7 +58,18 @@ export class PostEventCronService {
     // F-S1.1c ext — used by the per-recipient CSAT renderer to mint a
     // token scoped to each delivery row.
     private readonly csat: CsatService,
+    private readonly locks: TickLockService,
   ) {}
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async scheduledTick(): Promise<void> {
+    await this.locks.withLock('post-event-cron', 540, async () => {
+      const r = await this.tick();
+      if (r.processed.length > 0) {
+        this.logger.log(`scheduledTick processed=${r.processed.length}`);
+      }
+    });
+  }
 
   async tick(): Promise<PostEventTickResult> {
     const events = await this.candidates();

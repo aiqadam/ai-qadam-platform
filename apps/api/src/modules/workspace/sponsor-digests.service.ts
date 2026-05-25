@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import PDFDocument from 'pdfkit';
 import { DirectusClient } from '../directus/directus.client';
+import { TickLockService } from '../internal-cron/tick-lock.service';
 
 // F-S3.8 — Sponsor quarterly digest cron service.
 //
@@ -86,7 +88,22 @@ export function priorQuarter(now: Date): QuarterTag {
 export class SponsorDigestsService {
   private readonly logger = new Logger(SponsorDigestsService.name);
 
-  constructor(private readonly directus: DirectusClient) {}
+  constructor(
+    private readonly directus: DirectusClient,
+    private readonly locks: TickLockService,
+  ) {}
+
+  // Monthly cron — 04:00 UTC on the 5th of every month per F-S3.8 spec
+  // (replaces the deleted .github/workflows/sponsor-digest-cron.yml).
+  // ~09:00 in UZ/KZ. tick() is idempotent across the quarter so the
+  // 9 non-quarter-boundary monthly runs are cheap no-ops.
+  @Cron('0 4 5 * *')
+  async scheduledTick(): Promise<void> {
+    await this.locks.withLock('sponsor-digests', 600, async () => {
+      const r = await this.tick();
+      this.logger.log(`scheduledTick generated=${r.generated.length} skipped=${r.skipped.length}`);
+    });
+  }
 
   async tick(now: Date = new Date()): Promise<SponsorDigestTickResult> {
     const quarter = priorQuarter(now);

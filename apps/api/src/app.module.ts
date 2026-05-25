@@ -8,6 +8,7 @@ import { CountryProvisioningModule } from './modules/country-provisioning/countr
 import { EulaModule } from './modules/eula/eula.module';
 import { EventQuestionsModule } from './modules/event-questions/event-questions.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
+import { InternalCronModule } from './modules/internal-cron/internal-cron.module';
 import { InternalModule } from './modules/internal/internal.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { MeProfileModule } from './modules/me-profile/me-profile.module';
@@ -23,6 +24,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 @Module({
   imports: [
+    InternalCronModule,
     TenantsModule,
     UsersModule,
     AuthModule,
