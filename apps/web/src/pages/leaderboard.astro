@@ -106,7 +106,7 @@ const PODIUM_ORDER: Array<{ idx: number; kind: 'gold' | 'silver' | 'bronze' }> =
               const e = podium[p.idx];
               if (!e) return null;
               const card = (
-                <article class={`podium-card ${p.kind}`}>
+                <article class={`podium-card ${p.kind}`} data-user-id={e.userId}>
                   <span class="rank-num">{rankLabel(e.rank, p.kind)}</span>
                   <div
                     class="avatar avatar-xl pavatar"
@@ -148,7 +148,7 @@ const PODIUM_ORDER: Array<{ idx: number; kind: 'gold' | 'silver' | 'bronze' }> =
               <span style="text-align: right;">±</span>
             </div>
             {tableRows.map((e) => (
-              <div class="lb-row">
+              <div class="lb-row" data-user-id={e.userId}>
                 <span class="lb-rank">{String(e.rank).padStart(2, '0')}</span>
                 {e.handle ? (
                   <a
@@ -193,3 +193,62 @@ const PODIUM_ORDER: Array<{ idx: number; kind: 'gold' | 'silver' | 'bronze' }> =
     )}
   </main>
 </Layout>
+
+<style>
+  /* C-2a — highlight the signed-in member's row. Added by inline script
+     after auth-bootstrap resolves. Marker chip sits at the right edge so
+     it never collides with the country/streak/change columns. */
+  .lb-row.is-me,
+  .podium-card.is-me {
+    background: color-mix(in oklch, var(--primary) 12%, var(--card)) !important;
+    border-color: color-mix(in oklch, var(--primary) 45%, var(--border)) !important;
+  }
+  .me-chip {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 6px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary);
+    border: 1px solid color-mix(in oklch, var(--primary) 50%, transparent);
+    border-radius: 4px;
+    vertical-align: middle;
+  }
+</style>
+
+<script>
+  // C-2a — fetch auth state once (deduped via the shared bootstrap),
+  // find the row whose data-user-id matches, add `.is-me` + a YOU chip,
+  // and scroll it into view if it's below the fold. Anon visitors get
+  // no script effect (early-out on null auth).
+  import { getAuthState } from '../lib/auth-bootstrap';
+
+  void (async function highlightMe(): Promise<void> {
+    const auth = await getAuthState();
+    if (!auth) return;
+    const meId = auth.me.id;
+    const rows = document.querySelectorAll<HTMLElement>(
+      `[data-user-id="${CSS.escape(meId)}"]`,
+    );
+    if (rows.length === 0) return;
+    for (const row of rows) {
+      row.classList.add('is-me');
+      const nameEl = row.querySelector('.name, .pname');
+      if (nameEl && !nameEl.querySelector('.me-chip')) {
+        const chip = document.createElement('span');
+        chip.className = 'me-chip';
+        chip.textContent = 'You';
+        nameEl.appendChild(chip);
+      }
+    }
+    // Scroll the first match into view only if it's not already visible
+    // — never yank the page when the user is already on the podium.
+    const first = rows[0];
+    if (!first) return;
+    const rect = first.getBoundingClientRect();
+    const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+    if (!inView) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  })();
+</script>
