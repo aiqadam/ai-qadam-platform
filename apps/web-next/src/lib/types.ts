@@ -103,3 +103,58 @@ export interface PublicProfile {
     endsAt: string;
   }>;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/me/profile (signed-in self-edit surface).
+//
+// Backs /me/profile blocks: <ConsentList>, <SkillTagger>. Future
+// editors (interests, employments, profile core) ride on the same
+// envelope.
+// ---------------------------------------------------------------------------
+
+export const CONSENT_PURPOSES = [
+  'events',
+  'marketing',
+  'research',
+  'recruiting',
+  'sponsor_share',
+  'content',
+  'paid_premium',
+] as const;
+export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
+
+export interface ConsentSummary {
+  purpose: ConsentPurpose;
+  granted: boolean;
+  lastChangedAt: string | null;
+}
+
+export interface MemberSkill {
+  id: string;
+  skill_tag: string;
+  endorsement_count: number;
+  verified_by_event: string | null;
+}
+
+export interface MeProfileCore {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  job_title: string | null;
+  seniority: string | null;
+  industry_tags: string[];
+  is_student: boolean;
+  bio_md: string | null;
+  appear_in_directory: boolean;
+  appear_in_matches: boolean;
+  appear_on_attendee_list: boolean;
+  appear_on_public_leaderboard: boolean;
+  show_company_on_public_profile: boolean;
+}
+
+export interface MeProfileFull {
+  profile: MeProfileCore;
+  consents: ConsentSummary[];
+  skills: MemberSkill[];
+}

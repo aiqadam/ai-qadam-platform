@@ -217,9 +217,53 @@ api_endpoint: GET /v1/users/:handle/profile (Host header → tenant filter; deep
 fallback: null → page 302s to /leaderboard
 ```
 
-### `member_skills`, `member_interests`, `member_employments`, `member_consents`, `member_badges`
+### `member_consents` — LIVE as of PR 1.5b
 
-> Placeholder — filled in PR 1.5b (editor blocks for skills, interests, employments, consents) + a future Phase 3 cabinet for member-badge management.
+```yaml
+data_source: member_consents
+description: Per-purpose marketing/research/etc. consent state per ADR-0033 Part 1.
+
+customer_blocks:
+  - block: ConsentList
+    page: apps/web-next/src/pages/me/profile.astro (PR 1.5b)
+    operation: both
+    hooks: lib/use-me-profile → useMyFullProfile (read), useUpdateConsent (write)
+
+operator_blocks: []   # placeholder — no operator surface; consent is member-controlled
+
+api_endpoints:
+  - GET /v1/me/profile (envelope returns consents[])
+  - PATCH /v1/me/profile/consents {purpose, granted}
+
+purposes (from lib/types CONSENT_PURPOSES):
+  - events, marketing, research, recruiting, sponsor_share, content, paid_premium
+```
+
+### `member_skills` — LIVE as of PR 1.5b
+
+```yaml
+data_source: member_skills
+description: Member-attached skill tags. Drives event-invite routing + member directory search.
+
+customer_blocks:
+  - block: SkillTagger
+    page: apps/web-next/src/pages/me/profile.astro (PR 1.5b)
+    operation: both
+    hooks: lib/use-me-profile → useMyFullProfile (read), useAddSkill / useRemoveSkill (write)
+
+operator_blocks: []   # placeholder — future Phase 3 segment-builder may filter by skill
+
+api_endpoints:
+  - GET /v1/me/profile (envelope returns skills[])
+  - POST /v1/me/profile/skills {skill_tag}
+  - DELETE /v1/me/profile/skills/:id
+```
+
+### `member_interests`, `member_employments`, `member_badges`
+
+> Placeholders.
+> - `member_interests` + `member_employments` — Phase 1.5c (interests + employments editors).
+> - `member_badges` — Phase 3 cabinet for badge grant/audit.
 
 ### `point_awards`
 

@@ -1,0 +1,58 @@
+---
+// @generated-from gen:page
+// slug: me/profile
+// generated: 2026-05-26
+//
+// Phase 1.5b — signed-in member self-edit per ADR-0033 cabinet #5.
+//
+// Composition only (L4): server-side auth gate via <AuthGate>; the
+// interactive editor blocks (ConsentList + SkillTagger) hydrate
+// client:load and fetch via TanStack Query through the shared
+// `lib/use-me-profile` hooks. One network call serves both blocks
+// because they share the query key.
+//
+// Interests + employments + profile-core editors deferred to PR 1.5c
+// — those need their own hooks + types and would push this PR over
+// the size cap. The current surface ships the two most-requested
+// editors (consents + skills) per ADR-0033 priority.
+//
+// Wiring: docs/architecture/wiring-map.md → member_consents +
+// member_skills.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../blocks/common';
+import { ConsentList, SkillTagger } from '../../blocks/customer';
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Your profile · AI Qadam (next)"
+  description="Manage your AI Qadam profile, consents, and skills."
+>
+  <PageHead
+    slot="head"
+    title="Your profile · AI Qadam (next)"
+    description="Manage your AI Qadam profile, consents, and skills."
+  />
+  <main class="mx-auto max-w-3xl px-6 py-12">
+    <p
+      class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2"
+    >
+      Account
+    </p>
+    <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground mb-3">
+      Your profile
+    </h1>
+    <p class="text-sm text-muted-foreground leading-relaxed mb-8 max-w-prose">
+      What you share here shapes how other members find you and what we send your
+      way. You're in charge of every field. Consents default off — opt in for the
+      ones that fit.
+    </p>
+    <AuthGate signInLabel="Sign in to manage your profile">
+      <div class="space-y-6">
+        <ConsentList client:load />
+        <SkillTagger client:load />
+      </div>
+    </AuthGate>
+  </main>
+</Layout>
