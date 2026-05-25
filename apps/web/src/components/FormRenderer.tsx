@@ -6,6 +6,7 @@ import ScaleField from './forms/ScaleField';
 import SelectManyField from './forms/SelectManyField';
 import SelectOneField from './forms/SelectOneField';
 import ShortTextField from './forms/ShortTextField';
+import SpeakerRatingField from './forms/SpeakerRatingField';
 import YesNoField from './forms/YesNoField';
 
 // Renders an operator-built form and submits to the API.
@@ -170,6 +171,7 @@ export default function FormRenderer({
               value={values[field.key]}
               onChange={(v) => setField(field.key, v)}
               disabled={phase === 'submitting'}
+              speakers={eventContext?.speakers ?? []}
             />
           </FieldBlock>
         ))}
@@ -200,11 +202,13 @@ function FieldInput({
   value,
   onChange,
   disabled,
+  speakers,
 }: {
   field: FormField;
   value: unknown;
   onChange: (v: unknown) => void;
   disabled: boolean;
+  speakers: Array<{ name: string | null; talkTitle: string | null }>;
 }): ReactElement {
   switch (field.type) {
     case 'short_text':
@@ -263,6 +267,19 @@ function FieldInput({
       return (
         <YesNoField value={value as boolean | undefined} onChange={onChange} disabled={disabled} />
       );
+    case 'speaker_rating': {
+      const scale = field.scale ?? { min: 1, max: 5 };
+      return (
+        <SpeakerRatingField
+          speakers={speakers}
+          scale={scale}
+          value={(value as Record<string, number>) ?? {}}
+          onChange={onChange}
+          disabled={disabled}
+          fieldKey={field.key}
+        />
+      );
+    }
   }
 }
 
@@ -274,12 +291,19 @@ function FieldInput({
 function stripEmptyValues(values: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(values)) {
-    if (v == null) continue;
-    if (typeof v === 'string' && v.trim() === '') continue;
-    if (Array.isArray(v) && v.length === 0) continue;
+    if (!isMeaningful(v)) continue;
     out[k] = v;
   }
   return out;
+}
+
+function isMeaningful(v: unknown): boolean {
+  if (v == null) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  // speaker_rating payload: drop empty {} (no speaker rated yet).
+  if (typeof v === 'object') return Object.keys(v as object).length > 0;
+  return true;
 }
 
 // PR-D4 — dynamic event-context card rendered above the form on the

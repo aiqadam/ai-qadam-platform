@@ -70,6 +70,21 @@ const fieldSchema = z.discriminatedUnion('type', [
     label: z.string().min(1).max(200),
     required: z.boolean().default(false),
   }),
+  // D8 — per-speaker rating. Mirrors the public-API schema in
+  // apps/api/src/modules/telegram/telegram-forms.service.ts. Renderer
+  // expands one scale row per confirmed event_speaker.
+  z.object({
+    type: z.literal('speaker_rating'),
+    key: z.string().min(1).max(80),
+    label: z.string().min(1).max(200),
+    required: z.boolean().default(false),
+    scale: z.object({
+      min: z.number().int(),
+      max: z.number().int(),
+      min_label: z.string().max(80).optional(),
+      max_label: z.string().max(80).optional(),
+    }),
+  }),
 ]);
 
 export const FORM_SCHEMA_ZOD = z.object({

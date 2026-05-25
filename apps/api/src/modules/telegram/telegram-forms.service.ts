@@ -48,12 +48,14 @@ export const FIELD_TYPES = [
   'select_one',
   'select_many',
   'yes_no',
+  'speaker_rating',
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 export const SHORT_TEXT_MAX = 200;
 export const LONG_TEXT_MAX = 2000;
 export const SELECT_MANY_MAX = 50; // sanity cap on multi-select length
+export const SPEAKER_RATING_MAX = 50; // sanity cap on per-speaker entries (never seen >20 in practice)
 
 // Zod shape for one field. Discriminated on `type` so per-type
 // constraints (scale's min/max, select options) are statically narrowed
@@ -109,6 +111,22 @@ const fieldSchema = z.discriminatedUnion('type', [
     key: z.string().min(1).max(80),
     label: z.string().min(1).max(200),
     required: z.boolean().default(false),
+  }),
+  // D8 — per-speaker rating. At render time, expands to N scale rows
+  // (one per confirmed event_speaker, sourced from eventContext on the
+  // /events/{slug}/survey route). The form schema only carries
+  // configuration; the dynamic expansion lives in the renderer.
+  z.object({
+    type: z.literal('speaker_rating'),
+    key: z.string().min(1).max(80),
+    label: z.string().min(1).max(200),
+    required: z.boolean().default(false),
+    scale: z.object({
+      min: z.number().int(),
+      max: z.number().int(),
+      min_label: z.string().max(80).optional(),
+      max_label: z.string().max(80).optional(),
+    }),
   }),
 ]);
 
@@ -434,6 +452,9 @@ function validateFieldValue(field: FormField, value: unknown): void {
         });
       }
       return;
+    case 'speaker_rating':
+      assertSpeakerRating(field.key, value, field.scale.min, field.scale.max);
+      return;
   }
 }
 
@@ -511,6 +532,39 @@ function assertSelectMany(key: string, value: unknown, options: Array<{ value: s
         error: 'field_unknown_option',
         field: key,
         received: v,
+      });
+    }
+  }
+}
+
+function assertSpeakerRating(key: string, value: unknown, min: number, max: number): void {
+  // Payload shape: { <speaker_key>: <rating> } — keys are speaker ids
+  // (or names; we do not enforce). Each value must be an integer in
+  // [min, max] same as a scale field. Cap to SPEAKER_RATING_MAX entries
+  // so a malicious submission cannot inflate the jsonb.
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new BadRequestException({
+      error: 'field_wrong_type',
+      field: key,
+      reason: 'expected object of {speaker_id: rating}',
+    });
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > SPEAKER_RATING_MAX) {
+    throw new BadRequestException({
+      error: 'field_too_many_values',
+      field: key,
+      max: SPEAKER_RATING_MAX,
+    });
+  }
+  for (const [k, v] of entries) {
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < min || v > max) {
+      throw new BadRequestException({
+        error: 'field_out_of_range',
+        field: key,
+        speaker: k,
+        min,
+        max,
       });
     }
   }

@@ -2,13 +2,18 @@
 // Wire shape mirrors apps/api/src/modules/telegram/telegram-forms.service.ts
 // — keep these in sync (any field-type rename ripples through both layers).
 
+// D8 — `speaker_rating` expands at render time to one scale row per
+// confirmed event_speaker (sourced from EventContext on the
+// /events/{id}/survey route). When eventContext is absent (standalone
+// /forms/{slug} route) or has no speakers, the renderer shows a notice.
 export type FormFieldType =
   | 'short_text'
   | 'long_text'
   | 'scale'
   | 'select_one'
   | 'select_many'
-  | 'yes_no';
+  | 'yes_no'
+  | 'speaker_rating';
 
 export interface FormFieldOption {
   value: string;

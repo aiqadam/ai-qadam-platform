@@ -20,6 +20,7 @@ const FIELD_TYPES = [
   'select_one',
   'select_many',
   'yes_no',
+  'speaker_rating',
 ] as const;
 type FieldType = (typeof FIELD_TYPES)[number];
 
@@ -364,6 +365,10 @@ function newFieldOfType(type: FieldType, currentLength: number): FormField {
   };
   if (type === 'scale') {
     base.scale = { min: 0, max: 10 };
+  } else if (type === 'speaker_rating') {
+    // Defaults to 1-5 rating (industry convention for per-person scores).
+    base.scale = { min: 1, max: 5 };
+    base.label = 'Rate the speakers';
   } else if (type === 'select_one' || type === 'select_many') {
     base.options = [
       { value: 'opt1', label: 'Option 1' },
@@ -540,7 +545,7 @@ function PerTypeEditor({
   if (field.type === 'short_text' || field.type === 'long_text') {
     return <TextPlaceholderEditor field={field} onChange={onChange} />;
   }
-  if (field.type === 'scale') {
+  if (field.type === 'scale' || field.type === 'speaker_rating') {
     return <ScaleEditor field={field} onChange={onChange} />;
   }
   if (field.type === 'select_one' || field.type === 'select_many') {
@@ -722,6 +727,7 @@ function humanizeFieldType(t: FieldType): string {
     select_one: 'Single choice',
     select_many: 'Multiple choice',
     yes_no: 'Yes / No',
+    speaker_rating: 'Speaker rating (per event speaker)',
   }[t];
 }
 
