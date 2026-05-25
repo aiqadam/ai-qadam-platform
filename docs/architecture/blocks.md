@@ -70,7 +70,8 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
-| `<PageShell>` | `@/blocks/workspace` | `title, breadcrumbs?, actions?, children` | — | — | n/a |
+| `<PageShell>` | `@/blocks/workspace` | `title: string, description?: string, width?: 'narrow' \| 'standard' \| 'wide'` (named slots: `breadcrumbs`, `actions`; default slot = body) | — | Astro-only — no story | n/a (presentation) |
+| `<Breadcrumbs>` | `@/blocks/workspace` | `items: { label: string, href?: string }[], class?: string` (final item rendered without link as `aria-current=page`) | — | Astro-only — no story | n/a |
 | `<DataTable>` | `@/blocks/workspace` | `columns, rows, pagination, sort, filterSlot?` | — | — | generic |
 | `<KpiTile>` | `@/blocks/workspace` | `label, value, delta?, trend?` | — | — | aggregates |
 | `<ActionBar>` | `@/blocks/workspace` | `primary?, secondary?, more?` | — | — | n/a |

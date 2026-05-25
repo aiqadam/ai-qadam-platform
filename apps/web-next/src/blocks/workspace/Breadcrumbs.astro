@@ -1,0 +1,62 @@
+---
+// L3 workspace block — <Breadcrumbs>.
+//
+// Operator-cabinet navigation strip. Items are passed in order from
+// root → current page; the final item is rendered without a link
+// (it's the page the user is on). The home item is conventionally
+// "Workspace" → /workspace, but the block is content-agnostic so
+// nested cabinets can keep their own root.
+//
+// Usage:
+//   <Breadcrumbs
+//     items={[
+//       { label: 'Workspace', href: '/workspace' },
+//       { label: 'Members', href: '/workspace/members' },
+//       { label: 'Detail' },
+//     ]}
+//   />
+
+interface BreadcrumbItem {
+  label: string;
+  href?: string | undefined;
+}
+
+interface Props {
+  items: BreadcrumbItem[];
+  class?: string;
+}
+
+const { items, class: extraClass = '' } = Astro.props;
+const itemCount = items.length;
+---
+
+<nav aria-label="Breadcrumb" class={`text-xs ${extraClass}`}>
+  <ol class="flex items-center gap-1.5 list-none p-0 m-0">
+    {
+      items.map((item, idx) => {
+        const isLast = idx === itemCount - 1;
+        return (
+          <li class="flex items-center gap-1.5">
+            {idx > 0 && (
+              <span class="text-muted-foreground select-none" aria-hidden="true">
+                /
+              </span>
+            )}
+            {isLast || !item.href ? (
+              <span class="text-foreground font-medium" aria-current={isLast ? 'page' : undefined}>
+                {item.label}
+              </span>
+            ) : (
+              <a
+                href={item.href}
+                class="text-muted-foreground no-underline hover:text-foreground transition-colors"
+              >
+                {item.label}
+              </a>
+            )}
+          </li>
+        );
+      })
+    }
+  </ol>
+</nav>
