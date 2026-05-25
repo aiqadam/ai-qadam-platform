@@ -78,9 +78,15 @@ if [[ -z "$AUTHZ_FLOW" || -z "$INVALID_FLOW" ]]; then
 fi
 
 echo "[2/6] Looking for existing Proxy Provider \"$PROVIDER_NAME\"..."
+# Authentik's /providers/proxy/?name= filter does NOT actually filter,
+# and `.results[0].pk // empty` lies when the token-user can see other
+# providers (count=0 but results[] non-empty with unrelated rows). See
+# memory entry feedback_authentik_results_zero_count_lies.md.
+# Enumerate with superuser_full_list and match in-process with jq.
 PROVIDER_LIST=$(curl -sf -H "$H_AUTH" \
-  "$AUTHENTIK_URL/api/v3/providers/proxy/?name=$(printf %s "$PROVIDER_NAME" | jq -sRr @uri)")
-PROVIDER_ID=$(echo "$PROVIDER_LIST" | jq -r '.results[0].pk // empty')
+  "$AUTHENTIK_URL/api/v3/providers/proxy/?superuser_full_list=true&page_size=200")
+PROVIDER_ID=$(echo "$PROVIDER_LIST" | jq -r --arg n "$PROVIDER_NAME" \
+  '.results[] | select(.name == $n) | .pk' | head -1)
 
 if [[ -n "$PROVIDER_ID" ]]; then
   echo "  ✓ provider exists (id=$PROVIDER_ID)"
@@ -108,9 +114,11 @@ else
 fi
 
 echo "[4/6] Looking for existing Application slug=$APP_SLUG..."
-APP_EXISTS=$(curl -sf -H "$H_AUTH" \
-  "$AUTHENTIK_URL/api/v3/core/applications/?slug=$APP_SLUG" \
-  | jq -r '.results[0].pk // empty')
+# Same trap as above for /core/applications/?slug=. Enumerate + jq select.
+APP_LIST=$(curl -sf -H "$H_AUTH" \
+  "$AUTHENTIK_URL/api/v3/core/applications/?superuser_full_list=true&page_size=200")
+APP_EXISTS=$(echo "$APP_LIST" | jq -r --arg s "$APP_SLUG" \
+  '.results[] | select(.slug == $s) | .pk' | head -1)
 
 if [[ -n "$APP_EXISTS" ]]; then
   echo "  ✓ application exists (pk=$APP_EXISTS)"
@@ -156,7 +164,7 @@ GROUP_PK=$(curl -sf -H "$H_AUTH" \
 if [[ -z "$GROUP_PK" ]]; then
   echo "  ! WARNING: group $SUPER_ADMIN_GROUP not found — backrest will be accessible to ANY signed-in user. Create the group + add members + re-run."
 else
-  APP_PK="${APP_EXISTS:-$(curl -sf -H "$H_AUTH" "$AUTHENTIK_URL/api/v3/core/applications/?slug=$APP_SLUG" | jq -r '.results[0].pk')}"
+  APP_PK="${APP_EXISTS:-$(echo "$APP_LIST" | jq -r --arg s "$APP_SLUG" '.results[] | select(.slug == $s) | .pk' | head -1)}"
   POLICY_NAME="Backrest super-admin only"
   EXISTING_POLICY=$(curl -sf -H "$H_AUTH" \
     "$AUTHENTIK_URL/api/v3/policies/bindings/?target=$APP_PK" \

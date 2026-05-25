@@ -61,13 +61,18 @@ ak_post() {
 }
 
 echo "[1/5] Looking for existing provider named \"$PROVIDER_NAME\"…"
+# Authentik's /providers/oauth2/?name= filter does NOT actually filter,
+# and `.results[0].pk // empty` lies when the token-user can see other
+# providers. See memory entry feedback_authentik_results_zero_count_lies.md.
 PROVIDER_LIST=$(curl -sf -H "$H_AUTH" \
-  "$AUTHENTIK_URL/api/v3/providers/oauth2/?name=$(printf %s "$PROVIDER_NAME" | jq -sRr @uri)")
-PROVIDER_ID=$(echo "$PROVIDER_LIST" | jq -r '.results[0].pk // empty')
+  "$AUTHENTIK_URL/api/v3/providers/oauth2/?superuser_full_list=true&page_size=200")
+PROVIDER_ID=$(echo "$PROVIDER_LIST" | jq -r --arg n "$PROVIDER_NAME" \
+  '.results[] | select(.name == $n) | .pk' | head -1)
 
 if [[ -n "$PROVIDER_ID" ]]; then
   echo "  ✓ provider exists (id=$PROVIDER_ID)"
-  CLIENT_SECRET=$(echo "$PROVIDER_LIST" | jq -r '.results[0].client_secret')
+  CLIENT_SECRET=$(echo "$PROVIDER_LIST" | jq -r --arg n "$PROVIDER_NAME" \
+    '.results[] | select(.name == $n) | .client_secret' | head -1)
 else
   echo "[2/5] Resolving authorization + invalidation flows + signing key…"
   AUTHZ_FLOW=$(curl -sf -H "$H_AUTH" \
@@ -147,9 +152,11 @@ else
 fi
 
 echo "[4/5] Looking for existing application slug=$APP_SLUG…"
-APP_EXISTS=$(curl -sf -H "$H_AUTH" \
-  "$AUTHENTIK_URL/api/v3/core/applications/?slug=$APP_SLUG" \
-  | jq -r '.results[0].pk // empty')
+# Same trap as above for /core/applications/?slug=. Enumerate + jq select.
+APP_LIST=$(curl -sf -H "$H_AUTH" \
+  "$AUTHENTIK_URL/api/v3/core/applications/?superuser_full_list=true&page_size=200")
+APP_EXISTS=$(echo "$APP_LIST" | jq -r --arg s "$APP_SLUG" \
+  '.results[] | select(.slug == $s) | .pk' | head -1)
 
 if [[ -n "$APP_EXISTS" ]]; then
   echo "  ✓ application exists (pk=$APP_EXISTS)"
