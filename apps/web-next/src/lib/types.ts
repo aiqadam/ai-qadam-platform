@@ -421,3 +421,29 @@ export interface WorkspaceEventListItem {
   post_event_survey_form?: string | null;
   counts: WorkspaceRegistrationCounts;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/forms (operator forms-library cabinet)
+//
+// F-S2.10 cabinet — reusable form templates for post-event surveys,
+// sponsor onboarding, etc. PR 2.7b ships the list view; per-form
+// detail (builder + submissions inbox + aggregate) lands separately.
+// ---------------------------------------------------------------------------
+
+export const WORKSPACE_FORM_STATUSES = ['draft', 'published', 'archived'] as const;
+export type WorkspaceFormStatus = (typeof WORKSPACE_FORM_STATUSES)[number];
+
+export interface WorkspaceFormRow {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  country: string;
+  status: WorkspaceFormStatus;
+  allow_anonymous: boolean;
+  schema: unknown;
+  created_by: string | null;
+  date_created: string;
+  date_updated: string | null;
+  submission_count: number;
+}

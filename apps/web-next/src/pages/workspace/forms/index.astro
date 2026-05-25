@@ -1,0 +1,45 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/forms
+// generated: 2026-05-26
+//
+// Phase 2.7b — operator Forms-library list cabinet per ADR-0038.
+//
+// Composition only (L4): renders <FormsList> inside the operator
+// auth gate. Status + country filter chips + DataTable with
+// submission counts.
+//
+// Wiring: docs/architecture/wiring-map.md → workspace_forms.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, FormsList, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Forms · AI Qadam workspace"
+  description="Operator forms library — post-event surveys, sponsor onboarding, etc."
+>
+  <PageHead
+    slot="head"
+    title="Forms · AI Qadam workspace"
+    description="Operator forms library."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Forms"
+      description="Form templates the operator team manages. Builder + responses + per-field aggregates land in PR 2.10 follow-ups."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Forms' },
+        ]}
+      />
+      <FormsList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

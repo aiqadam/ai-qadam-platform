@@ -508,7 +508,34 @@ ssr_fetcher: none — island fetches client-side
 fallback: error surface in DataTable
 ```
 
-### `tg_broadcasts`, `tg_segments`, `forms`, `form_submissions`
+### `workspace_forms` — LIVE (list cabinet) as of PR 2.7b
+
+```yaml
+data_source: workspace_forms  (Directus forms collection — reusable form templates: post-event surveys, sponsor onboarding, etc.)
+description: Operator forms-library list. PR 2.7b ships the list view with status + country filters + submission counts. Per-form detail (builder + submissions inbox + per-field aggregate) lands in PR 2.10 follow-ups.
+
+customer_blocks: []   # form submissions ride on dedicated /forms/<slug> public surfaces, not this cabinet
+
+operator_blocks:
+  - block: FormsList (composes <DataTable>)
+    cabinet: /workspace/forms
+    operation: read
+    hooks: lib/use-workspace-forms.ts → useWorkspaceForms
+
+api_endpoints:
+  - GET    /v1/workspace/forms       (AuthGuard)
+  - GET    /v1/workspace/forms/:id   (detail; cabinet consumer pending)
+  - POST   /v1/workspace/forms       (create; pending — needs FormBuilder block)
+  - PATCH  /v1/workspace/forms/:id   (update; pending)
+  - POST   /v1/workspace/forms/:id/archive (archive; pending)
+  - GET    /v1/workspace/forms/:id/submissions (inbox; pending)
+  - GET    /v1/workspace/forms/:id/aggregate   (per-field aggregate; pending)
+
+ssr_fetcher: none — island fetches client-side
+fallback: error surface in DataTable
+```
+
+### `tg_broadcasts`, `tg_segments`, `form_submissions`
 
 > Placeholders — filled in PR 2.9, 2.10.
 
