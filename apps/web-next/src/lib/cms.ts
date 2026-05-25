@@ -111,3 +111,169 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
     return SITE_SETTINGS_DEFAULTS;
   }
 }
+
+// ---------------------------------------------------------------------------
+// event_speakers, event_materials, event_sponsors (Directus joins).
+//
+// PR 1.3 — these back the <SpeakerGrid>, <MaterialsList>, <SponsorWall>
+// blocks on /events/[id]. Each returns [] on failure so the page still
+// renders the rest of the surface.
+// ---------------------------------------------------------------------------
+
+import type { EventMaterial, EventSpeaker, EventSponsor } from './types';
+
+interface CmsEventSpeakerRow {
+  id: string;
+  status: EventSpeaker['status'];
+  talk_title: string | null;
+  order_index: number | null;
+  speaker: {
+    bio_md: string | null;
+    user: {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      job_title: string | null;
+    } | null;
+  } | null;
+}
+
+export async function fetchEventSpeakers(eventId: string): Promise<EventSpeaker[]> {
+  try {
+    const filter = encodeURIComponent(
+      JSON.stringify({
+        event: { _eq: eventId },
+        status: { _in: ['accepted', 'confirmed'] },
+      }),
+    );
+    const fields =
+      'id,status,talk_title,order_index,speaker.bio_md,speaker.user.id,speaker.user.first_name,speaker.user.last_name,speaker.user.job_title';
+    const body = await get<{ data: CmsEventSpeakerRow[] }>(
+      `/items/event_speakers?filter=${filter}&fields=${fields}&sort=order_index&limit=50`,
+    );
+    return body.data.map((row): EventSpeaker => {
+      const u = row.speaker?.user ?? null;
+      const name = [u?.first_name, u?.last_name].filter(Boolean).join(' ').trim();
+      return {
+        id: row.id,
+        displayName: name.length > 0 ? name : null,
+        // Handle resolution (directus_users → handles bridge) deferred
+        // to Phase 1.5 when the member-profile blocks land.
+        handle: null,
+        jobTitle: u?.job_title ?? null,
+        talkTitle: row.talk_title,
+        bioMd: row.speaker?.bio_md ?? null,
+        status: row.status,
+        orderIndex: row.order_index ?? 0,
+      };
+    });
+  } catch (err) {
+    console.error('[cms] fetchEventSpeakers failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+interface CmsEventMaterialRow {
+  id: string;
+  title: string | null;
+  kind: EventMaterial['kind'];
+  file: string | null;
+  url: string | null;
+  order_index: number | null;
+}
+
+const ALLOWED_MATERIAL_KINDS = new Set<EventMaterial['kind']>([
+  'slides',
+  'handout',
+  'cheatsheet',
+  'recording',
+  'code',
+  'other',
+]);
+
+export async function fetchEventMaterials(eventId: string): Promise<EventMaterial[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields: 'id,title,kind,file,url,order_index',
+      sort: 'order_index',
+      limit: '50',
+    });
+    const body = await get<{ data: CmsEventMaterialRow[] }>(
+      `/items/event_materials?${params.toString()}`,
+    );
+    return body.data
+      .map((row): EventMaterial | null => {
+        const title = row.title?.trim() ?? '';
+        if (title.length === 0) return null;
+        const kind = ALLOWED_MATERIAL_KINDS.has(row.kind) ? row.kind : 'other';
+        const fileUrl = row.file ? `${directusBase()}/assets/${row.file}` : null;
+        const url = row.url ? row.url : null;
+        if (!fileUrl && !url) return null;
+        return { id: row.id, title, kind, fileUrl, url, orderIndex: row.order_index ?? 0 };
+      })
+      .filter((m): m is EventMaterial => m !== null);
+  } catch (err) {
+    console.error('[cms] fetchEventMaterials failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+interface CmsEventSponsorRow {
+  id: string;
+  tier: EventSponsor['tier'];
+  custom_message: string | null;
+  sort_order: number | null;
+  sponsor: {
+    id: string;
+    name: string;
+    slug: string;
+    logo: string | null;
+    website: string | null;
+  } | null;
+}
+
+const ALLOWED_SPONSOR_TIERS = new Set<EventSponsor['tier']>([
+  'presenting',
+  'gold',
+  'silver',
+  'bronze',
+  'community',
+]);
+
+export async function fetchEventSponsors(eventId: string): Promise<EventSponsor[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields:
+        'id,tier,custom_message,sort_order,sponsor.id,sponsor.name,sponsor.slug,sponsor.logo,sponsor.website',
+      sort: 'sort_order',
+      limit: '40',
+    });
+    const body = await get<{ data: CmsEventSponsorRow[] }>(
+      `/items/event_sponsors?${params.toString()}`,
+    );
+    return body.data
+      .map((row): EventSponsor | null => {
+        if (!row.sponsor) return null;
+        const tier = ALLOWED_SPONSOR_TIERS.has(row.tier) ? row.tier : 'community';
+        return {
+          id: row.id,
+          tier,
+          customMessage: row.custom_message,
+          orderIndex: row.sort_order ?? 0,
+          sponsor: {
+            id: row.sponsor.id,
+            name: row.sponsor.name,
+            slug: row.sponsor.slug,
+            logoUrl: row.sponsor.logo ? `${directusBase()}/assets/${row.sponsor.logo}` : null,
+            website: row.sponsor.website,
+          },
+        };
+      })
+      .filter((s): s is EventSponsor => s !== null);
+  } catch (err) {
+    console.error('[cms] fetchEventSponsors failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}

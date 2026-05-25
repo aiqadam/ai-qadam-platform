@@ -62,8 +62,8 @@ customer_blocks:
   - block: EventsGrid
     page: apps/web-next/src/pages/events.astro (PR 1.2)
     operation: read (list)
-  - block: EventDetail   # placeholder — PR 1.3
-    page: /events/[id]
+  - block: EventDetail
+    page: apps/web-next/src/pages/events/[id].astro (PR 1.3)
     operation: read
 
 operator_blocks:
@@ -74,9 +74,9 @@ operator_blocks:
     cabinet: /workspace/events/[id]
     operation: both
 
-ssr_fetcher: apps/web-next/src/lib/api-ssr.ts → fetchUpcomingEvents(req)
-api_endpoint: GET /v1/events (host header forwards tenant → country filter)
-fallback: empty array (page renders EmptyState block; API outage doesn't break page)
+ssr_fetcher: apps/web-next/src/lib/api-ssr.ts → fetchUpcomingEvents(req) AND fetchEvent(req, id)
+api_endpoint: GET /v1/events (host header → country filter) AND GET /v1/events/:id (single detail)
+fallback: empty array / null (page renders EmptyState block OR 302 to /events; API outage doesn't break page)
 
 aggregates:
   events_this_month:
@@ -93,9 +93,67 @@ aggregates:
     stale_time: 60
 ```
 
-### `event_speakers`, `event_sponsors`, `event_materials`, `event_photos`, `event_questions`
+### `event_speakers` — LIVE under apps/web-next/ as of PR 1.3
 
-> Placeholder — filled in PR 1.3 + 1.7.
+```yaml
+data_source: event_speakers
+description: Per-event speaker rows joined to speakers + directus_users.
+
+customer_blocks:
+  - block: SpeakerGrid
+    page: apps/web-next/src/pages/events/[id].astro
+    operation: read
+    fields_read: [id, status, talk_title, order_index, speaker.bio_md, speaker.user.*]
+    filter: event = X AND status IN (accepted, confirmed)
+
+operator_blocks: []   # placeholder — Phase 2 speaker management
+
+ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchEventSpeakers(eventId)
+fallback: [] (block renders nothing; rest of page unaffected)
+```
+
+### `event_materials` — LIVE under apps/web-next/ as of PR 1.3
+
+```yaml
+data_source: event_materials
+description: Public files / links attached to an event (slides, recordings, code, etc.).
+
+customer_blocks:
+  - block: MaterialsList
+    page: apps/web-next/src/pages/events/[id].astro
+    operation: read
+    fields_read: [id, title, kind, file, url, order_index]
+    filter: event = X
+
+operator_blocks: []   # placeholder — Phase 2 material management
+
+ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchEventMaterials(eventId)
+fallback: [] (block renders nothing; rest of page unaffected)
+```
+
+### `event_sponsors` — LIVE under apps/web-next/ as of PR 1.3
+
+```yaml
+data_source: event_sponsors
+description: Per-event sponsor rows joined to sponsors with tier + custom message.
+
+customer_blocks:
+  - block: SponsorWall
+    page: apps/web-next/src/pages/events/[id].astro
+    operation: read
+    fields_read: [id, tier, custom_message, sort_order, sponsor.id, sponsor.name, sponsor.slug, sponsor.logo, sponsor.website]
+    filter: event = X
+
+operator_blocks: []   # placeholder — Phase 3 sponsors cabinet (PR 3.1)
+
+ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchEventSponsors(eventId)
+fallback: [] (block renders nothing; rest of page unaffected)
+```
+
+### `event_photos`, `event_questions`
+
+> Placeholder — filled in Phase 1.7 (forum / questions) and a future
+> finished-tab follow-up (photos).
 
 ### `registrations`
 

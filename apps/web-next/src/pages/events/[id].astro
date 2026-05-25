@@ -1,0 +1,56 @@
+---
+// @generated-from gen:page
+// slug: events/[id]
+// generated: 2026-05-26
+//
+// Phase 1.3 — customer-facing event detail per ADR-0038.
+//
+// Composition only (L4): fetch event detail from apps/api + speakers
+// / materials / sponsors from Directus, hand the typed payloads to
+// the L3 blocks. Sidebar (registration CTA + share buttons) lands
+// in PR 1.4.
+//
+// Wiring: docs/architecture/wiring-map.md → events + event_speakers
+// + event_materials + event_sponsors.
+//
+// SSR — needs the request Host header to forward to /v1/events (the
+// API's per-country tenant filter).
+export const prerender = false;
+
+import { EventDetail, MaterialsList, SpeakerGrid, SponsorWall } from '../../blocks/customer';
+import { PageHead } from '../../blocks/common';
+import Layout from '../../layouts/Layout.astro';
+import { fetchEvent } from '../../lib/api-ssr';
+import { fetchEventMaterials, fetchEventSpeakers, fetchEventSponsors } from '../../lib/cms';
+
+const { id } = Astro.params as { id: string };
+const event = await fetchEvent(Astro.request, id);
+
+if (!event) {
+  return Astro.redirect('/events', 302);
+}
+
+const [speakers, materials, sponsors] = await Promise.all([
+  fetchEventSpeakers(event.id),
+  fetchEventMaterials(event.id),
+  fetchEventSponsors(event.id),
+]);
+---
+
+<Layout
+  title={`${event.title} · AI Qadam (next)`}
+  description={event.shortDescription ?? event.description.slice(0, 200)}
+>
+  <PageHead
+    slot="head"
+    title={`${event.title} · AI Qadam (next)`}
+    description={event.shortDescription ?? event.description.slice(0, 200)}
+  />
+  <main>
+    <EventDetail event={event}>
+      <SpeakerGrid speakers={speakers} />
+      <MaterialsList materials={materials} />
+      <SponsorWall sponsors={sponsors} />
+    </EventDetail>
+  </main>
+</Layout>

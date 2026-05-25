@@ -53,10 +53,10 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<Hero>` | `@/blocks/customer` | `description: string, stats?: {label,value}[], primaryHref?, primaryLabel?, secondaryHref?, secondaryLabel?` | `pages/index.astro` (PR 1.1) | Astro-only — no story (see §Storyless Astro blocks below) | `site_settings.default_description` |
 | `<EventCard>` | `@/blocks/customer` | `event: ApiEvent` | `pages/events.astro` (PR 1.2) + planned homepage strip | Astro-only — no story | `events` row |
 | `<EventsGrid>` | `@/blocks/customer` | `events: ApiEvent[], emptyHeading?, emptyDescription?` | `pages/events.astro` (PR 1.2) | Astro-only — no story | `events` (list) |
-| `<EventDetail>` | `@/blocks/customer` | `event: ApiEventDetail` | — | — | `events` + joins |
-| `<SpeakerGrid>` | `@/blocks/customer` | `speakers: EventSpeaker[]` | — | — | `event_speakers` |
-| `<SponsorWall>` | `@/blocks/customer` | `sponsors: EventSponsor[]` | — | — | `event_sponsors` |
-| `<MaterialsList>` | `@/blocks/customer` | `materials: EventMaterial[]` | — | — | `event_materials` |
+| `<EventDetail>` | `@/blocks/customer` | `event: ApiEvent` (accepts `<slot/>` for sub-blocks like SpeakerGrid / MaterialsList / SponsorWall) | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `events` |
+| `<SpeakerGrid>` | `@/blocks/customer` | `speakers: EventSpeaker[]` | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `event_speakers` |
+| `<SponsorWall>` | `@/blocks/customer` | `sponsors: EventSponsor[], heading?` | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `event_sponsors` |
+| `<MaterialsList>` | `@/blocks/customer` | `materials: EventMaterial[], heading?` | `pages/events/[id].astro` (PR 1.3) | Astro-only — no story | `event_materials` |
 | `<RegistrationCTA>` | `@/blocks/customer` | `eventId, capacity, count` | — | — | `registrations` |
 | `<ShareButtons>` | `@/blocks/customer` | `url, title` | — | — | n/a |
 | `<ProfileCard>` | `@/blocks/customer` | `member, mode: 'public' \| 'self'` | — | — | `directus_users` + member graph |

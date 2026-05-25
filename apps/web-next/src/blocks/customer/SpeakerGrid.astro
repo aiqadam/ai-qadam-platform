@@ -1,0 +1,60 @@
+---
+// L3 block — <SpeakerGrid>.
+//
+// Confirmed + accepted speakers for an event, rendered in a
+// responsive grid. Data-in/element-out: receives the speaker rows
+// the page fetched via fetchEventSpeakers().
+//
+// Wiring: docs/architecture/wiring-map.md → event_speakers.
+
+import type { EventSpeaker } from '../../lib/types';
+
+interface Props {
+  speakers: EventSpeaker[];
+}
+
+const { speakers } = Astro.props;
+const confirmedCount = speakers.filter((s) => s.status === 'confirmed').length;
+---
+
+{
+  speakers.length > 0 && (
+    <section class="mb-10">
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="font-display text-xl font-semibold text-foreground">Speakers</h2>
+        <span class="font-mono text-[11px] text-muted-foreground">
+          {confirmedCount} confirmed of {speakers.length}
+        </span>
+      </div>
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 list-none p-0 m-0">
+        {speakers.map((s) => (
+          <li class="rounded-lg border border-border p-3.5 bg-card">
+            <p class="font-semibold text-sm text-foreground mb-1">
+              {s.handle ? (
+                <a
+                  href={`/u/${s.handle}`}
+                  class="text-inherit no-underline hover:text-primary transition-colors"
+                >
+                  {s.displayName ?? `@${s.handle}`}
+                </a>
+              ) : (
+                s.displayName ?? '—'
+              )}
+            </p>
+            {s.jobTitle && (
+              <p class="text-xs text-muted-foreground mb-2">{s.jobTitle}</p>
+            )}
+            {s.talkTitle && (
+              <p class="text-sm italic text-foreground mt-2">{s.talkTitle}</p>
+            )}
+            {s.status === 'accepted' && (
+              <span class="inline-block mt-2 font-mono text-[9px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground tracking-wider">
+                PENDING
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

@@ -29,5 +29,51 @@ export interface ApiEvent {
   shortDescription?: string | null;
   slug?: string | null;
   venue?: string | null;
+  address?: string | null;
   heroImageUrl?: string | null;
+  agendaMd?: string | null;
+  visibilityScope?: 'public' | 'members_only' | 'invite_only' | null;
+  externalLinks?: Array<{
+    label: string;
+    url: string;
+    kind?: 'website' | 'registration' | 'sponsor' | 'livestream' | 'recording' | 'other' | null;
+  }> | null;
+}
+
+// ---------------------------------------------------------------------------
+// Directus — event-detail joins (speakers, materials, sponsors)
+// ---------------------------------------------------------------------------
+
+export interface EventSpeaker {
+  id: string;
+  displayName: string | null;
+  handle: string | null;
+  jobTitle: string | null;
+  talkTitle: string | null;
+  bioMd: string | null;
+  status: 'invited' | 'accepted' | 'confirmed' | 'declined' | 'cancelled';
+  orderIndex: number;
+}
+
+export interface EventMaterial {
+  id: string;
+  title: string;
+  kind: 'slides' | 'handout' | 'cheatsheet' | 'recording' | 'code' | 'other';
+  fileUrl: string | null;
+  url: string | null;
+  orderIndex: number;
+}
+
+export interface EventSponsor {
+  id: string;
+  tier: 'presenting' | 'gold' | 'silver' | 'bronze' | 'community';
+  customMessage: string | null;
+  orderIndex: number;
+  sponsor: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    website: string | null;
+  };
 }

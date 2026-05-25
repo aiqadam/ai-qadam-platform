@@ -1,0 +1,80 @@
+---
+// L3 block — <SponsorWall>.
+//
+// Event sponsors grouped (visually) by tier. Each row is a card with
+// the sponsor logo, name, tier badge, and optional custom message;
+// the whole card links to the sponsor website when set.
+//
+// Data-in/element-out: receives EventSponsor[] from the page.
+//
+// Wiring: docs/architecture/wiring-map.md → event_sponsors.
+
+import type { EventSponsor } from '../../lib/types';
+
+interface Props {
+  sponsors: EventSponsor[];
+  heading?: string | undefined;
+}
+
+const { sponsors, heading = 'Sponsors' } = Astro.props;
+
+const TIER_LABEL: Record<EventSponsor['tier'], string> = {
+  presenting: 'PRESENTING',
+  gold: 'GOLD',
+  silver: 'SILVER',
+  bronze: 'BRONZE',
+  community: 'COMMUNITY',
+};
+---
+
+{
+  sponsors.length > 0 && (
+    <section class="mb-10">
+      <h2 class="font-display text-xl font-semibold text-foreground mb-4">{heading}</h2>
+      <ul class="grid grid-cols-1 sm:grid-cols-2 gap-3 list-none p-0 m-0">
+        {sponsors.map((s) => {
+          const Outer = s.sponsor.website ? 'a' : 'div';
+          const outerProps = s.sponsor.website
+            ? {
+                href: s.sponsor.website,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                class:
+                  'flex items-center gap-3 p-3 rounded-lg border border-border bg-card no-underline text-inherit hover:border-primary/40 transition-colors',
+              }
+            : { class: 'flex items-center gap-3 p-3 rounded-lg border border-border bg-card' };
+          return (
+            <li>
+              <Outer {...outerProps}>
+                {s.sponsor.logoUrl ? (
+                  <img
+                    src={s.sponsor.logoUrl}
+                    alt={s.sponsor.name}
+                    loading="lazy"
+                    class="w-10 h-10 object-contain rounded bg-background shrink-0"
+                  />
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    class="w-10 h-10 rounded bg-muted shrink-0"
+                  />
+                )}
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold truncate text-foreground">
+                    {s.sponsor.name}
+                  </p>
+                  <span class="inline-block mt-1 font-mono text-[9px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground tracking-wider">
+                    {TIER_LABEL[s.tier]}
+                  </span>
+                  {s.customMessage && (
+                    <p class="text-xs text-muted-foreground mt-1">{s.customMessage}</p>
+                  )}
+                </div>
+              </Outer>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  )
+}
