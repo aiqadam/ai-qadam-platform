@@ -1,0 +1,42 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Welcome" />
+
+# AI Qadam — Design
+
+This Storybook is the **discovery surface** for the
+[ADR-0038](https://github.com/viktordrukker/aiqadam/blob/main/docs/adr/0038-web-4-layer-architecture.md)
+4-layer web architecture.
+
+It hosts every reusable UI primitive in the platform:
+
+- **L2 atoms** — the shadcn-canonical buttons / inputs / cards / etc.
+  live under `apps/web-next/src/kit/`. Stories under
+  **L2 Kit / …** in the sidebar.
+- **L3 blocks** — the data-in / element-out building blocks live under
+  `apps/web-next/src/blocks/`. The catalogue starts empty in Phase 0
+  and fills in Phase 1. Stories will land under **L3 Blocks / …** as
+  each block ships.
+
+The 8 atoms here are the complete L2 surface for now. Phase 1
+(PR-1.1 → PR-1.8) builds out the L3 catalogue against this kit; each
+block ships with its own story file alongside the atom stories.
+
+## Before adding a new block
+
+1. Read [ADR-0038](https://github.com/viktordrukker/aiqadam/blob/main/docs/adr/0038-web-4-layer-architecture.md).
+2. Check [`docs/architecture/blocks.md`](https://github.com/viktordrukker/aiqadam/blob/main/docs/architecture/blocks.md)
+   — your block may already exist or be claimed by a planned PR.
+3. If you ship a new block, the same PR must:
+   - add a Story file under `apps/storybook/stories/blocks/`,
+   - update `docs/architecture/blocks.md` (architecture-check enforces this),
+   - update `docs/architecture/wiring-map.md` if data flow changes.
+
+## Theme toggle
+
+The top toolbar's theme switcher flips `data-theme` on `<html>` between
+`light` and `dark`. The OKLCH tokens in
+[`design-system/tokens.css`](https://github.com/viktordrukker/aiqadam/blob/main/design-system/tokens.css)
+swap automatically; no story-level color overrides anywhere. If a story
+looks broken in one theme but not the other, the bug is almost always
+in the atom (a hardcoded color instead of a token).

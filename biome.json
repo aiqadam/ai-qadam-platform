@@ -18,7 +18,8 @@
       "pnpm-lock.yaml",
       "design-system/**",
       "**/*.astro",
-      "**/db/migrations/**"
+      "**/db/migrations/**",
+      "apps/storybook/storybook-static/**"
     ]
   }
 }

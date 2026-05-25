@@ -1,0 +1,63 @@
+/* apps/storybook/.storybook/preview.css — Storybook preview-iframe CSS.
+ *
+ * Re-pulls the exact same three design-system layers (tokens / components /
+ * portal) + the apps/web-next/ Tailwind v4 @theme bridge, so atoms render
+ * in Storybook with the same colors / radii / fonts as in apps/web-next/.
+ *
+ * Path note: this file lives at apps/storybook/.storybook/preview.css.
+ * Storybook serves from inside `apps/storybook/`, so relative paths to
+ * the workspace root go up four levels (one extra hop for .storybook/).
+ *
+ * Keeping a literal copy of globals.css here (instead of @importing the
+ * web-next file) keeps Storybook deploy-able without dragging the entire
+ * apps/web-next/ tree into the Storybook build container — Vite handles
+ * the resolution at dev time, and `storybook build` inlines the CSS.
+ */
+
+@import "tailwindcss";
+
+@import "../../../design-system/tokens.css";
+@import "../../../design-system/components.css";
+@import "../../../design-system/portal.css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}

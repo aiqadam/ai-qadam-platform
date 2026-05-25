@@ -1,0 +1,61 @@
+# apps/storybook/ — ADR-0038 §Locks #6 (PR-0e).
+#
+# Non-Coolify docker-compose deployment to design.aiqadam.org. Mirrors
+# the apps/web-next/ pattern exactly (see infrastructure/web-next/
+# docker-compose.yml for the rationale — Coolify's auto-generated label
+# set + the FQDN bug make hand-written labels the only safe path for any
+# forward-auth-gated sub-app).
+#
+# Joined to the existing `coolify` external network so the coolify-proxy
+# Traefik instance picks up the labels below. Forward-auth points at the
+# Authentik Embedded Outpost; only members of `aiqadam-super-admin` pass
+# (set up by scripts/provision-storybook-authentik.sh).
+#
+# Deploy (on prod host):
+#   sudo mkdir -p /opt/aiqadam/storybook
+#   cd /opt/aiqadam/storybook
+#   sudo git clone --depth 1 git@github.com:viktordrukker/aiqadam.git source
+#   sudo cp source/infrastructure/storybook/docker-compose.yml .
+#   sudo docker compose up -d --build
+#
+# Update on new merge to main:
+#   cd /opt/aiqadam/storybook/source && sudo git pull
+#   cd /opt/aiqadam/storybook && sudo docker compose up -d --build
+
+name: aiqadam-storybook
+
+services:
+  storybook:
+    build:
+      context: ./source
+      dockerfile: apps/storybook/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    labels:
+      # Traefik routing. Hand-written; see header for why.
+      - "traefik.enable=true"
+      - "coolify.managed=false"
+      # HTTPS router on design.aiqadam.org (wildcard cert covers it via
+      # the coolify Traefik DNS-01 setup). Forward-auth gates access.
+      - "traefik.http.routers.storybook.entryPoints=https"
+      - "traefik.http.routers.storybook.rule=Host(`design.aiqadam.org`)"
+      - "traefik.http.routers.storybook.tls=true"
+      - "traefik.http.routers.storybook.service=storybook"
+      - "traefik.http.routers.storybook.middlewares=storybook-auth@docker"
+      # HTTP → HTTPS redirect (reuses Coolify's existing redirect-to-https
+      # middleware, defined by coolify-proxy's own labels).
+      - "traefik.http.routers.storybook-http.entryPoints=http"
+      - "traefik.http.routers.storybook-http.rule=Host(`design.aiqadam.org`)"
+      - "traefik.http.routers.storybook-http.middlewares=redirect-to-https@docker"
+      # Service definition. nginx in the storybook container listens on :80.
+      - "traefik.http.services.storybook.loadbalancer.server.port=80"
+      # Forward-auth middleware — same shape as web-next-auth + backrest-auth.
+      - "traefik.http.middlewares.storybook-auth.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.storybook-auth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.storybook-auth.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid,X-authentik-jwt,X-authentik-meta-jwks,X-authentik-meta-outpost,X-authentik-meta-provider,X-authentik-meta-app,X-authentik-meta-version"
+
+networks:
+  default:
+    name: coolify
+    external: true

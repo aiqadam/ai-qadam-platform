@@ -1,0 +1,44 @@
+{
+  "name": "@aiqadam/storybook",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ADR-0038 discovery surface — Storybook 8 hosting every L2 atom and L3 block. Deployed to design.aiqadam.org (engineer-only).",
+  "type": "module",
+  "scripts": {
+    "dev": "storybook dev -p 6006 --no-open",
+    "build": "storybook build -o storybook-static",
+    "preview": "storybook dev -p 6006",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@aiqadam/web-next": "workspace:*",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-select": "^2.1.4",
+    "@radix-ui/react-slot": "^1.1.1",
+    "@radix-ui/react-tabs": "^1.1.2",
+    "@radix-ui/react-toast": "^1.2.4",
+    "@tailwindcss/vite": "^4.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.469.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "@aiqadam/tsconfig": "workspace:*",
+    "@storybook/addon-essentials": "^8.4.7",
+    "@storybook/addon-themes": "^8.4.7",
+    "@storybook/blocks": "^8.4.7",
+    "@storybook/manager-api": "^8.4.7",
+    "@storybook/react": "^8.4.7",
+    "@storybook/theming": "^8.4.7",
+    "@storybook/react-vite": "^8.4.7",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.0.0",
+    "storybook": "^8.4.7",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0"
+  }
+}

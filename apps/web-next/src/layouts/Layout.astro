@@ -23,8 +23,7 @@ interface Props {
 // TanStack QueryClientProvider + the AuthProvider so every React
 // island gets useQuery() and useAuth() from a single client:load
 // boundary. The SSR auth blob is also still injected as a window
-// global for any consumer that prefers the v1-style direct read
-// (and so the runtime smoke test can assert SSR ran).
+// global for any consumer that prefers the v1-style direct read.
 const { title = 'AI Qadam (next)', description = 'AI Qadam web v2 — build-aside per ADR-0038.' } =
   Astro.props;
 

@@ -1,0 +1,18 @@
+{
+  "extends": "@aiqadam/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "verbatimModuleSyntax": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/kit": ["../web-next/src/kit"],
+      "@/kit/*": ["../web-next/src/kit/*"],
+      "@/lib/*": ["../web-next/src/lib/*"]
+    }
+  },
+  "include": [".storybook/**/*", "stories/**/*"],
+  "exclude": ["node_modules", "storybook-static"]
+}
