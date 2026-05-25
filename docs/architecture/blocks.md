@@ -1,0 +1,106 @@
+# Block catalogue (L3)
+
+> The discovery surface for every L3 block in `apps/web-next/src/blocks/`.
+> ADR-0038 mandates: editing a block requires editing this doc in the
+> SAME PR. The `architecture-check` CI rule enforces it.
+>
+> Each block entry: import path, props type signature, current
+> consumers (pages), Storybook story link, the Directus collection(s)
+> or API endpoint(s) it consumes.
+
+## How to use this catalogue
+
+**Before writing new UI code in a page:**
+
+1. Search this doc for a block that fits.
+2. If one exists → import it, pass props, done.
+3. If none exists → either:
+   - **Extend** an existing block (preferred) — open a PR that adds
+     props to the existing block + updates this doc.
+   - **Add** a new block — open a PR that adds the block under the
+     right folder + adds an entry to this doc + adds a Story.
+
+**Never** write the inline equivalent in a page. The `architecture-check`
+will reject it.
+
+## Layer 2 (kit atoms) — for reference
+
+These are the underlying shadcn-based atoms that blocks compose. Not
+"blocks" per se; documented here so block authors know the palette.
+
+| Atom | Import | Props (short form) | Story |
+|---|---|---|---|
+| `<Button>` | `@/kit` | `variant: primary \| secondary \| ghost \| outline; size: sm \| md \| lg` | [link]() |
+| `<Input>` | `@/kit` | `type, value, onChange, error?` | [link]() |
+| `<Card>` | `@/kit` | `title?, footer?, children` | [link]() |
+| `<Badge>` | `@/kit` | `variant: default \| primary \| success \| warning \| destructive` | [link]() |
+| `<Tabs>` | `@/kit` | `value, onValueChange, children` | [link]() |
+| `<Toast>` | `@/kit` | `variant, title, description` | [link]() |
+| `<Dialog>` | `@/kit` | `open, onOpenChange, title, children` | [link]() |
+| `<Select>` | `@/kit` | `value, onValueChange, options` | [link]() |
+| `<Drawer>` | `@/kit` | `open, onOpenChange, side, children` | [link]() |
+| `<Tooltip>` | `@/kit` | `content, children` | [link]() |
+
+## Layer 3 (blocks) — the catalogue
+
+### Customer-facing blocks — `apps/web-next/src/blocks/customer/`
+
+> Populated per PR in Phase 1. Empty entries are placeholders showing
+> the expected shape; "—" = not yet implemented.
+
+| Block | Import | Props | Consumers | Story | Data source |
+|---|---|---|---|---|---|
+| `<Hero>` | `@/blocks/customer` | `title, subtitle, ctaPrimary, ctaSecondary?, background?` | — | — | `site_settings.hero_*` |
+| `<EventCard>` | `@/blocks/customer` | `event: ApiEvent, compact?` | — | — | `events` row |
+| `<EventsGrid>` | `@/blocks/customer` | `events: ApiEvent[], empty?: ReactNode` | — | — | derived |
+| `<EventDetail>` | `@/blocks/customer` | `event: ApiEventDetail` | — | — | `events` + joins |
+| `<SpeakerGrid>` | `@/blocks/customer` | `speakers: EventSpeaker[]` | — | — | `event_speakers` |
+| `<SponsorWall>` | `@/blocks/customer` | `sponsors: EventSponsor[]` | — | — | `event_sponsors` |
+| `<MaterialsList>` | `@/blocks/customer` | `materials: EventMaterial[]` | — | — | `event_materials` |
+| `<RegistrationCTA>` | `@/blocks/customer` | `eventId, capacity, count` | — | — | `registrations` |
+| `<ShareButtons>` | `@/blocks/customer` | `url, title` | — | — | n/a |
+| `<ProfileCard>` | `@/blocks/customer` | `member, mode: 'public' \| 'self'` | — | — | `directus_users` + member graph |
+| `<ConsentList>` | `@/blocks/customer` | `consents, onToggle` | — | — | `member_consents` |
+| `<SkillTagger>` | `@/blocks/customer` | `tags, onAdd, onRemove, kind: 'skill' \| 'interest'` | — | — | `member_skills` / `_interests` |
+| `<Leaderboard>` | `@/blocks/customer` | `entries: LeaderboardEntry[]` | — | — | `point_awards` agg |
+| `<AvatarStack>` | `@/blocks/customer` | `members: MemberRef[], max?` | — | — | n/a |
+| `<ForumThread>` | `@/blocks/customer` | `eventId, questions: EventQuestion[]` | — | — | `event_questions` |
+| `<AppFooter>` | `@/blocks/customer` | `(no props — reads site_settings via L1)` | — | — | `site_settings` |
+
+### Operator workspace blocks — `apps/web-next/src/blocks/workspace/`
+
+| Block | Import | Props | Consumers | Story | Data source |
+|---|---|---|---|---|---|
+| `<PageShell>` | `@/blocks/workspace` | `title, breadcrumbs?, actions?, children` | — | — | n/a |
+| `<DataTable>` | `@/blocks/workspace` | `columns, rows, pagination, sort, filterSlot?` | — | — | generic |
+| `<KpiTile>` | `@/blocks/workspace` | `label, value, delta?, trend?` | — | — | aggregates |
+| `<ActionBar>` | `@/blocks/workspace` | `primary?, secondary?, more?` | — | — | n/a |
+| `<Form>` | `@/blocks/workspace` | `schema: ZodSchema, onSubmit, defaultValues` | — | — | n/a (Zod-bound) |
+| `<Wizard>` | `@/blocks/workspace` | `steps, onComplete, current?` | — | — | n/a |
+| `<AsyncSelect>` | `@/blocks/workspace` | `loadOptions, value, onChange` | — | — | various |
+| `<AuditLogList>` | `@/blocks/workspace` | `events: AuditEvent[]` | — | — | `audit_events` |
+| `<FormBuilder>` | `@/blocks/workspace` | `form, onChange` | — | — | `forms` |
+
+### Cross-cutting blocks — `apps/web-next/src/blocks/common/`
+
+| Block | Import | Props | Consumers | Story | Data source |
+|---|---|---|---|---|---|
+| `<PageHead>` | `@/blocks/common` | `title, description?, canonical?, ogImage?, ogType?` | — | — | n/a |
+| `<AuthGate>` | `@/blocks/common` | `role?: string \| string[], fallback?, children` | — | — | useAuth() |
+| `<EmptyState>` | `@/blocks/common` | `icon?, heading, description?, cta?` | — | — | n/a |
+| `<DateTime>` | `@/blocks/common` | `value: string, format: 'date' \| 'datetime' \| 'time'` | — | — | n/a |
+| `<TimeRange>` | `@/blocks/common` | `start: string, end: string` | — | — | n/a |
+| `<MarkdownBody>` | `@/blocks/common` | `content: string` | — | — | n/a |
+| `<CountrySwitcher>` | `@/blocks/common` | `current: CountryCode` | — | — | useAuth() |
+| `<LocaleSwitcher>` | `@/blocks/common` | `current: Locale` | — | — | i18n |
+
+## Adding a block — PR checklist
+
+When opening a PR that adds a new block:
+
+- [ ] File under `apps/web-next/src/blocks/{customer,workspace,common}/`
+- [ ] Exported from `apps/web-next/src/blocks/{customer,workspace,common}/index.ts`
+- [ ] Story under `apps/storybook/stories/blocks/`
+- [ ] Entry in this catalogue with import path, props, data source, Story link
+- [ ] If the block writes data: entry in [`wiring-map.md`](./wiring-map.md)
+- [ ] No `fetch()`, no inline styles, no imports from `lib/api-*`
