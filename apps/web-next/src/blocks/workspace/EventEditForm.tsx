@@ -98,12 +98,17 @@ function EditFields({ event }: { event: WorkspaceEventDetail }): ReactElement {
 
   const onSubmit = (ev: FormEvent<HTMLFormElement>): void => {
     ev.preventDefault();
+    // starts_at/ends_at are OMITTED when blank, not sent as ''. The
+    // API schema types them z.string().datetime().optional() (non-
+    // nullable), so an empty string fails .datetime() and 400s the
+    // ENTIRE patch (title/status/etc. lost). Omitting the key leaves
+    // the stored value untouched.
     const body: UpdateEventBody = {
       title: f.title.trim(),
       description: f.description.trim(),
       status: f.status,
-      starts_at: localInputToIso(f.starts_at),
-      ends_at: localInputToIso(f.ends_at),
+      ...(f.starts_at ? { starts_at: localInputToIso(f.starts_at) } : {}),
+      ...(f.ends_at ? { ends_at: localInputToIso(f.ends_at) } : {}),
       capacity: f.capacity.trim() === '' ? null : Number.parseInt(f.capacity, 10),
       location: f.location.trim() === '' ? null : f.location.trim(),
       post_event_survey_form: f.survey === '' ? null : f.survey,
