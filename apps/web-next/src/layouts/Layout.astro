@@ -2,7 +2,6 @@
 import '../styles/globals.css';
 import AppFooter from '../blocks/common/AppFooter.astro';
 import AppNav from '../blocks/common/AppNav.astro';
-import RuntimeProvider from '../lib/RuntimeProvider';
 
 interface Props {
   title?: string;
@@ -47,10 +46,15 @@ const ssrAuthJson = ssrAuthInject ? JSON.stringify(ssrAuth).replace(/</g, '\\u00
     {ssrAuthInject && <script is:inline set:html={`window.__AIQADAM_AUTH__ = ${ssrAuthJson};`} />}
   </head>
   <body class="min-h-screen antialiased">
-    <RuntimeProvider client:load initial={ssrAuth}>
-      <AppNav />
-      <slot />
-      <AppFooter />
-    </RuntimeProvider>
+    <!--
+      No page-level RuntimeProvider: Astro hydrates each `client:load`
+      island as its own React root, so a Layout-level provider reaches
+      none of them. Every interactive island self-wraps in <IslandRoot>
+      (see lib/island-root.tsx). The window.__AIQADAM_AUTH__ blob above
+      is what each island's RuntimeProvider reads for SSR auth state.
+    -->
+    <AppNav />
+    <slot />
+    <AppFooter />
   </body>
 </html>

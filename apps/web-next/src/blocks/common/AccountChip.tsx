@@ -17,6 +17,7 @@
 // useAuth().isSuper (which keys on the 'aiqadam-engineers' group); the
 // nav menu gates on the operator/engineer group families instead.
 
+import { IslandRoot } from '@/lib/island-root';
 import { isOperator, isSuperAdmin } from '@/lib/roles';
 import { signOut } from '@/lib/sign-out';
 import { useAuth } from '@/lib/use-auth';
@@ -39,7 +40,7 @@ function localPart(email: string): string {
 const MENU_ITEM_CLASS =
   'block rounded-md px-2.5 py-2 text-sm text-foreground no-underline text-left w-full bg-transparent border-0 cursor-pointer hover:bg-muted/60 transition-colors';
 
-export function AccountChip(): ReactElement | null {
+function AccountChipInner(): ReactElement | null {
   const auth = useAuth();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -129,6 +130,14 @@ export function AccountChip(): ReactElement | null {
         </div>
       )}
     </div>
+  );
+}
+
+export function AccountChip(): ReactElement {
+  return (
+    <IslandRoot>
+      <AccountChipInner />
+    </IslandRoot>
   );
 }
 
