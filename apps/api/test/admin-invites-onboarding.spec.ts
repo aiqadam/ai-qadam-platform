@@ -5,8 +5,6 @@ import {
   AdminInvitesService,
 } from '../src/modules/admin-invites/admin-invites.service';
 import type { AuthentikClient } from '../src/modules/admin-invites/authentik.client';
-import type { CloudflareRoutingClient } from '../src/modules/admin-invites/cloudflare-routing.client';
-import type { ResendAdminClient } from '../src/modules/admin-invites/resend-admin.client';
 import type { AuditEventsService } from '../src/modules/audit/audit-events.service';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
@@ -100,21 +98,11 @@ beforeEach(() => {
   };
   bridge = { resolveDirectusId: vi.fn().mockResolvedValue('directus-uuid-of-caller') };
   audit = { emit: vi.fn().mockResolvedValue(undefined) };
-  const cloudflare = {
-    isConfigured: vi.fn().mockReturnValue(false),
-    createRoutingRule: vi.fn(),
-  };
-  const resendAdmin = {
-    isConfigured: vi.fn().mockReturnValue(false),
-    createPerOperatorKey: vi.fn(),
-  };
   svc = new AdminInvitesService(
     directus as unknown as DirectusClient,
     authentik as unknown as AuthentikClient,
     bridge as unknown as DirectusUsersBridgeService,
     audit as unknown as AuditEventsService,
-    cloudflare as unknown as CloudflareRoutingClient,
-    resendAdmin as unknown as ResendAdminClient,
   );
 });
 
@@ -128,6 +116,35 @@ describe('previewInvite', () => {
     // Negative assertions: hash + Authentik id must not leak.
     expect(preview).not.toHaveProperty('token_hash');
     expect(preview).not.toHaveProperty('authentik_user_id');
+  });
+
+  it('surfaces the deterministic username (derived from display_name) so the mailbox panel can render <username>@aiqadam.org', async () => {
+    // F-S2.12 + #423: the onboarding form trusts the server-derived
+    // username rather than recomputing on the client, so the two can
+    // never drift. The username mirrors the CREATE path, which derives
+    // from display_name (firstname.lastname), NOT the email local-part —
+    // the email here is the operator's personal recovery address.
+    directus.get.mockResolvedValueOnce({
+      data: [
+        pendingRow({
+          display_name: 'Binali Rustamov',
+          email: 'binali.personal@gmail.com',
+        }),
+      ],
+    });
+    const preview = await svc.previewInvite(VALID_TOKEN);
+    expect(preview.username).toBe('binali.rustamov');
+  });
+
+  it('falls back to the email local-part for the username when display_name is null (legacy pending invites)', async () => {
+    // #423 made display_name required at create-time, but invites
+    // created before that can carry a null display_name. The preview
+    // must still surface a usable mailbox handle.
+    directus.get.mockResolvedValueOnce({
+      data: [pendingRow({ display_name: null, email: 'Binali.Rustamov@aiqadam.org' })],
+    });
+    const preview = await svc.previewInvite(VALID_TOKEN);
+    expect(preview.username).toBe('binali.rustamov');
   });
 
   it('throws GoneException when no row matches', async () => {

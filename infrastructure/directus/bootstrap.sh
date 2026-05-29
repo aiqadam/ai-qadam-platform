@@ -67,6 +67,36 @@ ensure() {
   fi
 }
 
+# Drop a Directus field idempotently. Calls DELETE /fields/{collection}/{field}
+# which removes both the Directus metadata and the underlying Postgres
+# column (Directus runs the corresponding ALTER TABLE ... DROP COLUMN
+# under the hood). 404 = already gone = success. Used to retire fields
+# that the schema no longer needs (e.g. F-S2.8.x email-routing cleanup
+# in F-S2.12).
+drop_field() {
+  local collection="$1"
+  local field="$2"
+  local kind="field ${collection}.${field}"
+  local check_code
+  check_code=$(curl -s -o /dev/null -w "%{http_code}" -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/fields/${collection}/${field}")
+  if [ "${check_code}" = "404" ]; then
+    echo "  ✓ ${kind} (already absent)"
+    return 0
+  fi
+  local del_code
+  del_code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" -H "${H_AUTH}" \
+    -X DELETE "${DIRECTUS_URL}/fields/${collection}/${field}")
+  if [ "${del_code}" = "200" ] || [ "${del_code}" = "204" ]; then
+    echo "  - ${kind} (dropped)"
+  else
+    echo "  ✗ ${kind} drop HTTP ${del_code}"
+    head -c 200 /tmp/directus-resp
+    echo
+    return 1
+  fi
+}
+
 # ──────────── countries ─────────────────────────────────────────────────
 
 echo "[countries]"
@@ -2802,115 +2832,26 @@ ensure "relation operator_invites.target_user -> directus_users.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"operator_invites","field":"target_user","related_collection":"directus_users","schema":{"on_delete":"SET NULL"}}'
 
-# ──────────── F-S2.8.1 — operator-driven email routing ──────────────────
+# ──────────── F-S2.12 — drop obsolete F-S2.8.x email-routing fields ─────
 #
-# Per ADR-0012 (Operator Send-as automation): replace admin-typed
-# destination_gmail with an operator-driven flow on the /onboard page.
-# Operator submits THEIR own Gmail → server provisions CF destination →
-# CF emails verification → operator clicks → server polls CF until
-# verified → server creates CF routing rule + Resend per-operator key
-# all in one shot, and the key plaintext is shown to the OPERATOR on
-# the same page (not to the admin, closing the insecure-channel handoff
-# gap from F-S2.8).
+# The F-S2.8 / F-S2.8.1 / F-S2.8.2 per-operator Cloudflare-forwarding +
+# Resend-sub-key flow was removed in F-S2.12 (2026-05-25). Operators
+# now get @aiqadam.org mailboxes automatically via docker-mailserver
+# (DMS) + LDAP, so none of these fields have a purpose.
 #
-# Fields appended to operator_invites; F-S2.8 cabinet flow keeps
-# working unchanged (admin's destination_gmail input remains optional)
-# until F-S2.8.2 ships the operator onboarding UI and flips the
-# default.
+# Drop is idempotent (helper returns success on 404). Directus' DELETE
+# /fields/{collection}/{field} runs the underlying
+#   ALTER TABLE operator_invites DROP COLUMN <field>;
+# in the same call — no separate SQL pass needed.
 
-echo "[F-S2.8.1 — operator_invites.destination_gmail]"
-ensure "field operator_invites.destination_gmail" \
-  "${DIRECTUS_URL}/fields/operator_invites/destination_gmail" \
-  "${DIRECTUS_URL}/fields/operator_invites" \
-  '{
-    "field":"destination_gmail",
-    "type":"string",
-    "schema":{"is_nullable":true,"max_length":254},
-    "meta":{"interface":"input","width":"half","note":"Operator-supplied forwarding target. Set during onboarding via POST /v1/onboard/email-routing/destination. Never seen by the admin who minted the invite."}
-  }'
-
-echo "[F-S2.8.1 — operator_invites.cf_destination_address_id]"
-ensure "field operator_invites.cf_destination_address_id" \
-  "${DIRECTUS_URL}/fields/operator_invites/cf_destination_address_id" \
-  "${DIRECTUS_URL}/fields/operator_invites" \
-  '{
-    "field":"cf_destination_address_id",
-    "type":"string",
-    "schema":{"is_nullable":true,"max_length":64},
-    "meta":{"interface":"input","width":"half","readonly":true,"note":"Cloudflare Email Routing destination tag UUID (returned by POST /accounts/{id}/email/routing/addresses). Used for poll lookups."}
-  }'
-
-echo "[F-S2.8.1 — operator_invites.cf_destination_verified_at]"
-ensure "field operator_invites.cf_destination_verified_at" \
-  "${DIRECTUS_URL}/fields/operator_invites/cf_destination_verified_at" \
-  "${DIRECTUS_URL}/fields/operator_invites" \
-  '{
-    "field":"cf_destination_verified_at",
-    "type":"timestamp",
-    "schema":{"is_nullable":true},
-    "meta":{"interface":"datetime","width":"half","readonly":true,"note":"Stamped when CF poll flips destination from pending to verified. Gate for creating the routing rule + Resend key."}
-  }'
-
-echo "[F-S2.8.1 — operator_invites.cf_rule_id]"
-ensure "field operator_invites.cf_rule_id" \
-  "${DIRECTUS_URL}/fields/operator_invites/cf_rule_id" \
-  "${DIRECTUS_URL}/fields/operator_invites" \
-  '{
-    "field":"cf_rule_id",
-    "type":"string",
-    "schema":{"is_nullable":true,"max_length":64},
-    "meta":{"interface":"input","width":"half","readonly":true,"note":"CF routing rule UUID once created. Idempotent: rerunning finalize returns the same id."}
-  }'
-
-echo "[F-S2.8.1 — operator_invites.resend_key_id]"
-ensure "field operator_invites.resend_key_id" \
-  "${DIRECTUS_URL}/fields/operator_invites/resend_key_id" \
-  "${DIRECTUS_URL}/fields/operator_invites" \
-  '{
-    "field":"resend_key_id",
-    "type":"string",
-    "schema":{"is_nullable":true,"max_length":64},
-    "meta":{"interface":"input","width":"half","readonly":true,"note":"Resend per-operator sub-key id. Plaintext is shown ONCE to the operator on the onboarding page; we never persist the plaintext (matching the invite token pattern)."}
-  }'
-
-echo "[F-S2.8.1 — operator_invites.email_setup_status]"
-ensure "field operator_invites.email_setup_status" \
-  "${DIRECTUS_URL}/fields/operator_invites/email_setup_status" \
-  "${DIRECTUS_URL}/fields/operator_invites" \
-  '{
-    "field":"email_setup_status",
-    "type":"string",
-    "schema":{"is_nullable":false,"default_value":"not_started","max_length":24},
-    "meta":{
-      "interface":"select-dropdown",
-      "width":"half",
-      "options":{"choices":[
-        {"text":"Not started","value":"not_started"},
-        {"text":"Destination pending verification","value":"destination_pending"},
-        {"text":"Ready (rule + key created)","value":"ready"},
-        {"text":"Failed","value":"failed"}
-      ]},
-      "display":"labels",
-      "display_options":{"choices":[
-        {"text":"Not started","value":"not_started","foreground":"#ffffff","background":"#6b7280"},
-        {"text":"Destination pending","value":"destination_pending","foreground":"#ffffff","background":"#3b82f6"},
-        {"text":"Ready","value":"ready","foreground":"#ffffff","background":"#10b981"},
-        {"text":"Failed","value":"failed","foreground":"#ffffff","background":"#ef4444"}
-      ]},
-      "note":"State machine: not_started -> destination_pending (operator submitted Gmail; awaiting their CF verification click) -> ready (rule + Resend key created). failed = an unrecoverable error; reason in email_setup_failed_reason."
-    }
-  }'
-
-echo "[F-S2.8.1 — operator_invites.email_setup_failed_reason]"
-ensure "field operator_invites.email_setup_failed_reason" \
-  "${DIRECTUS_URL}/fields/operator_invites/email_setup_failed_reason" \
-  "${DIRECTUS_URL}/fields/operator_invites" \
-  '{
-    "field":"email_setup_failed_reason",
-    "type":"text",
-    "schema":{"is_nullable":true},
-    "meta":{"interface":"input-multiline","width":"full","readonly":true,"note":"Human-readable when email_setup_status=failed. Truncated upstream."}
-  }'
+echo "[F-S2.12 — drop F-S2.8.x operator_invites.* email-routing fields]"
+drop_field operator_invites destination_gmail
+drop_field operator_invites cf_destination_address_id
+drop_field operator_invites cf_destination_verified_at
+drop_field operator_invites cf_rule_id
+drop_field operator_invites resend_key_id
+drop_field operator_invites email_setup_status
+drop_field operator_invites email_setup_failed_reason
 
 # ════════════════════════════════════════════════════════════════════════
 # registrations.{telegram_user_id, telegram_username, profile, consents, was_new_member}

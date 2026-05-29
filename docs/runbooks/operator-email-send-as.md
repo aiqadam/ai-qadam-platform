@@ -1,5 +1,22 @@
 # Runbook: Setting up Send-as for your `@aiqadam.org` address (in Gmail)
 
+> **⚠ DEPRECATED (F-S2.12, 2026-05-25).**
+> The Cloudflare-forwarding + Gmail Send-as flow described below is no
+> longer in use. Operators now get a real `@aiqadam.org` mailbox on the
+> self-hosted docker-mailserver (DMS) stack, provisioned automatically
+> via the Authentik LDAP outpost the moment they finish onboarding at
+> `/onboard`. There is nothing to set up in Gmail.
+>
+> **What to do instead:** sign in at <https://webmail.aiqadam.org/> with
+> your `<username>@aiqadam.org` address and the password you set during
+> onboarding. For desktop/mobile mail clients use IMAP
+> `mail.aiqadam.org:993` (SSL/TLS) and SMTP `mail.aiqadam.org:465`
+> (SSL/TLS) with the same credentials.
+>
+> This runbook is kept for historical reference only — do not follow it.
+
+---
+
 **Audience:** AI Qadam operators (board members, country leads, volunteers with a personal `@aiqadam.org` address).
 **Time:** ~10 minutes per operator.
 **Pre-reading:** [ADR-0009](../adr/0009-email-stack-saas-exception.md) for the architecture context (optional).

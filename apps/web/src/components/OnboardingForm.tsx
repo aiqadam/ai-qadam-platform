@@ -1,24 +1,23 @@
 import { type FormEvent, type ReactElement, useEffect, useState } from 'react';
 
-// F-S2.7 + F-S2.8.2 — invitee onboarding form, full self-service flow.
+// F-S2.7 + F-S2.12 — invitee onboarding form, post-DMS cutover.
 //
 // Steps:
-//   1. preview invite (existing F-S2.7) — render email + role + AUP version
-//   2. password + AUP (existing F-S2.7) — POST /v1/onboard/accept
-//   3. destination Gmail input (F-S2.8.2) — POST /v1/onboard/email-routing/destination
-//      → CF sends operator a verification email
-//   4. polling spinner (F-S2.8.2) — GET /v1/onboard/email-routing/status every 8s
-//      until destination_verified=true or 5min timeout
-//   5. finalize (F-S2.8.2) — POST /v1/onboard/email-routing/finalize
-//      → returns Resend API key plaintext ONCE
-//   6. Resend key reveal + Gmail Send-as instructions (F-S2.8.2)
-//   7. button → /workspace
+//   1. preview invite (F-S2.7) — render email + role + AUP version
+//   2. password + AUP (F-S2.7) — POST /v1/onboard/accept
+//   3. mailbox-ready terminal screen (F-S2.12) — show the operator
+//      their @aiqadam.org mailbox + webmail URL + IMAP/SMTP settings.
+//      The DMS/LDAP backend (F-S2.12 mailserver) already provisioned
+//      the mailbox at the moment the Authentik password was set; no
+//      additional API call is needed.
+//
+// The pre-F-S2.12 phases (`email_intro` / `email_submitting` /
+// `email_pending` / `email_finalizing` / `email_ready` / `email_failed`)
+// drove the Cloudflare-forwarding + Resend-sub-key flow. They were
+// deleted with that flow.
 //
 // 410 Gone on preview at step 1 = expired/consumed/revoked/invalid;
 // nothing rendered past the "this link can't be used" message.
-//
-// Operator's token is the credential for all email-routing endpoints —
-// no separate auth.
 
 interface InvitePreview {
   email: string;
@@ -27,14 +26,11 @@ interface InvitePreview {
   country: string | null;
   expires_at: string;
   aup_version: string;
-}
-
-interface EmailRoutingStatus {
-  email_setup_status: 'not_started' | 'destination_pending' | 'ready' | 'failed';
-  destination_gmail: string | null;
-  destination_verified: boolean;
-  cf_rule_id: string | null;
-  email_setup_failed_reason: string | null;
+  // F-S2.12: deterministic mailbox local-part, derived server-side
+  // from the invite email (see usernameFromEmail in admin-invites
+  // service). The form trusts the server value rather than rederiving
+  // it client-side so the two can never drift.
+  username: string;
 }
 
 type State =
@@ -43,35 +39,13 @@ type State =
   | { phase: 'auth_ready'; preview: InvitePreview; token: string }
   | { phase: 'auth_submitting'; preview: InvitePreview; token: string }
   | { phase: 'auth_error'; preview: InvitePreview; token: string; message: string }
-  | { phase: 'email_intro'; preview: InvitePreview; token: string }
-  | { phase: 'email_submitting'; preview: InvitePreview; token: string; destination: string }
-  | {
-      phase: 'email_pending';
-      preview: InvitePreview;
-      token: string;
-      destination: string;
-      pollCount: number;
-      pollLastAt: number;
-    }
-  | { phase: 'email_finalizing'; preview: InvitePreview; token: string; destination: string }
-  | {
-      phase: 'email_ready';
-      preview: InvitePreview;
-      token: string;
-      destination: string;
-      resendKeyPlaintext: string;
-    }
-  | {
-      phase: 'email_failed';
-      preview: InvitePreview;
-      token: string;
-      destination: string;
-      message: string;
-    };
+  | { phase: 'mailbox_ready'; preview: InvitePreview };
 
-const POLL_INTERVAL_MS = 8000;
-const POLL_MAX_ATTEMPTS = 38; // ~5 min
 const PASSWORD_MIN = 12;
+const WEBMAIL_URL = 'https://webmail.aiqadam.org/';
+const MAIL_HOST = 'mail.aiqadam.org';
+const IMAP_PORT = 993;
+const SMTP_PORT = 465;
 
 function tokenFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
@@ -93,8 +67,6 @@ export default function OnboardingForm(): ReactElement {
   const [state, setState] = useState<State>({ phase: 'loading' });
   const [password, setPassword] = useState('');
   const [aupAccepted, setAupAccepted] = useState(false);
-  const [destinationDraft, setDestinationDraft] = useState('');
-  const [keyCopied, setKeyCopied] = useState(false);
 
   useEffect(() => {
     const token = tokenFromUrl();
@@ -104,88 +76,6 @@ export default function OnboardingForm(): ReactElement {
     }
     fetchPreview(token).then(setState);
   }, []);
-
-  // F-S2.8.2 — poll the status endpoint while destination_pending.
-  // Cleans up automatically when state phase changes (effect re-runs)
-  // OR component unmounts.
-  useEffect(() => {
-    if (state.phase !== 'email_pending') return;
-    if (state.pollCount >= POLL_MAX_ATTEMPTS) {
-      setState({
-        phase: 'email_failed',
-        preview: state.preview,
-        token: state.token,
-        destination: state.destination,
-        message: 'verification_timeout',
-      });
-      return;
-    }
-    const { token } = state;
-    let cancelled = false;
-    const tick = async (): Promise<void> => {
-      try {
-        const res = await fetch(
-          `/api/v1/onboard/email-routing/status?token=${encodeURIComponent(token)}`,
-        );
-        if (!res.ok || cancelled) return;
-        const body = (await res.json()) as EmailRoutingStatus;
-        if (cancelled) return;
-        if (body.destination_verified) {
-          setState((s) => (s.phase === 'email_pending' ? { ...s, phase: 'email_finalizing' } : s));
-          return;
-        }
-        setState((s) =>
-          s.phase === 'email_pending'
-            ? { ...s, pollCount: s.pollCount + 1, pollLastAt: Date.now() }
-            : s,
-        );
-      } catch {
-        // soft-fail — try again next tick
-      }
-    };
-    const id = setInterval(tick, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [state]);
-
-  // F-S2.8.2 — call finalize as soon as we transition to email_finalizing.
-  useEffect(() => {
-    if (state.phase !== 'email_finalizing') return;
-    const { token, preview, destination } = state;
-    let cancelled = false;
-    (async () => {
-      const res = await fetch('/api/v1/onboard/email-routing/finalize', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-      if (cancelled) return;
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { message?: string };
-        setState({
-          phase: 'email_failed',
-          preview,
-          token,
-          destination,
-          message: body.message ?? 'finalize_failed',
-        });
-        return;
-      }
-      const body = (await res.json()) as { resend_key_plaintext: string };
-      setState({
-        phase: 'email_ready',
-        preview,
-        token,
-        destination,
-        resendKeyPlaintext: body.resend_key_plaintext,
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [state]);
 
   if (state.phase === 'loading') return <Loading />;
   if (state.phase === 'gone') return <GonePanel message={state.message} />;
@@ -228,120 +118,14 @@ export default function OnboardingForm(): ReactElement {
             });
             return;
           }
-          setState({ phase: 'email_intro', preview: state.preview, token: state.token });
+          setState({ phase: 'mailbox_ready', preview: state.preview });
         }}
       />
     );
   }
 
-  if (state.phase === 'email_intro' || state.phase === 'email_submitting') {
-    return (
-      <DestinationStep
-        preview={state.preview}
-        destination={destinationDraft}
-        setDestination={setDestinationDraft}
-        submitting={state.phase === 'email_submitting'}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (state.phase !== 'email_intro') return;
-          const dest = destinationDraft.trim().toLowerCase();
-          if (!dest.includes('@')) return;
-          setState({
-            phase: 'email_submitting',
-            preview: state.preview,
-            token: state.token,
-            destination: dest,
-          });
-          const res = await fetch('/api/v1/onboard/email-routing/destination', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ token: state.token, destination_gmail: dest }),
-          });
-          if (!res.ok) {
-            const body = (await res.json().catch(() => ({}))) as { message?: string };
-            setState({
-              phase: 'email_failed',
-              preview: state.preview,
-              token: state.token,
-              destination: dest,
-              message: body.message ?? 'destination_submit_failed',
-            });
-            return;
-          }
-          const body = (await res.json()) as { verified: boolean };
-          if (body.verified) {
-            // Destination was already verified (e.g. operator re-used one)
-            // → skip polling and finalize immediately.
-            setState({
-              phase: 'email_finalizing',
-              preview: state.preview,
-              token: state.token,
-              destination: dest,
-            });
-          } else {
-            setState({
-              phase: 'email_pending',
-              preview: state.preview,
-              token: state.token,
-              destination: dest,
-              pollCount: 0,
-              pollLastAt: Date.now(),
-            });
-          }
-        }}
-      />
-    );
-  }
-
-  if (state.phase === 'email_pending') {
-    return (
-      <PendingStep
-        destination={state.destination}
-        pollCount={state.pollCount}
-        pollLastAt={state.pollLastAt}
-      />
-    );
-  }
-
-  if (state.phase === 'email_finalizing') {
-    return (
-      <div style={panelStyle()}>
-        <StepHeader step={3} />
-        <h1 style={h1Style()}>Finishing setup…</h1>
-        <p style={pMuted()}>Creating your forwarding rule and minting your sending key.</p>
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (state.phase === 'email_ready') {
-    return (
-      <ReadyStep
-        preview={state.preview}
-        destination={state.destination}
-        resendKey={state.resendKeyPlaintext}
-        copied={keyCopied}
-        onCopyKey={async () => {
-          await navigator.clipboard.writeText(state.resendKeyPlaintext);
-          setKeyCopied(true);
-          setTimeout(() => setKeyCopied(false), 2000);
-        }}
-      />
-    );
-  }
-
-  if (state.phase === 'email_failed') {
-    return (
-      <FailedStep
-        message={state.message}
-        onRetry={() => {
-          setState({ phase: 'email_intro', preview: state.preview, token: state.token });
-        }}
-        onSkip={() => {
-          window.location.href = '/workspace';
-        }}
-      />
-    );
+  if (state.phase === 'mailbox_ready') {
+    return <MailboxReadyStep preview={state.preview} />;
   }
 
   return <Loading />;
@@ -365,8 +149,8 @@ function GonePanel({ message }: { message: string }): ReactElement {
   );
 }
 
-function StepHeader({ step }: { step: 1 | 2 | 3 }): ReactElement {
-  const labels = ['Sign in', 'Forwarding', 'Sending'];
+function StepHeader({ step }: { step: 1 | 2 }): ReactElement {
+  const labels = ['Sign in', 'Your mailbox'];
   return (
     <div style={{ display: 'flex', gap: 8, margin: '0 0 16px', fontSize: 12 }}>
       {labels.map((label, i) => (
@@ -455,242 +239,90 @@ function AuthStep(p: AuthStepProps): ReactElement {
         className="btn btn-primary"
         style={{ width: '100%', marginTop: 16 }}
       >
-        {submitting ? 'Activating…' : 'Continue → email setup'}
+        {submitting ? 'Activating…' : 'Continue → your mailbox'}
       </button>
     </form>
   );
 }
 
-interface DestinationStepProps {
-  preview: InvitePreview;
-  destination: string;
-  setDestination: (v: string) => void;
-  submitting: boolean;
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
-}
-function DestinationStep(p: DestinationStepProps): ReactElement {
-  return (
-    <form onSubmit={p.onSubmit} style={panelStyle()}>
-      <StepHeader step={2} />
-      <h1 style={h1Style()}>Where should we forward your AI Qadam email?</h1>
-      <p style={pMuted()}>
-        Mail sent to <strong>{p.preview.email}</strong> will be forwarded to the personal address
-        you enter here. Cloudflare will send you a one-click verification email to confirm.
-      </p>
-      <label style={labelStyle()}>
-        <span>Your personal email (Gmail recommended)</span>
-        <input
-          type="email"
-          value={p.destination}
-          onChange={(e) => p.setDestination(e.target.value)}
-          required
-          maxLength={254}
-          autoComplete="email"
-          placeholder="you@gmail.com"
-          style={inputStyle()}
-        />
-      </label>
-      <button
-        type="submit"
-        disabled={p.submitting || !p.destination.includes('@')}
-        className="btn btn-primary"
-        style={{ width: '100%', marginTop: 16 }}
-      >
-        {p.submitting ? 'Provisioning…' : 'Send me the verification email'}
-      </button>
-    </form>
-  );
-}
-
-function PendingStep({
-  destination,
-  pollCount,
-  pollLastAt,
-}: {
-  destination: string;
-  pollCount: number;
-  pollLastAt: number;
-}): ReactElement {
-  const elapsedSec = Math.floor((Date.now() - pollLastAt) / 1000);
+function MailboxReadyStep({ preview }: { preview: InvitePreview }): ReactElement {
+  const mailbox = `${preview.username}@aiqadam.org`;
   return (
     <div style={panelStyle()}>
       <StepHeader step={2} />
-      <h1 style={h1Style()}>Check your inbox.</h1>
-      <p style={pMuted()}>
-        Cloudflare just sent a verification email to <strong>{destination}</strong>. Open it and
-        click <strong>Verify email address</strong>. This page auto-advances the moment they confirm
-        — no need to refresh.
-      </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0' }}>
-        <Spinner />
-        <span style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
-          Waiting for verification… (checked {pollCount} time{pollCount === 1 ? '' : 's'}; last ~
-          {elapsedSec}s ago)
-        </span>
-      </div>
-      <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-        Email not arriving? Check spam. Sender is <code>noreply@notify.cloudflare.com</code>. If
-        nothing within 2 minutes, ping your admin to check Cloudflare → Routing → Activity log.
-      </p>
-    </div>
-  );
-}
-
-function Spinner(): ReactElement {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        display: 'inline-block',
-        width: 18,
-        height: 18,
-        border: '2px solid var(--muted)',
-        borderTopColor: 'var(--accent, #10b981)',
-        borderRadius: '50%',
-        animation: 'aiqadam-spin 0.9s linear infinite',
-      }}
-    />
-  );
-}
-
-function ReadyStep({
-  preview,
-  destination,
-  resendKey,
-  copied,
-  onCopyKey,
-}: {
-  preview: InvitePreview;
-  destination: string;
-  resendKey: string;
-  copied: boolean;
-  onCopyKey: () => void;
-}): ReactElement {
-  return (
-    <div style={panelStyle()}>
-      <StepHeader step={3} />
       <h1 style={{ ...h1Style(), color: 'var(--accent, #10b981)' }}>
-        ✓ Forwarding live. One last step.
+        ✓ Your AI Qadam mailbox is ready.
       </h1>
       <p style={pMuted()}>
-        Mail to <strong>{preview.email}</strong> now lands in <strong>{destination}</strong>. To
-        send mail FROM <strong>{preview.email}</strong> in Gmail, finish the Send-as setup below.
+        Sign in at <strong>{WEBMAIL_URL}</strong> with the email and password below to read and send
+        mail from your new <code>@aiqadam.org</code> address.
       </p>
 
-      <h2 style={h2Style()}>Your Resend API key (shown ONCE)</h2>
+      <h2 style={h2Style()}>Webmail</h2>
+      <table style={tableStyle()}>
+        <tbody>
+          <tr>
+            <td>URL</td>
+            <td>
+              <a href={WEBMAIL_URL} target="_blank" rel="noopener noreferrer">
+                <code>{WEBMAIL_URL}</code>
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td>Email</td>
+            <td>
+              <code>{mailbox}</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Password</td>
+            <td>The same one you just set.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 style={h2Style()}>Mobile / desktop mail client (optional)</h2>
       <p style={pMuted()}>
-        Paste this into Gmail's SMTP config in step 4 below. You will NOT see it again — save it in
-        your password manager now.
+        Apple Mail, Outlook, Thunderbird, and the iOS/Android Gmail apps all support IMAP/SMTP. Use
+        these settings:
       </p>
-      <div style={codeBlockStyle()}>{resendKey}</div>
-      <button type="button" className="btn" onClick={onCopyKey} style={{ marginBottom: 24 }}>
-        {copied ? '✓ Copied' : 'Copy key'}
-      </button>
-
-      <h2 style={h2Style()}>Gmail Send-as setup (10 min, one-time)</h2>
-      <ol style={olStyle()}>
-        <li>
-          In Gmail (the one you forwarded to):{' '}
-          <strong>Settings ⚙ → See all settings → Accounts and Import</strong>.
-        </li>
-        <li>
-          Under <strong>Send mail as</strong>, click <strong>Add another email address</strong>.
-        </li>
-        <li>
-          First popup: <strong>Name</strong> = your name, <strong>Email</strong> ={' '}
-          <code>{preview.email}</code>, <strong>UNCHECK "Treat as alias"</strong>. Click{' '}
-          <strong>Next Step</strong>.
-        </li>
-        <li>
-          Second popup (SMTP):
-          <table style={tableStyle()}>
-            <tbody>
-              <tr>
-                <td>SMTP Server</td>
-                <td>
-                  <code>smtp.resend.com</code>
-                </td>
-              </tr>
-              <tr>
-                <td>Port</td>
-                <td>
-                  <code>587</code>
-                </td>
-              </tr>
-              <tr>
-                <td>Username</td>
-                <td>
-                  <code>resend</code>
-                </td>
-              </tr>
-              <tr>
-                <td>Password</td>
-                <td>(paste the Resend key you just copied)</td>
-              </tr>
-              <tr>
-                <td>Secured connection</td>
-                <td>
-                  <strong>TLS</strong> (radio button — not SSL)
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          Click <strong>Add Account</strong>.
-        </li>
-        <li>
-          Gmail sends a verification code to <code>{preview.email}</code> — which forwards back to{' '}
-          <code>{destination}</code>. Click the link in that email (or paste the 9-digit code).
-        </li>
-        <li>
-          Back in <strong>Accounts and Import</strong>, find{' '}
-          <strong>When replying to a message</strong> and select{' '}
-          <strong>Reply from the same address the message was sent to</strong>.
-        </li>
-      </ol>
-
-      <p style={pMuted()}>
-        Full troubleshooting + screenshots-by-words:{' '}
-        <a
-          href="https://github.com/viktordrukker/aiqadam/blob/main/docs/runbooks/operator-email-send-as.md"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          docs/runbooks/operator-email-send-as.md
-        </a>
-        .
-      </p>
+      <table style={tableStyle()}>
+        <tbody>
+          <tr>
+            <td>Username</td>
+            <td>
+              <code>{mailbox}</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Password</td>
+            <td>The same one you just set.</td>
+          </tr>
+          <tr>
+            <td>IMAP server</td>
+            <td>
+              <code>
+                {MAIL_HOST}:{IMAP_PORT}
+              </code>{' '}
+              (SSL/TLS)
+            </td>
+          </tr>
+          <tr>
+            <td>SMTP server</td>
+            <td>
+              <code>
+                {MAIL_HOST}:{SMTP_PORT}
+              </code>{' '}
+              (SSL/TLS)
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <a className="btn btn-primary" href="/workspace" style={{ marginTop: 16 }}>
         Go to /workspace →
       </a>
-    </div>
-  );
-}
-
-function FailedStep({
-  message,
-  onRetry,
-  onSkip,
-}: {
-  message: string;
-  onRetry: () => void;
-  onSkip: () => void;
-}): ReactElement {
-  return (
-    <div style={panelStyle()}>
-      <h1 style={{ ...h1Style(), color: 'var(--destructive)' }}>Email setup hit a snag.</h1>
-      <p style={pMuted()}>
-        We couldn't finish setting up your forwarding (<code>{message}</code>). Your account is
-        still active — you can sign in and try again, or ping your admin.
-      </p>
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <button type="button" className="btn btn-primary" onClick={onRetry}>
-          Try again
-        </button>
-        <button type="button" className="btn" onClick={onSkip}>
-          Skip — go to /workspace
-        </button>
-      </div>
     </div>
   );
 }
@@ -738,24 +370,10 @@ function inputStyle({ readOnly = false }: { readOnly?: boolean } = {}): React.CS
     marginTop: 4,
   };
 }
-function codeBlockStyle(): React.CSSProperties {
-  return {
-    padding: 12,
-    background: 'var(--muted)',
-    borderRadius: 8,
-    wordBreak: 'break-all',
-    fontFamily: 'monospace',
-    fontSize: 13,
-    margin: '12px 0',
-  };
-}
-function olStyle(): React.CSSProperties {
-  return { paddingLeft: 22, margin: '0 0 16px', fontSize: 14, lineHeight: 1.7 };
-}
 function tableStyle(): React.CSSProperties {
   return {
     width: '100%',
-    margin: '8px 0',
+    margin: '8px 0 16px',
     fontSize: 13,
     borderCollapse: 'collapse',
   };

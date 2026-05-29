@@ -35,7 +35,6 @@ interface FormState {
   role_groups: InviteRoleGroup[];
   delivery_channel: InviteDeliveryChannel;
   country: InviteCountry | '';
-  destination_gmail: string;
   notes: string;
 }
 
@@ -45,7 +44,6 @@ const EMPTY_FORM: FormState = {
   role_groups: [],
   delivery_channel: 'copy_paste',
   country: '',
-  destination_gmail: '',
   notes: '',
 };
 
@@ -136,24 +134,6 @@ function CreatedNotice({ result }: { result: CreateInviteResult }): ReactElement
         Token prefix: {result.token_prefix} · expires{' '}
         {new Date(result.expires_at).toISOString().slice(0, 10)}
       </p>
-      {result.email_automation && (
-        <ul className="text-xs text-muted-foreground mt-2 list-disc pl-5 space-y-0.5">
-          {result.email_automation.cf_rule_id && (
-            <li>
-              Cloudflare Email Routing rule:{' '}
-              {result.email_automation.cf_rule_already_existed ? 'already existed' : 'created'}
-            </li>
-          )}
-          {result.email_automation.resend_key_plaintext && (
-            <li>Resend per-operator key minted (plaintext shown once on server)</li>
-          )}
-          {result.email_automation.partial_failures.map((p) => (
-            <li key={p} className="text-destructive">
-              {p}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -183,9 +163,6 @@ function NewInviteForm({ onCreated, lastCreated }: NewInviteFormProps): ReactEle
       role_groups: form.role_groups,
       delivery_channel: form.delivery_channel,
       ...(form.country ? { country: form.country } : {}),
-      ...(form.destination_gmail.trim()
-        ? { destination_gmail: form.destination_gmail.trim().toLowerCase() }
-        : {}),
       ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
     };
     create.mutate(body, {
@@ -293,19 +270,6 @@ function NewInviteForm({ onCreated, lastCreated }: NewInviteFormProps): ReactEle
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="space-y-1.5 sm:col-span-2">
-          <FieldLabel htmlFor="invite-destination">
-            Destination Gmail (optional — provisions CF + Resend if email is @aiqadam.org)
-          </FieldLabel>
-          <Input
-            id="invite-destination"
-            type="email"
-            value={form.destination_gmail}
-            onChange={(e) => setForm({ ...form, destination_gmail: e.target.value })}
-            placeholder="personal@gmail.com"
-          />
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">

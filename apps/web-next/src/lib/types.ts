@@ -231,9 +231,10 @@ export interface MemberSearchResult {
 // apps/api — /v1/admin/invites (super-admin operator-onboarding cabinet)
 //
 // ADR-0035: invite-link flow replaces CLI user-create. Super-admin lists
-// pending/consumed/revoked invites + creates new ones; mailboxEmail +
-// CF Email Routing + Resend per-operator key auto-provision when the
-// destination_gmail field is supplied for an @aiqadam.org email.
+// pending/consumed/revoked invites + creates new ones. The operator's
+// @aiqadam.org mailbox is provisioned automatically via DMS+LDAP at
+// consume time (F-S2.12 cleanup, 2026-05-25 — dropped the old F-S2.8.x
+// Cloudflare Email Routing + Resend per-operator-key flow).
 // ---------------------------------------------------------------------------
 
 export const INVITE_ROLE_GROUPS = [
@@ -273,7 +274,6 @@ export interface CreateInviteBody {
   delivery_channel: InviteDeliveryChannel;
   country?: InviteCountry;
   notes?: string;
-  destination_gmail?: string;
 }
 
 export interface CreateInviteResult {
@@ -281,13 +281,6 @@ export interface CreateInviteResult {
   invite_url: string;
   token_prefix: string;
   expires_at: string;
-  email_automation?: {
-    cf_rule_id?: string;
-    cf_rule_already_existed?: boolean;
-    resend_key_id?: string;
-    resend_key_plaintext?: string;
-    partial_failures: string[];
-  };
 }
 
 // ---------------------------------------------------------------------------

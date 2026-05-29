@@ -12,8 +12,6 @@ import { AuditEventsService } from '../audit/audit-events.service';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
 import { AuthentikClient, AuthentikError } from './authentik.client';
-import { CloudflareRoutingClient } from './cloudflare-routing.client';
-import { ResendAdminClient } from './resend-admin.client';
 
 // F-S2.7 (ADR-0035): operator-invite state machine. Token plaintext is
 // shown to the admin exactly once at creation; only SHA256 hash + 8-char
@@ -21,6 +19,11 @@ import { ResendAdminClient } from './resend-admin.client';
 //
 // This service owns the create + revoke paths; consume lives in the
 // onboarding module (PR-4) and writes back here via patch.
+//
+// F-S2.12 cleanup (2026-05-25) — the F-S2.8.x Cloudflare/Resend
+// per-operator forwarding flow was removed: operators now get a DMS
+// mailbox automatically via LDAP, so there's no email-routing
+// automation to wire here.
 
 export const AUP_CURRENT_VERSION = 'v0.1-placeholder-2026-05-22';
 
@@ -61,11 +64,6 @@ export interface CreateInviteInput {
   country?: 'uz' | 'kz' | 'tj' | 'xx' | undefined;
   delivery_channel: 'email' | 'telegram' | 'copy_paste';
   notes?: string | undefined;
-  // F-S2.8: when set AND email ends with @aiqadam.org, the service
-  // also provisions a Cloudflare Email Routing rule + per-operator
-  // Resend API key. Optional; omitted = fully manual setup (the F-S2.7
-  // baseline behaviour, unchanged).
-  destination_gmail?: string | undefined;
 }
 
 export interface CreateInviteResult {
@@ -73,22 +71,6 @@ export interface CreateInviteResult {
   invite_url: string; // plaintext token in URL — admin sees this once
   token_prefix: string;
   expires_at: string;
-  // F-S2.8 — present when CF/Resend automation ran. Absent when no
-  // destination_gmail was supplied or the email isn't @aiqadam.org.
-  email_automation?: EmailAutomationResult | undefined;
-}
-
-export interface EmailAutomationResult {
-  // Cloudflare rule outcome. Either both or neither populated.
-  cf_rule_id?: string | undefined;
-  cf_rule_already_existed?: boolean | undefined;
-  // Resend per-operator key outcome. token is plaintext, shown once.
-  resend_key_id?: string | undefined;
-  resend_key_plaintext?: string | undefined;
-  // Human-readable failure reasons for the parts that didn't run.
-  // Empty array means full success; admin still gets the invite_url
-  // even when this isn't empty.
-  partial_failures: string[];
 }
 
 interface InviteRow {
@@ -126,12 +108,38 @@ export interface InvitePreview {
   country: 'uz' | 'kz' | 'tj' | 'xx' | null;
   expires_at: string;
   aup_version: string;
+  // F-S2.12: surface the deterministic username so the onboarding form
+  // can render `<username>@aiqadam.org` for the mailbox panel without a
+  // second round-trip.
+  username: string;
 }
 
 export interface ConsumeInviteInput {
   token: string;
   password: string;
   aup_accepted: boolean;
+}
+
+// F-S2.12: deterministic username generator. Operators get one
+// @aiqadam.org mailbox per invite via DMS+LDAP, so the username we
+// store in Authentik MUST match the LHS of the mailbox address shown to
+// them on /onboard. Centralised here so the create path and the
+// preview/onboarding path can never disagree.
+//
+// Rules:
+//   - lower-case
+//   - strip everything that isn't [a-z0-9.]
+//   - collapse repeated dots to one, trim leading/trailing dots
+//   - empty result falls back to "user" so we never produce an invalid
+//     IMAP local-part (test-suite edge case, not expected in prod)
+export function usernameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? email;
+  const cleaned = local
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, '')
+    .replace(/\.+/g, '.')
+    .replace(/^\.+|\.+$/g, '');
+  return cleaned === '' ? 'user' : cleaned;
 }
 
 @Injectable()
@@ -143,8 +151,6 @@ export class AdminInvitesService {
     private readonly authentik: AuthentikClient,
     private readonly directusBridge: DirectusUsersBridgeService,
     private readonly audit: AuditEventsService,
-    private readonly cloudflare: CloudflareRoutingClient,
-    private readonly resendAdmin: ResendAdminClient,
   ) {}
 
   async createInvite(input: CreateInviteInput, callerId: string): Promise<CreateInviteResult> {
@@ -237,65 +243,12 @@ export class AdminInvitesService {
       ts: now.toISOString(),
     });
 
-    // F-S2.8: best-effort email automation. Runs only when the invite
-    // email is @aiqadam.org AND admin supplied destination_gmail.
-    // Failures populate partial_failures but never abort the invite —
-    // the manual runbook is always a valid fallback path.
-    const emailAutomation = await this.maybeProvisionEmailAutomation(input);
-
     return {
       invite_id: created.data.id,
       invite_url: `${env.INVITE_URL_BASE.replace(/\/$/, '')}/onboard?token=${tokenPlain}`,
       token_prefix: tokenPrefix,
       expires_at: expiresAt.toISOString(),
-      email_automation: emailAutomation,
     };
-  }
-
-  // F-S2.8 — best-effort CF Email Routing + Resend per-operator key
-  // provisioning. Returns undefined when there's nothing to do (no
-  // destination_gmail, or invite email isn't @aiqadam.org). Two
-  // independent calls; either failing leaves the other intact.
-  private async maybeProvisionEmailAutomation(
-    input: CreateInviteInput,
-  ): Promise<EmailAutomationResult | undefined> {
-    const destination = input.destination_gmail?.trim();
-    if (!destination) return undefined;
-    if (!input.email.toLowerCase().endsWith('@aiqadam.org')) return undefined;
-
-    const partialFailures: string[] = [];
-    const result: EmailAutomationResult = { partial_failures: partialFailures };
-
-    const cfPromise = this.cloudflare.isConfigured()
-      ? this.cloudflare
-          .createRoutingRule({ alias: input.email.toLowerCase(), destination })
-          .then((r) => {
-            result.cf_rule_id = r.rule_id;
-            result.cf_rule_already_existed = r.already_existed;
-          })
-          .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : 'unknown';
-            this.logger.warn(`cloudflare_provision_failed: ${msg}`);
-            partialFailures.push(`cloudflare:${truncate(msg, 120)}`);
-          })
-      : Promise.resolve(partialFailures.push('cloudflare:not_configured'));
-
-    const resendPromise = this.resendAdmin.isConfigured()
-      ? this.resendAdmin
-          .createPerOperatorKey({ operatorEmail: input.email.toLowerCase() })
-          .then((r) => {
-            result.resend_key_id = r.id;
-            result.resend_key_plaintext = r.token;
-          })
-          .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : 'unknown';
-            this.logger.warn(`resend_admin_provision_failed: ${msg}`);
-            partialFailures.push(`resend:${truncate(msg, 120)}`);
-          })
-      : Promise.resolve(partialFailures.push('resend:not_configured'));
-
-    await Promise.all([cfPromise, resendPromise]);
-    return result;
   }
 
   async revokeInvite(inviteId: string, callerId: string): Promise<void> {
@@ -374,6 +327,16 @@ export class AdminInvitesService {
       country: row.country,
       expires_at: row.expires_at,
       aup_version: AUP_CURRENT_VERSION,
+      // Mirror the create path: the real account's username is derived
+      // from display_name (firstname.lastname). #423 made display_name
+      // required at create-time, but older pending invites can still
+      // carry a null display_name — fall back to the email local-part so
+      // the /onboard preview shows the SAME mailbox handle the account
+      // will get.
+      username:
+        row.display_name != null && row.display_name.trim() !== ''
+          ? this.usernameFromDisplayName(row.display_name)
+          : usernameFromEmail(row.email),
     };
   }
 
@@ -520,8 +483,4 @@ export class AdminInvitesService {
     }
     return slug;
   }
-}
-
-function truncate(s: string, max: number): string {
-  return s.length <= max ? s : `${s.slice(0, max)}…`;
 }

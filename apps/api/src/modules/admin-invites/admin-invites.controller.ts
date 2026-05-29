@@ -47,9 +47,9 @@ const createSchema = z
     country: z.enum(['uz', 'kz', 'tj', 'xx']).optional(),
     delivery_channel: z.enum(['email', 'telegram', 'copy_paste']),
     notes: z.string().max(2000).optional(),
-    // F-S2.8: optional. When set + email is @aiqadam.org, the service
-    // provisions Cloudflare Email Routing + per-operator Resend key.
-    destination_gmail: z.string().trim().toLowerCase().email().max(254).optional(),
+    // F-S2.8 destination_gmail dropped (F-S2.12 cleanup, 2026-05-25):
+    // operators now get an @aiqadam.org DMS mailbox automatically via
+    // LDAP — no per-operator forwarding flow.
   })
   .strict();
 
