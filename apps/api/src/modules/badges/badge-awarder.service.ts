@@ -143,7 +143,9 @@ export class BadgeAwarderService {
       const result = await this.awardOnceWithStatus({
         userId,
         badgeKey: def.key,
-        sourceRef: 'backfill',
+        // No single triggering event in a backfill. source_ref is a uuid
+        // column, so a sentinel string ('backfill') would 500 — pass null.
+        sourceRef: null,
       });
       if (result === 'awarded') awarded += 1;
       else if (result === 'exists') exists += 1;
@@ -214,17 +216,20 @@ export class BadgeAwarderService {
   private async awardOnce(input: {
     userId: string;
     badgeKey: string;
-    sourceRef: string;
+    sourceRef: string | null;
   }): Promise<void> {
     await this.awardOnceWithStatus(input);
   }
 
   // Internal variant returning a status enum so the backfill can count
   // awarded-vs-skipped. Live check-in path uses awardOnce() and ignores.
+  // sourceRef is a uuid column on member_badges (nullable) — include it
+  // in the insert only when it's actually set, so backfill (null) and
+  // live check-in (eventId uuid) both write valid rows.
   private async awardOnceWithStatus(input: {
     userId: string;
     badgeKey: string;
-    sourceRef: string;
+    sourceRef: string | null;
   }): Promise<'awarded' | 'exists' | 'failed'> {
     try {
       const filter = encodeURIComponent(
@@ -239,10 +244,10 @@ export class BadgeAwarderService {
       await this.directus.post('/items/member_badges', {
         user: input.userId,
         badge_type: input.badgeKey,
-        source_ref: input.sourceRef,
+        ...(input.sourceRef ? { source_ref: input.sourceRef } : {}),
       });
       this.logger.log(
-        `awarded badge ${input.badgeKey} to user=${input.userId} src=${input.sourceRef}`,
+        `awarded badge ${input.badgeKey} to user=${input.userId} src=${input.sourceRef ?? 'none'}`,
       );
       return 'awarded';
     } catch (err) {
