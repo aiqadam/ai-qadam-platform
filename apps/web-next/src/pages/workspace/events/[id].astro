@@ -3,11 +3,12 @@
 // slug: workspace/events/[id]
 // generated: 2026-05-26
 //
-// Phase M2.2a — operator event control panel (metadata edit).
+// Phase M2.2a/b — operator event control panel.
 //
-// Composition only (L4): <EventEditForm> loads the event detail +
-// PATCHes via lib/use-workspace-events. Followups checklist +
-// regenerate-social-card land in M2.2b on this same page.
+// Composition only (L4): <EventEditForm> edits metadata (M2.2a);
+// <EventFollowups> adds the 4-kind followups checklist + the
+// regenerate-social-card action (M2.2b). Both islands read the same
+// useWorkspaceEvent(id) query (TanStack dedupes → one network call).
 //
 // Wiring: docs/architecture/wiring-map.md → workspace_events (detail/edit).
 //
@@ -15,7 +16,7 @@
 export const prerender = false;
 
 import { AuthGate, PageHead } from '../../../blocks/common';
-import { Breadcrumbs, EventEditForm, PageShell } from '../../../blocks/workspace';
+import { Breadcrumbs, EventEditForm, EventFollowups, PageShell } from '../../../blocks/workspace';
 import Layout from '../../../layouts/Layout.astro';
 
 const { id } = Astro.params as { id: string };
@@ -26,7 +27,7 @@ const { id } = Astro.params as { id: string };
   <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
     <PageShell
       title="Edit event"
-      description="Update event metadata. Followups + social-card regen come in a follow-up."
+      description="Update event metadata, track post-event followups, and refresh the social card."
       width="wide"
     >
       <Breadcrumbs
@@ -38,6 +39,8 @@ const { id } = Astro.params as { id: string };
         ]}
       />
       <EventEditForm client:load eventId={id} />
+      <div class="border-t border-border my-10"></div>
+      <EventFollowups client:load eventId={id} />
     </PageShell>
   </AuthGate>
 </Layout>

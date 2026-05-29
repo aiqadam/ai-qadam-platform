@@ -10,6 +10,7 @@ export { default as Breadcrumbs } from './Breadcrumbs.astro';
 export { DashboardKpis } from './DashboardKpis';
 export { DataTable } from './DataTable';
 export { EventEditForm } from './EventEditForm';
+export { EventFollowups } from './EventFollowups';
 export { EventsList } from './EventsList';
 export { FormsList } from './FormsList';
 export { InvitesList } from './InvitesList';

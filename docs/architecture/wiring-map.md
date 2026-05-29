@@ -489,11 +489,11 @@ ssr_fetcher: none — island fetches client-side
 fallback: error surface in DataTable
 ```
 
-### `workspace_events` — LIVE (list + metadata edit) as of M2.2a
+### `workspace_events` — LIVE (list + full control panel) as of M2.2b
 
 ```yaml
 data_source: workspace_events  (Directus events collection joined with RegistrationCounts aggregate)
-description: Operator event control panel. List view (PR 2.7a) + per-event metadata edit (M2.2a — title/description/status/dates/capacity/location/survey-form). Followups checklist + regenerate-social-card land in M2.2b.
+description: Operator event control panel — COMPLETE. List view (PR 2.7a) + per-event metadata edit (M2.2a) + post-event followups checklist + regenerate-social-card (M2.2b).
 
 customer_blocks: []   # customer-facing event list is the separate <EventsGrid> block over /v1/events (PR 1.2)
 
@@ -506,13 +506,17 @@ operator_blocks:
     cabinet: /workspace/events/[id]
     operation: read+write (PATCH metadata)
     hooks: lib/use-workspace-events.ts → useWorkspaceEvent, useUpdateEvent (+ useWorkspaceForms for the survey picker)
+  - block: EventFollowups
+    cabinet: /workspace/events/[id]
+    operation: read+write (followups + social-card regen)
+    hooks: lib/use-workspace-events.ts → useWorkspaceEvent, useUpsertFollowup, useRegenerateSocialCard
 
 api_endpoints:
   - GET   /v1/workspace/events       (AuthGuard — country scoping rides ADR-0021 RBAC server-side)
   - GET   /v1/workspace/events/:id   (EventDetail: + followups[])
   - PATCH /v1/workspace/events/:id   (metadata edit — LIVE)
-  - POST  /v1/workspace/events/:id/regenerate-social-card  (M2.2b)
-  - PUT   /v1/workspace/events/:id/followups/:kind         (M2.2b)
+  - POST  /v1/workspace/events/:id/regenerate-social-card  (LIVE)
+  - PUT   /v1/workspace/events/:id/followups/:kind         (LIVE — 4 kinds: retrospective, thank_you_sent, recap_posted, sponsor_report_delivered)
 
 ssr_fetcher: none — island fetches client-side
 fallback: error surface in DataTable / edit form
