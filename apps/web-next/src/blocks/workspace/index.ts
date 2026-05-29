@@ -15,5 +15,6 @@ export { InvitesList } from './InvitesList';
 export { KpiTile } from './KpiTile';
 export { MembersList } from './MembersList';
 export { default as PageShell } from './PageShell.astro';
+export { PartnerDetail } from './PartnerDetail';
 export { PartnersList } from './PartnersList';
 export { default as WorkspaceNav } from './WorkspaceNav.astro';

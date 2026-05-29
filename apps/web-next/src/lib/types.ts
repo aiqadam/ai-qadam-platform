@@ -350,6 +350,33 @@ export interface PartnerSummary {
   status: PartnerStatus;
 }
 
+// Per-partner detail (GET /v1/workspace/partners/:slug). Read-only —
+// the API exposes no PATCH for partners (onboarding still happens in
+// Directus). `audiences` = consented cohort shares; `kit_assets` =
+// co-marketing assets scoped to this partner + the shared sponsor pool.
+export interface PartnerAudienceSummary {
+  id: string;
+  cohort_id: string;
+  cohort_name: string;
+  member_count: number;
+  purpose: string;
+  granted_at: string;
+  expires_at: string | null;
+}
+
+export interface PartnerKitAsset {
+  id: string;
+  category: string;
+  title: string;
+  file_url: string | null;
+  is_partner_exclusive: boolean;
+}
+
+export interface PartnerDetail extends PartnerSummary {
+  audiences: PartnerAudienceSummary[];
+  kit_assets: PartnerKitAsset[];
+}
+
 // ---------------------------------------------------------------------------
 // apps/api — /v1/workspace/approvals (operator approval queue)
 //

@@ -40,10 +40,15 @@ const COLUMNS: ReadonlyArray<DataTableColumn<PartnerSummary>> = [
     label: 'Name',
     width: 'lg',
     render: (r) => (
-      <div className="flex flex-col gap-0.5">
-        <span className="text-foreground font-medium">{r.name}</span>
+      <a
+        href={`/workspace/partners/${encodeURIComponent(r.slug)}`}
+        className="flex flex-col gap-0.5 no-underline group"
+      >
+        <span className="text-foreground font-medium group-hover:text-primary transition-colors">
+          {r.name}
+        </span>
         <span className="font-mono text-[10px] text-muted-foreground">@{r.slug}</span>
-      </div>
+      </a>
     ),
   },
   {

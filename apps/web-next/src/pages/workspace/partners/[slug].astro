@@ -1,0 +1,39 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/partners/[slug]
+// generated: 2026-05-26
+//
+// Phase M2.1 — per-partner detail (read-only) per ADR-0038.
+//
+// Composition only (L4): the <PartnerDetail> island fetches via
+// usePartnerDetail(slug); this page wires the shell + role gate +
+// breadcrumb back to the list.
+//
+// Wiring: docs/architecture/wiring-map.md → partners (detail).
+//
+// SSR — role gate reads Astro.locals.auth (Authentik OIDC session).
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, PageShell, PartnerDetail } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+
+const { slug } = Astro.params as { slug: string };
+---
+
+<Layout title={`Partner · ${slug} · AI Qadam workspace`} description="Partner detail.">
+  <PageHead slot="head" title={`Partner · ${slug}`} description="Partner detail." />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell title={slug} description="Partner detail — audiences + co-marketing kit (read-only)." width="wide">
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Partners', href: '/workspace/partners' },
+          { label: slug },
+        ]}
+      />
+      <PartnerDetail client:load slug={slug} />
+    </PageShell>
+  </AuthGate>
+</Layout>

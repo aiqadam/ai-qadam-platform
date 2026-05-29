@@ -343,11 +343,11 @@ fallback: SITE_SETTINGS_DEFAULTS (page renders even when Directus is unreachable
 aggregates: {}
 ```
 
-### `partners` — LIVE as of PR 2.5b (list cabinet only; detail page pending)
+### `partners` — LIVE (list + detail) as of M2.1
 
 ```yaml
 data_source: partners  (Directus partners collection — sponsors + employers + product partners share one row)
-description: Operator directory of all three partner roles. PR 2.5b ships the read-only list with role chips; per-partner detail (audiences + kit assets) is a follow-up.
+description: Operator directory of all three partner roles. List with role chips (PR 2.5b) + read-only per-partner detail with audiences + co-marketing kit assets (M2.1). Read-only end-to-end — the API exposes no partner PATCH (onboarding stays in Directus).
 
 customer_blocks: []   # never surfaced raw to customers (sponsor logos surface via separate <SponsorWall> block)
 
@@ -356,13 +356,17 @@ operator_blocks:
     cabinet: /workspace/partners
     operation: read
     hooks: lib/use-partners.ts → usePartners
+  - block: PartnerDetail
+    cabinet: /workspace/partners/[slug]
+    operation: read
+    hooks: lib/use-partners.ts → usePartnerDetail
 
 api_endpoints:
   - GET /v1/workspace/partners       (AuthGuard — any signed-in operator)
-  - GET /v1/workspace/partners/:slug (detail; cabinet consumer pending)
+  - GET /v1/workspace/partners/:slug (PartnerDetail: + audiences + kit_assets)
 
 ssr_fetcher: none — island fetches client-side
-fallback: error surface in DataTable
+fallback: error surface in DataTable / detail card
 ```
 
 ### `sponsors`, `marketing_assets`, `press_page`, `landing_pages`
