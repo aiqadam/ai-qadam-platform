@@ -225,7 +225,10 @@ function checkFile(file: string, violations: Violation[]): void {
   // any legacy page if one ever lands without going through the generator).
   // In full mode it fires for every page lacking the marker — apps/web-next/
   // is greenfield, so every page should originate from the generator.
-  if (inWebNextPages(file)) {
+  // Exception: src/pages/api/ holds hand-authored SSR endpoints (e.g. the
+  // /api/* backend proxy), not generated UI pages — the marker doesn't apply.
+  const isApiEndpoint = POSIX(file).startsWith('apps/web-next/src/pages/api/');
+  if (inWebNextPages(file) && !isApiEndpoint) {
     const requiresMarker = STAGED_MODE ? newFiles.has(file) : true;
     const hasMarker = /@generated-from\s+gen:(page|cabinet)/.test(content);
     if (requiresMarker && !hasMarker) {
