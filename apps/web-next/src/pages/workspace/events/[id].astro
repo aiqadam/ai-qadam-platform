@@ -1,0 +1,43 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/events/[id]
+// generated: 2026-05-26
+//
+// Phase M2.2a — operator event control panel (metadata edit).
+//
+// Composition only (L4): <EventEditForm> loads the event detail +
+// PATCHes via lib/use-workspace-events. Followups checklist +
+// regenerate-social-card land in M2.2b on this same page.
+//
+// Wiring: docs/architecture/wiring-map.md → workspace_events (detail/edit).
+//
+// SSR — role gate reads Astro.locals.auth (Authentik OIDC session).
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, EventEditForm, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+
+const { id } = Astro.params as { id: string };
+---
+
+<Layout title="Edit event · AI Qadam workspace" description="Operator event control panel.">
+  <PageHead slot="head" title="Edit event · AI Qadam workspace" description="Operator event control panel." />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Edit event"
+      description="Update event metadata. Followups + social-card regen come in a follow-up."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Events', href: '/workspace/events' },
+          { label: 'Edit' },
+        ]}
+      />
+      <EventEditForm client:load eventId={id} />
+    </PageShell>
+  </AuthGate>
+</Layout>

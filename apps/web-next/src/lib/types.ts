@@ -442,6 +442,41 @@ export interface WorkspaceEventListItem {
   counts: WorkspaceRegistrationCounts;
 }
 
+// Per-event detail (GET /v1/workspace/events/:id) + the editable
+// followups checklist. Backs the events/[id] operator control panel.
+export const EVENT_FOLLOWUP_KINDS = [
+  'retrospective',
+  'thank_you_sent',
+  'recap_posted',
+  'sponsor_report_delivered',
+] as const;
+export type EventFollowupKind = (typeof EVENT_FOLLOWUP_KINDS)[number];
+
+export interface WorkspaceEventFollowup {
+  id: string;
+  kind: EventFollowupKind;
+  body_md: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+}
+
+export interface WorkspaceEventDetail extends WorkspaceEventListItem {
+  followups: WorkspaceEventFollowup[];
+}
+
+// PATCH /v1/workspace/events/:id — every field optional; null clears
+// capacity / location / post_event_survey_form.
+export interface UpdateEventBody {
+  title?: string;
+  description?: string;
+  status?: WorkspaceEventStatus;
+  starts_at?: string;
+  ends_at?: string;
+  capacity?: number | null;
+  location?: string | null;
+  post_event_survey_form?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // apps/api — /v1/workspace/forms (operator forms-library cabinet)
 //

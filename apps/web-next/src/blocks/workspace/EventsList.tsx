@@ -77,7 +77,10 @@ const COLUMNS: ReadonlyArray<DataTableColumn<WorkspaceEventListItem>> = [
     width: 'lg',
     render: (r) => (
       <div className="flex flex-col gap-0.5 min-w-0">
-        <a href={`/events/${r.id}`} className="text-foreground hover:text-primary truncate">
+        <a
+          href={`/workspace/events/${r.id}`}
+          className="text-foreground hover:text-primary truncate font-medium"
+        >
           {r.title}
         </a>
         {r.location && <span className="text-xs text-muted-foreground truncate">{r.location}</span>}

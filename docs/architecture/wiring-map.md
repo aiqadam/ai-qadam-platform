@@ -489,11 +489,11 @@ ssr_fetcher: none — island fetches client-side
 fallback: error surface in DataTable
 ```
 
-### `workspace_events` — LIVE (list cabinet) as of PR 2.7a
+### `workspace_events` — LIVE (list + metadata edit) as of M2.2a
 
 ```yaml
 data_source: workspace_events  (Directus events collection joined with RegistrationCounts aggregate)
-description: Operator event control panel. PR 2.7a ships the list view (status + country filters + registration counts). Detail page (PATCH metadata, followups, OG card regen) lands in follow-ups.
+description: Operator event control panel. List view (PR 2.7a) + per-event metadata edit (M2.2a — title/description/status/dates/capacity/location/survey-form). Followups checklist + regenerate-social-card land in M2.2b.
 
 customer_blocks: []   # customer-facing event list is the separate <EventsGrid> block over /v1/events (PR 1.2)
 
@@ -502,14 +502,20 @@ operator_blocks:
     cabinet: /workspace/events
     operation: read
     hooks: lib/use-workspace-events.ts → useWorkspaceEvents
+  - block: EventEditForm
+    cabinet: /workspace/events/[id]
+    operation: read+write (PATCH metadata)
+    hooks: lib/use-workspace-events.ts → useWorkspaceEvent, useUpdateEvent (+ useWorkspaceForms for the survey picker)
 
 api_endpoints:
-  - GET /v1/workspace/events       (AuthGuard — country scoping rides ADR-0021 RBAC server-side)
-  - GET /v1/workspace/events/:id   (detail; cabinet consumer pending)
-  - PATCH /v1/workspace/events/:id (operator-edit; cabinet consumer pending)
+  - GET   /v1/workspace/events       (AuthGuard — country scoping rides ADR-0021 RBAC server-side)
+  - GET   /v1/workspace/events/:id   (EventDetail: + followups[])
+  - PATCH /v1/workspace/events/:id   (metadata edit — LIVE)
+  - POST  /v1/workspace/events/:id/regenerate-social-card  (M2.2b)
+  - PUT   /v1/workspace/events/:id/followups/:kind         (M2.2b)
 
 ssr_fetcher: none — island fetches client-side
-fallback: error surface in DataTable
+fallback: error surface in DataTable / edit form
 ```
 
 ### `workspace_forms` — LIVE (list cabinet) as of PR 2.7b
