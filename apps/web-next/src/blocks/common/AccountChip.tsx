@@ -17,6 +17,7 @@
 // useAuth().isSuper (which keys on the 'aiqadam-engineers' group); the
 // nav menu gates on the operator/engineer group families instead.
 
+import { isOperator, isSuperAdmin } from '@/lib/roles';
 import { signOut } from '@/lib/sign-out';
 import { useAuth } from '@/lib/use-auth';
 import { type ReactElement, useEffect, useRef, useState } from 'react';
@@ -33,20 +34,6 @@ function initialsFor(email: string): string {
 
 function localPart(email: string): string {
   return email.split('@')[0] ?? email;
-}
-
-function isEngineer(groups: string[]): boolean {
-  return groups.some((g) => g === 'aiqadam-super-admin' || g === 'authentik Admins');
-}
-
-function isOperator(groups: string[]): boolean {
-  return groups.some(
-    (g) =>
-      g === 'aiqadam-super-admin' ||
-      g === 'aiqadam-sponsor-rep' ||
-      g.startsWith('aiqadam-country-lead-') ||
-      g.startsWith('aiqadam-organizer-'),
-  );
 }
 
 const MENU_ITEM_CLASS =
@@ -77,7 +64,7 @@ export function AccountChip(): ReactElement | null {
 
   const { email, groups } = auth.user;
   const showWorkspace = isOperator(groups);
-  const showEngineering = isEngineer(groups);
+  const showEngineering = isSuperAdmin(groups);
   const showOps = showWorkspace || showEngineering;
 
   return (

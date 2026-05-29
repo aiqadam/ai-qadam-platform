@@ -35,6 +35,7 @@ import {
 } from 'react';
 import { setAccessToken } from './api-client';
 import { AuthExpiredError } from './errors';
+import { isSuperAdmin } from './roles';
 
 export interface AuthMe {
   id: string;
@@ -64,14 +65,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const SUPER_GROUP = 'aiqadam-engineers';
-
 function deriveValue(snap: AuthSnapshot | null, onExpired: () => void): AuthContextValue {
   return {
     user: snap?.me ?? null,
     accessToken: snap?.accessToken ?? null,
     isAuthenticated: snap !== null,
-    isSuper: snap?.me.groups.includes(SUPER_GROUP) ?? false,
+    // `isSuper` keys on the super-admin family (lib/roles), NOT a
+    // literal `aiqadam-engineers` group — that group never existed, so
+    // this was permanently false for real super-admins.
+    isSuper: snap ? isSuperAdmin(snap.me.groups) : false,
     handleAuthExpired: onExpired,
   };
 }
