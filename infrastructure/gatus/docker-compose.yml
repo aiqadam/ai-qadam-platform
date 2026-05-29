@@ -226,3 +226,48 @@ configs:
             - type: telegram
               failure-threshold: 2
               send-on-resolved: true
+
+        # F-S2.12 · DMS-mail liveness. Probes the mail server's TLS
+        # listeners directly (the mail surface had no Gatus coverage).
+        # [CONNECTED] proves the dms-* container is up + accepting TLS;
+        # [CERTIFICATE_EXPIRATION] catches a wildcard *.aiqadam.org cert
+        # renewal failure (DNS-01 via CF) ~3 days early — before all mail
+        # TLS dies. NOTE: this does NOT cover the LDAP mailboxEmail-filter
+        # regression class (see infrastructure/dms/smoke.sh) — postmap
+        # can't run from Gatus; that canary needs a push-based probe and
+        # is tracked as a separate follow-up.
+        - name: mail — IMAPS 993 (Dovecot)
+          group: mail
+          url: "tls://mail.aiqadam.org:993"
+          interval: 300s
+          conditions:
+            - "[CONNECTED] == true"
+            - "[CERTIFICATE_EXPIRATION] > 72h"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
+
+        - name: mail — submission 587 (Postfix STARTTLS)
+          group: mail
+          url: "starttls://mail.aiqadam.org:587"
+          interval: 300s
+          conditions:
+            - "[CONNECTED] == true"
+            - "[CERTIFICATE_EXPIRATION] > 72h"
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
+
+        - name: mail — webmail (SnappyMail)
+          group: mail
+          url: https://webmail.aiqadam.org/
+          interval: 300s
+          conditions:
+            - "[STATUS] == 200"
+            - "[BODY] != "
+          alerts:
+            - type: telegram
+              failure-threshold: 2
+              send-on-resolved: true
