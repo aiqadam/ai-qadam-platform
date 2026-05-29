@@ -1,7 +1,9 @@
 // L3 common-block barrel — cross-cutting blocks consumed by both
 // customer-facing pages and operator cabinets.
 
+export { AccountChip } from './AccountChip';
 export { default as AppFooter } from './AppFooter.astro';
+export { default as AppNav } from './AppNav.astro';
 export { default as AuthGate } from './AuthGate.astro';
 export { default as CountrySwitcher } from './CountrySwitcher.astro';
 export { default as DateTime } from './DateTime.astro';

@@ -1,0 +1,86 @@
+---
+// L3 common block — <AppNav>.
+//
+// Sitewide top navigation. The block whose absence motivated this whole
+// rewire (parity-matrix flagship row: "top-nav identity always agrees
+// with body, SSR-verified"). Three clusters:
+//   - Brand mark + wordmark → /
+//   - Center links: Events, Leaderboard
+//   - Right cluster: <CountrySwitcher> + <LocaleSwitcher> + auth slot
+//       · anon (SSR hint) → "Sign in" CTA
+//       · authed → <AccountChip> island (avatar + role-gated menu)
+//
+// Auth state is the SERVER-VERIFIED Astro.locals.auth (populated by
+// middleware.ts), NOT a cookie-syntax guess — this is precisely the
+// fix for the Topic-1 race where the nav said "Sign in" while the body
+// said "signed in as X". On prerendered pages locals.auth is undefined
+// → treated as anon; the <AccountChip> island self-corrects on hydrate
+// and a stale "Sign in" CTA silent-SSOs the user back when clicked.
+//
+// Mounted once in Layout.astro inside <RuntimeProvider> so <AccountChip>
+// gets useAuth() from the same provider tree as the page body.
+//
+// Tailwind tokens only (no inline style=, ADR-0038 §Locks #1c).
+
+import { AccountChip } from './AccountChip';
+import CountrySwitcher from './CountrySwitcher.astro';
+import LocaleSwitcher from './LocaleSwitcher.astro';
+
+const signedInHint = Astro.locals.auth?.me != null;
+const currentPath = `${Astro.url.pathname}${Astro.url.search}`;
+const signInHref = `/api/v1/auth/login?next=${encodeURIComponent(currentPath)}`;
+---
+
+<header
+  class="sticky top-0 z-50 border-b border-border backdrop-blur-md bg-background/85"
+>
+  <div class="mx-auto max-w-6xl px-6 h-14 flex items-center gap-4">
+    <a href="/" class="flex items-center gap-2.5 no-underline text-inherit shrink-0">
+      <img src="/brand/aiqadam-mark.png" alt="" class="w-6 h-6 object-contain" />
+      <span class="font-display font-semibold text-[15px] tracking-tight">
+        AI <span class="text-primary">Qadam</span>
+      </span>
+    </a>
+
+    <nav class="flex items-center gap-1 ml-4 flex-1">
+      <a
+        href="/events"
+        class="inline-flex items-center h-8 px-2.5 rounded-md text-sm text-muted-foreground no-underline hover:text-foreground hover:bg-muted/60 transition-colors"
+      >
+        Events
+      </a>
+      <a
+        href="/leaderboard"
+        class="inline-flex items-center h-8 px-2.5 rounded-md text-sm text-muted-foreground no-underline hover:text-foreground hover:bg-muted/60 transition-colors"
+      >
+        Leaderboard
+      </a>
+    </nav>
+
+    <div class="flex items-center gap-2">
+      <CountrySwitcher />
+      <LocaleSwitcher />
+      {
+        signedInHint ? (
+          <AccountChip client:load />
+        ) : (
+          <a
+            href={signInHref}
+            class="inline-flex items-center rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium no-underline hover:bg-primary/90 transition-colors"
+          >
+            Sign in
+          </a>
+        )
+      }
+    </div>
+  </div>
+</header>
+
+<style is:global>
+  /* Inline-mounted hydration islands inside a flex container must pass
+     through to the parent's layout — otherwise the island wrapper
+     breaks the nav's gap + alignment. */
+  header astro-island {
+    display: contents;
+  }
+</style>
