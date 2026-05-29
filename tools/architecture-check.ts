@@ -198,6 +198,28 @@ function checkFile(file: string, violations: Violation[]): void {
     }
   }
 
+  // Lock 1d: an interactive block island (.tsx in blocks/ that consumes
+  // a lib/use-* hook or useAuth) MUST self-wrap in <IslandRoot>. Astro
+  // hydrates each `client:load` island as its own React root, so the
+  // hook needs a RuntimeProvider in the SAME root — a page/Layout-level
+  // provider never reaches it. This is the guard for the M0-fix-B bug
+  // class (every island threw "No QueryClient set" on hydrate).
+  if (inWebNextBlocks(file) && file.endsWith('.tsx')) {
+    const usesHook =
+      /from\s+['"][^'"]*\/lib\/use-[^'"]*['"]/.test(content) ||
+      /from\s+['"][^'"]*\/lib\/use-auth['"]/.test(content);
+    const hasIslandRoot = /from\s+['"][^'"]*\/lib\/island-root['"]/.test(content);
+    if (usesHook && !hasIslandRoot) {
+      violations.push({
+        file,
+        line: 1,
+        rule: 'island-must-self-wrap',
+        message:
+          'This island consumes a lib/use-* hook but does not import IslandRoot. Astro hydrates each client:load island in its own React root — wrap the public export in <IslandRoot> (see lib/island-root.tsx) or it throws "No QueryClient set" / "useAuth outside provider" on hydrate. See ADR-0038 M0-fix-B.',
+      });
+    }
+  }
+
   // Lock 2: files under src/pages/ must carry the generator marker.
   // In --staged mode this fires only for newly added files (grandfathering
   // any legacy page if one ever lands without going through the generator).
