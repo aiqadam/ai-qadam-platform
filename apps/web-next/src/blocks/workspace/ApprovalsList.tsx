@@ -8,6 +8,7 @@
 //   2. DataTable of pending items — currently empty (no source
 //      ready in v1); future PRs surface real rows here.
 
+import { IslandRoot } from '@/lib/island-root';
 import type { ApprovalItem, ApprovalKind, ApprovalsResult } from '@/lib/types';
 import { useApprovals } from '@/lib/use-approvals';
 import { type ReactElement, type ReactNode } from 'react';
@@ -119,7 +120,7 @@ function emptyDesc(sources: ApprovalsResult['sources']): ReactNode {
     : 'No pending approvals right now.';
 }
 
-export function ApprovalsList(): ReactElement {
+function ApprovalsListInner(): ReactElement {
   const query = useApprovals();
 
   return (
@@ -141,6 +142,14 @@ export function ApprovalsList(): ReactElement {
         />
       </section>
     </div>
+  );
+}
+
+export function ApprovalsList(): ReactElement {
+  return (
+    <IslandRoot>
+      <ApprovalsListInner />
+    </IslandRoot>
   );
 }
 

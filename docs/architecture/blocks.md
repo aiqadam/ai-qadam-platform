@@ -129,7 +129,7 @@ Pending: a Phase 2 follow-up adds the decorator + MSW handlers. Until
 then, blocks tagged "Storyless — interactive island needs provider
 mocks" in the catalogue ship without a story.
 
-Affected blocks today: `<RegistrationCTA>` (PR 1.4), `<ConsentList>` + `<SkillTagger>` (PR 1.5b), `<ForumThread>` (PR 1.7).
+Affected blocks today: `<RegistrationCTA>` (PR 1.4), `<ConsentList>` + `<SkillTagger>` (PR 1.5b), `<ForumThread>` (PR 1.7), `<AccountChip>` (M0.2), and every workspace cabinet island. All now self-wrap in `<IslandRoot>` per M0-fix-B (B3 wraps the list cabinets: Partners / Approvals / Audit / Events / Forms).
 
 ## Storyless Astro blocks
 

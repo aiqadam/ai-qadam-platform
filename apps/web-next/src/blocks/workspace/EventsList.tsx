@@ -6,6 +6,7 @@
 // returns). Filter chips for status; counts surface registered /
 // waitlisted / attended at a glance.
 
+import { IslandRoot } from '@/lib/island-root';
 import {
   COUNTRY_CODES,
   type CountryCode,
@@ -139,7 +140,7 @@ function passesCountryFilter(row: WorkspaceEventListItem, country: CountryCode |
   return country === 'all' || row.country === country;
 }
 
-export function EventsList(): ReactElement {
+function EventsListInner(): ReactElement {
   const query = useWorkspaceEvents();
   const [status, setStatus] = useState<WorkspaceEventStatus | 'all'>('all');
   const [country, setCountry] = useState<CountryCode | 'all'>('all');
@@ -198,6 +199,14 @@ export function EventsList(): ReactElement {
         </p>
       )}
     </div>
+  );
+}
+
+export function EventsList(): ReactElement {
+  return (
+    <IslandRoot>
+      <EventsListInner />
+    </IslandRoot>
   );
 }
 

@@ -6,6 +6,7 @@
 // follow-up — clicking the name TODO links to the slug page once
 // it lands.
 
+import { IslandRoot } from '@/lib/island-root';
 import type { PartnerSummary } from '@/lib/types';
 import { usePartners } from '@/lib/use-partners';
 import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
@@ -135,7 +136,7 @@ function passesRoleFilter(row: PartnerSummary, role: RoleFilter): boolean {
   return row.is_product_partner;
 }
 
-export function PartnersList(): ReactElement {
+function PartnersListInner(): ReactElement {
   const query = usePartners();
   const [role, setRole] = useState<RoleFilter>('all');
 
@@ -173,6 +174,14 @@ export function PartnersList(): ReactElement {
         </p>
       )}
     </div>
+  );
+}
+
+export function PartnersList(): ReactElement {
+  return (
+    <IslandRoot>
+      <PartnersListInner />
+    </IslandRoot>
   );
 }
 

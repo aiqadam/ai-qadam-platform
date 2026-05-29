@@ -9,6 +9,7 @@
 // deferred to PR 2.10 — those need separate slices for builder
 // fields + submissions table + chart visualisation.
 
+import { IslandRoot } from '@/lib/island-root';
 import {
   COUNTRY_CODES,
   type CountryCode,
@@ -131,7 +132,7 @@ function passesCountryFilter(row: WorkspaceFormRow, country: CountryCode | 'all'
   return country === 'all' || row.country === country;
 }
 
-export function FormsList(): ReactElement {
+function FormsListInner(): ReactElement {
   const query = useWorkspaceForms();
   const [status, setStatus] = useState<WorkspaceFormStatus | 'all'>('all');
   const [country, setCountry] = useState<CountryCode | 'all'>('all');
@@ -190,6 +191,14 @@ export function FormsList(): ReactElement {
         </p>
       )}
     </div>
+  );
+}
+
+export function FormsList(): ReactElement {
+  return (
+    <IslandRoot>
+      <FormsListInner />
+    </IslandRoot>
   );
 }
 

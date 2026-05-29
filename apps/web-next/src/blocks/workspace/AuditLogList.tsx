@@ -6,6 +6,7 @@
 // + country let the operator narrow the firehose without leaving the
 // page.
 
+import { IslandRoot } from '@/lib/island-root';
 import { COUNTRY_CODES, type CountryCode } from '@/lib/types';
 import { AUDIT_SEVERITIES, type AuditEventSummary, type AuditSeverity } from '@/lib/types';
 import { useAuditEvents } from '@/lib/use-audit';
@@ -189,7 +190,7 @@ function FilterRow({
   );
 }
 
-export function AuditLogList(): ReactElement {
+function AuditLogListInner(): ReactElement {
   const [severity, setSeverity] = useState<AuditSeverity | ''>('');
   const [prefix, setPrefix] = useState<string>('');
   const [country, setCountry] = useState<CountryCode | ''>('');
@@ -226,6 +227,14 @@ export function AuditLogList(): ReactElement {
         </p>
       )}
     </div>
+  );
+}
+
+export function AuditLogList(): ReactElement {
+  return (
+    <IslandRoot>
+      <AuditLogListInner />
+    </IslandRoot>
   );
 }
 
