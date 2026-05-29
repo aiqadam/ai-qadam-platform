@@ -9,6 +9,7 @@
 // save/load rides on this same applied-filter state in M2.3b.
 
 import { Input } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import { EMPTY_MEMBER_FILTERS, type MemberFilters, buildMemberFilter } from '@/lib/member-filters';
 import type { MemberRow } from '@/lib/types';
 import { useMembersSearch } from '@/lib/use-members';
@@ -128,7 +129,7 @@ function SearchBar({ onCommit }: SearchBarProps): ReactElement {
   );
 }
 
-export function MembersList(): ReactElement {
+function MembersListInner(): ReactElement {
   const [page, setPage] = useState(1);
   const [committedQuery, setCommittedQuery] = useState('');
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
@@ -180,6 +181,14 @@ export function MembersList(): ReactElement {
         </p>
       )}
     </div>
+  );
+}
+
+export function MembersList(): ReactElement {
+  return (
+    <IslandRoot>
+      <MembersListInner />
+    </IslandRoot>
   );
 }
 

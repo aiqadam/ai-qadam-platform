@@ -8,6 +8,7 @@
 // holds an optional note, persisted via PUT :id/followups/:kind.
 
 import { Button } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import {
   EVENT_FOLLOWUP_KINDS,
   type EventFollowupKind,
@@ -124,7 +125,7 @@ function RegenCardRow({ eventId }: { eventId: string }): ReactElement {
   );
 }
 
-export function EventFollowups({ eventId }: { eventId: string }): ReactElement {
+function EventFollowupsInner({ eventId }: { eventId: string }): ReactElement {
   const query = useWorkspaceEvent(eventId);
 
   if (query.isPending || query.error || !query.data) {
@@ -147,6 +148,14 @@ export function EventFollowups({ eventId }: { eventId: string }): ReactElement {
       </section>
       <RegenCardRow eventId={eventId} />
     </div>
+  );
+}
+
+export function EventFollowups(props: { eventId: string }): ReactElement {
+  return (
+    <IslandRoot>
+      <EventFollowupsInner {...props} />
+    </IslandRoot>
   );
 }
 

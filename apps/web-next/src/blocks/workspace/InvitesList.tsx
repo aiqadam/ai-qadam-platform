@@ -16,6 +16,7 @@
 // re-check group membership. The API has SuperAdminGuard regardless.
 
 import { Button, Input } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import type {
   CreateInviteBody,
   CreateInviteResult,
@@ -346,13 +347,21 @@ function ExistingInvitesTable(): ReactElement {
   );
 }
 
-export function InvitesList(): ReactElement {
+function InvitesListInner(): ReactElement {
   const [lastCreated, setLastCreated] = useState<CreateInviteResult | null>(null);
   return (
     <div className="space-y-8">
       <NewInviteForm onCreated={setLastCreated} lastCreated={lastCreated} />
       <ExistingInvitesTable />
     </div>
+  );
+}
+
+export function InvitesList(): ReactElement {
+  return (
+    <IslandRoot>
+      <InvitesListInner />
+    </IslandRoot>
   );
 }
 

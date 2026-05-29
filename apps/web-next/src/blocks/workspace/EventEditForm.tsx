@@ -14,6 +14,7 @@
 // so the controlled state initialises cleanly from async-loaded data.
 
 import { Button, Input } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import {
   type UpdateEventBody,
   WORKSPACE_EVENT_STATUSES,
@@ -215,7 +216,7 @@ function EditFields({ event }: { event: WorkspaceEventDetail }): ReactElement {
   );
 }
 
-export function EventEditForm({ eventId }: { eventId: string }): ReactElement {
+function EventEditFormInner({ eventId }: { eventId: string }): ReactElement {
   const query = useWorkspaceEvent(eventId);
 
   if (query.isPending) {
@@ -229,6 +230,14 @@ export function EventEditForm({ eventId }: { eventId: string }): ReactElement {
     );
   }
   return <EditFields event={query.data.event} />;
+}
+
+export function EventEditForm(props: { eventId: string }): ReactElement {
+  return (
+    <IslandRoot>
+      <EventEditFormInner {...props} />
+    </IslandRoot>
+  );
 }
 
 export default EventEditForm;

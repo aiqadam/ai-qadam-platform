@@ -9,6 +9,7 @@
 // the country lead sees their own country first; super-admin can
 // flip via the picker.
 
+import { IslandRoot } from '@/lib/island-root';
 import { COUNTRY_CODES, type CountryCode, type CountryMetrics } from '@/lib/types';
 import { useCountryMetrics, useCrossCountryMetrics } from '@/lib/use-dashboard';
 import { type ReactElement, type ReactNode, useState } from 'react';
@@ -176,7 +177,7 @@ function CrossCountryStrip({ days }: { days: number }): ReactElement {
   );
 }
 
-export function DashboardKpis(): ReactElement {
+function DashboardKpisInner(): ReactElement {
   const [country, setCountry] = useState<CountryCode>('uz');
   const [days, setDays] = useState<number>(30);
   const main = useCountryMetrics({ country, days });
@@ -193,6 +194,14 @@ export function DashboardKpis(): ReactElement {
       </section>
       <CrossCountryStrip days={days} />
     </div>
+  );
+}
+
+export function DashboardKpis(): ReactElement {
+  return (
+    <IslandRoot>
+      <DashboardKpisInner />
+    </IslandRoot>
   );
 }
 

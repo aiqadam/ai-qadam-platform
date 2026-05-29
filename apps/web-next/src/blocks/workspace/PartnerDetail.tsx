@@ -9,6 +9,7 @@
 // Reads via usePartnerDetail(slug) from lib/use-partners (operator-only,
 // client-fetched like the other workspace cabinets).
 
+import { IslandRoot } from '@/lib/island-root';
 import { type PartnerDetail as PartnerDetailData } from '@/lib/types';
 import { usePartnerDetail } from '@/lib/use-partners';
 import type { ReactElement, ReactNode } from 'react';
@@ -129,7 +130,7 @@ function KitAssets({ p }: { p: PartnerDetailData }): ReactElement {
   );
 }
 
-export function PartnerDetail({ slug }: Props): ReactElement {
+function PartnerDetailInner({ slug }: Props): ReactElement {
   const query = usePartnerDetail(slug);
 
   if (query.isPending) {
@@ -150,6 +151,14 @@ export function PartnerDetail({ slug }: Props): ReactElement {
       <Audiences p={p} />
       <KitAssets p={p} />
     </div>
+  );
+}
+
+export function PartnerDetail(props: Props): ReactElement {
+  return (
+    <IslandRoot>
+      <PartnerDetailInner {...props} />
+    </IslandRoot>
   );
 }
 
