@@ -55,7 +55,24 @@ const proxy: APIRoute = async ({ request, params }) => {
     // Conditional spread (not body: undefined) for exactOptionalPropertyTypes.
     ...(hasBody ? { body: await request.arrayBuffer() } : {}),
   };
-  const upstream = await fetch(target, init);
+
+  // A thrown fetch (upstream unreachable / DNS / TLS) would otherwise
+  // surface as an OPAQUE Astro 500 — that's how the build-host sign-in
+  // bug hid for a deploy (the API base was wrong and every /api call
+  // 500'd with no clue). Catch it and emit a 502 whose body names the
+  // upstream ORIGIN (host only — never the path or query, which could
+  // carry tokens) so the failure is self-diagnosing from the browser.
+  let upstream: Response;
+  try {
+    upstream = await fetch(target, init);
+  } catch (err) {
+    const origin = new URL(target).origin;
+    const reason = err instanceof Error ? err.message : 'unknown error';
+    return new Response(JSON.stringify({ error: 'upstream_unreachable', origin, reason }), {
+      status: 502,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
 
   const respHeaders = new Headers();
   upstream.headers.forEach((value, key) => {

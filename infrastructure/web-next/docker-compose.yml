@@ -42,10 +42,26 @@ services:
       NODE_ENV: production
       HOST: "0.0.0.0"
       PORT: "4322"
-      # SSR auth bootstrap hits the API over the shared coolify
-      # docker network. The aiqadam-api container is reachable via its
-      # Coolify-generated network alias.
-      INTERNAL_API_URL: "http://aiqadam-api:3000"
+      # API base for SSR auth bootstrap (middleware.ts) AND the
+      # same-origin /api proxy (pages/api/[...path].ts). We deliberately
+      # use the PUBLIC apex origin, not an internal docker alias:
+      #   * `http://aiqadam-api:3000` assumed a Coolify network alias
+      #     that is NOT configured on the API app (Coolify only adds
+      #     name aliases via custom_network_aliases — see the Directus
+      #     SSR note in CLAUDE memory). Every /api call threw
+      #     `fetch failed` → opaque Astro 500. That broke sign-in on
+      #     2026-05-29 (root-caused + reproduced before this fix).
+      #   * `https://aiqadam.org/api` is the SAME public path the bot
+      #     already uses (verified 302→Authentik) and the SAME host as
+      #     OIDC_REDIRECT_URI, so the whole login round-trip stays on
+      #     one origin. Session cookies are Domain=.aiqadam.org, so a
+      #     sign-in established here is shared with next.aiqadam.org.
+      # Consumers build `${INTERNAL_API_URL}/v1/...`, so the trailing
+      # `/api` yields the correct public `/api/v1/...` shape (Traefik
+      # strips `/api` before the container). Build-host only — at
+      # cutover, Traefik PathPrefix(`/api`) on the tenant hosts serves
+      # /api natively and this proxy goes dormant.
+      INTERNAL_API_URL: "https://aiqadam.org/api"
     labels:
       # Traefik routing. Hand-written; see header for why.
       - "traefik.enable=true"
