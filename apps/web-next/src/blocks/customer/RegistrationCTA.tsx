@@ -16,6 +16,7 @@
 // Wiring: docs/architecture/wiring-map.md → registrations.
 
 import { Button } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import { useAuth } from '@/lib/use-auth';
 import {
   type ActiveRegistrationStatus,
@@ -137,7 +138,7 @@ function AuthedCta({
   );
 }
 
-export function RegistrationCTA({ eventId, capacity, registeredCount }: Props): ReactElement {
+function RegistrationCTAInner({ eventId, capacity, registeredCount }: Props): ReactElement {
   const auth = useAuth();
   const status = useMyRegistrationStatus(eventId);
   const [optimisticDelta, setOptimisticDelta] = useState(0);
@@ -159,6 +160,14 @@ export function RegistrationCTA({ eventId, capacity, registeredCount }: Props): 
         <AnonCta eventId={eventId} isFull={isFull} />
       )}
     </div>
+  );
+}
+
+export function RegistrationCTA(props: Props): ReactElement {
+  return (
+    <IslandRoot>
+      <RegistrationCTAInner {...props} />
+    </IslandRoot>
   );
 }
 

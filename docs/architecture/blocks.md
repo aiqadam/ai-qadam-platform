@@ -111,6 +111,14 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 
 ## Provider-coupled blocks
 
+**Every interactive island self-wraps in `<IslandRoot>` (M0-fix-B).**
+Astro hydrates each `client:load` island as its own React root, so a
+single page/Layout-level provider reaches none of them. Each island's
+public export is therefore `<IslandRoot><XxxInner/></IslandRoot>`, giving
+its `useAuth`/`useQuery` calls a `RuntimeProvider` in the SAME root.
+`getQueryClient()` is a browser singleton so all islands still share one
+cache. New islands MUST follow this pattern (see `lib/island-root.tsx`).
+
 Interactive React blocks that consume L1 hooks via React Context
 (`useAuth`, `useQueryClient`) cannot ship a Storybook story until
 `apps/storybook/` has a decorator wrapping every story in a synthetic

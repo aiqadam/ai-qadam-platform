@@ -20,6 +20,7 @@
 // Wiring: docs/architecture/wiring-map.md → event_questions.
 
 import { Button } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import type { EventQuestion } from '@/lib/types';
 import { useAuth } from '@/lib/use-auth';
 import { usePostQuestion } from '@/lib/use-event-forum';
@@ -146,7 +147,7 @@ function QuestionItem({ q }: { q: EventQuestion }): ReactElement {
   );
 }
 
-export function ForumThread({ eventId, eventTitle, initialQuestions }: Props): ReactElement {
+function ForumThreadInner({ eventId, eventTitle, initialQuestions }: Props): ReactElement {
   const auth = useAuth();
   const [questions, setQuestions] = useState<EventQuestion[]>(initialQuestions);
 
@@ -189,6 +190,14 @@ export function ForumThread({ eventId, eventTitle, initialQuestions }: Props): R
         </ul>
       )}
     </section>
+  );
+}
+
+export function ForumThread(props: Props): ReactElement {
+  return (
+    <IslandRoot>
+      <ForumThreadInner {...props} />
+    </IslandRoot>
   );
 }
 

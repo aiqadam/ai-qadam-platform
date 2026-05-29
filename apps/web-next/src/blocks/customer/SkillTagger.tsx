@@ -12,10 +12,11 @@
 // Wiring: docs/architecture/wiring-map.md → member_skills.
 
 import { Button, Input } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import { useAddSkill, useMyFullProfile, useRemoveSkill } from '@/lib/use-me-profile';
 import { type FormEvent, type ReactElement, useState } from 'react';
 
-export function SkillTagger(): ReactElement {
+function SkillTaggerInner(): ReactElement {
   const profile = useMyFullProfile();
   const add = useAddSkill();
   const remove = useRemoveSkill();
@@ -96,6 +97,14 @@ export function SkillTagger(): ReactElement {
         {submitError && <p className="text-xs text-destructive mt-2">{submitError}</p>}
       </div>
     </div>
+  );
+}
+
+export function SkillTagger(): ReactElement {
+  return (
+    <IslandRoot>
+      <SkillTaggerInner />
+    </IslandRoot>
   );
 }
 

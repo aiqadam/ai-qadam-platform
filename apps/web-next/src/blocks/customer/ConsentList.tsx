@@ -13,6 +13,7 @@
 // Wiring: docs/architecture/wiring-map.md → member_consents.
 
 import { Button } from '@/kit';
+import { IslandRoot } from '@/lib/island-root';
 import { CONSENT_PURPOSES, type ConsentPurpose } from '@/lib/types';
 import { useMyFullProfile, useUpdateConsent } from '@/lib/use-me-profile';
 import { type ReactElement } from 'react';
@@ -60,7 +61,7 @@ function consentByPurpose(
   return out;
 }
 
-export function ConsentList(): ReactElement {
+function ConsentListInner(): ReactElement {
   const profile = useMyFullProfile();
   const update = useUpdateConsent();
 
@@ -116,6 +117,14 @@ export function ConsentList(): ReactElement {
         })}
       </ul>
     </div>
+  );
+}
+
+export function ConsentList(): ReactElement {
+  return (
+    <IslandRoot>
+      <ConsentListInner />
+    </IslandRoot>
   );
 }
 
