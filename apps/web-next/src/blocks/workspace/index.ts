@@ -15,6 +15,7 @@ export { EventsList } from './EventsList';
 export { FormsList } from './FormsList';
 export { InvitesList } from './InvitesList';
 export { KpiTile } from './KpiTile';
+export { MembersFilterPanel } from './MembersFilterPanel';
 export { MembersList } from './MembersList';
 export { default as PageShell } from './PageShell.astro';
 export { PartnerDetail } from './PartnerDetail';

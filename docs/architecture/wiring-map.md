@@ -426,22 +426,31 @@ ssr_fetcher: none — island fetches client-side (page is operator-only, no SEO 
 fallback: error surface in tile grid / cross-country strip
 ```
 
-### `workspace_members` — LIVE as of PR 2.2
+### `workspace_members` — LIVE (list + search + filters) as of M2.3a
 
 ```yaml
 data_source: workspace_members  (synthetic — server-side view over directus_users + member_employments + member_consents)
-description: Operator-facing paginated member directory. Per ADR-0033 operators NEVER touch Directus admin; this cabinet replaces it for search/filter/cohort workflows.
+description: Operator-facing paginated member directory. Per ADR-0033 operators NEVER touch Directus admin; this cabinet replaces it for search/filter/cohort workflows. M2.3a adds the 7-primitive filter sheet (Directus-native filter object, same shape cohorts store). Cohort save/load lands in M2.3b.
 
 customer_blocks: []   # never surfaced to customers
 
 operator_blocks:
-  - block: MembersList (composes <DataTable>)
+  - block: MembersList (composes <DataTable> + <MembersFilterPanel> over <Drawer>)
     cabinet: /workspace/members
     operation: read
-    hooks: lib/use-members.ts → useMembersSearch
+    hooks: lib/use-members.ts → useMembersSearch (q + filter + page); lib/member-filters.ts → buildMemberFilter
+
+filter_primitives:  # each → a Directus clause, ANDed
+  - country → country._eq
+  - seniority → seniority._eq
+  - industry → industry._contains
+  - interest → member_interests.topic_tag._eq
+  - employer → member_employments.employer.name._icontains (+ is_current)
+  - attendedMin → registrations._count._gte
+  - consent → member_consents.purpose._eq (+ revoked_at._null)
 
 api_endpoints:
-  - GET /v1/workspace/members?q=&page=&limit=  (MembersController; AuthGuard + page-level <AuthGate role="aiqadam-operators">)
+  - GET /v1/workspace/members?q=&filter=<JSON>&page=&limit=  (MembersController; AuthGuard + page-level <AuthGate role="aiqadam-operators">)
 
 ssr_fetcher: none — React island fetches client-side via apiClient (page is operator-only, no SEO requirement)
 fallback: error surface in DataTable; pagination defaults to page 1

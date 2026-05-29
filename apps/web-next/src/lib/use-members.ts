@@ -13,6 +13,9 @@ import type { MemberSearchResult } from './types';
 
 export interface MembersSearchArgs {
   q?: string;
+  // Raw Directus filter object (built by lib/member-filters). Sent as
+  // a JSON-encoded `filter` query param when non-empty.
+  filter?: Record<string, unknown>;
   page: number;
   limit: number;
 }
@@ -31,6 +34,9 @@ export function useMembersSearch(
       });
       if (args.q && args.q.trim().length > 0) {
         params.set('q', args.q.trim());
+      }
+      if (args.filter && Object.keys(args.filter).length > 0) {
+        params.set('filter', JSON.stringify(args.filter));
       }
       return apiClient<MemberSearchResult>(`/v1/workspace/members?${params.toString()}`);
     },
