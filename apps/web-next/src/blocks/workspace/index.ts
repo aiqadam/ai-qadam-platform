@@ -16,3 +16,4 @@ export { KpiTile } from './KpiTile';
 export { MembersList } from './MembersList';
 export { default as PageShell } from './PageShell.astro';
 export { PartnersList } from './PartnersList';
+export { default as WorkspaceNav } from './WorkspaceNav.astro';

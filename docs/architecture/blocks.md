@@ -70,7 +70,8 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 
 | Block | Import | Props | Consumers | Story | Data source |
 |---|---|---|---|---|---|
-| `<PageShell>` | `@/blocks/workspace` | `title: string, description?: string, width?: 'narrow' \| 'standard' \| 'wide'` (named slots: `breadcrumbs`, `actions`; default slot = body) | `pages/workspace/members/index.astro` (PR 2.2) | Astro-only — no story | n/a (presentation) |
+| `<PageShell>` | `@/blocks/workspace` | `title: string, description?: string, width?: 'narrow' \| 'standard' \| 'wide'` (named slots: `breadcrumbs`, `actions`; default slot = body; composes `<WorkspaceNav>` left rail since M0.3) | every `/workspace/*` cabinet | Astro-only — no story | n/a (presentation) |
+| `<WorkspaceNav>` | `@/blocks/workspace` | _(no props — persistent left rail; cabinet links highlighted from `Astro.url.pathname`; super-admin "Admin" section gated on `Astro.locals.auth` groups)_ | `<PageShell>` (M0.3) | Astro-only — no story | `Astro.locals.auth` (SSR) |
 | `<Breadcrumbs>` | `@/blocks/workspace` | `items: { label: string, href?: string }[], class?: string` (final item rendered without link as `aria-current=page`) | `pages/workspace/members/index.astro` (PR 2.2) | Astro-only — no story | n/a |
 | `<DataTable>` | `@/blocks/workspace` | `columns: { key, label, render, width?, align? }[], rows: TRow[], rowKey?, pagination?: { page, totalPages, onChange }, isLoading?, errorMessage?, emptyHeading?, emptyDescription?` (React island — generic over `TRow`) | `<MembersList>` (PR 2.2) | Storyless — interactive island needs provider mocks | generic (caller provides rows) |
 | `<MembersList>` | `@/blocks/workspace` | _(no props — owns pagination + search state, reads via `useMembersSearch()` from `lib/use-members`)_ | `pages/workspace/members/index.astro` (PR 2.2) | Storyless — interactive island needs provider mocks | `/v1/workspace/members` |

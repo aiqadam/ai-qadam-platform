@@ -9,10 +9,17 @@
 //   slot="actions"      → top-right action area (buttons / menus)
 //   slot (default)      → page body (DataTable, Form, KpiTile grid, …)
 //
-// `title` and optional `description` render in the page header. The
-// shell deliberately stays presentation-only: page-level role gating
-// stays a page concern via <AuthGate>, and data fetching stays in the
-// page frontmatter (not the shell) per ADR-0038 §Locks #1.
+// Layout (M0.3): a persistent <WorkspaceNav> left rail + the page
+// column. The rail gives cross-cabinet navigation on every workspace
+// page; it collapses below md (the rail is hidden on mobile — cabinet
+// nav there rides the top <AppNav> account menu's Workspace link for
+// now). `title` + optional `description` render in the page header.
+//
+// The shell stays presentation-only: page-level role gating stays a
+// page concern via <AuthGate>, and data fetching stays in the page
+// frontmatter (not the shell) per ADR-0038 §Locks #1.
+
+import WorkspaceNav from './WorkspaceNav.astro';
 
 interface Props {
   title: string;
@@ -31,23 +38,28 @@ const WIDTH_CLASS: Record<NonNullable<Props['width']>, string> = {
 };
 ---
 
-<main class={`mx-auto ${WIDTH_CLASS[width]} px-6 py-10`}>
-  <slot name="breadcrumbs" />
-  <header class="flex items-start justify-between gap-4 mt-3 mb-8 pb-6 border-b border-border">
-    <div class="min-w-0">
-      <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground m-0">
-        {title}
-      </h1>
-      {
-        description && (
-          <p class="text-sm text-muted-foreground mt-2 m-0 leading-relaxed">{description}</p>
-        )
-      }
-    </div>
-    <div class="flex items-center gap-2 shrink-0">
-      <slot name="actions" />
-    </div>
-  </header>
+<div class="flex items-start">
+  <WorkspaceNav />
+  <main class="flex-1 min-w-0">
+    <div class={`mx-auto ${WIDTH_CLASS[width]} px-6 py-10`}>
+      <slot name="breadcrumbs" />
+      <header class="flex items-start justify-between gap-4 mt-3 mb-8 pb-6 border-b border-border">
+        <div class="min-w-0">
+          <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground m-0">
+            {title}
+          </h1>
+          {
+            description && (
+              <p class="text-sm text-muted-foreground mt-2 m-0 leading-relaxed">{description}</p>
+            )
+          }
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <slot name="actions" />
+        </div>
+      </header>
 
-  <slot />
-</main>
+      <slot />
+    </div>
+  </main>
+</div>

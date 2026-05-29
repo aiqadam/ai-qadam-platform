@@ -1,0 +1,80 @@
+---
+// L3 workspace block — <WorkspaceNav>.
+//
+// Persistent left rail for the operator workspace. Composed by
+// <PageShell> so every /workspace/* page gets cross-cabinet navigation
+// (the thing v1's Workspace.tsx sidebar provided, absent in web-next
+// until M0.3). The current cabinet is highlighted from
+// Astro.url.pathname; the super-admin "Admin" section is gated on the
+// SSR-verified Astro.locals.auth groups.
+//
+// Only cabinets that EXIST in web-next are linked — no dead 404 links.
+// As later cabinets land (Announce M2.4, Telegram M2.7/8, Countries
+// M2.5) their PRs add the corresponding entry here.
+//
+// Tailwind tokens only (no inline style=, ADR-0038 §Locks #1c).
+
+interface NavLink {
+  href: string;
+  label: string;
+}
+
+const MAIN_LINKS: NavLink[] = [
+  { href: '/workspace/dashboard', label: 'Dashboard' },
+  { href: '/workspace/members', label: 'Members' },
+  { href: '/workspace/events', label: 'Events' },
+  { href: '/workspace/forms', label: 'Forms' },
+  { href: '/workspace/partners', label: 'Partners' },
+  { href: '/workspace/approvals', label: 'Approvals' },
+];
+
+// Super-admin-only cabinets (SuperAdminGuard on the API side).
+const ADMIN_LINKS: NavLink[] = [
+  { href: '/workspace/admin/users', label: 'Invites' },
+  { href: '/workspace/admin/audit', label: 'Audit log' },
+];
+
+const groups = Astro.locals.auth?.me?.groups ?? [];
+const isSuperAdmin = groups.some((g) => g === 'aiqadam-super-admin' || g === 'authentik Admins');
+
+const pathname = Astro.url.pathname;
+// Current = exact match, or the deepest-prefix match for nested cabinet
+// routes (e.g. /workspace/events/[id] highlights Events).
+function isActive(href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+const LINK_BASE =
+  'block rounded-md px-3 py-2 text-sm no-underline transition-colors';
+const LINK_IDLE = 'text-muted-foreground hover:text-foreground hover:bg-muted/60';
+const LINK_ACTIVE = 'text-foreground bg-muted/70 font-medium';
+---
+
+<aside
+  class="shrink-0 w-56 border-r border-border px-3 py-6 hidden md:flex md:flex-col gap-1 sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto"
+>
+  <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 pb-3 m-0">
+    Workspace
+  </p>
+  {
+    MAIN_LINKS.map((l) => (
+      <a href={l.href} class={`${LINK_BASE} ${isActive(l.href) ? LINK_ACTIVE : LINK_IDLE}`}>
+        {l.label}
+      </a>
+    ))
+  }
+  {
+    isSuperAdmin && (
+      <>
+        <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2 m-0">
+          Admin
+        </p>
+        {ADMIN_LINKS.map((l) => (
+          <a href={l.href} class={`${LINK_BASE} ${isActive(l.href) ? LINK_ACTIVE : LINK_IDLE}`}>
+            {l.label}
+          </a>
+        ))}
+      </>
+    )
+  }
+</aside>

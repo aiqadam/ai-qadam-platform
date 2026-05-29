@@ -1,0 +1,19 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace
+// generated: 2026-05-26
+//
+// Phase M0.3 — operator workspace landing.
+//
+// v1's /workspace was a launcher grid; web-next replaces that with the
+// persistent <WorkspaceNav> rail (M0.3), so the index just lands the
+// operator on the Dashboard cabinet. Closes the parity gap where
+// /workspace had no v2 route.
+//
+// SSR redirect (not prerendered) so the auth middleware runs first —
+// anon users hitting /workspace get bounced to dashboard which renders
+// its own <AuthGate role="aiqadam-operators"> sign-in surface.
+export const prerender = false;
+
+return Astro.redirect('/workspace/dashboard', 302);
+---
