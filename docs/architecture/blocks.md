@@ -38,7 +38,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<Toast>` | `@/kit` | `variant, title, description` | [link]() |
 | `<Dialog>` | `@/kit` | `open, onOpenChange, title, children` | [link]() |
 | `<Select>` | `@/kit` | `value, onValueChange, options` | [link]() |
-| `<Drawer>` | `@/kit` | `open, onOpenChange, side, children` | [link]() |
+| `<Drawer>` | `@/kit` | Radix Dialog side-sheet: `Drawer` / `DrawerTrigger` / `DrawerContent side='right'\|'left'` / `DrawerHeader` / `DrawerFooter` / `DrawerTitle` / `DrawerDescription` / `DrawerClose` (M1.1) | `L2 Kit / Drawer` story |
 | `<Tooltip>` | `@/kit` | `content, children` | [link]() |
 
 ## Layer 3 (blocks) — the catalogue
