@@ -5,6 +5,17 @@
 > [`wiring-map.md`](./wiring-map.md) (cabinet ↔ aggregates),
 > [`parity-matrix.md`](./parity-matrix.md) (cutover gate).
 
+> **⚠️ Status 2026-05-26 — read [`web-next-workplan.md`](./web-next-workplan.md) for the live remaining-work map.**
+> Phase 1 (customer surfaces) is COMPLETE; Phase 2 (operator cabinets) has its
+> read/list tier shipped (Members, Invites, Dashboard, Audit, Partners,
+> Approvals, Events, Forms). A discovery sweep found one gap the original phase
+> plan never scheduled: **the sitewide top-nav / header was never built in
+> web-next** — `Layout.astro` has no nav, no auth-aware account menu, no
+> country/locale switcher, and `<PageShell>` has no cross-cabinet nav. This is
+> the parity-matrix flagship row (the inconsistent-auth-UI bug that motivated
+> the rewire), so it now LEADS the remaining work as Milestone M0 in the
+> workplan. Decision: full parity — port every v1 surface (no drop-list).
+
 ## Topology
 
 ```
