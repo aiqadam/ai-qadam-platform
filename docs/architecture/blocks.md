@@ -99,8 +99,8 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<DateTime>` | `@/blocks/common` | `value: string, format: 'long' \| 'short' \| 'time' \| 'datetime', class?: string` (en-US locale; emits `<time datetime=...>` for SR + crawlers) | `<EventDetail>` hero; `<ProfileCard>` recent-events list (both PR 1.8b) | Astro-only — no story | n/a |
 | `<TimeRange>` | `@/blocks/common` | `start: string, end: string, class?: string` (renders `HH:MM — HH:MM`; cross-day adds weekday prefix) | `<EventDetail>` hero (PR 1.8b) | Astro-only — no story | n/a |
 | `<MarkdownBody>` | `@/blocks/common` | `content: string \| null \| undefined, variant?: 'muted' \| 'body', class?: string` (markdown-lite: blank-line blocks → `<p>` or `<ul>`, `- ` bullets, full HTML escape) | `<EventDetail>` description + agenda; `<ProfileCard>` bio (both PR 1.8a) | Astro-only — no story | n/a (pure presentation) |
-| `<CountrySwitcher>` | `@/blocks/common` | `current: CountryCode` | — | — | useAuth() |
-| `<LocaleSwitcher>` | `@/blocks/common` | `current: Locale` | — | — | i18n |
+| `<CountrySwitcher>` | `@/blocks/common` | `class?: string` (native `<select>` + inline `<script>`; tenant detected client-side from hostname, navigates to sibling `*.aiqadam.org` subdomain) | planned `<AppNav>` (M0.2) | Astro-only — no story | n/a (hostname) |
+| `<LocaleSwitcher>` | `@/blocks/common` | `class?: string` (native `<select>` + inline `<script>`; writes `aiqadam-locale` cookie + reloads — forward-compatible; web-next i18n translation layer not yet live) | planned `<AppNav>` (M0.2) | Astro-only — no story | n/a (cookie) |
 
 ## Provider-coupled blocks
 

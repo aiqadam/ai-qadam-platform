@@ -1,0 +1,55 @@
+---
+// L3 common block — <LocaleSwitcher>.
+//
+// Locale switcher for the sitewide nav. Renders a native <select> of
+// the supported locales; on change it writes the `aiqadam-locale`
+// cookie (same name v1 reads) + full-reloads so SSR pages re-render
+// in the new language.
+//
+// NOTE: web-next has no i18n translation layer YET — the full i18n
+// workstream lands later. This block is the FORWARD-COMPATIBLE
+// mechanism: the cookie it sets is the real one the API/SSR will read
+// once translations exist, so the switcher Just Works when i18n lands.
+// Until then the UI stays English regardless of selection (the cookie
+// is set but nothing consumes it). Shipping it now keeps nav parity
+// with v1 and means M0.2 <AppNav> has both switcher slots filled.
+//
+// Tailwind tokens (no inline style=, ADR-0038 §Locks #1c). Hydration-
+// free inline <script>, same rationale as <CountrySwitcher>.
+
+const LOCALE_COOKIE = 'aiqadam-locale';
+const LOCALE_OPTIONS = [
+  { code: 'en', label: 'English' },
+  { code: 'ru', label: 'Русский' },
+] as const;
+
+interface Props {
+  class?: string;
+}
+const { class: extraClass = '' } = Astro.props;
+---
+
+<select
+  id="aq-locale-switcher"
+  aria-label="Switch language"
+  class={`rounded-md border border-border bg-card text-foreground px-2 py-1 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${extraClass}`}
+>
+  {LOCALE_OPTIONS.map((o) => <option value={o.code}>{o.label}</option>)}
+</select>
+
+<script is:inline define:vars={{ cookieName: LOCALE_COOKIE }}>
+  const ls = document.getElementById('aq-locale-switcher');
+  if (ls) {
+    // Reflect the current cookie value in the dropdown selection.
+    const match = document.cookie.match(new RegExp(`(?:^|; )${cookieName}=([^;]+)`));
+    const current = match ? decodeURIComponent(match[1]) : 'en';
+    for (const opt of ls.options) {
+      opt.selected = opt.value === current;
+    }
+    ls.addEventListener('change', (e) => {
+      const next = e.target.value;
+      document.cookie = `${cookieName}=${next}; path=/; max-age=31536000; samesite=lax`;
+      window.location.reload();
+    });
+  }
+</script>

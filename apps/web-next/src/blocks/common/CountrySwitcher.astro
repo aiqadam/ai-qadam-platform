@@ -1,0 +1,58 @@
+---
+// L3 common block — <CountrySwitcher>.
+//
+// Tenant switcher for the sitewide nav. Renders a native <select> of
+// the four tenants (uz / kz / tj / global); on change it navigates to
+// the sibling subdomain preserving the current path + query.
+//
+// Prerender-safe by design: the current tenant is detected CLIENT-side
+// from window.location.hostname (no per-request data), so this block
+// can sit in a prerendered header without forcing SSR. Local dev
+// (localhost / 127.0.0.1) is a no-op — there's no subdomain DNS.
+//
+// Styling uses design-system tokens via Tailwind classes (ADR-0038
+// §Locks #1c — no inline style=). Interaction is a small inline
+// <script> rather than a React island: the behaviour is trivial and
+// hydration-free keeps the nav cheap.
+
+const COUNTRY_OPTIONS = [
+  { code: 'uz', label: '🇺🇿 Uzbekistan' },
+  { code: 'kz', label: '🇰🇿 Kazakhstan' },
+  { code: 'tj', label: '🇹🇯 Tajikistan' },
+  { code: 'global', label: '🌐 Global' },
+] as const;
+
+const COUNTRY_CODES = COUNTRY_OPTIONS.map((o) => o.code);
+
+interface Props {
+  class?: string;
+}
+const { class: extraClass = '' } = Astro.props;
+---
+
+<select
+  id="aq-country-switcher"
+  aria-label="Switch country"
+  class={`rounded-md border border-border bg-card text-foreground px-2 py-1 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${extraClass}`}
+>
+  {COUNTRY_OPTIONS.map((o) => <option value={o.code}>{o.label}</option>)}
+</select>
+
+<script is:inline define:vars={{ countryCodes: COUNTRY_CODES }}>
+  const cs = document.getElementById('aq-country-switcher');
+  if (cs) {
+    const hostname = window.location.hostname.toLowerCase();
+    const firstLabel = hostname.split('.')[0] ?? '';
+    const current = countryCodes.includes(firstLabel) ? firstLabel : 'uz';
+    for (const opt of cs.options) {
+      opt.selected = opt.value === current;
+    }
+    cs.addEventListener('change', (e) => {
+      const code = e.target.value;
+      // Only navigate on a real *.aiqadam.org host; dev is a no-op.
+      if (hostname.endsWith('aiqadam.org')) {
+        window.location.href = `https://${code}.aiqadam.org${window.location.pathname}${window.location.search}`;
+      }
+    });
+  }
+</script>
