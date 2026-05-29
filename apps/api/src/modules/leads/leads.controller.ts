@@ -12,6 +12,7 @@ import {
 import type { Response } from 'express';
 import { z } from 'zod';
 import { env } from '../../config/env';
+import { emailField } from '../../lib/email-schema';
 import { LeadsService } from './leads.service';
 
 // F-S1.6 — anonymous lead-capture endpoints.
@@ -26,7 +27,7 @@ import { LeadsService } from './leads.service';
 // OIDC callback calls LeadsService.convertLeadToMember directly via DI.
 
 const createSchema = z.object({
-  email: z.string().email().max(200),
+  email: emailField(200),
   city: z.string().trim().max(80).optional(),
   interestTopics: z.array(z.string().max(40)).max(20).optional(),
   sourceUrl: z.string().max(500).optional(),

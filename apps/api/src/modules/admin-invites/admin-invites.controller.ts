@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
+import { emailField } from '../../lib/email-schema';
 import { AuthGuard } from '../auth/auth.guard';
 import {
   ALLOWED_ROLE_GROUPS,
@@ -32,7 +33,7 @@ import { SuperAdminGuard } from './super-admin.guard';
 
 const createSchema = z
   .object({
-    email: z.string().trim().toLowerCase().email().max(254),
+    email: emailField(254),
     // display_name is REQUIRED — it drives the Authentik username
     // (firstname.lastname), upn (<user>@aiqadam.org), and mailboxEmail.
     // Deriving from the email local-part produces broken handles for
