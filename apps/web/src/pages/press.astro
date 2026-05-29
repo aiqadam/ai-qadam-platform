@@ -16,8 +16,17 @@ import { fetchMarketingAssets, fetchPressPage, fetchTeamMembers } from '../lib/c
 // section lights up.
 //
 // design-system/ tokens locked — only existing classes and CSS
-// variables. SSG-friendly except for the marketing_assets fetch which
-// runs at request time (Directus state changes; we want the page fresh).
+// variables.
+//
+// SSR (prerender=false) because every section reads live Directus state
+// (marketing_assets, press_page, team_members). Under the previous
+// implicit prerender=true the fetches ran at BUILD time, where the
+// internal `directus:8055` alias isn't reachable — so they returned
+// empty and the page silently served fallback prose + an empty
+// leadership grid (C-3b regression). Request-time SSR uses the internal
+// URL (reachable at runtime) and always reflects current CMS data,
+// surviving rebuilds.
+export const prerender = false;
 
 // Tier 1 assets (per ADR-0025): logos / favicons / brand mark stay in
 // git at apps/web/public/brand/. Edited only by engineers via PR.
