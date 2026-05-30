@@ -206,11 +206,13 @@ export interface LeaderboardEntry {
 // follow-ups.
 // ---------------------------------------------------------------------------
 
+// `display_name` is intentionally absent — see members.service.ts
+// header note. The field doesn't exist on directus_users; the cabinets
+// render `first_name` for the Name column.
 export interface MemberRow {
   id: string;
   email: string;
   first_name?: string | null;
-  display_name?: string | null;
   job_title?: string | null;
   seniority?: string | null;
   city?: string | null;

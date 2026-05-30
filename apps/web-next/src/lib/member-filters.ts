@@ -51,7 +51,11 @@ const FILTER_BUILDERS: Array<{
 }> = [
   { key: 'country', build: (v) => ({ country: { _eq: v } }) },
   { key: 'seniority', build: (v) => ({ seniority: { _eq: v } }) },
-  { key: 'industry', build: (v) => ({ industry: { _contains: v } }) },
+  // Directus's directus_users field is `industry_tags`, not `industry`
+  // — see apps/api/src/modules/workspace/members.service.ts header.
+  // The UI MemberFilters.industry key stays as the public/UX semantic;
+  // only the Directus clause key is the schema name.
+  { key: 'industry', build: (v) => ({ industry_tags: { _contains: v } }) },
   { key: 'interest', build: (v) => ({ member_interests: { topic_tag: { _eq: v } } }) },
   {
     key: 'employer',

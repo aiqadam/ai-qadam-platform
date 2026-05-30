@@ -31,7 +31,7 @@ const COLUMNS: ReadonlyArray<DataTableColumn<MemberRow>> = [
     label: 'Name',
     width: 'md',
     render: (r) => {
-      const name = r.display_name?.trim() || r.first_name?.trim() || null;
+      const name = r.first_name?.trim() || null;
       return name ? (
         <span className="text-foreground">{name}</span>
       ) : (

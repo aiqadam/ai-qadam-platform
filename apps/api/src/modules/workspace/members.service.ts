@@ -24,11 +24,20 @@ import { DirectusClient } from '../directus/directus.client';
 // super-admin mode (any logged-in operator sees all). The CohortsService
 // + the auto-injected country filter come in S2.2.
 
+// NOTE on field names: Directus's directus_users collection uses
+// `industry_tags` (the canonical schema field, per
+// infrastructure/directus/bootstrap.sh). `display_name` does NOT exist
+// on directus_users at all. The cabinets + v1's MemberDirectory were
+// authored against an intended schema that didn't ship — Directus 400'd
+// our `fields=` selector, DirectusClient threw, NestJS surfaced 500
+// (root-caused 2026-05-29 on first signed-in hit). We keep the public
+// `industry` key on MemberRow because the cabinet UI + cohort filter
+// language are built around it; the Directus schema name leaks only
+// at the fetch boundary below.
 export interface MemberRow {
   id: string;
   email: string;
   first_name?: string | null;
-  display_name?: string | null;
   job_title?: string | null;
   seniority?: string | null;
   city?: string | null;
@@ -79,16 +88,17 @@ export class MembersService {
     // gated to begin with. (Sponsors NEVER reach this endpoint.)
     const effectiveFilter = input.filter ?? {};
 
+    // Request Directus's canonical schema names; `display_name` is
+    // intentionally absent (it doesn't exist on directus_users).
     const fields = encodeURIComponent(
       [
         'id',
         'email',
         'first_name',
-        'display_name',
         'job_title',
         'seniority',
         'city',
-        'industry',
+        'industry_tags',
         'is_student',
         'appear_in_directory',
         'state',
@@ -99,14 +109,23 @@ export class MembersService {
     const searchParam = input.query ? `&search=${encodeURIComponent(input.query)}` : '';
     const path = `/users?fields=${fields}&filter=${filterParam}${searchParam}&limit=${limit}&offset=${offset}&meta=filter_count`;
 
+    interface DirectusUserRow extends Omit<MemberRow, 'industry'> {
+      industry_tags?: string[] | null;
+    }
     const res = await this.directus.get<{
-      data: MemberRow[];
+      data: DirectusUserRow[];
       meta?: { filter_count?: number };
     }>(path);
 
+    // Boundary mapping: industry_tags (Directus) → industry (public).
+    const members = res.data.map((row): MemberRow => {
+      const { industry_tags, ...rest } = row;
+      return { ...rest, industry: industry_tags ?? null };
+    });
+
     return {
-      members: res.data,
-      total: res.meta?.filter_count ?? res.data.length,
+      members,
+      total: res.meta?.filter_count ?? members.length,
       page,
       limit,
     };
