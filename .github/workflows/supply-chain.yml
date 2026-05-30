@@ -99,7 +99,7 @@ jobs:
           - postgres:16
           - postgres:16-alpine
           - redis:7-alpine
-          - ghcr.io/goauthentik/server:2024.12.3
+          - ghcr.io/goauthentik/server:2025.10.4
           - directus/directus:11
           - clickhouse/clickhouse-server:24.12-alpine
           - ghcr.io/plausible/community-edition:v3.0.1
