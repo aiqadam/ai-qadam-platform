@@ -13,3 +13,4 @@ export * from './Input';
 export * from './Select';
 export * from './Tabs';
 export * from './Toast';
+export * from './Wizard';
