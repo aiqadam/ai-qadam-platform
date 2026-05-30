@@ -9,10 +9,14 @@
 // Step labels + hints mirror v1's CountryProvisioningWizard.tsx — the
 // state-machine vocabulary is identical so the operator UX is too.
 
-import { Wizard, WizardBody, type WizardStep } from '@/kit';
+import { Button, Wizard, WizardBody, WizardFooter, type WizardStep } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';
-import type { ProvisioningStepState } from '@/lib/types';
-import { useProvisioningState } from '@/lib/use-provisioning';
+import type { ProvisioningState, ProvisioningStepState } from '@/lib/types';
+import {
+  useActivateCountry,
+  useProvisioningState,
+  useRunProvisioning,
+} from '@/lib/use-provisioning';
 import type { ReactElement } from 'react';
 
 const STEP_DEFS: ReadonlyArray<{ id: string; label: string; hint: string }> = [
@@ -53,6 +57,64 @@ function findCurrentStepId(
   return fallback;
 }
 
+function allSucceeded(state: ProvisioningState): boolean {
+  return STEP_DEFS.every((d) => state.steps[d.id]?.status === 'succeeded');
+}
+
+function hasAwaitingManual(state: ProvisioningState): boolean {
+  return STEP_DEFS.some((d) => state.steps[d.id]?.status === 'awaiting_manual');
+}
+
+interface ActionsFooterProps {
+  hasState: boolean;
+  canActivate: boolean;
+  isAlreadyActive: boolean;
+  awaitingManual: boolean;
+  isRunning: boolean;
+  isActivating: boolean;
+  onRun: () => void;
+  onActivate: () => void;
+}
+function ActionsFooter({
+  hasState,
+  canActivate,
+  isAlreadyActive,
+  awaitingManual,
+  isRunning,
+  isActivating,
+  onRun,
+  onActivate,
+}: ActionsFooterProps): ReactElement | null {
+  if (isAlreadyActive) {
+    return (
+      <WizardFooter>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-500">
+          Active · ready
+        </span>
+      </WizardFooter>
+    );
+  }
+  return (
+    <WizardFooter>
+      {awaitingManual ? (
+        <span className="font-mono text-[10px] uppercase tracking-wider text-amber-500">
+          Manual step pending · M2.5-iii adds the confirm button
+        </span>
+      ) : null}
+      <Button type="button" variant="outline" onClick={onRun} disabled={isRunning || isActivating}>
+        {isRunning ? 'Running…' : hasState ? 'Re-run' : 'Start provisioning'}
+      </Button>
+      <Button
+        type="button"
+        onClick={onActivate}
+        disabled={!canActivate || isActivating || isRunning}
+      >
+        {isActivating ? 'Activating…' : 'Activate'}
+      </Button>
+    </WizardFooter>
+  );
+}
+
 function StepDetail({ step, label }: { step: ProvisioningStepState; label: string }): ReactElement {
   return (
     <li className="space-y-1 rounded-md border border-border p-3">
@@ -80,55 +142,45 @@ interface CountryProvisioningWizardProps {
   code: string;
 }
 
-function Inner({ code }: CountryProvisioningWizardProps): ReactElement {
-  const query = useProvisioningState(code);
+function NoRunView({ code, footer }: { code: string; footer: ReactElement }): ReactElement {
+  const steps: WizardStep[] = STEP_DEFS.map((d) => ({
+    id: d.id,
+    label: d.label,
+    hint: d.hint,
+    status: 'pending',
+  }));
+  return (
+    <Wizard steps={steps} currentStepId={STEP_DEFS[0]?.id ?? ''}>
+      <WizardBody>
+        <p className="text-sm text-muted-foreground">
+          No provisioning run yet for <span className="font-mono text-foreground">{code}</span>.
+          Click "Start provisioning" to kick off the state machine.
+        </p>
+      </WizardBody>
+      {footer}
+    </Wizard>
+  );
+}
 
-  if (query.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading provisioning state…</p>;
-  }
-  if (query.error) {
-    return (
-      <p className="text-sm text-destructive">
-        Provisioning state unavailable: {query.error.message}
-      </p>
-    );
-  }
-
-  const envelope = query.data;
-  if (!envelope || !envelope.state) {
-    // No run started yet — render the step strip with all-pending so
-    // the operator can see what they're about to kick off in M2.5-ii.
-    const steps: WizardStep[] = STEP_DEFS.map((d) => ({
-      id: d.id,
-      label: d.label,
-      hint: d.hint,
-      status: 'pending',
-    }));
-    return (
-      <Wizard steps={steps} currentStepId={STEP_DEFS[0]?.id ?? ''}>
-        <WizardBody>
-          <p className="text-sm text-muted-foreground">
-            No provisioning run yet for <span className="font-mono text-foreground">{code}</span>.
-            Use "Start provisioning" (lands with M2.5-ii) to kick off the state machine.
-          </p>
-        </WizardBody>
-      </Wizard>
-    );
-  }
-
-  const { state, is_active } = envelope;
+function LoadedView({
+  code,
+  state,
+  isActive,
+  footer,
+}: {
+  code: string;
+  state: ProvisioningState;
+  isActive: boolean;
+  footer: ReactElement;
+}): ReactElement {
   const lastStepId = STEP_DEFS[STEP_DEFS.length - 1]?.id ?? '';
   const currentStepId = findCurrentStepId(state.steps, lastStepId);
-  const steps: WizardStep[] = STEP_DEFS.map((d) => {
-    const stepState = state.steps[d.id];
-    return {
-      id: d.id,
-      label: d.label,
-      hint: d.hint,
-      status: stepState?.status ?? 'pending',
-    };
-  });
-
+  const steps: WizardStep[] = STEP_DEFS.map((d) => ({
+    id: d.id,
+    label: d.label,
+    hint: d.hint,
+    status: state.steps[d.id]?.status ?? 'pending',
+  }));
   return (
     <Wizard steps={steps} currentStepId={currentStepId}>
       <WizardBody>
@@ -149,7 +201,7 @@ function Inner({ code }: CountryProvisioningWizardProps): ReactElement {
                 <span>in progress</span>
               )}
               <span>
-                active: <span className="text-foreground">{is_active ? 'yes' : 'no'}</span>
+                active: <span className="text-foreground">{isActive ? 'yes' : 'no'}</span>
               </span>
             </div>
           </header>
@@ -162,7 +214,62 @@ function Inner({ code }: CountryProvisioningWizardProps): ReactElement {
           </ul>
         </div>
       </WizardBody>
+      {footer}
     </Wizard>
+  );
+}
+
+function Inner({ code }: CountryProvisioningWizardProps): ReactElement {
+  const query = useProvisioningState(code);
+  const runMutation = useRunProvisioning(code);
+  const activateMutation = useActivateCountry(code);
+
+  if (query.isPending) {
+    return <p className="text-sm text-muted-foreground">Loading provisioning state…</p>;
+  }
+  if (query.error) {
+    return (
+      <p className="text-sm text-destructive">
+        Provisioning state unavailable: {query.error.message}
+      </p>
+    );
+  }
+
+  const envelope = query.data;
+  const state = envelope?.state ?? null;
+  const isActive = envelope?.is_active === true;
+  const completed = state ? allSucceeded(state) : false;
+  const awaitingManual = state ? hasAwaitingManual(state) : false;
+
+  const footer = (
+    <>
+      <ActionsFooter
+        hasState={state !== null}
+        canActivate={completed && !isActive}
+        isAlreadyActive={isActive}
+        awaitingManual={awaitingManual}
+        isRunning={runMutation.isPending}
+        isActivating={activateMutation.isPending}
+        onRun={() => runMutation.mutate()}
+        onActivate={() => activateMutation.mutate()}
+      />
+      {runMutation.error ? (
+        <p className="text-xs text-destructive" role="alert">
+          Couldn't run: {runMutation.error.message}
+        </p>
+      ) : null}
+      {activateMutation.error ? (
+        <p className="text-xs text-destructive" role="alert">
+          Couldn't activate: {activateMutation.error.message}
+        </p>
+      ) : null}
+    </>
+  );
+
+  return state ? (
+    <LoadedView code={code} state={state} isActive={isActive} footer={footer} />
+  ) : (
+    <NoRunView code={code} footer={footer} />
   );
 }
 
