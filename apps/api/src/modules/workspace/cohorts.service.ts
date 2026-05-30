@@ -84,7 +84,11 @@ export class CohortsService {
     }
     // Sample with PII-light field set — operators see enough to
     // recognise the audience, not enough to dox individuals.
-    const fields = encodeURIComponent('id,first_name,city,seniority,industry');
+    // Field names must match Directus's directus_users schema:
+    // `industry_tags` (not `industry`); `display_name` does NOT exist
+    // there. Same trap fixed in MembersService — see fix-F (2026-05-30)
+    // header note on apps/api/src/modules/workspace/members.service.ts.
+    const fields = encodeURIComponent('id,first_name,city,seniority,industry_tags');
     const filterParam = encodeURIComponent(JSON.stringify(cohort.data.filter_query));
     const res = await this.directus.get<{ data: unknown[] }>(
       `/users?fields=${fields}&filter=${filterParam}&limit=${Math.min(50, limit)}`,

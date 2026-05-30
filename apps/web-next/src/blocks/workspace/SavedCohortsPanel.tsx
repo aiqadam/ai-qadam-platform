@@ -13,15 +13,24 @@
 
 import { IslandRoot } from '@/lib/island-root';
 import type { CohortRow } from '@/lib/types';
-import { useCohorts } from '@/lib/use-cohorts';
+import { useCohorts, useDeleteCohort } from '@/lib/use-cohorts';
 import type { ReactElement } from 'react';
 
 interface CohortCardProps {
   cohort: CohortRow;
-  onClick?: (cohort: CohortRow) => void;
+  onLoad?: (cohort: CohortRow) => void;
+  // Pending vs delete is tracked at the panel level (one mutation, one
+  // in-flight id) so the card only needs a flag + a handler.
+  onDelete: (cohort: CohortRow) => void;
+  isDeleting: boolean;
 }
 
-function CohortCard({ cohort, onClick }: CohortCardProps): ReactElement {
+function CohortCard({ cohort, onLoad, onDelete, isDeleting }: CohortCardProps): ReactElement {
+  // Avoid nested-button accessibility issue: the card body is a button
+  // only when onLoad is supplied; the Delete control lives in a footer
+  // ROW outside the load button.
+  const bodyClass =
+    'flex flex-col gap-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm';
   const body = (
     <>
       <div className="truncate text-sm font-medium text-foreground" title={cohort.name}>
@@ -37,22 +46,31 @@ function CohortCard({ cohort, onClick }: CohortCardProps): ReactElement {
       ) : null}
     </>
   );
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={() => onClick(cohort)}
-        title={`Load "${cohort.name}" into the search filters`}
-        className="flex min-w-[200px] max-w-[260px] flex-col gap-1 rounded-md border border-border bg-card p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {body}
-      </button>
-    );
-  }
   return (
-    <div className="flex min-w-[200px] max-w-[260px] flex-col gap-1 rounded-md border border-border bg-card p-3 text-left">
-      {body}
+    <div className="flex min-w-[200px] max-w-[260px] flex-col gap-2 rounded-md border border-border bg-card p-3">
+      {onLoad ? (
+        <button
+          type="button"
+          onClick={() => onLoad(cohort)}
+          disabled={isDeleting}
+          title={`Load "${cohort.name}" into the search filters`}
+          className={`${bodyClass} hover:bg-muted/50 disabled:opacity-50`}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className={bodyClass}>{body}</div>
+      )}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => onDelete(cohort)}
+          disabled={isDeleting}
+          className="font-mono text-[10px] uppercase tracking-wider text-destructive hover:underline disabled:opacity-50"
+        >
+          {isDeleting ? 'Deleting…' : 'Delete'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -63,6 +81,15 @@ interface SavedCohortsPanelProps {
 
 function SavedCohortsPanelInner({ onLoadCohort }: SavedCohortsPanelProps): ReactElement {
   const query = useCohorts();
+  const deleteMutation = useDeleteCohort();
+  // Track which cohort is in-flight so other cards stay enabled.
+  const deletingId =
+    deleteMutation.isPending && typeof deleteMutation.variables === 'string'
+      ? deleteMutation.variables
+      : null;
+  const handleDelete = (cohort: CohortRow): void => {
+    deleteMutation.mutate(cohort.id);
+  };
 
   if (query.isPending) {
     return (
@@ -99,9 +126,20 @@ function SavedCohortsPanelInner({ onLoadCohort }: SavedCohortsPanelProps): React
   return (
     <section aria-labelledby="cohorts-heading" className="space-y-2">
       <Heading />
+      {deleteMutation.error ? (
+        <p className="text-xs text-destructive" role="alert">
+          Couldn't delete cohort: {deleteMutation.error.message}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {cohorts.map((c) => (
-          <CohortCard key={c.id} cohort={c} {...(onLoadCohort ? { onClick: onLoadCohort } : {})} />
+          <CohortCard
+            key={c.id}
+            cohort={c}
+            {...(onLoadCohort ? { onLoad: onLoadCohort } : {})}
+            onDelete={handleDelete}
+            isDeleting={deletingId === c.id}
+          />
         ))}
       </div>
     </section>

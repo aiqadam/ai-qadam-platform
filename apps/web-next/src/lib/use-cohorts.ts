@@ -1,8 +1,9 @@
 // L1 hooks — /v1/workspace/cohorts (operator-saved member-filter sets).
 //
 // Backs the SAVED COHORTS panel + Save modal inside the /workspace/members
-// cabinet. M2.3b-i shipped the read-only list; M2.3b-ii adds save.
-// Click-to-load + delete + edit land in M2.3b-iii.
+// cabinet. M2.3b-i shipped the read-only list; M2.3b-ii added save;
+// M2.3b-iii added click-to-load. M2.3b-iv adds delete. Edit cohort
+// name is parked until an operator asks for it.
 
 import {
   type UseMutationResult,
@@ -52,6 +53,20 @@ export function useSaveCohort(): UseMutationResult<CohortRow, Error, SaveCohortB
         body: body as unknown as Record<string, unknown>,
       });
       return cohort;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: COHORTS_BASE_KEY });
+    },
+  });
+}
+
+export function useDeleteCohort(): UseMutationResult<void, Error, string> {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: async (cohortId) => {
+      await apiClient<void>(`/v1/workspace/cohorts/${encodeURIComponent(cohortId)}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: COHORTS_BASE_KEY });
