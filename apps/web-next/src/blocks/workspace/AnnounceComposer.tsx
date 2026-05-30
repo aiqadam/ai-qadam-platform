@@ -2,7 +2,7 @@
 //
 // React island for the /workspace/announce cabinet (operator
 // announcement composer). Flow: pick a saved cohort → write subject +
-// body → preview. Send + delivery-summary land in M2.4-ii.
+// body → preview → choose consent basis → send → see delivery summary.
 //
 // Mirrors v1's AnnounceComposer (apps/web/src/components/workspace/
 // AnnounceComposer.tsx) — same API shapes, same primitives, same
@@ -19,8 +19,8 @@ import {
   SelectValue,
 } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';
-import type { AnnouncePreview, CohortRow } from '@/lib/types';
-import { usePreviewAnnounce } from '@/lib/use-announce';
+import type { AnnouncePreview, AnnounceSent, CohortRow } from '@/lib/types';
+import { type ConsentBasis, usePreviewAnnounce, useSendAnnounce } from '@/lib/use-announce';
 import { useCohorts } from '@/lib/use-cohorts';
 import { type FormEvent, type ReactElement, useState } from 'react';
 
@@ -150,12 +150,109 @@ function PreviewCard({ preview }: PreviewCardProps): ReactElement {
   );
 }
 
+interface SendControlsProps {
+  consentBasis: ConsentBasis;
+  onChangeConsentBasis: (v: ConsentBasis) => void;
+  onSend: () => void;
+  isSending: boolean;
+}
+function SendControls({
+  consentBasis,
+  onChangeConsentBasis,
+  onSend,
+  isSending,
+}: SendControlsProps): ReactElement {
+  return (
+    <section className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-card p-4">
+      <div className="space-y-1">
+        <label htmlFor="announce-consent" className="text-xs font-medium text-foreground">
+          Consent basis
+        </label>
+        <Select value={consentBasis} onValueChange={(v) => onChangeConsentBasis(v as ConsentBasis)}>
+          <SelectTrigger id="announce-consent" className="w-[260px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="explicit_opt_in">Explicit opt-in</SelectItem>
+            <SelectItem value="operational_contract">Operational contract</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <Button type="button" onClick={onSend} disabled={isSending}>
+        {isSending ? 'Sending…' : 'Send announcement'}
+      </Button>
+    </section>
+  );
+}
+
+interface SentSummaryProps {
+  sent: AnnounceSent;
+  onReset: () => void;
+}
+function SentSummary({ sent, onReset }: SentSummaryProps): ReactElement {
+  const { sent: nSent, skipped_consent, failed, other } = sent.deliveriesSummary;
+  return (
+    <section className="space-y-3 rounded-md border border-border bg-card p-4">
+      <h2 className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground m-0">
+        Sent
+      </h2>
+      <p className="text-sm text-foreground">
+        Dispatched to <span className="font-mono">{sent.recipientCount.toLocaleString()}</span>{' '}
+        recipients
+        {sent.truncated ? (
+          <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-amber-500">
+            truncated
+          </span>
+        ) : null}
+        .
+      </p>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+        <div>
+          <dt className="font-mono uppercase tracking-wider text-muted-foreground">Sent</dt>
+          <dd className="font-mono text-foreground">{nSent.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt className="font-mono uppercase tracking-wider text-muted-foreground">
+            Skipped (consent)
+          </dt>
+          <dd className="font-mono text-foreground">{skipped_consent.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt className="font-mono uppercase tracking-wider text-muted-foreground">Failed</dt>
+          <dd className="font-mono text-foreground">{failed.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt className="font-mono uppercase tracking-wider text-muted-foreground">Other</dt>
+          <dd className="font-mono text-foreground">{other.toLocaleString()}</dd>
+        </div>
+      </dl>
+      <p className="font-mono text-[10px] text-muted-foreground">
+        interaction: <span className="text-foreground">{sent.interactionId}</span>
+      </p>
+      <Button type="button" variant="outline" size="sm" onClick={onReset}>
+        Send another
+      </Button>
+    </section>
+  );
+}
+
 function AnnounceComposerInner(): ReactElement {
   const cohortsQuery = useCohorts();
   const [cohortId, setCohortId] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [consentBasis, setConsentBasis] = useState<ConsentBasis>('explicit_opt_in');
   const previewMutation = usePreviewAnnounce();
+  const sendMutation = useSendAnnounce();
+
+  const reset = (): void => {
+    setCohortId('');
+    setSubject('');
+    setBody('');
+    setConsentBasis('explicit_opt_in');
+    previewMutation.reset();
+    sendMutation.reset();
+  };
 
   if (cohortsQuery.isPending) {
     return <p className="text-sm text-muted-foreground">Loading cohorts…</p>;
@@ -176,6 +273,12 @@ function AnnounceComposerInner(): ReactElement {
         first.
       </p>
     );
+  }
+
+  // After a successful send, swap the composer for the summary —
+  // operators see the deliveriesSummary instead of the now-stale form.
+  if (sendMutation.data) {
+    return <SentSummary sent={sendMutation.data} onReset={reset} />;
   }
 
   return (
@@ -199,6 +302,21 @@ function AnnounceComposerInner(): ReactElement {
       ) : null}
 
       {previewMutation.data ? <PreviewCard preview={previewMutation.data} /> : null}
+
+      {previewMutation.data ? (
+        <SendControls
+          consentBasis={consentBasis}
+          onChangeConsentBasis={setConsentBasis}
+          onSend={() => sendMutation.mutate({ cohortId, subject, body, consentBasis })}
+          isSending={sendMutation.isPending}
+        />
+      ) : null}
+
+      {sendMutation.error ? (
+        <p className="text-sm text-destructive" role="alert">
+          Couldn't send: {sendMutation.error.message}
+        </p>
+      ) : null}
     </div>
   );
 }
