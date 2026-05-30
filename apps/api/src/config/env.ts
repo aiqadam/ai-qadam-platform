@@ -193,6 +193,17 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
 
+  // Hardening C1 — global HTTP rate limiting (observe-before-enforce). When
+  // false (default), ObserveThrottlerGuard LOGS "would-throttle" and allows
+  // over-limit requests so we can size real limits against live traffic; when
+  // true it returns HTTP 429 + Retry-After. Flip to true only after observing
+  // the logs (esp. the /v1/auth/refresh volume) AND adding the Redis store +
+  // `trust proxy` in phase 2. See apps/api/src/lib/observe-throttler.guard.ts.
+  RATE_LIMIT_ENFORCE: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+
   // F-S2.8.x Cloudflare/Resend per-operator email-routing envs
   // (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID, CLOUDFLARE_ACCOUNT_ID,
   // RESEND_ADMIN_API_KEY) were removed in F-S2.12 (2026-05-25):
