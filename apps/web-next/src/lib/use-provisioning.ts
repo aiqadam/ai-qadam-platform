@@ -71,3 +71,26 @@ export function useActivateCountry(
     },
   });
 }
+
+// POST /v1/admin/countries/:code/provisioning/steps/:stepId/manual-
+// complete — refuses unless the step is currently `awaiting_manual`.
+// Used for Plausible-CE (no Sites API), where the operator creates the
+// site by hand and then confirms here. Mutation variable is the stepId
+// so multiple manual steps could be confirmed independently.
+export function useManualCompleteStep(
+  code: string,
+): UseMutationResult<ProvisioningState, Error, string> {
+  const qc = useQueryClient();
+  return useMutation<ProvisioningState, Error, string>({
+    mutationFn: (stepId) =>
+      apiClient<ProvisioningState>(
+        `/v1/admin/countries/${encodeURIComponent(
+          code,
+        )}/provisioning/steps/${encodeURIComponent(stepId)}/manual-complete`,
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: provisioningKey(code) });
+    },
+  });
+}
