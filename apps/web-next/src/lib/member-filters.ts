@@ -94,3 +94,77 @@ export function buildMemberFilter(f: MemberFilters): Record<string, unknown> {
 export function countActiveFilters(f: MemberFilters): number {
   return (Object.keys(f) as Array<keyof MemberFilters>).filter((k) => f[k] !== '').length;
 }
+
+// Inverse of buildMemberFilter. Best-effort parse of a stored Directus
+// filter (e.g. cohort.filter_query) back into the 7 UI primitives so
+// clicking a saved cohort in <SavedCohortsPanel> re-populates the
+// MembersList form. Recognises the EXACT shapes buildMemberFilter
+// emits — anything else is silently dropped (the loaded set is a
+// strict subset of what the form can render). Pure; no fetch.
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function readNestedString(obj: unknown, ...path: string[]): string | null {
+  let cur: unknown = obj;
+  for (const key of path) {
+    if (!isPlainObject(cur)) return null;
+    cur = cur[key];
+  }
+  return typeof cur === 'string' ? cur : null;
+}
+
+function readNestedNumber(obj: unknown, ...path: string[]): number | null {
+  let cur: unknown = obj;
+  for (const key of path) {
+    if (!isPlainObject(cur)) return null;
+    cur = cur[key];
+  }
+  return typeof cur === 'number' && Number.isFinite(cur) ? cur : null;
+}
+
+const FILTER_EXTRACTORS: Array<{
+  key: keyof MemberFilters;
+  extract: (clause: Record<string, unknown>) => string | null;
+}> = [
+  { key: 'country', extract: (c) => readNestedString(c, 'country', '_eq') },
+  { key: 'seniority', extract: (c) => readNestedString(c, 'seniority', '_eq') },
+  { key: 'industry', extract: (c) => readNestedString(c, 'industry_tags', '_contains') },
+  { key: 'interest', extract: (c) => readNestedString(c, 'member_interests', 'topic_tag', '_eq') },
+  {
+    key: 'employer',
+    extract: (c) => readNestedString(c, 'member_employments', 'employer', 'name', '_icontains'),
+  },
+  {
+    key: 'attendedMin',
+    extract: (c) => {
+      const n = readNestedNumber(c, 'registrations', '_count', '_gte');
+      return n !== null ? String(n) : null;
+    },
+  },
+  { key: 'consent', extract: (c) => readNestedString(c, 'member_consents', 'purpose', '_eq') },
+];
+
+export function parseDirectusToMemberFilters(
+  directusFilter: Record<string, unknown>,
+): MemberFilters {
+  const result: MemberFilters = { ...EMPTY_MEMBER_FILTERS };
+  // buildMemberFilter emits either a single clause or {_and: [...]}.
+  // Accept both; anything else is treated as one root-level clause.
+  // Destructure (rather than `directusFilter._and` or `['_and']`) to
+  // satisfy both TS's noPropertyAccessFromIndexSignature (TS4111) and
+  // Biome's useLiteralKeys at the same time.
+  const { _and: rawAnd } = directusFilter;
+  const clauses: Record<string, unknown>[] = Array.isArray(rawAnd)
+    ? rawAnd.filter(isPlainObject)
+    : [directusFilter];
+  for (const clause of clauses) {
+    for (const { key, extract } of FILTER_EXTRACTORS) {
+      if (result[key] !== '') continue;
+      const value = extract(clause);
+      if (value !== null) result[key] = value;
+    }
+  }
+  return result;
+}

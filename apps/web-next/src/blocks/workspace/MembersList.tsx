@@ -10,13 +10,19 @@
 
 import { Button, Input } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';
-import { EMPTY_MEMBER_FILTERS, type MemberFilters, buildMemberFilter } from '@/lib/member-filters';
-import type { MemberRow } from '@/lib/types';
+import {
+  EMPTY_MEMBER_FILTERS,
+  type MemberFilters,
+  buildMemberFilter,
+  parseDirectusToMemberFilters,
+} from '@/lib/member-filters';
+import type { CohortRow, MemberRow } from '@/lib/types';
 import { useMembersSearch } from '@/lib/use-members';
 import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from './DataTable';
 import { MembersFilterPanel } from './MembersFilterPanel';
 import { SaveCohortModal } from './SaveCohortModal';
+import { SavedCohortsPanel } from './SavedCohortsPanel';
 
 const PAGE_SIZE = 50;
 
@@ -192,9 +198,16 @@ function MembersListInner(): ReactElement {
     setFilters(next);
     setPage(1);
   };
+  const loadCohort = (cohort: CohortRow): void => {
+    setFilters(parseDirectusToMemberFilters(cohort.filter_query));
+    setCommittedQuery('');
+    setPage(1);
+  };
 
   return (
     <div className="space-y-4">
+      <SavedCohortsPanel onLoadCohort={loadCohort} />
+
       <Toolbar
         filters={filters}
         hasFilter={hasFilter}

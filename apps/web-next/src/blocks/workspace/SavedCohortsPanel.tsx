@@ -1,13 +1,15 @@
 // L3 workspace block — <SavedCohortsPanel>.
 //
-// Read-only list of saved cohorts, rendered above the search bar inside
-// the Members cabinet. Mirrors v1's MemberDirectory left rail in spirit
+// List of saved cohorts, rendered above the search bar inside the
+// Members cabinet. Mirrors v1's MemberDirectory left rail in spirit
 // (named filter sets the operator can reuse) but laid out horizontally
 // to fit alongside the search controls without crowding the table.
 //
-// M2.3b-i ships this read-only display. M2.3b-ii makes each card click-
-// loadable into MembersList's applied filter state, plus the
-// SaveCohortModal that creates new cohorts.
+// M2.3b-i shipped read-only display. M2.3b-ii added SaveCohortModal.
+// M2.3b-iii (this PR) wires click-to-load: when the parent passes
+// `onLoadCohort`, each card becomes a button that calls back with the
+// row, and <MembersList> applies its filter via parseDirectusToMember-
+// Filters. Outside that wiring the panel stays display-only.
 
 import { IslandRoot } from '@/lib/island-root';
 import type { CohortRow } from '@/lib/types';
@@ -16,11 +18,12 @@ import type { ReactElement } from 'react';
 
 interface CohortCardProps {
   cohort: CohortRow;
+  onClick?: (cohort: CohortRow) => void;
 }
 
-function CohortCard({ cohort }: CohortCardProps): ReactElement {
-  return (
-    <div className="flex min-w-[200px] max-w-[260px] flex-col gap-1 rounded-md border border-border bg-card p-3 text-left">
+function CohortCard({ cohort, onClick }: CohortCardProps): ReactElement {
+  const body = (
+    <>
       <div className="truncate text-sm font-medium text-foreground" title={cohort.name}>
         {cohort.name}
       </div>
@@ -32,11 +35,33 @@ function CohortCard({ cohort }: CohortCardProps): ReactElement {
           {cohort.description}
         </div>
       ) : null}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={() => onClick(cohort)}
+        title={`Load "${cohort.name}" into the search filters`}
+        className="flex min-w-[200px] max-w-[260px] flex-col gap-1 rounded-md border border-border bg-card p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {body}
+      </button>
+    );
+  }
+  return (
+    <div className="flex min-w-[200px] max-w-[260px] flex-col gap-1 rounded-md border border-border bg-card p-3 text-left">
+      {body}
     </div>
   );
 }
 
-function SavedCohortsPanelInner(): ReactElement {
+interface SavedCohortsPanelProps {
+  onLoadCohort?: (cohort: CohortRow) => void;
+}
+
+function SavedCohortsPanelInner({ onLoadCohort }: SavedCohortsPanelProps): ReactElement {
   const query = useCohorts();
 
   if (query.isPending) {
@@ -64,7 +89,8 @@ function SavedCohortsPanelInner(): ReactElement {
       <section aria-labelledby="cohorts-heading" className="space-y-2">
         <Heading />
         <p className="text-xs text-muted-foreground">
-          Build your first cohort to target announcements precisely. Save modal lands next.
+          Apply at least one filter, then "Save as cohort" — saved cohorts will appear here for
+          one-click recall.
         </p>
       </section>
     );
@@ -75,7 +101,7 @@ function SavedCohortsPanelInner(): ReactElement {
       <Heading />
       <div className="flex flex-wrap gap-2">
         {cohorts.map((c) => (
-          <CohortCard key={c.id} cohort={c} />
+          <CohortCard key={c.id} cohort={c} {...(onLoadCohort ? { onClick: onLoadCohort } : {})} />
         ))}
       </div>
     </section>
@@ -93,10 +119,10 @@ function Heading(): ReactElement {
   );
 }
 
-export function SavedCohortsPanel(): ReactElement {
+export function SavedCohortsPanel(props: SavedCohortsPanelProps = {}): ReactElement {
   return (
     <IslandRoot>
-      <SavedCohortsPanelInner />
+      <SavedCohortsPanelInner {...props} />
     </IslandRoot>
   );
 }

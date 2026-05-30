@@ -18,7 +18,7 @@ export const prerender = false;
 
 import { AuthGate } from '../../../blocks/common';
 import { PageHead } from '../../../blocks/common';
-import { Breadcrumbs, MembersList, PageShell, SavedCohortsPanel } from '../../../blocks/workspace';
+import { Breadcrumbs, MembersList, PageShell } from '../../../blocks/workspace';
 import Layout from '../../../layouts/Layout.astro';
 ---
 
@@ -41,7 +41,6 @@ import Layout from '../../../layouts/Layout.astro';
           { label: 'Members' },
         ]}
       />
-      <SavedCohortsPanel client:load />
       <MembersList client:load />
     </PageShell>
   </AuthGate>
