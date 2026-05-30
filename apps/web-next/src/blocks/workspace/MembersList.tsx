@@ -8,7 +8,7 @@
 // sheet (<MembersFilterPanel> over the <Drawer> atom). Cohort
 // save/load rides on this same applied-filter state in M2.3b.
 
-import { Input } from '@/kit';
+import { Button, Input } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';
 import { EMPTY_MEMBER_FILTERS, type MemberFilters, buildMemberFilter } from '@/lib/member-filters';
 import type { MemberRow } from '@/lib/types';
@@ -16,6 +16,7 @@ import { useMembersSearch } from '@/lib/use-members';
 import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from './DataTable';
 import { MembersFilterPanel } from './MembersFilterPanel';
+import { SaveCohortModal } from './SaveCohortModal';
 
 const PAGE_SIZE = 50;
 
@@ -129,10 +130,46 @@ function SearchBar({ onCommit }: SearchBarProps): ReactElement {
   );
 }
 
+interface ToolbarProps {
+  filters: MemberFilters;
+  hasFilter: boolean;
+  onCommitQuery: (q: string) => void;
+  onApplyFilters: (next: MemberFilters) => void;
+  onOpenSave: () => void;
+}
+function Toolbar({
+  filters,
+  hasFilter,
+  onCommitQuery,
+  onApplyFilters,
+  onOpenSave,
+}: ToolbarProps): ReactElement {
+  const saveButtonTitle = hasFilter
+    ? 'Save the current filter as a cohort'
+    : 'Apply at least one filter to save a cohort';
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <SearchBar onCommit={onCommitQuery} />
+      <MembersFilterPanel applied={filters} onApply={onApplyFilters} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={!hasFilter}
+        onClick={onOpenSave}
+        title={saveButtonTitle}
+      >
+        Save as cohort
+      </Button>
+    </div>
+  );
+}
+
 function MembersListInner(): ReactElement {
   const [page, setPage] = useState(1);
   const [committedQuery, setCommittedQuery] = useState('');
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
+  const [saveOpen, setSaveOpen] = useState(false);
 
   const filterObj = useMemo(() => buildMemberFilter(filters), [filters]);
   const hasFilter = Object.keys(filterObj).length > 0;
@@ -158,10 +195,15 @@ function MembersListInner(): ReactElement {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchBar onCommit={onCommitQuery} />
-        <MembersFilterPanel applied={filters} onApply={applyFilters} />
-      </div>
+      <Toolbar
+        filters={filters}
+        hasFilter={hasFilter}
+        onCommitQuery={onCommitQuery}
+        onApplyFilters={applyFilters}
+        onOpenSave={() => setSaveOpen(true)}
+      />
+
+      <SaveCohortModal open={saveOpen} onOpenChange={setSaveOpen} filterQuery={filterObj} />
 
       <DataTable
         columns={COLUMNS}

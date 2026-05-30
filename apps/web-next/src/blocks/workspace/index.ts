@@ -20,5 +20,6 @@ export { MembersList } from './MembersList';
 export { default as PageShell } from './PageShell.astro';
 export { PartnerDetail } from './PartnerDetail';
 export { PartnersList } from './PartnersList';
+export { SaveCohortModal } from './SaveCohortModal';
 export { SavedCohortsPanel } from './SavedCohortsPanel';
 export { default as WorkspaceNav } from './WorkspaceNav.astro';
