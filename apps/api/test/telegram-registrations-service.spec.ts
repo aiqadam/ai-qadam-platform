@@ -704,6 +704,11 @@ describe('register — dispatches tg.dispatch.v1 envelope after successful regis
     expect(target.chat_id).toBe(8888);
     expect(target.member_id).toBe('mem-1');
 
+    // #468 — delivery_key is a STABLE, semantic key derived from the
+    // registration id (not the fresh envelope id), so a producer re-emit
+    // for the same registration dedupes on the notifier side.
+    expect(payload.delivery_key).toBe('regconf:reg-99');
+
     const template = payload.template as Record<string, unknown>;
     expect(template.text).toContain('AI Meetup');
     expect(template.text).toContain('IMPACT.T');

@@ -39,6 +39,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // non-slot-occupying statuses.
 const ACTIVE_REGISTRATION_STATUSES = 'registered,waitlisted,attended';
 
+// #468 — delivery_key prefix for the registration_confirmed push. A
+// STABLE, semantic key (`regconf:<registration_id>`) rather than the
+// envelope id, so the notifier's delivery_key dedupe collapses any
+// producer re-emit for the same registration (e.g. a future
+// confirmation-backfill cron) into a single Telegram DM. Mirrors the
+// broadcast convention `bdc:<broadcast_id>:<tg_user_id>`. See
+// docs/architecture/telegram-outbox-delivery-contract.md.
+const REGISTRATION_CONFIRMED_DELIVERY_PREFIX = 'regconf:';
+
 // Phase Bot-B PR-1.3b — Telegram-as-IdP activation per ADR-0034
 // acquisition rewrite. The bot's /register_<slug> FSM POSTs here once
 // the user has answered all schema-driven fields. We:
@@ -415,6 +424,7 @@ export class TelegramRegistrationsService {
     // cron could backfill missed confirmations by scanning registrations
     // with no corresponding tg_send_log row.
     await this.dispatchRegistrationConfirmed({
+      registrationId,
       memberId,
       tgUserId: input.telegram_user_id,
       tenant: event.country,
@@ -691,6 +701,7 @@ export class TelegramRegistrationsService {
   // (Bundle 2 PR-2.1-templates) instead of the inline template. The
   // envelope shape stays unchanged.
   private async dispatchRegistrationConfirmed(input: {
+    registrationId: string;
     memberId: string;
     tgUserId: bigint;
     tenant: string;
@@ -729,7 +740,9 @@ export class TelegramRegistrationsService {
             media_kind: null,
             inline_buttons: null,
           },
-          delivery_key: envelopeId,
+          // #468 — stable, semantic delivery_key (not the envelope id) so
+          // the notifier's delivery_key dedupe survives a producer re-emit.
+          delivery_key: `${REGISTRATION_CONFIRMED_DELIVERY_PREFIX}${input.registrationId}`,
           max_retries: 5,
           expires_at: null,
         },
