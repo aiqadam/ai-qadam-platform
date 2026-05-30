@@ -229,6 +229,24 @@ export interface MemberSearchResult {
   limit: number;
 }
 
+// A saved cohort = a named, reusable Directus filter against members.
+// `filter_query` is the same shape MembersService.search consumes (and
+// the announce dispatcher's audience resolver), so loading a cohort into
+// the cabinet is a zero-translation hop. `member_count_cached` is
+// refreshed by cron + on-write; the UI reads it without re-evaluating.
+export interface CohortRow {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  filter_query: Record<string, unknown>;
+  created_by?: string | null;
+  member_count_cached: number;
+  member_count_refreshed_at?: string | null;
+  date_created?: string | null;
+  date_updated?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // apps/api — /v1/admin/invites (super-admin operator-onboarding cabinet)
 //
