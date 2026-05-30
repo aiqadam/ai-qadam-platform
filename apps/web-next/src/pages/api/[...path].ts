@@ -26,6 +26,13 @@ function apiBase(): string {
 }
 
 // Hop-by-hop + length/host headers must not be forwarded verbatim.
+// `content-encoding` is dropped specifically on the RESPONSE side because
+// Node's `fetch` (undici) transparently decompresses upstream gzip/br/zstd
+// bodies — re-emitting the original `Content-Encoding: gzip` header would
+// make the browser try to gunzip already-plaintext bytes and fail with
+// ERR_CONTENT_DECODING_FAILED → 200 OK with no usable body. Root-caused
+// 2026-05-30 when /workspace/members rendered "No members yet" against a
+// healthy 7-member API response (v1's direct-fetch path didn't hit this).
 const STRIP_HEADERS = new Set([
   'connection',
   'keep-alive',
@@ -33,6 +40,7 @@ const STRIP_HEADERS = new Set([
   'upgrade',
   'host',
   'content-length',
+  'content-encoding',
 ]);
 
 const proxy: APIRoute = async ({ request, params }) => {
