@@ -257,6 +257,35 @@ export interface AnnounceSent {
   };
 }
 
+// Per-step state of the country-provisioning machine — mirrors the API
+// `ProvisioningStepState` shape (apps/api/src/modules/country-
+// provisioning/country-provisioning.service.ts). `attempted_at` is null
+// until the first run; `error` carries the last failure's message
+// (cleared on a successful re-attempt).
+export interface ProvisioningStepState {
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'awaiting_manual';
+  attempted_at: string | null;
+  error: string | null;
+}
+
+// Whole provisioning state for a country. `completed_at` is set only
+// when ALL steps are `succeeded`; `awaiting_manual` blocks completion.
+// The `steps` map is keyed by step id (authentik_oidc, directus_policy,
+// plausible_site, coolify_fqdn).
+export interface ProvisioningState {
+  started_at: string;
+  completed_at: string | null;
+  steps: Record<string, ProvisioningStepState>;
+}
+
+// Wrapper returned by GET /v1/admin/countries/:code/provisioning —
+// `state` is null until the first /run; `is_active` flips on /activate
+// (only legal once every step is `succeeded`).
+export interface ProvisioningEnvelope {
+  state: ProvisioningState | null;
+  is_active: boolean;
+}
+
 // A saved cohort = a named, reusable Directus filter against members.
 // `filter_query` is the same shape MembersService.search consumes (and
 // the announce dispatcher's audience resolver), so loading a cohort into

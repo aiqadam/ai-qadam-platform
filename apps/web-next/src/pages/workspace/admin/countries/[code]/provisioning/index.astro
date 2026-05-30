@@ -1,0 +1,58 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/admin/countries/[code]/provisioning
+// generated: 2026-05-30
+//
+// M2.5-i — country provisioning cabinet (super-admin only).
+//
+// Dynamic route on the country `code` param. The block fetches the
+// state machine status via /v1/admin/countries/:code/provisioning and
+// renders the M1 Wizard atom. Run / retry / activate / manual-complete
+// land with M2.5-ii + M2.5-iii. SuperAdminGuard on the API matches the
+// role token below.
+//
+// `prerender = false` per the codebase's dynamic-routes convention —
+// typecheck + biome miss this trap; only `pnpm --filter @aiqadam/web-
+// next build` catches it.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../../../blocks/common';
+import {
+  Breadcrumbs,
+  CountryProvisioningWizard,
+  PageShell,
+} from '../../../../../../blocks/workspace';
+import Layout from '../../../../../../layouts/Layout.astro';
+
+const { code = '' } = Astro.params;
+---
+
+<Layout
+  title={`Provisioning · ${code} · AI Qadam workspace`}
+  description="Country provisioning state machine."
+>
+  <PageHead
+    slot="head"
+    title={`Provisioning · ${code} · AI Qadam workspace`}
+    description="Country provisioning state machine."
+  />
+  <AuthGate role="aiqadam-super-admin" signInLabel="Super-admin only — sign in">
+    <PageShell
+      title={`Provisioning · ${code}`}
+      description="Idempotent state machine. Each step retries safely; failed steps don't block downstream attempts of awaiting_manual."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Admin' },
+          { label: 'Countries', href: '/workspace/admin/countries' },
+          { label: code },
+          { label: 'Provisioning' },
+        ]}
+      />
+      <CountryProvisioningWizard code={code} client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>
