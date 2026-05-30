@@ -1,0 +1,37 @@
+# gitleaks configuration for AI Qadam (C4 — CI secret scanning).
+#
+# Extends the gitleaks default ruleset (100+ provider patterns) and adds a
+# minimal allowlist. Keep it as tight as possible — every entry is a place a
+# real secret could hide undetected.
+#
+# Live secrets in this project live in Coolify env vars + 1Password, never in
+# git (verified at adoption: the only matches were deterministic test fixtures).
+# If this scan ever fails on a REAL finding, rotate the secret first, then purge
+# it from history — do not just allowlist it.
+
+title = "AI Qadam gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Templated/generated files + value-based test-fixture patterns."
+
+# Path allowlist: files that hold shapes, never live secrets.
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''\.example$''',
+  '''(^|/)pnpm-lock\.yaml$''',
+]
+
+# Value allowlist: deterministic dummy secrets used by the API test suite.
+# Matched against the captured secret (NOT the file path) so a REAL secret in a
+# test file is still caught — it would not match any of these fixed patterns.
+regexes = [
+  # Deterministic 64-hex key reused across the tg_config crypto specs.
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
+  # Self-describing placeholder secrets in vitest.config.ts / *.spec.ts.
+  '''test-[a-z0-9+-]{8,}''',
+  # Sequential alphabet+digits fixture token (admin-invites onboarding spec).
+  '''abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG''',
+]

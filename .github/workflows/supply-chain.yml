@@ -3,6 +3,7 @@ name: supply-chain
 # Enforces Sprint 0.3 supply-chain CI gates:
 #   - pnpm audit (severity ≥ high) blocks merge on every PR + push to main
 #   - Trivy scans every deployed prod image weekly (severity ≥ high blocks)
+#   - gitleaks scans the tree for committed secrets on every PR + push to main
 #   - Dependabot config in .github/dependabot.yml feeds the auto-bump PRs
 #     that keep the lockfile + image tags green between scans
 # Runbook: docs/runbooks/supply-chain.md
@@ -48,6 +49,40 @@ jobs:
 
       - name: pnpm audit --audit-level=high
         run: pnpm audit --audit-level=high
+
+  secret-scan:
+    name: gitleaks secret scan
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Pinned OSS binary (MIT). We run the binary directly rather than the
+      # gitleaks-action because that action requires a paid licence for org
+      # accounts — running the CLI keeps this zero-cost (CLAUDE.md §9).
+      GITLEAKS_VERSION: 8.18.4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL "$url" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Scan working tree for committed secrets
+        # continue-on-error during the first adoption cycle so a baseline-tuning
+        # miss cannot block merges. The repo is verified clean at adoption, so a
+        # failure here is signal, not noise.
+        # TODO(viktor, 2026-06-05): remove continue-on-error after one clean
+        # cycle so committed secrets hard-block the PR.
+        continue-on-error: true
+        run: >
+          gitleaks detect --no-git --source .
+          --config .gitleaks.toml
+          --redact --verbose --exit-code 1
 
   trivy-images:
     name: Trivy scan ${{ matrix.image }}
