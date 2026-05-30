@@ -229,6 +229,34 @@ export interface MemberSearchResult {
   limit: number;
 }
 
+// Preview of an operator announcement — returned by POST
+// /v1/workspace/announce/preview. `estimatedRecipients` is the live
+// audience size (cohort filter + capped at MembersService.MAX_DISPATCH);
+// `truncated` is true if the cohort exceeds the cap. `text` is the
+// API-rendered body (plain-text + minimal HTML).
+export interface AnnouncePreview {
+  cohortName: string;
+  estimatedRecipients: number;
+  truncated: boolean;
+  subject: string;
+  text: string;
+}
+
+// Result of POST /v1/workspace/announce — returned after the
+// dispatcher fires. Carries a per-state delivery breakdown so the
+// cabinet can show "X sent, Y skipped for consent" inline.
+export interface AnnounceSent {
+  interactionId: string;
+  recipientCount: number;
+  truncated: boolean;
+  deliveriesSummary: {
+    sent: number;
+    skipped_consent: number;
+    failed: number;
+    other: number;
+  };
+}
+
 // A saved cohort = a named, reusable Directus filter against members.
 // `filter_query` is the same shape MembersService.search consumes (and
 // the announce dispatcher's audience resolver), so loading a cohort into

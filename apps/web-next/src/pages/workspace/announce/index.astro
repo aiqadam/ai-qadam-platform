@@ -1,0 +1,40 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/announce
+// generated: 2026-05-30
+//
+// M2.4-i — operator announcement composer cabinet.
+//
+// Pick a saved cohort, compose a subject + body, render the preview.
+// Send + delivery-summary land with M2.4-ii. AuthGate gates everything
+// behind the operators role per ADR-0032 §workspace-shell front door.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { AnnounceComposer, Breadcrumbs, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Announce · AI Qadam workspace" description="Operator announcement composer.">
+  <PageHead
+    slot="head"
+    title="Announce · AI Qadam workspace"
+    description="Operator announcement composer."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Announce"
+      description="Send an announcement to the members in a saved cohort."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Announce' },
+        ]}
+      />
+      <AnnounceComposer client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>
