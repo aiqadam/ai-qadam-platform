@@ -378,6 +378,35 @@ describe('TelegramRegistrationsService.register', () => {
     }
   });
 
+  // #475 — counterpart to the 409 above: a cancel→re-register cycle must
+  // NOT 409. The dup-checks must exclude cancelled rows by filtering on
+  // status; otherwise a soft-deleted row returns a false
+  // already_registered (the cancelled row matches a status-less query).
+  // A mocked Directus returns whatever we feed it, so the only way to
+  // prove the fix in a unit test is to assert the service SENDS the
+  // status filter on both pre-check queries.
+  it('dup-checks filter out cancelled rows so re-registration is not a false 409 (#475)', async () => {
+    const fake = happyPath();
+    const svc = makeService(fake);
+
+    // Re-registration after a cancel succeeds: the (now-cancelled) prior
+    // row is excluded by the filter, so the mocked dup-checks return [].
+    const out = await svc.register({
+      event_id: 'evt-1',
+      telegram_user_id: BigInt(52128246),
+      telegram_username: 'viktor',
+      profile: { name: 'Viktor', email: 'v@example.com' },
+      consents: { events: true },
+    });
+    expect(out.registration_id).toBe('reg-99');
+
+    // GET #4 = findRegistration (by member), GET #5 = findRegistrationByTgUserId.
+    const byMember = fake.get.mock.calls[3]?.[0] as string;
+    const byTg = fake.get.mock.calls[4]?.[0] as string;
+    expect(byMember).toContain('filter[status][_in]=registered,waitlisted,attended');
+    expect(byTg).toContain('filter[status][_in]=registered,waitlisted,attended');
+  });
+
   // #277 — race recovery. Two concurrent POSTs both pass the
   // pre-checks (they race), the second insert hits the partial UNIQUE
   // index on (event, user) and Directus returns 400 RECORD_NOT_UNIQUE.

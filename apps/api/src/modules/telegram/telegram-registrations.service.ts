@@ -26,6 +26,19 @@ const TELEGRAM_STREAM = 'tg.dispatch.v1';
 // shape as #316 fix for checkin tokens).
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// #475 — statuses that occupy an (event, user) registration slot. This
+// list MUST mirror the partial unique index
+// `registrations_event_user_active_unique`
+// (infrastructure/postgres/migrations/2026-05-24-registrations-unique-event-user.sql),
+// which covers exactly these three. The dup-checks behind the 409 filter
+// on it so a soft-deleted `cancelled` row no longer triggers a false
+// `already_registered` — a cancel→re-register cycle is intended to work
+// (see cancel()'s "keep the row … so a user who cancelled can re-register").
+// Mirroring the index (rather than `_neq=cancelled`) keeps the pre-check
+// and the constraint in lockstep and future-proofs against new
+// non-slot-occupying statuses.
+const ACTIVE_REGISTRATION_STATUSES = 'registered,waitlisted,attended';
+
 // Phase Bot-B PR-1.3b — Telegram-as-IdP activation per ADR-0034
 // acquisition rewrite. The bot's /register_<slug> FSM POSTs here once
 // the user has answered all schema-driven fields. We:
@@ -509,8 +522,10 @@ export class TelegramRegistrationsService {
   ): Promise<RegistrationRow | null> {
     const e = encodeURIComponent(eventId);
     const m = encodeURIComponent(memberId);
+    // #475 — exclude cancelled rows; only an active row (in the unique
+    // index) should trigger the 409 / be returned as the race-recovery winner.
     const res = await this.directus.get<{ data: RegistrationRow[] }>(
-      `/items/registrations?filter[event][_eq]=${e}&filter[user][_eq]=${m}&fields=id,event,user,checkin_code&limit=1`,
+      `/items/registrations?filter[event][_eq]=${e}&filter[user][_eq]=${m}&filter[status][_in]=${ACTIVE_REGISTRATION_STATUSES}&fields=id,event,user,checkin_code&limit=1`,
     );
     return res.data[0] ?? null;
   }
@@ -533,8 +548,10 @@ export class TelegramRegistrationsService {
   ): Promise<RegistrationRow | null> {
     const e = encodeURIComponent(eventId);
     const t = encodeURIComponent(tgUserId.toString());
+    // #475 — exclude cancelled rows (mirrors findRegistration); a
+    // cancelled row under this TG identity must not block re-registration.
     const res = await this.directus.get<{ data: RegistrationRow[] }>(
-      `/items/registrations?filter[event][_eq]=${e}&filter[user][telegram_user_id][_eq]=${t}&fields=id,event,user,checkin_code&limit=1`,
+      `/items/registrations?filter[event][_eq]=${e}&filter[user][telegram_user_id][_eq]=${t}&filter[status][_in]=${ACTIVE_REGISTRATION_STATUSES}&fields=id,event,user,checkin_code&limit=1`,
     );
     return res.data[0] ?? null;
   }
