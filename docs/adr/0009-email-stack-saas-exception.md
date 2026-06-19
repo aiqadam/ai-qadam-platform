@@ -4,7 +4,7 @@
 Accepted, 2026-05-15
 
 ## Context
-[PROJECT.md §Constraints](../../.claude/PROJECT.md) states: *"Self-hosted, open-source only. No proprietary SaaS in critical path."*
+[PROJECT.md §Constraints](../01-business/project.md) states: *"Self-hosted, open-source only. No proprietary SaaS in critical path."*
 
 For email transport, a strict reading of this constraint means running our own mail server (Postfix + Dovecot, or `docker-mailserver` / Mailcow) on the platform host or a dedicated mail box.
 
@@ -32,7 +32,7 @@ Accept a **bounded SaaS exception** for email transport and addressing. The stac
 - **Cloudflare Email Workers** (free at our scale) — programmatic inbound for `bot.aiqadam.org` subdomain, see [ADR-0010](0010-inbound-email-cloudflare-workers.md)
 - **Resend** (free tier: 3,000 emails/month, 100/day) — outbound transactional + per-operator Gmail "Send mail as" SMTP relay
 
-Each operator manually configures Gmail "Send mail as" for their `name@aiqadam.org` address using a per-operator Resend API key. Automation deferred to Phase 1 weeks 4–6 — see [ADR-0012](0012-operator-send-as-automation.md). Manual procedure documented in [docs/runbooks/operator-email-send-as.md](../runbooks/operator-email-send-as.md).
+Each operator manually configures Gmail "Send mail as" for their `name@aiqadam.org` address using a per-operator Resend API key. Automation deferred to Phase 1 weeks 4–6 — see [ADR-0012](0012-operator-send-as-automation.md). Manual procedure documented in [docs/02-business-processes/operations/operator-email-send-as.md](../02-business-processes/operations/operator-email-send-as.md).
 
 The exception is **scoped strictly to email transport and addressing**. All other system components (application data, identity provider, content storage, queues, search, observability) remain self-hosted.
 
@@ -50,18 +50,18 @@ The exception is **scoped strictly to email transport and addressing**. All othe
 - ✅ Replaceable per-component if any provider deteriorates.
 - ✅ Both Cloudflare and Resend have strong reputations and reasonable pricing if/when we exceed free tiers.
 - ✅ No mail-server attack surface on `aiqadam-web`.
-- ⚠️ **Bounded SaaS dependency** in the critical email path. Captured here as the explicit exception to [PROJECT.md §Constraints](../../.claude/PROJECT.md).
+- ⚠️ **Bounded SaaS dependency** in the critical email path. Captured here as the explicit exception to [PROJECT.md §Constraints](../01-business/project.md).
 - ⚠️ **If Cloudflare or Resend free-tier terms change**, we adapt — likely cost is single-digit dollars/month, not project-killing.
 - ⚠️ **Operator manual setup** of Gmail Send-as is friction (~10 min per operator). Mitigated by [ADR-0012](0012-operator-send-as-automation.md) once `apps/api` exists.
 - 📝 **Cloudflare merges its own CAAs** into the zone (Comodo, DigiCert, Google Trust Services, SSL.com, plus our Let's Encrypt). Slightly looser CAA than strict Let's-Encrypt-only; harmless because Cloudflare DNS already controls the domain.
 - 📝 **Resend uses `send.aiqadam.org` subdomain** for return-path/SPF, not the apex. Avoids SPF conflict with Cloudflare Email Routing's apex SPF — DKIM and DMARC alignment work via relaxed mode (both use `aiqadam.org` as organizational domain).
 
 ## Supersedes
-The literal reading of [PROJECT.md §Constraints](../../.claude/PROJECT.md) "no proprietary SaaS in critical path" — for email transport only.
+The literal reading of [PROJECT.md §Constraints](../01-business/project.md) "no proprietary SaaS in critical path" — for email transport only.
 
 ## References
-- [PROJECT.md §Constraints](../../.claude/PROJECT.md) — the rule we're explicitly excepting from
+- [PROJECT.md §Constraints](../01-business/project.md) — the rule we're explicitly excepting from
 - [ADR-0002](0002-deployment-target.md) — the PTR blocker context
 - [ADR-0010](0010-inbound-email-cloudflare-workers.md) — programmatic inbound (the API-driven half)
 - [ADR-0012](0012-operator-send-as-automation.md) — Send-as automation (the friction-mitigation half)
-- [Operator Send-as runbook](../runbooks/operator-email-send-as.md) — the manual procedure
+- [Operator Send-as runbook](../02-business-processes/operations/operator-email-send-as.md) — the manual procedure

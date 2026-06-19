@@ -4,7 +4,7 @@
 Accepted, 2026-05-15
 
 ## Context
-[SECURITY.md §"Backup strategy"](../../.claude/SECURITY.md) requires:
+[SECURITY.md §"Backup strategy"](../04-development/security/security.md) requires:
 
 - Daily Postgres dumps, encrypted, off-site
 - Daily restic snapshots of MinIO buckets
@@ -28,7 +28,7 @@ Two open sub-decisions to make concrete:
 
 **Encryption:** restic's default — XChaCha20-Poly1305 with key derived from the repo passphrase via scrypt. The passphrase lives at `/etc/restic/repo-password` (mode `600 root:root`) on the host AND in the operator's password manager. Lose both copies = lose the backups, irreversibly.
 
-**Initial scope:** `/data/coolify`, `/etc/iptables`, `/etc/ssh/sshd_config.d`, `/etc/fail2ban` — the configuration and orchestration state needed to rebuild the platform on a fresh host. Application data (Postgres dumps, MinIO buckets) joins as those stacks come online (procedure documented in [docs/runbooks/restic-backups.md](../runbooks/restic-backups.md)).
+**Initial scope:** `/data/coolify`, `/etc/iptables`, `/etc/ssh/sshd_config.d`, `/etc/fail2ban` — the configuration and orchestration state needed to rebuild the platform on a fresh host. Application data (Postgres dumps, MinIO buckets) joins as those stacks come online (procedure documented in [docs/04-development/infrastructure/runbooks/restic-backups.md](../04-development/infrastructure/runbooks/restic-backups.md)).
 
 ## Rationale
 
@@ -81,7 +81,7 @@ Revisit when Phase 1 ends (or sooner if data sensitivity grows).
 - 2026-05-15: Initial decision. R2 free tier ample. Backup script + timer live on `aiqadam-web`. First snapshot `c215a840` verified end-to-end (backup → integrity check → restore-test PERFECT MATCH).
 
 ## References
-- [SECURITY.md §"Backup strategy"](../../.claude/SECURITY.md) — the requirement this implements
+- [SECURITY.md §"Backup strategy"](../04-development/security/security.md) — the requirement this implements
 - [ADR-0009](0009-email-stack-saas-exception.md) — the broader Cloudflare-services exception (R2 joins the existing DNS + Email Routing + Workers)
-- [docs/runbooks/restic-backups.md](../runbooks/restic-backups.md) — operational procedures
+- [docs/04-development/infrastructure/runbooks/restic-backups.md](../04-development/infrastructure/runbooks/restic-backups.md) — operational procedures
 - [restic docs](https://restic.readthedocs.io)

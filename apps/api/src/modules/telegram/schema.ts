@@ -138,7 +138,7 @@ export type NewOutboxRow = typeof outbox.$inferInsert;
 // `encrypted_token` stores the BotFather token encrypted at rest via
 // AES-256-GCM (see token-crypto.ts). The encryption key is supplied by
 // env (TG_CONFIG_ENCRYPTION_KEY); rotating the key is an ops procedure
-// documented in docs/runbooks/telegram-token-rotation.md (TODO with R5).
+// documented in docs/04-development/infrastructure/runbooks/telegram-token-rotation.md (TODO with R5).
 //
 // Why a `bytea` blob instead of a varchar of base64:
 //   - AES-GCM output is binary; bytea avoids an extra encode/decode pass.

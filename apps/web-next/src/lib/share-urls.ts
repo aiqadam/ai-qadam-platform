@@ -1,7 +1,7 @@
 // Share-URL builder for event detail page <ShareButtons>.
 //
 // Three channels: Telegram, X (Twitter), LinkedIn. UTM scheme follows
-// docs/marketing-utm-scheme.md:
+// docs/02-business-processes/marketing-utm-scheme.md:
 //
 //   utm_source   = member-share | anon-share   (who shared)
 //   utm_medium   = telegram_share | x_share | linkedin_share (channel)

@@ -37,7 +37,7 @@ Open sub-decisions resolved by this ADR:
 - ✅ One Coolify, one UFW, one fail2ban, one TLS-cert pool, one restic schedule, one Docker daemon. Operationally minimal for a solo developer with AI assistance.
 - ✅ All inter-service traffic stays on Docker bridge networks — no cross-VM TLS plumbing, no private-network bring-up.
 - ✅ Sizing has comfortable headroom: Phase 1 trimmed stack ~16 GiB RAM, host has 31 GiB; disk has 1.9 TB free after baseline.
-- ⚠️ **Single point of failure.** Phase 1 RTO is 4 hours per [SECURITY.md §"Recovery time objectives"](../../.claude/SECURITY.md), achievable via restic restore on a fresh box if this one dies — but only once restic is configured (currently a deferred todo).
+- ⚠️ **Single point of failure.** Phase 1 RTO is 4 hours per [SECURITY.md §"Recovery time objectives"](../04-development/security/security.md), achievable via restic restore on a fresh box if this one dies — but only once restic is configured (currently a deferred todo).
 - ⚠️ **PTR is upstream-controlled.** hyperapp.cloud's reverse DNS for this IP points at Cogent Communications infrastructure (`so1-2-0-0.core02.fra03.atlas.cogentco.com`). No operator control. This forces email out of self-hosting; resolved in [ADR-0009](0009-email-stack-saas-exception.md).
 - ⚠️ **Region is Frankfurt-area** (per Cogent PTR). Latency to Central Asian users adds roughly 80–120 ms vs a regional host. Acceptable for Phase 1 community traffic; revisit if user feedback complains or analytics show LCP regressions.
 - ⚠️ **Docker port-publishing bypasses UFW** by default. We learned this the hard way during Coolify install (admin port was world-reachable for ~4 minutes before lockdown). Resolved structurally by [ADR-0008](0008-docker-port-publishing-policy.md).
@@ -47,7 +47,7 @@ Open sub-decisions resolved by this ADR:
 The "Production deployment — deferred" section in `ARCHITECTURE.md`. That section is rewritten as "Production deployment — active" and points here.
 
 ## References
-- [Runbook: Coolify bootstrap](../runbooks/coolify-bootstrap.md) — the actual setup steps performed on this host.
+- [Runbook: Coolify bootstrap](../04-development/infrastructure/runbooks/coolify-bootstrap.md) — the actual setup steps performed on this host.
 - [ADR-0007](0007-coolify-orchestration.md) — orchestration choice.
 - [ADR-0008](0008-docker-port-publishing-policy.md) — Docker port-publishing policy.
 - [ADR-0009](0009-email-stack-saas-exception.md) — email stack (rules out self-hosted on this PTR).

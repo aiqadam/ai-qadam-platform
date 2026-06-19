@@ -80,7 +80,7 @@ invitee submits          →  POST /api/onboard/accept (token + new password + a
 
 ### Part 4 — Country-lead invites: scaffold + feature flag OFF
 
-Country-leads are part of the role_groups choices but the flow is **feature-flagged off** by `ENABLE_COUNTRY_LEAD_INVITES=false` (default) until G-1 (country-lead compensation) is resolved per [business-process-gaps.md](../business-process-gaps.md). Per Viktor 2026-05-22: country-leads won't be paid for at least one year (through 2028); scaffold + prepare the code path, ship it dormant.
+Country-leads are part of the role_groups choices but the flow is **feature-flagged off** by `ENABLE_COUNTRY_LEAD_INVITES=false` (default) until G-1 (country-lead compensation) is resolved per [business-process-gaps.md](../02-business-processes/business-process-gaps.md). Per Viktor 2026-05-22: country-leads won't be paid for at least one year (through 2028); scaffold + prepare the code path, ship it dormant.
 
 When the flag is on, country-lead invites include an additional AUP section (data-handling responsibilities + compensation TBD acknowledgement). When off, the role-group option is hidden from `/workspace/admin/users/new` and rejected at the API.
 
@@ -109,7 +109,7 @@ This is intentionally a v1 shortcut — when Sprint 2.5 lands the full `audit_ev
 ### Negative
 
 - **Three new API endpoints + one cabinet namespace.** Larger surface than "run a CLI script". Justified because the CLI-only path doesn't scale beyond Viktor.
-- **AUP is placeholder until legal-reviewed.** v0 AUP lives at [`docs/policies/aup-v0.md`](../policies/aup-v0.md); explicitly marked as placeholder. Lawyer review tracked as a separate concurrent task per roadmap §11.
+- **AUP is placeholder until legal-reviewed.** v0 AUP lives at [`docs/01-business/policies/aup-v0.md`](../01-business/policies/aup-v0.md); explicitly marked as placeholder. Lawyer review tracked as a separate concurrent task per roadmap §11.
 - **Telegram-channel delivery depends on the bot repo.** Until the [aiqadam-telegram-bot](https://github.com/viktordrukker/aiqadam-telegram-bot) repo ships its outbox consumer, Telegram-delivery option degrades to "publish to outbox; admin uses copy-paste link in the meantime". Email + copy-paste channels work day-one.
 
 ### Neutral
@@ -133,7 +133,7 @@ This is intentionally a v1 shortcut — when Sprint 2.5 lands the full `audit_ev
 | Roadmap item before | After this ADR |
 |---|---|
 | (missing) Sprint 2.7 — Operator invite cabinet | **New.** Adds `/workspace/admin/users/*` + `/workspace/admin/invites` + `/onboard?token=` invitee flow. Three PRs: this ADR (PR-1), API (PR-2), Web (PR-3). |
-| Sprint 4.3 — Country-lead onboarding runbook AUP | Reframed: AUP placeholder lands now ([`aup-v0.md`](../policies/aup-v0.md)) so the invite flow has consumable content; Sprint 4.3's full AUP work is now "lawyer review of v0.1 + revision to v1.0". |
+| Sprint 4.3 — Country-lead onboarding runbook AUP | Reframed: AUP placeholder lands now ([`aup-v0.md`](../01-business/policies/aup-v0.md)) so the invite flow has consumable content; Sprint 4.3's full AUP work is now "lawyer review of v0.1 + revision to v1.0". |
 | Sprint 2.5 — Audit log integration | Unchanged in scope; gains a noted upstream contract — invite events emit Loki-compatible structured logs in v1 and migrate to `audit_events` collection when Sprint 2.5 ships. |
 
 ## References
@@ -141,8 +141,8 @@ This is intentionally a v1 shortcut — when Sprint 2.5 lands the full `audit_ev
 - [ADR-0032](./0032-operator-tools-must-sso-or-embed.md) — every operator tool SSOs or embeds; this is its application to operator management
 - [ADR-0033](./0033-community-member-graph.md) — operator surface = cabinets; same pattern, different namespace (`/admin` vs `/members`/`/announce`/etc.)
 - [ADR-0021](./0021-rbac-manifest.md) — RBAC manifest; invite consumption calls Authentik group assignment, RBAC sync downstream is unchanged
-- [`docs/policies/aup-v0.md`](../policies/aup-v0.md) — the AUP text invitees accept (placeholder, pending legal review)
-- [`docs/business-process-gaps.md`](../business-process-gaps.md) G-1 — country-lead compensation; gates `ENABLE_COUNTRY_LEAD_INVITES`
-- [`docs/community-platform-roadmap.md`](../community-platform-roadmap.md) §7 Sprint 2.7 — feature line
+- [`docs/01-business/policies/aup-v0.md`](../01-business/policies/aup-v0.md) — the AUP text invitees accept (placeholder, pending legal review)
+- [`docs/02-business-processes/business-process-gaps.md`](../02-business-processes/business-process-gaps.md) G-1 — country-lead compensation; gates `ENABLE_COUNTRY_LEAD_INVITES`
+- [`docs/01-business/community-platform-roadmap.md`](../01-business/community-platform-roadmap.md) §7 Sprint 2.7 — feature line
 - [aiqadam-telegram-bot](https://github.com/viktordrukker/aiqadam-telegram-bot) — the outbox consumer; Telegram delivery option degrades to "publish to outbox" until the bot ships
 - Pattern references (strategic context): M365 admin "Add user" + invite email · Linear "Invite teammates" · GitHub org invitations · Notion workspace invites

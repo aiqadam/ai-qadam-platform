@@ -38,7 +38,7 @@ Each new subdomain adds:
 - **Authentik OIDC client config** (provider + application + group claims). ADR-0032 already named "auth island" as the failure mode; a per-cabinet OIDC client is the auth-island problem at a smaller scale — each cabinet's session can drift, each redirect URI is a separate registration to maintain.
 - **Coolify deploy** (separate app, separate FQDN, separate Traefik routing).
 - **Cookie scope friction**. Shared `aiqadam.org` SameSite=Lax cookies work for `*.aiqadam.org` subdomains today, but adding a cabinet at `<x>.aiqadam.org` still requires explicit Cookie Domain handling in our auth code; getting that wrong breaks SSO silently on one cabinet while the others work.
-- **DNS + cert overhead** at country provisioning time. Sprint 4's country-onboarding state machine ([roadmap §4.1](../community-platform-roadmap.md)) already touches Authentik + Directus + Plausible + Coolify FQDN per country. Adding "N more cabinet subdomains" multiplies that.
+- **DNS + cert overhead** at country provisioning time. Sprint 4's country-onboarding state machine ([roadmap §4.1](../01-business/community-platform-roadmap.md)) already touches Authentik + Directus + Plausible + Coolify FQDN per country. Adding "N more cabinet subdomains" multiplies that.
 - **Search / sitemap fragmentation.** Operators bookmark per-cabinet URLs and forget the rest exists.
 - **Telemetry split.** Plausible site per subdomain means cross-cabinet funnel analysis becomes a join across sites.
 
@@ -47,7 +47,7 @@ Each new subdomain adds:
 Single-origin `/workspace/<concern>` was the pattern PR #125 picked on 2026-05-20 (the workspace shell that ADR-0032 mandated). It's the same pattern Reforge, Linear, Vercel, Notion, and every other modern operator-tool product converged on. Concretely it gives us:
 
 - **One Authentik OIDC client.** The `aiqadam-platform-provider` (pk=1, client_id in `OIDC_CLIENT_ID` per [reference-secrets-cache](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md)) authenticates every cabinet. RBAC differentiates *what* the operator can see, not *whether* they can log in.
-- **One session cookie.** [auth-architecture.md](../auth-architecture.md) already documents the JWT-in-HttpOnly-cookie model; every cabinet reads the same cookie, no per-cabinet refresh-token dance.
+- **One session cookie.** [auth-architecture.md](../04-development/architecture/auth-architecture.md) already documents the JWT-in-HttpOnly-cookie model; every cabinet reads the same cookie, no per-cabinet refresh-token dance.
 - **One RBAC layer.** ADR-0021 (Proposed) names the role manifest; the F-S2.2 RBAC sync service applies it once for all cabinets. New cabinet = new permission row, not a new auth setup.
 - **One Coolify deploy.** New cabinet = new file under `apps/web/src/pages/workspace/`. No infra PR.
 - **Per-cabinet entitlement reads through the SAME data layer.** Per [ADR-0033](./0033-community-member-graph.md) sponsor PII boundary, the sponsor cabinet (F-S3.5) reads through `partner_audiences` × cohorts; the same Directus permission policy applies whether the cabinet renders at `/workspace/partners/[id]` or anywhere else.
@@ -76,7 +76,7 @@ Each of those is real. The counter-argument:
 
 - **One Astro app** hosts every cabinet. `apps/web/src/pages/workspace/<concern>/index.astro` (+ optional `[id].astro` for per-record cabinets like events / partners).
 - **One Authentik OIDC client** (`aiqadam-platform-provider`, pk=1). New cabinet = no new OIDC config.
-- **One session cookie + JWT verification middleware** per [auth-architecture.md](../auth-architecture.md). Every cabinet sees `req.user`; RBAC checks `user.roles + user.country` against the per-cabinet entitlement.
+- **One session cookie + JWT verification middleware** per [auth-architecture.md](../04-development/architecture/auth-architecture.md). Every cabinet sees `req.user`; RBAC checks `user.roles + user.country` against the per-cabinet entitlement.
 - **One Plausible site** (`aiqadam.org`). Cabinets emit events with a `cabinet:<id>` prop so funnel analysis works without cross-site joins.
 - **One Astro middleware** at `apps/web/src/middleware/workspace-auth.ts` (already shipped in PR #125 as the placeholder; F-S2.2 wires real RBAC).
 - **Per-cabinet entitlement happens at the data layer**, not the route layer. The sponsor cabinet (F-S3.5) doesn't render a different *route* per sponsor — it renders the same route with a `partner_audiences`-filtered view per the signed-in user's sponsor binding.
@@ -85,7 +85,7 @@ Each of those is real. The counter-argument:
 
 - **Member-facing pages.** `/me/profile` (F-S3.6) is technically inside the workspace shell for layout but is conceptually the member's own surface, with member-only permissions. Public pages (`/events`, `/leaderboard`, `/press`) stay on the marketing tree.
 - **Engineer admin tools.** Coolify, Authentik admin, Directus admin — these stay at their own subdomains, accessed via the launcher card with an `engineer` chip per ADR-0032 §Exceptions.
-- **Read-only marketing surfaces** stay outside `/workspace/*`. The country home, leaderboard, sponsor public profiles ([roadmap §7 ζ.4](../community-platform-roadmap.md)) live at the country root.
+- **Read-only marketing surfaces** stay outside `/workspace/*`. The country home, leaderboard, sponsor public profiles ([roadmap §7 ζ.4](../01-business/community-platform-roadmap.md)) live at the country root.
 
 ### Naming convention
 
@@ -134,8 +134,8 @@ Per-record cabinets use `[id]` (Astro dynamic route). Cohort-aware cabinets read
 - [ADR-0032 — Operator tools must SSO via Authentik or embed in workspace](./0032-operator-tools-must-sso-or-embed.md) — the policy this ADR implements at the routing layer
 - [ADR-0033 — Community member graph on Directus](./0033-community-member-graph.md) — the data layer cabinets read; Part 3 names the cabinet sequence
 - [ADR-0021 — RBAC manifest](./0021-rbac-manifest.md) (Proposed) — the role manifest cabinet middleware reads
-- [`docs/auth-architecture.md`](../auth-architecture.md) — the cookie + JWT model every cabinet shares
-- [`docs/community-platform-roadmap.md` §7 Sprint 3](../community-platform-roadmap.md) — the cabinet sequence
+- [`docs/04-development/architecture/auth-architecture.md`](../04-development/architecture/auth-architecture.md) — the cookie + JWT model every cabinet shares
+- [`docs/01-business/community-platform-roadmap.md` §7 Sprint 3](../01-business/community-platform-roadmap.md) — the cabinet sequence
 - PR #125 — workspace shell at `/workspace/*` (the implementation this ADR documents)
 - PR #128 — minimal app launcher
 - PR #129 — workspace auto-redirect + Directus card deep-link into OIDC

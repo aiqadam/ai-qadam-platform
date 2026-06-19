@@ -7,7 +7,7 @@ import { OIDC_CLIENT } from './oidc-client.provider';
 import { RefreshTokenService } from './refresh-token.service';
 
 // OIDC Authorization Code + PKCE through Authentik. The full design is in
-// docs/auth-architecture.md — read that first if you're new to this code.
+// docs/04-development/architecture/auth-architecture.md — read that first if you're new to this code.
 //
 // One-line summary: GET /v1/auth/login sets a 60-second flow cookie that
 // carries state + PKCE verifier + the post-callback `next` URL, then 302s

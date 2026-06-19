@@ -3,11 +3,11 @@
 ## Status
 Accepted, 2026-05-21
 
-> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Zero recurring spend — Telegram channels are free; cadence relies on country-lead time (volunteer per ADR-0022 status quo, until that ADR is revisited).
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md). Zero recurring spend — Telegram channels are free; cadence relies on country-lead time (volunteer per ADR-0022 status quo, until that ADR is revisited).
 
 ## Context
 
-Per [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md), AI Qadam runs a Telegram **group** today (members chat with each other) but explicitly NOT a Telegram **channel** (broadcast-only, one-way operator → audience). [`marketing-and-pr-playbook.md`](../marketing-and-pr-playbook.md) documents Telegram as a primary funnel surface for Central Asia; not all members visit `aiqadam.org` regularly but ~80% open Telegram daily.
+Per [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md), AI Qadam runs a Telegram **group** today (members chat with each other) but explicitly NOT a Telegram **channel** (broadcast-only, one-way operator → audience). [`marketing-and-pr-playbook.md`](../02-business-processes/marketing-and-pr-playbook.md) documents Telegram as a primary funnel surface for Central Asia; not all members visit `aiqadam.org` regularly but ~80% open Telegram daily.
 
 A channel is the broadcast complement to a group: one-way official announcements, event teasers, recap links, sponsor highlights. Groups don't show notifications by default for many members (muted-group is normalized); channels do.
 
@@ -52,7 +52,7 @@ Per-country channels for events + recaps (Option C primary). A small cross-count
 
 - Launch `@aiqadam_uz` first, aligned with the UZ country home page.
 - Country lead (the F-S4.3 onboarding wizard adds this) owns the channel posting cadence: 2–4 posts/week minimum.
-- Content mix (per [marketing playbook §14](../marketing-and-pr-playbook.md)): T-7 event teaser, T-2 event reminder, T+1 event recap, T+3 speaker quote, occasional sponsor highlight (per F-S3.5 cabinet entitlement, never raw member rows).
+- Content mix (per [marketing playbook §14](../02-business-processes/marketing-and-pr-playbook.md)): T-7 event teaser, T-2 event reminder, T+1 event recap, T+3 speaker quote, occasional sponsor highlight (per F-S3.5 cabinet entitlement, never raw member rows).
 - Group continues to exist alongside; group = conversation, channel = broadcast.
 - Members are invited to subscribe at the bottom of the event-confirmation email; bot v0 (F-S5.5) when shipped can deep-link the subscribe action.
 - KZ + TJ channels launch when their country lead is onboarded + their event cadence supports 2+ posts/week.
@@ -70,6 +70,6 @@ Per-country channels for events + recaps (Option C primary). A small cross-count
 
 - [ADR-0027 — X (Twitter) presence](./0027-x-twitter-presence.md) (Proposed) — sibling decision for a different channel
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — partner_audiences governs sponsor inclusion in channel posts
-- [`marketing-and-pr-playbook.md` §11](../marketing-and-pr-playbook.md) — Telegram in the funnel
-- [`community-platform-roadmap.md` §7 Sprint 5.5](../community-platform-roadmap.md) — Telegram bot v0 (separate feature)
-- [`community-platform-roadmap.md` §7 Sprint 4](../community-platform-roadmap.md) — country onboarding (where new-country-channel goes live)
+- [`marketing-and-pr-playbook.md` §11](../02-business-processes/marketing-and-pr-playbook.md) — Telegram in the funnel
+- [`community-platform-roadmap.md` §7 Sprint 5.5](../01-business/community-platform-roadmap.md) — Telegram bot v0 (separate feature)
+- [`community-platform-roadmap.md` §7 Sprint 4](../01-business/community-platform-roadmap.md) — country onboarding (where new-country-channel goes live)

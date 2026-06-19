@@ -1,6 +1,6 @@
 # Observability v0 — Coolify Docker Compose service stack.
 #
-# Ships Sprint 0.4 from docs/community-platform-roadmap.md §7:
+# Ships Sprint 0.4 from docs/01-business/community-platform-roadmap.md §7:
 #   - Loki + Promtail for log aggregation across all Coolify containers
 #   - Uptime Kuma probing every public endpoint, alerts to Telegram/email
 #
@@ -12,7 +12,7 @@
 # compose can be POST-ed to Coolify without a host-side checkout — same
 # pattern as infrastructure/plausible/docker-compose.yml.
 #
-# Deployment: see docs/runbooks/observability.md "Coolify deploy steps".
+# Deployment: see docs/04-development/infrastructure/runbooks/observability.md "Coolify deploy steps".
 # Plausible custom-event side of S0.4 (auth/dispatch/RBAC failure tracking)
 # is Agent-API's job — tracked in a follow-up issue.
 

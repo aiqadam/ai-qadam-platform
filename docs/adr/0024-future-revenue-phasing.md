@@ -3,7 +3,7 @@
 ## Status
 Accepted, 2026-05-21
 
-> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Informs Phase ζ product prioritization. Each phase gate (ζ.1 hackathons, ζ.2 paid workshops, ζ.3 HRtech, ζ.4 paid premium content, ζ.5 mentorship, ζ.6 sponsor talent-slice) remains its own go/no-go decision at gate-time — accepting the phasing model itself does not commit spend or hires on day one.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md). Informs Phase ζ product prioritization. Each phase gate (ζ.1 hackathons, ζ.2 paid workshops, ζ.3 HRtech, ζ.4 paid premium content, ζ.5 mentorship, ζ.6 sponsor talent-slice) remains its own go/no-go decision at gate-time — accepting the phasing model itself does not commit spend or hires on day one.
 
 ## Context
 
@@ -11,7 +11,7 @@ Accepted, 2026-05-21
 
 What ADR-0033 does NOT decide: **the order + timing** of those products. Each product has different audience-prerequisite (some need many members, some need many sponsors, some need both), different operator-effort to launch, different revenue model, different risk profile. Doing them all at once would fragment focus + dilute the community-first signal.
 
-[`community-platform-roadmap.md` §10](../community-platform-roadmap.md) flags "future revenue" as an open decision. [`marketing-and-pr-playbook.md` §3.5](../marketing-and-pr-playbook.md#35-sponsorship-tiers) treats sponsorship as the only revenue stream in active planning. Sponsor revenue alone caps the platform's economic ceiling at ~USD 75k–250k/year before we've maxed-out our regional sponsor pool.
+[`community-platform-roadmap.md` §10](../01-business/community-platform-roadmap.md) flags "future revenue" as an open decision. [`marketing-and-pr-playbook.md` §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) treats sponsorship as the only revenue stream in active planning. Sponsor revenue alone caps the platform's economic ceiling at ~USD 75k–250k/year before we've maxed-out our regional sponsor pool.
 
 Constraints:
 - Sponsorship-only economics work for 2–3 years of community-first growth; they cap when we want to scale Country Leads + invest in product engineering. Need additional revenue streams to extend the runway past Year-3.
@@ -73,5 +73,5 @@ Pull two products to near-term (Phase ζ months 1–6) because they're high-leve
 - [ADR-0022 — Country-lead compensation](./0022-country-lead-compensation.md) (Proposed) — pace of compensation scales with this revenue model
 - [ADR-0023 — Sponsor invoicing](./0023-sponsor-invoicing.md) (Proposed) — sponsor-revenue flow this phasing builds on
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — namespace-prefix scheme + product-extension model
-- [`marketing-and-pr-playbook.md` §3.5](../marketing-and-pr-playbook.md#35-sponsorship-tiers) — sponsor tier amounts (the base)
-- [`community-platform-roadmap.md` §7 Phase ζ](../community-platform-roadmap.md) — the phase ζ product list
+- [`marketing-and-pr-playbook.md` §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) — sponsor tier amounts (the base)
+- [`community-platform-roadmap.md` §7 Phase ζ](../01-business/community-platform-roadmap.md) — the phase ζ product list

@@ -4,7 +4,7 @@ import { EventSpeakerBriefsService, type TickResult } from './event-speaker-brie
 
 // F-S1.4b — T-7 speaker brief cron entrypoint.
 // Auth: InternalAuthGuard (`x-internal-auth`). External scheduler ticks
-// ~hourly. See `docs/runbooks/event-pre-event-reminders.md` for wiring.
+// ~hourly. See `docs/02-business-processes/operations/event-pre-event-reminders.md` for wiring.
 
 @Controller('v1/internal/event-speaker-briefs')
 @UseGuards(InternalAuthGuard)

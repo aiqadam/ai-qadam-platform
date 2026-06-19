@@ -1,15 +1,15 @@
 # ADR-0022: Country-lead compensation model
 
 ## Status
-Deferred, 2026-05-21 — on the [business-process gap list](../business-process-gaps.md)
+Deferred, 2026-05-21 — on the [business-process gap list](../02-business-processes/business-process-gaps.md)
 
-> Reviewed by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Decision: **defer**, not accept. Reason: all paid options (B/C/D) require recurring spend that isn't authorized at this stage. **Operating reality stays Option A (pure volunteer)** with explicit acknowledgement that this will not survive past KZ/TJ activation. Logged in [`docs/business-process-gaps.md`](../business-process-gaps.md) with the trigger conditions for revisit. Sprint 4 (country provisioning) is consequently gated on this ADR being revisited + Accepted before any country lead beyond UZ is onboarded.
+> Reviewed by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md). Decision: **defer**, not accept. Reason: all paid options (B/C/D) require recurring spend that isn't authorized at this stage. **Operating reality stays Option A (pure volunteer)** with explicit acknowledgement that this will not survive past KZ/TJ activation. Logged in [`docs/02-business-processes/business-process-gaps.md`](../02-business-processes/business-process-gaps.md) with the trigger conditions for revisit. Sprint 4 (country provisioning) is consequently gated on this ADR being revisited + Accepted before any country lead beyond UZ is onboarded.
 
 ## Context
 
-[`community-platform-roadmap.md` §10](../community-platform-roadmap.md) names "compensation model for country leads" as one of the open blocking decisions. Today, country leads are volunteer community members. As we expand to Kazakhstan + Tajikistan (and beyond), the role grows from "host one meetup per month" into a multi-hour-per-week commitment: sponsor outreach, speaker recruitment, member moderation, CSAT loop, quarterly board reporting.
+[`community-platform-roadmap.md` §10](../01-business/community-platform-roadmap.md) names "compensation model for country leads" as one of the open blocking decisions. Today, country leads are volunteer community members. As we expand to Kazakhstan + Tajikistan (and beyond), the role grows from "host one meetup per month" into a multi-hour-per-week commitment: sponsor outreach, speaker recruitment, member moderation, CSAT loop, quarterly board reporting.
 
-[`marketing-and-pr-playbook.md` §3.5](../marketing-and-pr-playbook.md#35-sponsorship-tiers) establishes Bronze/Silver/Gold/Platinum sponsor revenue. ADR-0023 (invoicing) and ADR-0024 (future revenue) are the upstream and downstream decisions; this ADR sits in the middle.
+[`marketing-and-pr-playbook.md` §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) establishes Bronze/Silver/Gold/Platinum sponsor revenue. ADR-0023 (invoicing) and ADR-0024 (future revenue) are the upstream and downstream decisions; this ADR sits in the middle.
 
 Constraints:
 
@@ -33,7 +33,7 @@ Country lead receives a fixed stipend per event they ship to spec (e.g. $200 per
 - **Cons:** creates "gaming the metric" risk (operator runs more shallow events to hit count); doesn't compensate for the non-event work (sponsor onboarding, community moderation, board reporting).
 
 ### Option C — Revenue share on country's sponsor pool
-Country lead receives a fixed percentage (e.g. 20%) of sponsor revenue attributed to their country (per [marketing playbook §3.5](../marketing-and-pr-playbook.md#35-sponsorship-tiers) cohort + per Sprint-3.5 partner cabinet metrics). Paid quarterly.
+Country lead receives a fixed percentage (e.g. 20%) of sponsor revenue attributed to their country (per [marketing playbook §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) cohort + per Sprint-3.5 partner cabinet metrics). Paid quarterly.
 
 - **Pros:** aligned incentive — lead cares about real sponsor outcomes, not vanity metrics; scales with community value; sponsor LTV is the rate-limiter, which is the right one.
 - **Cons:** introduces the sales-motion failure mode AI Qadam is explicitly avoiding (per [feedback-community-graph-not-CRM](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_community_graph_not_crm.md)). Leads start to optimize sponsor pipeline over community health. Country with no big sponsors starves the lead even if community is thriving.
@@ -69,6 +69,6 @@ Country lead receives a low monthly retainer (e.g. $150/mo — covers domain pho
 - [ADR-0023 — Sponsor invoicing](./0023-sponsor-invoicing.md) (Proposed) — flow that produces the revenue base of Option D
 - [ADR-0024 — Future revenue phasing](./0024-future-revenue-phasing.md) (Proposed) — when paid products on the member graph turn on additional revenue streams
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — sponsor revenue model + sponsor PII boundary that constrains lead access
-- [`marketing-and-pr-playbook.md` §3.5](../marketing-and-pr-playbook.md#35-sponsorship-tiers) — Bronze/Silver/Gold/Platinum tier amounts (revenue base)
-- [`community-platform-roadmap.md` §7 Sprint 4](../community-platform-roadmap.md) — the sprint this ADR gates
-- [`community-platform-roadmap.md` §10](../community-platform-roadmap.md) — original "open decisions" list
+- [`marketing-and-pr-playbook.md` §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) — Bronze/Silver/Gold/Platinum tier amounts (revenue base)
+- [`community-platform-roadmap.md` §7 Sprint 4](../01-business/community-platform-roadmap.md) — the sprint this ADR gates
+- [`community-platform-roadmap.md` §10](../01-business/community-platform-roadmap.md) — original "open decisions" list

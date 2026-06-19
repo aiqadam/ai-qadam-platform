@@ -10,7 +10,7 @@ import type { ConsentBasis, InitiatorActor } from './interactions.types';
 //   { ok: true }                  → adapter runs
 //   { ok: false, reason: '...' }  → delivery row state=skipped_consent
 //
-// Decision per consent_basis (per docs/interaction-architecture.md §5):
+// Decision per consent_basis (per docs/04-development/architecture/interaction-architecture.md §5):
 //
 //   operational_contract  → always pass (transactional reply for an
 //                           action the user just took: registration

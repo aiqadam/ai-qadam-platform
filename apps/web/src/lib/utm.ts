@@ -1,4 +1,4 @@
-// UTM scheme runtime per docs/marketing-utm-scheme.md.
+// UTM scheme runtime per docs/02-business-processes/marketing-utm-scheme.md.
 //
 // Two responsibilities:
 //   1. Canonical lists of allowed `utm_medium` values + suggested
@@ -36,7 +36,7 @@ export type UtmMedium = (typeof UTM_MEDIUMS)[number];
 
 // Documentation strings keyed to UTM_MEDIUMS — used by the builder UI to
 // help operators pick the right value without consulting the doc each
-// time. Matches docs/marketing-utm-scheme.md §5.2.
+// time. Matches docs/02-business-processes/marketing-utm-scheme.md §5.2.
 export const UTM_MEDIUM_LABELS: Record<UtmMedium, string> = {
   linkedin_post: 'Organic LinkedIn post or comment',
   linkedin_message: 'LinkedIn DM (1:1 or small-group)',

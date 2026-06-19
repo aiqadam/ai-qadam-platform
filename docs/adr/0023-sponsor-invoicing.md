@@ -3,13 +3,13 @@
 ## Status
 Accepted (Phase 1 only), 2026-05-21
 
-> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md), constrained by a zero-recurring-spend filter: **Phase 1 (manual + Directus status) is Accepted; Phase 2 (Stripe) and Phase 3 (local-portal integration) remain Proposed and revisit when their stated triggers fire.** The cabinet UX (Sprint 3.5 partner cabinet) reads `sponsor_contributions.status` regardless of which phase is live, so this scope cut doesn't block downstream work.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md), constrained by a zero-recurring-spend filter: **Phase 1 (manual + Directus status) is Accepted; Phase 2 (Stripe) and Phase 3 (local-portal integration) remain Proposed and revisit when their stated triggers fire.** The cabinet UX (Sprint 3.5 partner cabinet) reads `sponsor_contributions.status` regardless of which phase is live, so this scope cut doesn't block downstream work.
 
 ## Context
 
-Sponsor revenue is named in [`marketing-and-pr-playbook.md` §3.5](../marketing-and-pr-playbook.md#35-sponsorship-tiers) as Bronze/Silver/Gold/Platinum. ADR-0033 reframes sponsors as `companies WHERE is_sponsor=true` with the cabinet at F-S3.5 the operator surface. What is NOT yet decided: how the sponsor pays.
+Sponsor revenue is named in [`marketing-and-pr-playbook.md` §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) as Bronze/Silver/Gold/Platinum. ADR-0033 reframes sponsors as `companies WHERE is_sponsor=true` with the cabinet at F-S3.5 the operator surface. What is NOT yet decided: how the sponsor pays.
 
-[`community-platform-roadmap.md` §10](../community-platform-roadmap.md) lists "invoicing decision" as a Sprint-3.2-blocking gate. ADR-0022 (country-lead compensation) presumes a revenue stream exists; this ADR defines how it actually flows.
+[`community-platform-roadmap.md` §10](../01-business/community-platform-roadmap.md) lists "invoicing decision" as a Sprint-3.2-blocking gate. ADR-0022 (country-lead compensation) presumes a revenue stream exists; this ADR defines how it actually flows.
 
 Constraints:
 
@@ -69,6 +69,6 @@ Phase 1 (now → ~10 sponsors): Option A (manual). Operator generates invoice ex
 - [ADR-0022 — Country-lead compensation](./0022-country-lead-compensation.md) (Proposed) — references sponsor revenue
 - [ADR-0024 — Future revenue phasing](./0024-future-revenue-phasing.md) (Proposed) — paid premium / hackathon-entry / mentorship revenue handles separately
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — `companies WHERE is_sponsor=true` data model
-- [`marketing-and-pr-playbook.md` §3.5](../marketing-and-pr-playbook.md#35-sponsorship-tiers) — tier amounts
-- [`community-platform-roadmap.md` §7 Sprint 3.5](../community-platform-roadmap.md) — partner cabinet feature
-- [`community-platform-roadmap.md` §10](../community-platform-roadmap.md) — "invoicing decision" gate
+- [`marketing-and-pr-playbook.md` §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) — tier amounts
+- [`community-platform-roadmap.md` §7 Sprint 3.5](../01-business/community-platform-roadmap.md) — partner cabinet feature
+- [`community-platform-roadmap.md` §10](../01-business/community-platform-roadmap.md) — "invoicing decision" gate

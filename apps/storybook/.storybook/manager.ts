@@ -13,7 +13,8 @@ addons.setConfig({
   theme: create({
     base: 'dark',
     brandTitle: 'AI Qadam — Design',
-    brandUrl: 'https://github.com/viktordrukker/aiqadam/blob/main/docs/architecture/blocks.md',
+    brandUrl:
+      'https://github.com/viktordrukker/aiqadam/blob/main/docs/04-development/architecture/blocks.md',
     brandTarget: '_blank',
   }),
 });

@@ -1,7 +1,7 @@
 name: restic-drill-lint
 
 # F-S0.5 — CI lint for the host-side backup-restore drill (per
-# docs/runbooks/restic-backups.md + ADR-0017). The actual restore
+# docs/04-development/infrastructure/runbooks/restic-backups.md + ADR-0017). The actual restore
 # happens on the platform host (passphrase never leaves the host); CI
 # only catches regressions in the script + systemd units before they're
 # deployed.

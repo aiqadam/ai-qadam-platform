@@ -13,7 +13,7 @@
 // useMyRegistrationStatus + useRegisterForEvent + useCancelRegistration
 // in lib/use-registrations) so the block itself never sees raw fetch.
 //
-// Wiring: docs/architecture/wiring-map.md → registrations.
+// Wiring: docs/04-development/architecture/wiring-map.md → registrations.
 
 import { Button } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';

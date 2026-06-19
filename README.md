@@ -14,20 +14,20 @@ AI Qadam serves three jobs for a regional community of AI engineers, ML practiti
 
 Self-hosted, open-source-first, free for the community. Built primarily by one person ([@viktordrukker](https://github.com/viktordrukker)) with Claude Code as implementation partner.
 
-See [`.claude/PROJECT.md`](.claude/PROJECT.md) for full product context.
+See [`docs/01-business/project.md`](docs/01-business/project.md) for full product context.
 
 ## Operating context
 
 This repository's operating context — for both humans and AI assistants — lives in [`.claude/`](.claude/). **Read these in this order at the start of any new working session:**
 
 1. [`CLAUDE.md`](.claude/CLAUDE.md) — operating rules (always-on for Claude Code)
-2. [`PROJECT.md`](.claude/PROJECT.md) — business context, who-uses-what, tone
-3. [`ARCHITECTURE.md`](.claude/ARCHITECTURE.md) — technical structure, module boundaries
-4. [`STANDARDS.md`](.claude/STANDARDS.md) — code standards, testing, formatting
-5. [`WORKFLOW.md`](.claude/WORKFLOW.md) — git workflow, PR process, releases
-6. [`SECURITY.md`](.claude/SECURITY.md) — security baseline (auth, validation, backups)
-7. [`AI_COLLAB.md`](.claude/AI_COLLAB.md) — how Viktor and Claude Code work together
-8. [`GLOSSARY.md`](.claude/GLOSSARY.md) — domain terms (User, Event, Tenant, etc.)
+2. [`PROJECT.md`](docs/01-business/project.md) — business context, who-uses-what, tone
+3. [`ARCHITECTURE.md`](docs/04-development/architecture/architecture.md) — technical structure, module boundaries
+4. [`STANDARDS.md`](docs/04-development/standards.md) — code standards, testing, formatting
+5. [`WORKFLOW.md`](docs/04-development/workflow.md) — git workflow, PR process, releases
+6. [`SECURITY.md`](docs/04-development/security/security.md) — security baseline (auth, validation, backups)
+7. [`AI_COLLAB.md`](docs/05-other/ai-collab.md) — how Viktor and Claude Code work together
+8. [`GLOSSARY.md`](docs/01-business/glossary.md) — domain terms (User, Event, Tenant, etc.)
 
 Architecture decisions and operational procedures:
 
@@ -36,7 +36,7 @@ Architecture decisions and operational procedures:
 
 ## Tech stack (canonical)
 
-See [`.claude/ARCHITECTURE.md`](.claude/ARCHITECTURE.md) for full detail.
+See [`docs/04-development/architecture/architecture.md`](docs/04-development/architecture/architecture.md) for full detail.
 
 | Layer | Choice |
 |---|---|
@@ -91,9 +91,9 @@ docker compose ps
 
 Default host ports: Postgres `5432`, Redis `6379`, MinIO API `9100`, MinIO console `http://localhost:9001`, Authentik `http://localhost:9000`. Override any of these via `*_HOST_PORT` env vars in your `.env` if you have a conflicting local service.
 
-The Postgres container creates four databases on first boot (`platform`, `directus`, `authentik`, `listmonk`) per [ARCHITECTURE.md §"Data ownership"](.claude/ARCHITECTURE.md), and installs `pgvector` on `platform`.
+The Postgres container creates four databases on first boot (`platform`, `directus`, `authentik`, `listmonk`) per [ARCHITECTURE.md §"Data ownership"](docs/04-development/architecture/architecture.md), and installs `pgvector` on `platform`.
 
-First-time Authentik setup (create OIDC application, configure redirect URIs, generate client secret) follows [docs/runbooks/authentik-local-bootstrap.md](docs/runbooks/authentik-local-bootstrap.md).
+First-time Authentik setup (create OIDC application, configure redirect URIs, generate client secret) follows [docs/04-development/infrastructure/runbooks/authentik-local-bootstrap.md](docs/04-development/infrastructure/runbooks/authentik-local-bootstrap.md).
 
 ```bash
 docker compose down        # stop, keep data volumes
@@ -105,9 +105,9 @@ docker compose down -v     # stop + delete all data (destructive!)
 Active on a single host at `aiqadam-web` (hyperapp.cloud, Frankfurt, 8 vCPU / 31 GiB / 2 TB SSD). Coolify v4.0.0 orchestrates every stack. See:
 
 - [ADR-0002](docs/adr/0002-deployment-target.md) — host choice and topology
-- [docs/runbooks/coolify-bootstrap.md](docs/runbooks/coolify-bootstrap.md) — exact bootstrap procedure used
-- [docs/runbooks/docker-iptables-and-ufw.md](docs/runbooks/docker-iptables-and-ufw.md) — the Docker / UFW lockdown lessons learned
-- [docs/runbooks/restic-backups.md](docs/runbooks/restic-backups.md) — daily off-site backups to Cloudflare R2
+- [docs/04-development/infrastructure/runbooks/coolify-bootstrap.md](docs/04-development/infrastructure/runbooks/coolify-bootstrap.md) — exact bootstrap procedure used
+- [docs/04-development/infrastructure/runbooks/docker-iptables-and-ufw.md](docs/04-development/infrastructure/runbooks/docker-iptables-and-ufw.md) — the Docker / UFW lockdown lessons learned
+- [docs/04-development/infrastructure/runbooks/restic-backups.md](docs/04-development/infrastructure/runbooks/restic-backups.md) — daily off-site backups to Cloudflare R2
 
 Coolify admin: `https://coolify.aiqadam.org`.
 
@@ -118,7 +118,7 @@ Coolify admin: `https://coolify.aiqadam.org`.
 
 ## Contributing
 
-Private repository in Phase 1. Not yet open to external contributions. Internal contributors follow [`.claude/WORKFLOW.md`](.claude/WORKFLOW.md) — short branches, conventional commits, ≤400-line PRs, every change reviewed.
+Private repository in Phase 1. Not yet open to external contributions. Internal contributors follow [`docs/04-development/workflow.md`](docs/04-development/workflow.md) — short branches, conventional commits, ≤400-line PRs, every change reviewed.
 
 ## License
 

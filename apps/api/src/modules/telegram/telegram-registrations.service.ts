@@ -45,7 +45,7 @@ const ACTIVE_REGISTRATION_STATUSES = 'registered,waitlisted,attended';
 // producer re-emit for the same registration (e.g. a future
 // confirmation-backfill cron) into a single Telegram DM. Mirrors the
 // broadcast convention `bdc:<broadcast_id>:<tg_user_id>`. See
-// docs/architecture/telegram-outbox-delivery-contract.md.
+// docs/04-development/architecture/telegram-outbox-delivery-contract.md.
 const REGISTRATION_CONFIRMED_DELIVERY_PREFIX = 'regconf:';
 
 // Phase Bot-B PR-1.3b — Telegram-as-IdP activation per ADR-0034

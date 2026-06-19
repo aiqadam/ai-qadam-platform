@@ -22,13 +22,13 @@ This means:
 Before writing any code in a new session, read these files in this order:
 
 1. `CLAUDE.md` (this file)
-2. `PROJECT.md` — business context
-3. `ARCHITECTURE.md` — technical structure
-4. `STANDARDS.md` — code standards
-5. `WORKFLOW.md` — process rules
-6. `SECURITY.md` — security baseline
-7. `AI_COLLAB.md` — how we work together
-8. `GLOSSARY.md` — domain terms
+2. `../docs/01-business/project.md` — business context
+3. `../docs/04-development/architecture/architecture.md` — technical structure
+4. `../docs/04-development/standards.md` — code standards
+5. `../docs/04-development/workflow.md` — process rules
+6. `../docs/04-development/security/security.md` — security baseline
+7. `../docs/05-other/ai-collab.md` — how we work together
+8. `../docs/01-business/glossary.md` — domain terms
 
 If any of these files is missing or contradicts another, **stop and report it** before proceeding.
 
@@ -125,7 +125,7 @@ These rules apply to every line of code:
 - **CSRF protection on state-changing operations** from browser.
 - **Authentication enforced at controller level**, not relied upon in services.
 
-Full details in `SECURITY.md`.
+Full details in `../docs/04-development/security/security.md`.
 
 ---
 
@@ -191,7 +191,7 @@ chore(deps): bump drizzle-orm to 0.30.0
 refactor(api): extract pagination logic to shared util
 ```
 
-Scopes follow the module structure in `ARCHITECTURE.md`.
+Scopes follow the module structure in `../docs/04-development/architecture/architecture.md`.
 
 ### PR description template
 ```

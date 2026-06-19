@@ -28,7 +28,7 @@
 #
 # Note: MinIO API moved from 9000 → 9100 when Authentik landed (Authentik's HTTP
 # port is hard-coded to 9000 in many places in its image). See
-# docs/runbooks/authentik-local-bootstrap.md.
+# docs/04-development/infrastructure/runbooks/authentik-local-bootstrap.md.
 
 name: aiqadam-local
 
@@ -99,7 +99,7 @@ services:
   # background jobs (token cleanup, scheduled tasks, email send). Both connect
   # to the shared Postgres `authentik` DB created by scripts/postgres-init.sql
   # and to the shared Redis. First-login + OIDC app setup procedure lives in
-  # docs/runbooks/authentik-local-bootstrap.md.
+  # docs/04-development/infrastructure/runbooks/authentik-local-bootstrap.md.
   #
   # Pinned to 2024.12.3 (latest stable as of 2026-05-15). Authentik moves fast
   # and minor versions occasionally introduce breaking schema changes — bump

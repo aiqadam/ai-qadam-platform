@@ -12,7 +12,7 @@
 #   - If the user exists: regenerate the token (rotation)
 # Either way, the secret file ends up with the current token.
 #
-# Per docs/runbooks/break-glass.md + ADR-0017 + roadmap §7 row 0.2.
+# Per docs/04-development/security/runbooks/break-glass.md + ADR-0017 + roadmap §7 row 0.2.
 #
 # Why we need this:
 #   - DIRECTUS_TOKEN (the existing admin token) is bound to a
@@ -134,7 +134,7 @@ else
            role:       $role,
            status:     "active",
            token:      $token,
-           description: "Break-glass admin (per docs/runbooks/break-glass.md + F-S0.2). NOT for routine work — invocations are auditable; quarterly rotation."
+           description: "Break-glass admin (per docs/04-development/security/runbooks/break-glass.md + F-S0.2). NOT for routine work — invocations are auditable; quarterly rotation."
          }')" >/dev/null
   echo "[3/4] Break-glass user created"
 fi
@@ -154,7 +154,7 @@ $NEW_TOKEN
 
 Next steps:
   - Copy to the team password manager under "Break-Glass / Directus".
-  - Document this rotation in docs/runbooks/break-glass.md "Rotations"
+  - Document this rotation in docs/04-development/security/runbooks/break-glass.md "Rotations"
     table (date + initials).
   - Test the new token works: curl -H "Authorization: Bearer \$TOKEN" \\
     "$DIRECTUS_URL/users/me" — expects 200 with email

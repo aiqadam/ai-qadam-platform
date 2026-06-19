@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/utm-lint.mjs — flags marketing-link URLs that violate the
-// UTM scheme from docs/marketing-and-pr-playbook.md §16. Diff-only
+// UTM scheme from docs/02-business-processes/marketing-and-pr-playbook.md §16. Diff-only
 // (added lines vs origin/main) to match the voice-lint pattern.
 //
 // Rules enforced (per playbook §16.4 hygiene rules):
@@ -13,7 +13,7 @@
 //      flagged.
 //
 // Files scanned: same user-visible globs as voice-lint, plus email
-// templates + marketing copy in docs/marketing-and-pr-playbook.md
+// templates + marketing copy in docs/02-business-processes/marketing-and-pr-playbook.md
 // when its links change.
 //
 // Exit 0 = clean; 1 = findings; 2 = unsupported mode.
@@ -25,7 +25,7 @@ const SCAN_GLOBS = [
   'apps/web/src/**/*.{astro,tsx,ts}',
   'apps/api/src/modules/email/templates/**/*.{ts,html,md}',
   'apps/api/src/modules/interactions/**/*.{ts,html,md}',
-  'docs/marketing-and-pr-playbook.md',
+  'docs/02-business-processes/marketing-and-pr-playbook.md',
 ];
 
 // Domains we treat as the platform itself — links here are INTERNAL
@@ -95,7 +95,7 @@ function isInternalContext(filepath) {
   // (heuristic: file is the playbook + the line contains `utm_`).
   // For source code, EVERYTHING is an "outbound marketing link"
   // candidate.
-  return filepath?.endsWith('docs/marketing-and-pr-playbook.md');
+  return filepath?.endsWith('docs/02-business-processes/marketing-and-pr-playbook.md');
 }
 
 function lintLine(filepath, text) {

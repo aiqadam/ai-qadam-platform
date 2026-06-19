@@ -6,7 +6,7 @@ Accepted (design), 2026-05-15. Implementation deferred to Phase 1 weeks 4–6.
 ## Context
 Per [ADR-0009](0009-email-stack-saas-exception.md), each operator (board members, country leads, volunteers with personal `name@aiqadam.org` addresses) must manually configure Gmail "Send mail as" with their Resend SMTP credentials to send outbound mail branded as `name@aiqadam.org`.
 
-The manual procedure (documented in [docs/runbooks/operator-email-send-as.md](../runbooks/operator-email-send-as.md)) takes ~10 minutes per operator and requires:
+The manual procedure (documented in [docs/02-business-processes/operations/operator-email-send-as.md](../02-business-processes/operations/operator-email-send-as.md)) takes ~10 minutes per operator and requires:
 
 1. Operator opens Gmail Settings → Accounts → Send mail as
 2. Adds the alias with SMTP details (server, port, username, password)
@@ -49,7 +49,7 @@ Build an internal **Astro page + NestJS module + Cloudflare Email Worker** that 
 - **Per-operator API keys**: revoking one operator's access (offboarding, suspected leak) is one Resend API call, doesn't affect others or the platform service-account.
 - **Workspace-managed Gmails**: if any operator is on a Google Workspace where the admin restricts third-party SMTP for Send-as, manual fallback or admin coordination required.
 - **Non-Gmail operators** (Outlook, Yahoo, Yandex, etc.): the Gmail-specific automation doesn't help. Documented manual fallback in the runbook. Future ADR could add Outlook (Microsoft Graph API) and Yandex (their internal API) parallels.
-- **OAuth refresh token storage**: stored in Postgres, encrypted at rest per [SECURITY.md §"Data protection"](../../.claude/SECURITY.md) Confidential classification, never logged.
+- **OAuth refresh token storage**: stored in Postgres, encrypted at rest per [SECURITY.md §"Data protection"](../04-development/security/security.md) Confidential classification, never logged.
 
 ## Rationale
 
@@ -66,10 +66,10 @@ Build an internal **Astro page + NestJS module + Cloudflare Email Worker** that 
 - ⚠️ ~1–2 dev days to build (Astro page + NestJS module + Worker + polling logic)
 - ⚠️ Adds Google Cloud Project as a project dependency (free for OAuth, just an account)
 - ⚠️ Workspace + non-Gmail edge cases require fallback paths
-- 📝 The manual runbook ([docs/runbooks/operator-email-send-as.md](../runbooks/operator-email-send-as.md)) stays as fallback documentation forever — automation can fail and humans need a path.
+- 📝 The manual runbook ([docs/02-business-processes/operations/operator-email-send-as.md](../02-business-processes/operations/operator-email-send-as.md)) stays as fallback documentation forever — automation can fail and humans need a path.
 
 ## References
 - [ADR-0009](0009-email-stack-saas-exception.md) — email stack this automates a slice of
-- [Operator Send-as runbook](../runbooks/operator-email-send-as.md) — manual fallback (always valid)
+- [Operator Send-as runbook](../02-business-processes/operations/operator-email-send-as.md) — manual fallback (always valid)
 - [Gmail API users.settings.sendAs reference](https://developers.google.com/gmail/api/reference/rest/v1/users.settings.sendAs)
 - [Cloudflare Email Workers docs](https://developers.cloudflare.com/email-routing/email-workers/)

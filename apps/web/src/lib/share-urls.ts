@@ -1,7 +1,7 @@
 // F-S5.2 — share-URL construction for event detail page buttons.
 //
 // Three channels for v1: Telegram, X (Twitter), LinkedIn. UTM scheme
-// follows docs/marketing-utm-scheme.md:
+// follows docs/02-business-processes/marketing-utm-scheme.md:
 //   utm_source = member-share | anon-share  (who's doing the sharing)
 //   utm_medium = telegram_share | x_share | linkedin_share  (channel-typed)
 //   utm_campaign = event-{id}  (the thing being promoted)

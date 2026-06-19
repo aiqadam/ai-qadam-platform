@@ -1013,7 +1013,7 @@ ensure "field events.online_meeting_url" \
 #
 # The architectural unit. Every outbound message in the platform — email,
 # Telegram DM, in-app banner, CRM activity log — is rooted in a row here.
-# Per §4 of docs/interaction-architecture.md.
+# Per §4 of docs/04-development/architecture/interaction-architecture.md.
 #
 # Inserts come from the InteractionsService (Sprint 5.5/4); operators
 # should not insert manually. Lookups + audit views can read freely.
@@ -3852,7 +3852,7 @@ fi
 # ════════════════════════════════════════════════════════════════════════
 #
 # Local-DB threaded Q&A — small enough to ship now without violating the
-# 200-DAU Discourse gate (see docs/forum-adoption-brief.md). Members post
+# 200-DAU Discourse gate (see docs/03-requirements/forum-adoption-brief.md). Members post
 # via the Nest API; anonymous read filtered to status=published. Operator
 # moderation (pin / mark-answered / soft-delete to status=hidden|removed)
 # is done in Directus admin until the cabinet PR lands.
