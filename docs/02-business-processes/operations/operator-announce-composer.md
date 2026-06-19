@@ -54,7 +54,7 @@ Rich markdown (links, lists, headings) is **deferred to v1.1**. Today, write pla
 
 When `failed` count is non-zero:
 
-1. Open the `interactions` collection in Directus admin (engineer-only per [operators-never-touch-Directus-admin](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_operators_never_touch_directus_admin.md)) — filter by `interactionId`
+1. Open the `interactions` collection in Directus admin (engineer-only per operators-never-touch-Directus-admin) — filter by `interactionId`
 2. Open the `interaction_deliveries` rows for that interaction
 3. `failure_reason` column shows the email adapter's error (SMTP timeout, bounced address, etc.)
 4. Common causes:

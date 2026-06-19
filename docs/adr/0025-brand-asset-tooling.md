@@ -145,7 +145,7 @@ The 5 GB trigger flips both of these — at scale, the local-disk constraint dom
 - ✅ Logos cannot be accidentally broken by a country lead — they are git-tracked and require an engineer PR.
 - ✅ One backup pipeline (restic) covers both logos (via repo backups) and produced assets (via Directus file storage backups).
 - ✅ Migration to R2 is a planned future event with a clear trigger, not an open question.
-- ⚠️ **Two hosts to know about.** Documentation in [`docs/runbooks/brand-asset-production.md`](../runbooks/brand-asset-production.md) (Agent-Marketing, Sprint 0.9) must explain "logos = git, everything else = Directus" plainly.
+- ⚠️ **Two hosts to know about.** Documentation in `docs/runbooks/brand-asset-production.md` (Agent-Marketing, Sprint 0.9) must explain "logos = git, everything else = Directus" plainly.
 - ⚠️ **Pending-review queue must not become a stale-review queue.** Workspace dashboard tile (Sprint 2.4) needs an SLA indicator; if Viktor has > 7 days of backlog, flag visibly. Risk noted in [roadmap §6 risk #5](../01-business/community-platform-roadmap.md#6-behavioral-risks--mitigations).
 - ⚠️ **No multi-step approval.** A country-lead's photo of a sponsor logo at an event does not get sponsor-approval before publishing on `/press`. If a sponsor objects post-hoc, the asset goes back to `archived`. Acceptable risk at Phase 1 (one-step approval); revisit when we have a sponsor cabinet (Sprint 3.2) able to surface a "report this asset" action.
 - 📝 The 5 GB migration trigger should be monitored in observability (Sprint 0.4) — emit a metric `marketing_assets.bytes_total` weekly.

@@ -90,7 +90,7 @@ or Directus permission should bypass it. Audit per record via
 
 ## Operator workflow placement
 
-Per ADR-0033 Part 2 + [feedback-operators-never-touch-directus-admin](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_operators_never_touch_directus_admin.md):
+Per ADR-0033 Part 2 + feedback-operators-never-touch-directus-admin:
 operators do NOT edit member-graph collections in Directus admin. They
 work in the cabinets:
 

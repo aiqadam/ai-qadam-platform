@@ -30,7 +30,7 @@ When the PR merges, the agent is done.
 | [`docs/02-business-processes/marketing-and-pr-playbook.md`](../02-business-processes/marketing-and-pr-playbook.md) | §3 AARRR funnel, §3.5 sponsor pricing, §10 sponsor kit, §11 speaker kit, §13 founder voices, §14 per-event playbook, §15 brand assets, §16 UTM scheme + attribution. |
 | `docs/05-other/agent-prompts.md` (this file) | §1 concurrency, §2 feature template, §3 gates, §4 active backlog. |
 
-Supporting: [`ARCHITECTURE.md`](../ARCHITECTURE.md), [`SECURITY.md`](../SECURITY.md), [`STANDARDS.md`](../STANDARDS.md), [`CLAUDE.md`](../CLAUDE.md), [`docs/04-development/architecture/interaction-architecture.md`](../04-development/architecture/interaction-architecture.md), [`docs/04-development/architecture/auth-architecture.md`](../04-development/architecture/auth-architecture.md), [`docs/adr/`](../adr), [`docs/runbooks/`](../runbooks).
+Supporting: [`ARCHITECTURE.md`](../04-development/architecture/architecture.md), [`SECURITY.md`](../04-development/security/security.md), [`STANDARDS.md`](../04-development/standards.md), [`CLAUDE.md`](../../.claude/CLAUDE.md), [`docs/04-development/architecture/interaction-architecture.md`](../04-development/architecture/interaction-architecture.md), [`docs/04-development/architecture/auth-architecture.md`](../04-development/architecture/auth-architecture.md), [`docs/adr/`](../adr), [`docs/runbooks/`](../04-development/infrastructure/runbooks/).
 
 ---
 
@@ -60,7 +60,7 @@ The PR template carries the same checklist; both the human and the agent must ti
 
 ### 1.1 Worktree isolation (mandatory)
 
-Each agent works in its OWN git worktree. **Never** edit `/home/drukker/aiqadam` directly as an agent. Today's session lost ~1 hour to index hijacks across 7 agents fighting one tree (see [memory: multi-agent-shared-tree](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_multi_agent_shared_tree.md)).
+Each agent works in its OWN git worktree. **Never** edit `/home/drukker/aiqadam` directly as an agent. Today's session lost ~1 hour to index hijacks across 7 agents fighting one tree (see memory: multi-agent-shared-tree).
 
 Agent setup (run once per kick-off, in the agent's prompt):
 

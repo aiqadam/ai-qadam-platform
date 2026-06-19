@@ -154,7 +154,7 @@ tools/gen/       Page/cabinet generators
 
 ## 4. Infrastructure & operations
 
-Everything below is documented in depth under [`docs/runbooks/`](../runbooks). Highlights and the non-obvious bits:
+Everything below is documented in depth under [`docs/runbooks/`](../04-development/infrastructure/runbooks/). Highlights and the non-obvious bits:
 
 - **Host:** single Hyperapp Cloud VM, Frankfurt. SSH alias `aiqadam-prod` (`aiqadam-admin@212.20.151.29`). *Do not* use any `hetzner-cx13` host config — that is a different project.
 - **Coolify v4** orchestrates every stack. Admin at `coolify.aiqadam.org`. **Critical operational landmine:** Coolify stores Traefik labels as base64 `custom_labels` in its DB, and there is **no API endpoint that re-runs the label generator**. Any FQDN/label change must be done **in the Coolify web UI → Save → Deploy** — a direct API `PATCH` on `custom_labels` *replaces* (not merges) and wipes routing. This caused a 40-minute prod outage once. During any Traefik recovery, **freeze all Coolify writes.**
@@ -174,7 +174,7 @@ The platform is built as **vertical features**, one PR each. The substantial sub
 
 - **Identity & consent:** Authentik OIDC + Directus members + per-purpose `member_consents` + `partner_audiences` entitlement chain. Registration-time EULA + consent prompt. `/me/preferences` consent UI.
 - **Member graph (F-S3.0):** rich profiles, skills, employments, interests, connections, cohorts. Member profile, referrals, badges, gamification.
-- **Events engine:** plan → publish → register → check-in → CSAT → follow-up, with per-event audience + status taxonomy; `event_outcomes` + `event_followups` rollups. Pre-event reminders, member-matches, CSAT, publication broadcast, speaker pipeline — each with its own runbook under [`docs/runbooks/`](../runbooks).
+- **Events engine:** plan → publish → register → check-in → CSAT → follow-up, with per-event audience + status taxonomy; `event_outcomes` + `event_followups` rollups. Pre-event reminders, member-matches, CSAT, publication broadcast, speaker pipeline — each with its own runbook under [`docs/runbooks/`](../04-development/infrastructure/runbooks/).
 - **Interactions dispatcher:** multi-channel messaging gated by per-purpose consent + audience cohorts; `EmailAdapter` live; Telegram/push adapters planned. Two modes (pure vs operator-assisted) with an approval queue.
 - **Operator cabinets:** approvals queue, cohort builder, announce composer, event control, email send-as, country-lead activation. These are being **rebuilt in web-next** (Members list + saved cohorts, Announce composer, Country provisioning wizard were the latest).
 - **Telegram (platform side):** outbox pattern with a stable `delivery_key` and a documented [delivery contract](../04-development/architecture/telegram-outbox-delivery-contract.md). The bot is **acquisition-first**: `/register` must work *without* `/link` first — the bot creates community members using Telegram as an IdP. (Framing it as "link-first" has been rejected repeatedly — it's friction.)
@@ -219,7 +219,7 @@ This is the section that saves the next developer the most time. These are *real
 
 The baseline (parameterized queries, input validation at boundaries, no secrets in logs/commits, output encoding, auth at controller level) is defined in [`docs/04-development/security/security.md`](../04-development/security/security.md) and largely honored.
 
-A verified 11-dimension industrial-standards audit was run on 2026-05-29 → [`docs/platform-hardening-assessment-2026-05-29.md`](platform-hardening-assessment-2026-05-29.md). **Top risks (read this before proposing hardening work — several gaps are simply execution of standards already written):**
+A verified 11-dimension industrial-standards audit was run on 2026-05-29 → `docs/platform-hardening-assessment-2026-05-29.md`. **Top risks (read this before proposing hardening work — several gaps are simply execution of standards already written):**
 1. **Edge controls** — rate-limiting was only just shipped in *observe-before-enforce* mode (PR #486); security headers, CSRF, and secret-scanning were thin (gitleaks added in PR #473). Finish the enforce flip + headers/CSRF.
 2. **No operator country-scoping** — operators are not yet constrained to their own country's data. This is a real authorization gap.
 3. **Dual-web migration double-spend** — V1 + V2 running in parallel is expensive in attention and risk; finishing or formally pausing the migration matters.
@@ -339,11 +339,11 @@ For whoever resumes — small PRs that pay down the most confusing drift first:
 
 **Strategy & planning** — [`docs/01-business/product-plan.md`](../01-business/product-plan.md), [`docs/01-business/community-platform-roadmap.md`](../01-business/community-platform-roadmap.md), [`docs/03-requirements/sprint-5-to-8-plan.md`](../03-requirements/sprint-5-to-8-plan.md), [`docs/05-other/agent-prompts.md`](agent-prompts.md), [`docs/02-business-processes/marketing-and-pr-playbook.md`](../02-business-processes/marketing-and-pr-playbook.md), [`docs/04-development/design-system/ux-and-content-guidelines.md`](../04-development/design-system/ux-and-content-guidelines.md), [`docs/02-business-processes/business-process-gaps.md`](../02-business-processes/business-process-gaps.md).
 
-**Architecture** — [`docs/adr/`](../adr) (0001–0038; start at 0002, 0013, 0016, 0032, 0033, 0034, 0037, 0038), [`docs/architecture/`](../architecture) (blocks, parity-matrix, web-migration-plan, web-next-kickoff, web-v1-feature-surface, wiring-map, telegram-outbox-delivery-contract), [`docs/04-development/architecture/auth-architecture.md`](../04-development/architecture/auth-architecture.md), [`docs/04-development/architecture/interaction-architecture.md`](../04-development/architecture/interaction-architecture.md).
+**Architecture** — [`docs/adr/`](../adr) (0001–0038; start at 0002, 0013, 0016, 0032, 0033, 0034, 0037, 0038), [`docs/architecture/`](../04-development/architecture/) (blocks, parity-matrix, web-migration-plan, web-next-kickoff, web-v1-feature-surface, wiring-map, telegram-outbox-delivery-contract), [`docs/04-development/architecture/auth-architecture.md`](../04-development/architecture/auth-architecture.md), [`docs/04-development/architecture/interaction-architecture.md`](../04-development/architecture/interaction-architecture.md).
 
-**Operations** — [`docs/runbooks/`](../runbooks) (snapshot-restore, break-glass, coolify-bootstrap, restic-backups, internal-cron, observability, security, secret-rotation-pending, and one per event/member/operator flow).
+**Operations** — [`docs/runbooks/`](../04-development/infrastructure/runbooks/) (snapshot-restore, break-glass, coolify-bootstrap, restic-backups, internal-cron, observability, security, secret-rotation-pending, and one per event/member/operator flow).
 
-**Security** — [`docs/platform-hardening-assessment-2026-05-29.md`](platform-hardening-assessment-2026-05-29.md), [`docs/04-development/security/security.md`](../04-development/security/security.md), [`docs/policies/`](../policies).
+**Security** — `docs/platform-hardening-assessment-2026-05-29.md`, [`docs/04-development/security/security.md`](../04-development/security/security.md), [`docs/policies/`](../01-business/policies/).
 
 ---
 

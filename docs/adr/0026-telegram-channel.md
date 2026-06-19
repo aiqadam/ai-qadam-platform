@@ -7,7 +7,7 @@ Accepted, 2026-05-21
 
 ## Context
 
-Per [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md), AI Qadam runs a Telegram **group** today (members chat with each other) but explicitly NOT a Telegram **channel** (broadcast-only, one-way operator → audience). [`marketing-and-pr-playbook.md`](../02-business-processes/marketing-and-pr-playbook.md) documents Telegram as a primary funnel surface for Central Asia; not all members visit `aiqadam.org` regularly but ~80% open Telegram daily.
+Per project-essentials, AI Qadam runs a Telegram **group** today (members chat with each other) but explicitly NOT a Telegram **channel** (broadcast-only, one-way operator → audience). [`marketing-and-pr-playbook.md`](../02-business-processes/marketing-and-pr-playbook.md) documents Telegram as a primary funnel surface for Central Asia; not all members visit `aiqadam.org` regularly but ~80% open Telegram daily.
 
 A channel is the broadcast complement to a group: one-way official announcements, event teasers, recap links, sponsor highlights. Groups don't show notifications by default for many members (muted-group is normalized); channels do.
 

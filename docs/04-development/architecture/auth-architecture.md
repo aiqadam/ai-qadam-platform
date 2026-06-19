@@ -3,7 +3,7 @@
 > **Status:** authoritative as of 2026-05-17.
 > **Audience:** engineers + operators who need to understand, debug, or
 > extend the sign-in / sign-out / session lifecycle.
-> **Companions:** [ADR-0016 — Auth bootstrap](adr/0016-auth-bootstrap.md),
+> **Companions:** [ADR-0016 — Web auth flow](../../adr/0016-web-auth-flow.md),
 > [Authentik runbook](../infrastructure/runbooks/authentik-local-bootstrap.md).
 
 ---

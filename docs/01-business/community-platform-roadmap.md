@@ -97,7 +97,7 @@ Every sprint item below is tagged:
 1. **No [CC] item ships without an [L2] smoke scenario** (catalogued in §7.5).
 2. **No [HYBRID] item ships without explicit decision artifact** — ADR drafted by Claude Code, reviewed in PM weekly decision batch.
 3. **No [HUMAN] item is on the engineering critical path** — engineering ships ahead; [HUMAN] items pace the launch milestones independently.
-4. **Runbooks-as-living-docs codify formerly-ambient operator knowledge** so humans follow steps rather than invent flow ([docs/runbooks/](../runbooks) directory; runbook framework = Sprint 0.13).
+4. **Runbooks-as-living-docs codify formerly-ambient operator knowledge** so humans follow steps rather than invent flow ([docs/runbooks/](../04-development/infrastructure/runbooks/) directory; runbook framework = Sprint 0.13).
 5. **Guidelines-as-automated-checks** replace "human reviews brand fit" wherever the check can be mechanical (UX guidelines §1 voice patterns → linter; brand color contrast → CI; AI-generated faces → visual regression baseline; etc.).
 
 The irreducibly-human work (the [HUMAN] tag) is intentionally minimized but not eliminated. See [§9](#9-what-were-explicitly-not-doing) and [§11 concurrent operational work](#11-concurrent-operational-work-parallel-to-engineering-sprints) for the residual.

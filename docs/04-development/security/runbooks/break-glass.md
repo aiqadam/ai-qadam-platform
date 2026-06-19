@@ -2,7 +2,7 @@
 
 **Audience:** engineer who needs admin-level access to a production system AND the normal SSO chain is broken (Authentik down, RBAC sync wedged, super-admin OIDC mapping mis-applied). Also: post-break-glass cleanup.
 
-**Pre-reading:** [`docs/04-development/architecture/auth-architecture.md`](../../architecture/auth-architecture.md), [`security.md`](security.md) (every break-glass event is a security event by definition), [`audit.md`](audit.md) (the post-cleanup audit pass).
+**Pre-reading:** [`docs/04-development/architecture/auth-architecture.md`](../../architecture/auth-architecture.md), [`security-incident.md`](security-incident.md) (every break-glass event is a security event by definition), [`audit.md`](audit.md) (the post-cleanup audit pass).
 
 **Total time:** invoke break-glass ~2 min; remediate the underlying outage 15 min – several hours; cleanup + audit + postmortem same-day.
 
@@ -125,7 +125,7 @@ Break-glass actions themselves are not "rollback-able" — the action was taken 
 - [`docs/01-business/community-platform-roadmap.md` §7 Sprint 0.2](../../../01-business/community-platform-roadmap.md) — F-S0.2 spec (this runbook + provision script)
 - [`scripts/provision-break-glass.sh`](../../../../scripts/provision-break-glass.sh) — the rotation tooling
 - [`docs/04-development/architecture/auth-architecture.md`](../../architecture/auth-architecture.md) — the auth chain this bypasses
-- [`security.md`](security.md) — every break-glass is a security event
+- [`security-incident.md`](security-incident.md) — every break-glass is a security event
 - [`audit.md`](audit.md) — the post-cleanup audit pass
 - [ADR-0021 — RBAC manifest](../../../adr/0021-rbac-manifest.md) (Proposed) — when accepted + F-S2.2 RBAC sync ships, the short-TTL API-endpoint version of break-glass (`POST /v1/internal/break-glass/auth`) becomes feasible; until then, the cached-credentials path above IS the v1
-- [`reference-secrets-cache`](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md) — inventory of cached secrets including BREAKGLASS_DIRECTUS_TOKEN
+- `reference-secrets-cache` — inventory of cached secrets including BREAKGLASS_DIRECTUS_TOKEN

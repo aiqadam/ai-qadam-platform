@@ -16,7 +16,7 @@ Constraints:
 - We are not VC-funded; every recurring expense is a real bet.
 - AI Qadam is community-as-platform per [ADR-0033](./0033-community-member-graph.md) — the audience graph is the asset. Country leads are not "salespeople"; they're trusted community operators. Compensation must not corrupt that relationship into a transactional one.
 - Central Asia legal landscape: each country has its own contractor / freelance / employment rules. Tax + currency handling is non-trivial.
-- The Community Volunteering Board (governance actor per [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md)) needs to see + sign off on compensation to keep the trust line clean.
+- The Community Volunteering Board (governance actor per project-essentials) needs to see + sign off on compensation to keep the trust line clean.
 
 ## Options
 
@@ -36,7 +36,7 @@ Country lead receives a fixed stipend per event they ship to spec (e.g. $200 per
 Country lead receives a fixed percentage (e.g. 20%) of sponsor revenue attributed to their country (per [marketing playbook §3.5](../02-business-processes/marketing-and-pr-playbook.md#35-sponsorship-tiers) cohort + per Sprint-3.5 partner cabinet metrics). Paid quarterly.
 
 - **Pros:** aligned incentive — lead cares about real sponsor outcomes, not vanity metrics; scales with community value; sponsor LTV is the rate-limiter, which is the right one.
-- **Cons:** introduces the sales-motion failure mode AI Qadam is explicitly avoiding (per [feedback-community-graph-not-CRM](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_community_graph_not_crm.md)). Leads start to optimize sponsor pipeline over community health. Country with no big sponsors starves the lead even if community is thriving.
+- **Cons:** introduces the sales-motion failure mode AI Qadam is explicitly avoiding (per feedback-community-graph-not-CRM). Leads start to optimize sponsor pipeline over community health. Country with no big sponsors starves the lead even if community is thriving.
 
 ### Option D — Hybrid: small monthly retainer + per-event bonus + capped revenue share
 Country lead receives a low monthly retainer (e.g. $150/mo — covers domain phone, transit, basic acknowledgement) + a per-event bonus ($100 per event meeting spec) + a *capped* revenue share (10% of sponsor revenue, capped at 2× the retainer per quarter). Approved per country by the Community Volunteering Board.

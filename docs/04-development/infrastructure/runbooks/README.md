@@ -106,7 +106,7 @@ Why split: runbooks answer "what do I do when this breaks". The operator playboo
 - [`authentik-local-bootstrap.md`](authentik-local-bootstrap.md) — Authentik provider setup against a local instance.
 - [`authentik-ropc.md`](authentik-ropc.md) — retained for the password-reset commands at the bottom; ROPC is no longer used for sign-in (per auth-architecture.md §2).
 - [`auth.md`](auth.md) — day-2 auth operations (Authentik upgrade, JWT key rotation, RBAC sync failure, OIDC redirect loop).
-- [`security.md`](../../security/runbooks/security.md) — security-incident triage (credential leak, unauthorized access, abuse report, CVE response).
+- [`security-incident.md`](../../security/runbooks/security-incident.md) — security-incident triage (credential leak, unauthorized access, abuse report, CVE response).
 - [`audit.md`](../../security/runbooks/audit.md) — audit-log inspection, member access-log queries, sponsor-PII-boundary checks, quarterly retention sweep.
 - [`break-glass.md`](../../security/runbooks/break-glass.md) — break-glass admin path (per F-S0.2): when, why, how, and what to clean up after.
 - [`rbac-drift.md`](../../security/runbooks/rbac-drift.md) — investigating + correcting RBAC drift between Authentik / Directus / Plausible (per [ADR-0021 §5](../../../adr/0021-rbac-manifest.md)).

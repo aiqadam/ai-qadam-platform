@@ -11,7 +11,7 @@
 ## Pre-conditions
 
 - F-S2.2 RBAC sync has shipped (otherwise this runbook is moot — without a sync service, "drift" is the default state and the right tool is manual reconciliation per [`country-lead-activation.md`](../../../02-business-processes/operations/country-lead-activation.md) §A)
-- Engineer has Authentik admin + Directus admin + Plausible admin (per [`reference-secrets-cache`](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md))
+- Engineer has Authentik admin + Directus admin + Plausible admin (per `reference-secrets-cache`)
 - The drift alert / report names: the affected user, the affected engine (Directus / Plausible / Authentik), the expected state per the manifest, the observed state
 
 ## Steps
@@ -28,7 +28,7 @@
 - **Sync-service stall** — RBAC sync is running but missed events. Check the sync-service event log; look for the missing event-id range.
 - **Sync-service crash** — RBAC sync was down during the window. Loki has the gap; replay the missed events from Authentik's audit log.
 - **Manifest mismatch** — the manifest itself was updated and the running sync service hasn't picked up the new version. Restart the sync service.
-- **Adversarial** — a user / operator deliberately granted themselves a permission. Escalate to [`security.md`](security.md).
+- **Adversarial** — a user / operator deliberately granted themselves a permission. Escalate to [`security-incident.md`](security-incident.md).
 
 ### C. Remediate
 
@@ -40,7 +40,7 @@ Based on classification:
 | Sync-service stall | Replay missed events via `/v1/internal/rbac/replay?from=<event-id>&to=<event-id>`. |
 | Sync-service crash | Restart `aiqadam-api` (Coolify), then replay events from the last successful tick. |
 | Manifest mismatch | Restart the sync service after redeploying the API with the new manifest. |
-| Adversarial | → [`security.md`](security.md). Do NOT remediate before the security runbook runs. |
+| Adversarial | → [`security-incident.md`](security-incident.md). Do NOT remediate before the security runbook runs. |
 
 ### D. Document + close
 
@@ -67,5 +67,5 @@ Per-engine: if the remediation accidentally granted MORE permission than intende
 - [ADR-0021](../../../adr/0021-rbac-manifest.md) — the canonical manifest this runbook protects
 - [`docs/01-business/community-platform-roadmap.md` §7 Sprint 2.2](../../../01-business/community-platform-roadmap.md) — F-S2.2 RBAC sync feature
 - [`auth.md`](../../infrastructure/runbooks/auth.md) — for the related case where the sync service itself is the failure
-- [`security.md`](security.md) — escalation path when drift looks adversarial
+- [`security-incident.md`](security-incident.md) — escalation path when drift looks adversarial
 - [`audit.md`](audit.md) — for the post-drift forensic pass

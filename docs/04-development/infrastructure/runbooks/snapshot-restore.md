@@ -5,7 +5,7 @@
 **Pre-reading:**
 - [`docs/03-requirements/plans/f-ops1-snapshot-restore-ui.md`](../../../03-requirements/plans/f-ops1-snapshot-restore-ui.md) — the architecture decision
 - [`docs/04-development/infrastructure/runbooks/restic-backups.md`](restic-backups.md) — the underlying restic setup
-- [`.claude/projects/-home-drukker-aiqadam/memory/feedback_coolify_custom_labels_replaces_autogen.md`](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_coolify_custom_labels_replaces_autogen.md) — the incident this exists to recover from faster
+- `.claude/projects/-home-drukker-aiqadam/memory/feedback_coolify_custom_labels_replaces_autogen.md` — the incident this exists to recover from faster
 
 ## When to use this runbook
 

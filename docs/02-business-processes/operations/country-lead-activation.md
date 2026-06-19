@@ -2,7 +2,7 @@
 
 **Audience:** engineer (you) running the onboarding sequence for a newly-identified country lead. Triggers: a country lead candidate has been interviewed + accepted by Binali + Viktor; their Authentik account exists; the country's tenant in Directus is provisioned.
 
-**Pre-reading:** [`docs/04-development/architecture/auth-architecture.md`](../../04-development/architecture/auth-architecture.md), [ADR-0021](../../adr/0021-rbac-manifest.md) (Proposed — the role manifest), [ADR-0033](../../adr/0033-community-member-graph.md) (the data layer they'll operate inside cabinets), [`docs/operator-playbook/`](../../operator-playbook) (where the operator-facing how-tos live; this runbook is the engineer-side counterpart).
+**Pre-reading:** [`docs/04-development/architecture/auth-architecture.md`](../../04-development/architecture/auth-architecture.md), [ADR-0021](../../adr/0021-rbac-manifest.md) (Proposed — the role manifest), [ADR-0033](../../adr/0033-community-member-graph.md) (the data layer they'll operate inside cabinets), [`docs/operator-playbook/`](../operator-playbook/) (where the operator-facing how-tos live; this runbook is the engineer-side counterpart).
 
 **Total time:** ~45 min if F-S2.2 RBAC sync + F-S4.1 country provisioning + F-S4.3 onboarding wizard have shipped; longer if any of those is still placeholder.
 

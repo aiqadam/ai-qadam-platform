@@ -53,7 +53,7 @@ How we build and run the platform. Code standards and workflow, architecture, an
 - [Runbook: Break-glass admin path](security/runbooks/break-glass.md)
 - [Runbook: RBAC drift investigation + remediation](security/runbooks/rbac-drift.md)
 - [Pending secret rotations](security/runbooks/secret-rotation-pending.md)
-- [Runbook: Security-incident triage](security/runbooks/security.md)
+- [Runbook: Security-incident triage](security/runbooks/security-incident.md)
 - [Runbook: Supply-chain CI gates + CVE triage](security/runbooks/supply-chain.md)
 - [SECURITY.md — Security Baseline](security/security.md)
 

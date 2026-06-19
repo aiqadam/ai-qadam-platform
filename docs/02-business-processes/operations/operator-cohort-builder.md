@@ -1,7 +1,7 @@
 # Runbook: Operator cohort builder (`/workspace/members`)
 
 **Audience:** country leads, super-admins, board members.
-**Pre-reading:** [ADR-0033](../../adr/0033-community-member-graph.md) (member graph + cabinets); [feedback-operators-never-touch-Directus-admin](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_operators_never_touch_directus_admin.md).
+**Pre-reading:** [ADR-0033](../../adr/0033-community-member-graph.md) (member graph + cabinets); feedback-operators-never-touch-Directus-admin.
 **Ships:** F-S3.2 cabinet #1.
 
 ## What this cabinet replaces

@@ -2,7 +2,7 @@
 
 **Audience:** engineer responding to a member's "who saw my data?" request, an operator-conduct allegation, a compliance audit, or a regulatory inquiry. Also: routine quarterly retention sweep.
 
-**Pre-reading:** [ADR-0033](../../../adr/0033-community-member-graph.md) (the data layer + the sponsor PII boundary), [`docs/04-development/architecture/auth-architecture.md`](../../architecture/auth-architecture.md) (who-is-who), [`docs/04-development/security/runbooks/security.md`](security.md) (when an audit query is also a security incident).
+**Pre-reading:** [ADR-0033](../../../adr/0033-community-member-graph.md) (the data layer + the sponsor PII boundary), [`docs/04-development/architecture/auth-architecture.md`](../../architecture/auth-architecture.md) (who-is-who), [`docs/04-development/security/runbooks/security-incident.md`](security-incident.md) (when an audit query is also a security incident).
 
 **Total time:** a single member-access query ~5 min; a full quarterly compliance sweep ~2 hours.
 
@@ -65,5 +65,5 @@ Audit queries are read-only. No rollback. For corrective actions taken in respon
 - [ADR-0033](../../../adr/0033-community-member-graph.md) — member graph + sponsor PII boundary
 - [ADR-0017](../../../adr/0017-backup-architecture.md) — backup + retention strategy
 - [`docs/01-business/community-platform-roadmap.md` §7 Sprint 2.5](../../../01-business/community-platform-roadmap.md) — F-S2.5 audit log feature
-- [`security.md`](security.md) — when an audit finding becomes a security incident
+- [`security-incident.md`](security-incident.md) — when an audit finding becomes a security incident
 - [`break-glass.md`](break-glass.md) — every break-glass event leaves an audit trail this runbook reads

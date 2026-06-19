@@ -1,7 +1,7 @@
 # Runbook: Supply-chain CI gates + CVE triage
 
 **Audience:** anyone responding to a red `supply-chain` workflow run, triaging a Dependabot PR, or considering whether to add a new dependency.
-**Pre-reading:** [`.github/workflows/supply-chain.yml`](../../../../.github/workflows/supply-chain.yml), [`.github/dependabot.yml`](../../../../.github/dependabot.yml), [CLAUDE.md §9 Dependencies policy](../../CLAUDE.md).
+**Pre-reading:** [`.github/workflows/supply-chain.yml`](../../../../.github/workflows/supply-chain.yml), [`.github/dependabot.yml`](../../../../.github/dependabot.yml), [CLAUDE.md §9 Dependencies policy](../../../../.claude/CLAUDE.md).
 **Ships:** Sprint 0.3 from the community-platform roadmap.
 
 ## What this enforces
@@ -69,7 +69,7 @@ For ungrouped major bumps: separate PR, follow the upstream migration guide, run
 
 ## Adding a new dependency
 
-Before `pnpm add <pkg>`, walk through [CLAUDE.md §9](../../CLAUDE.md):
+Before `pnpm add <pkg>`, walk through [CLAUDE.md §9](../../../../.claude/CLAUDE.md):
 
 1. Search existing deps — does something already solve this?
 2. `pnpm view <pkg>` — weekly downloads >10k, last update <6 months, license MIT/Apache/BSD/ISC.

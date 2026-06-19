@@ -11,7 +11,7 @@ The new country is **live on the platform**: tenant row in `countries`, country 
 ## Inputs
 
 - Country code chosen (ISO 3166-1 alpha-2 lowercase: `kz`, `tj`, `kg`, ...) + display names (English + Russian) + timezone (IANA).
-- Country lead identified + interviewed + accepted (by Binali + Viktor; the Volunteering Board signs off on appointment per the governance model in [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md)).
+- Country lead identified + interviewed + accepted (by Binali + Viktor; the Volunteering Board signs off on appointment per the governance model in project-essentials).
 - AUP (Acceptable Use Policy for member data) drafted — operator-playbook v0 ships the AUP scaffold in a future PR; for now Viktor writes country-specific AUP per launch.
 - ADR-0022 status: **gates this playbook.** Per G-1 (business-process gap list), compensation is deferred until trigger conditions fire. Country leads onboarded under G-1 conditions are VOLUNTEER; this must be made explicit + ACCEPTED in writing by the candidate before activation.
 - Sprint 4 features status: F-S4.1 country provisioning service + F-S4.2 wizard + F-S4.3 onboarding runbook. Pre-Sprint-4 the engineer (Viktor) provisions manually per the steps below.

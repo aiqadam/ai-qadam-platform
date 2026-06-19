@@ -7,7 +7,7 @@ Accepted, 2026-05-21
 
 ## Context
 
-Per [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md), AI Qadam's current social surfaces are Telegram group + LinkedIn (manually solo by Viktor) + web. No X (Twitter) presence today.
+Per project-essentials, AI Qadam's current social surfaces are Telegram group + LinkedIn (manually solo by Viktor) + web. No X (Twitter) presence today.
 
 X is dominant globally for AI / ML engineer conversations (~70% of the global AI community has an active X account; conference recaps, paper threads, and tooling announcements compete primarily on X). In Central Asia, however, X is a niche channel — Telegram + LinkedIn dominate engineer reach. Russian-language AI conversations on X are dwarfed by Habr + Telegram. UZ + KZ government had periodic X blocks in past years; reliability is uneven.
 

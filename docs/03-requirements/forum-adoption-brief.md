@@ -64,7 +64,7 @@ If 1 + 3 fire before 2, re-evaluate: the rewire may be the bottleneck and forum 
 - **Coolify Docker-Compose stack** (`discourse/discourse:<stable-tag>`)
 - **Discourse Postgres** — share the existing pgvector cluster (separate database `discourse`); the cluster is overprovisioned and Discourse fits comfortably
 - **Discourse Redis** — dedicated container; do NOT share with the existing app Redis (Discourse uses `KEYS *`-style scans that thrash a shared instance)
-- **OIDC SSO** via Discourse's `discourse-openid-connect` plugin against Authentik provider `pk=N` (TBD at deploy time per [reference-tenant-onboarding-checklist](../../.claude/projects/-home-drukker-aiqadam/memory/reference_tenant_onboarding_checklist.md))
+- **OIDC SSO** via Discourse's `discourse-openid-connect` plugin against Authentik provider `pk=N` (TBD at deploy time per reference-tenant-onboarding-checklist)
 - **Authentik scope mapping** — emit `groups: aiqadam-country-* + member-*` for trust-level seed
 - **Engineering Deck tile** — add Discourse to the Authentik default_application library so engineers (and only engineers, gated by group) see the launcher tile
 - **Acceptance** — sign in via "Continue with AI Qadam" works; create test post in `#uz` category; default trust level 0 assigned
@@ -97,7 +97,7 @@ If 1 + 3 fire before 2, re-evaluate: the rewire may be the bottleneck and forum 
 
 1. **Discourse + Authentik OIDC plugin fragility.** Discourse's OIDC2 plugin works against generic OIDC but has historically broken on Authentik scope-mapping edge cases. The spike de-risks; if it fails, NodeBB (also OIDC-capable) is the fallback. Worst-case time loss: 1 spike day.
 2. **Empty-forum dynamic.** Deploying before 200 DAU produces a ghost town. Mitigation: gate strictly; if you launch early, seed with 3-4 sticky topics (intro, weekly thread, country-specific) and have community managers post daily for the first 2 weeks.
-3. **Email reputation.** Discourse sends a LOT of email (notifications, digests, mentions). Routes through Stalwart (F-S2.12) — needs DKIM + SPF healthy before Discourse goes live, or the IP reputation tanks. Cross-reference [project-stalwart-mail-deployment-status](../../.claude/projects/-home-drukker-aiqadam/memory/project_stalwart_mail_deployment_status.md).
+3. **Email reputation.** Discourse sends a LOT of email (notifications, digests, mentions). Routes through Stalwart (F-S2.12) — needs DKIM + SPF healthy before Discourse goes live, or the IP reputation tanks. Cross-reference project-stalwart-mail-deployment-status.
 4. **Moderation load.** Discourse moderation tools are good, but they only work if someone moderates. PM should appoint 1-2 country-leads as moderators before launch + write a 1-page moderation policy. Out of scope for the deployment PRs.
 5. **SEO cannibalisation.** Discourse pages can outrank our own marketing pages for ambient queries. Mitigation: `noindex` on early threads until volume justifies indexing; revisit when WAM > 500.
 

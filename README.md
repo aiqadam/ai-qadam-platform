@@ -32,7 +32,7 @@ This repository's operating context — for both humans and AI assistants — li
 Architecture decisions and operational procedures:
 
 - **[`docs/adr/`](docs/adr/)** — Architecture Decision Records. Read [`0001`](docs/adr/0001-docs-live-in-claude-folder.md) for the docs-folder rationale, [`0002`](docs/adr/0002-deployment-target.md) for the deployment topology, and the rest in number order.
-- **[`docs/runbooks/`](docs/runbooks/)** — operational procedures (Coolify bootstrap, restic backups, Docker iptables policy, operator email Send-as).
+- **[`docs/runbooks/`](docs/04-development/infrastructure/runbooks/)** — operational procedures (Coolify bootstrap, restic backups, Docker iptables policy, operator email Send-as).
 
 ## Tech stack (canonical)
 

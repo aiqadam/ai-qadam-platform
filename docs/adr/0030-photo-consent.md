@@ -70,7 +70,7 @@ At door: colored wristband (Option B) — fast signal for photographers. Post-ev
 
 - Public recap surfaces (event recap page, social cards): only photos where ALL `pictured_members.photo_consent = true` for that event. Other photos: archive-only, not published.
 - Sponsor recap PDF (per F-S3.8): same rule as public; sponsor sees aggregated cohort analytics per ADR-0033 sponsor PII boundary, never raw photos.
-- Press / media coverage requests: photos handled per-request per [`security.md`](../04-development/security/runbooks/security.md) for press-data-sharing approvals (TBD as we hit our first inbound press request).
+- Press / media coverage requests: photos handled per-request per [`security-incident.md`](../04-development/security/runbooks/security-incident.md) for press-data-sharing approvals (TBD as we hit our first inbound press request).
 
 ### EULA integration
 

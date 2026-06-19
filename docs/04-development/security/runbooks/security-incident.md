@@ -2,7 +2,7 @@
 
 **Audience:** on-call engineer when something looks like an active security incident (credential leak, suspected breach, unusual access pattern, abuse report from a member, public CVE drop affecting a dep we ship). Not for routine vulnerability scanning — that lives in [`supply-chain.md`](supply-chain.md).
 
-**Pre-reading:** [`docs/04-development/security/security.md`](../security.md) (the baseline that defines what "secure" means here), [ADR-0017](../../../adr/0017-backup-architecture.md) (restore-from-backup if you need to roll back), [`reference-secrets-cache`](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md) (where local secret caches live so you know what to rotate).
+**Pre-reading:** [`docs/04-development/security/security.md`](../security.md) (the baseline that defines what "secure" means here), [ADR-0017](../../../adr/0017-backup-architecture.md) (restore-from-backup if you need to roll back), `reference-secrets-cache` (where local secret caches live so you know what to rotate).
 
 **Total time:** triage 5–15 min; containment + rotation 30–120 min; postmortem same-day or next-day.
 
@@ -10,7 +10,7 @@
 
 ## Pre-conditions
 
-- Engineer has admin access to: Coolify (`coolify.aiqadam.org`), Authentik (`auth.aiqadam.org`), Directus (`cms.aiqadam.org`), the prod host via SSH alias `aiqadam-prod` (per [`reference-prod-host`](../../.claude/projects/-home-drukker-aiqadam/memory/reference_prod_host.md))
+- Engineer has admin access to: Coolify (`coolify.aiqadam.org`), Authentik (`auth.aiqadam.org`), Directus (`cms.aiqadam.org`), the prod host via SSH alias `aiqadam-prod` (per `reference-prod-host`)
 - Engineer has the team password manager open (rotation requires writing new secrets back to it)
 - Engineer has GitHub admin or owner role (revoking compromised tokens may need org-level controls)
 - Slack / Telegram channel for incident comms is open (separate from the affected channel if a comms channel itself is implicated)
@@ -22,7 +22,7 @@ If any of these is missing, get them before continuing — do not improvise duri
 1. **Acknowledge + scope.** Open the incident channel; one engineer is on point, others read-only until called in. Capture: what looks wrong, what evidence, who reported it, when first observed. 5-minute timer.
 
 2. **Contain blast radius.** Depending on incident class (TBD — fill in concrete sequences as we hit real incidents):
-   - Credential leak → rotate per the affected service's section in this runbook (placeholder; see [`reference-secrets-cache`](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md) for what exists today)
+   - Credential leak → rotate per the affected service's section in this runbook (placeholder; see `reference-secrets-cache` for what exists today)
    - Unauthorized access via Authentik → disable the user + revoke active sessions
    - Compromised API token → revoke at issuer (Directus / Coolify / Authentik / GitHub / Resend), search code+CI for any reference
    - Data exposure → snapshot affected tables BEFORE remediation so the postmortem can quantify
@@ -56,4 +56,4 @@ Most rotations are non-reversible by design — old tokens stay revoked. For sch
 - [ADR-0017 — Backup architecture](../../../adr/0017-backup-architecture.md) — what we can restore from
 - [`restic-backups.md`](../../infrastructure/runbooks/restic-backups.md) — restore procedure
 - [`supply-chain.md`](supply-chain.md) — for CVE-driven (rather than active-incident) work
-- [`reference-secrets-cache`](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md) — inventory of what could leak
+- `reference-secrets-cache` — inventory of what could leak

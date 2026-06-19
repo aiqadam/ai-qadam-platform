@@ -304,7 +304,7 @@ Restic snapshots include `/var/lib/docker/volumes` (per [restic-backups.md](rest
 
 ## Twenty CRM (`aiqadam-twenty`) — added Sprint 5 C5.1
 
-Compose-based Coolify service at `crm.aiqadam.org`. Four containers (server + worker + dedicated Postgres + dedicated Redis). Source-of-truth compose: [`infrastructure/twenty/docker-compose.yml`](../../infrastructure/twenty/docker-compose.yml).
+Compose-based Coolify service at `crm.aiqadam.org`. Four containers (server + worker + dedicated Postgres + dedicated Redis). Source-of-truth compose: `infrastructure/twenty/docker-compose.yml`.
 
 **Coolify identifiers**
 - Service uuid: `x12tbwbkpmy4ump0kgf15mrc`

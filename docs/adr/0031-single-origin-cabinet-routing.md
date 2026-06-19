@@ -46,7 +46,7 @@ Each new subdomain adds:
 
 Single-origin `/workspace/<concern>` was the pattern PR #125 picked on 2026-05-20 (the workspace shell that ADR-0032 mandated). It's the same pattern Reforge, Linear, Vercel, Notion, and every other modern operator-tool product converged on. Concretely it gives us:
 
-- **One Authentik OIDC client.** The `aiqadam-platform-provider` (pk=1, client_id in `OIDC_CLIENT_ID` per [reference-secrets-cache](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md)) authenticates every cabinet. RBAC differentiates *what* the operator can see, not *whether* they can log in.
+- **One Authentik OIDC client.** The `aiqadam-platform-provider` (pk=1, client_id in `OIDC_CLIENT_ID` per reference-secrets-cache) authenticates every cabinet. RBAC differentiates *what* the operator can see, not *whether* they can log in.
 - **One session cookie.** [auth-architecture.md](../04-development/architecture/auth-architecture.md) already documents the JWT-in-HttpOnly-cookie model; every cabinet reads the same cookie, no per-cabinet refresh-token dance.
 - **One RBAC layer.** ADR-0021 (Proposed) names the role manifest; the F-S2.2 RBAC sync service applies it once for all cabinets. New cabinet = new permission row, not a new auth setup.
 - **One Coolify deploy.** New cabinet = new file under `apps/web/src/pages/workspace/`. No infra PR.

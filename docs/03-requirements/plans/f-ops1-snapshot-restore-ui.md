@@ -9,8 +9,8 @@
 Two prod outages on 2026-05-24 came from API writes to Coolify's application config (`fqdn` and `custom_labels`). Both were recovered by hand, ~40 min each. Coolify v4's REST API has no rollback endpoint. The platform needs a fast, off-the-shelf "snapshot before risky write → restore on regression" capability.
 
 Related memories established the same day:
-- [feedback-coolify-fqdn-patch-blast-radius](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_coolify_fqdn_patch_blast_radius.md)
-- [feedback-coolify-custom-labels-replaces-autogen](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_coolify_custom_labels_replaces_autogen.md)
+- feedback-coolify-fqdn-patch-blast-radius
+- feedback-coolify-custom-labels-replaces-autogen
 
 ## Constraints (Viktor's explicit guidance, 2026-05-24)
 

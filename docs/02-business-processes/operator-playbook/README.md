@@ -2,7 +2,7 @@
 
 > **What this is.** Step-by-step procedures for running AI Qadam events + the work around them: how to recruit a speaker, how to onboard a sponsor, what to do at the door on event day, how to chase CSAT, when to launch a country, what brand assets to produce.
 >
-> **Audience.** Country leads, the founder (Binali), the COO (Viktor), and any future operators who join. NOT engineers — engineers read [`docs/runbooks/`](../../runbooks) instead. The two are deliberately separate: runbooks answer "what do I do when this breaks"; the playbook answers "how do I run this".
+> **Audience.** Country leads, the founder (Binali), the COO (Viktor), and any future operators who join. NOT engineers — engineers read [`docs/runbooks/`](../../04-development/infrastructure/runbooks/) instead. The two are deliberately separate: runbooks answer "what do I do when this breaks"; the playbook answers "how do I run this".
 >
 > **Status.** This directory holds **v0 scaffolds** (F-S0.7, shipped 2026-05-21). Each file follows the canonical scaffold template — Outcome / Inputs / Steps / Templates / Anti-patterns / Country variants / Done criteria / Related. **Each scaffold needs a single fill-pass from Binali + Viktor** before it's truly load-bearing for a country lead at activation time; the scaffolds give us the skeleton so the fill-pass is hours, not weeks.
 
@@ -82,7 +82,7 @@ cabinets it touches.
 
 ## Related
 
-- [`docs/runbooks/`](../../runbooks) — engineer-facing operational procedures (what to do when something breaks)
+- [`docs/runbooks/`](../../04-development/infrastructure/runbooks/) — engineer-facing operational procedures (what to do when something breaks)
 - [`docs/02-business-processes/marketing-and-pr-playbook.md`](../marketing-and-pr-playbook.md) — the strategy layer; operators read this to understand WHY each workflow exists
 - [`docs/04-development/design-system/ux-and-content-guidelines.md`](../../04-development/design-system/ux-and-content-guidelines.md) §1 — voice + tone for every operator-authored string
 - [ADR-0025](../../adr/0025-brand-asset-tooling.md) — where brand assets live (Directus `marketing_assets`)

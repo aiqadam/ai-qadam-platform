@@ -32,7 +32,7 @@ Authorisation decisions in our API read JWT claims (`groups`, `country_codes`) p
 |---|---|---|---|---|
 | **member** | `aiqadam-member` | Self + public content | Read public content, manage own profile, register for events, submit feedback | Default for every Authentik user. All other roles are **additive** on top. |
 | **speaker** | `aiqadam-speaker` | Own speaker record | + Edit own speaker profile, view own past-talk analytics, propose next talk | Per [roadmap §3.2](../01-business/community-platform-roadmap.md#32-speaker-lifecycle). Cabinet read-mostly. |
-| **sponsor_rep** | `aiqadam-sponsor-rep` | Own sponsoring org's events | + View sponsored-event analytics, download opt-in lead list (per [PII data-flow](../pii-data-flow.md), aggregate-only fields by default), download co-marketing kit | Multiple reps per sponsoring org via Authentik group `aiqadam-sponsor-rep-<org-slug>`. |
+| **sponsor_rep** | `aiqadam-sponsor-rep` | Own sponsoring org's events | + View sponsored-event analytics, download opt-in lead list (per PII data-flow, aggregate-only fields by default), download co-marketing kit | Multiple reps per sponsoring org via Authentik group `aiqadam-sponsor-rep-<org-slug>`. |
 | **organizer** | `aiqadam-organizer-<country>` | Events in assigned country | + Create/edit events in country, view registrations, run check-in, send announcements, see CSAT | Country-scoped. One group per country (`aiqadam-organizer-uz`, `aiqadam-organizer-kz`, `aiqadam-organizer-tj`, `aiqadam-organizer-demo`). |
 | **country_lead** | `aiqadam-country-lead-<country>` | All operations within country | + Manage organizer roster, manage sponsor pipeline, approve speakers, see member PII for matching workflows, run the activate-country wizard for sub-regions | Renamed from `country_admin` for plain-language consistency with the [country-lead lifecycle](../01-business/community-platform-roadmap.md#34-operator--country-lead-lifecycle). The old enum value `country_admin` is preserved in Postgres for the denormalised cache during migration. |
 | **super_admin** | `aiqadam-super-admin` | All operations everywhere | + Break-glass operations, add countries, edit roles, see everything | Limited to ≤ 3 humans. MFA mandatory (Sprint 5 follow-up). |
@@ -78,7 +78,7 @@ Directus is the data plane (collections: `events`, `registrations`, `users`, `sp
 | `aiqadam-member` | `policy.member` | Read public collections; CRUD on own `directus_users` row; create `registrations`, `feedback_responses` keyed to self. |
 | `aiqadam-speaker` | `policy.speaker` | + Update own `speakers` row, read own `event_speakers` rows. |
 | `aiqadam-sponsor-rep-<org>` | `policy.sponsor_rep` + dynamic filter `{ sponsorships: { sponsor_id: { _eq: $CURRENT_USER.sponsor_id } } }` | Read own org's sponsorships and opt-in leads only. |
-| `aiqadam-organizer-<country>` | `policy.organizer` + filter `{ country_code: { _eq: "<country>" } }` | CRUD `events`, `registrations`, `event_speakers` in country. Read PII fields per [PII data-flow §3](../pii-data-flow.md) only on opt-in flag. |
+| `aiqadam-organizer-<country>` | `policy.organizer` + filter `{ country_code: { _eq: "<country>" } }` | CRUD `events`, `registrations`, `event_speakers` in country. Read PII fields per PII data-flow §3 only on opt-in flag. |
 | `aiqadam-country-lead-<country>` | `policy.country_lead` + filter `{ country_code: { _eq: "<country>" } }` | Organizer permissions + roster management + sponsor pipeline + see PII. |
 | `aiqadam-super-admin` | Directus built-in `Admin` policy | Unrestricted. |
 | `aiqadam-svc-bot` | `policy.svc_bot` (no filter) | Read all `events`, write `registrations.checked_in_at`, read `point_awards`. No PII fields except `telegram_user_id`. |
@@ -230,7 +230,7 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
 - ✅ Partial-failure visibility eliminates the silent-corruption mode that ungated cross-engine sync usually has.
 - ⚠️ **Authentik becomes load-bearing**. An Authentik outage means: no new sign-ins, no role changes, but in-flight 15-min JWTs continue to work. Mitigated by the break-glass admin path (Sprint 0.2).
 - ⚠️ **Group sprawl** if we grow to many countries (40+ groups at 20 countries). Acceptable below 20 countries; revisit if Phase 2 exceeds.
-- ⚠️ **The bootstrap is human-paced.** Steps 2–3 of §9 require an operator to hand-create groups in Authentik before Sprint 2.2 code can be exercised end-to-end. Documented in the runbook ([`docs/runbooks/rbac-bootstrap.md`](../runbooks/rbac-bootstrap.md), follow-up).
+- ⚠️ **The bootstrap is human-paced.** Steps 2–3 of §9 require an operator to hand-create groups in Authentik before Sprint 2.2 code can be exercised end-to-end. Documented in the runbook (`docs/runbooks/rbac-bootstrap.md`, follow-up).
 - 📝 Postgres `users.role` enum is now advisory. Future ADR may retire the column once all readers are migrated.
 - 📝 The `speaker` role only governs the speaker cabinet (Sprint 3.3). A speaker's basic permissions to register / give CSAT come from their parallel `member` membership.
 
@@ -263,6 +263,6 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
 - [ADR-0031 — Single-origin cabinet routing](./0031-single-origin-cabinet-routing.md) — Accepted; the routing layer that consumes the JWT claims minted here
 - [ADR-0032 — Operator tools must SSO or embed](./0032-operator-tools-must-sso-or-embed.md) — Accepted; constrains which engines this RBAC manifest needs to propagate to
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — Accepted; replaces Twenty CRM with the Directus member graph + partner_audiences entitlements (why §4.2 changed)
-- [ADR-0001](./0001-docs-live-in-claude-folder.md), [ADR-0016 — Auth bootstrap](./0016-auth-bootstrap.md) — format + auth context
+- [ADR-0001](./0001-docs-live-in-claude-folder.md), [ADR-0016 — Web auth flow](./0016-web-auth-flow.md) — format + auth context
 - [`docs/04-development/security/runbooks/break-glass.md`](../04-development/security/runbooks/break-glass.md) — the fallback this ADR's §10 + §Consequences delegates to
 - [Authentik webhook docs](https://docs.goauthentik.io/docs/sys-mgmt/events/notifications)

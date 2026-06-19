@@ -14,7 +14,7 @@ The incident is **handled within 48 hours**: facts collected; affected parties s
 - The platform's code of conduct (TBD — needs writing; placeholder reference at TODO `docs/code-of-conduct.md` per ζ.7 roadmap row)
 - Member-graph state: `directus_users` row for each party + their `member_consents`
 - Affected event (if applicable) + its `event_followups` row
-- Volunteering Board contact (the governance body that adjudicates per [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md))
+- Volunteering Board contact (the governance body that adjudicates per project-essentials)
 
 ## Steps
 
@@ -115,7 +115,7 @@ read {link to code-of-conduct doc once it lands}.
 ## Related
 
 - ζ.7 crisis & trust & safety framework — the full version of this playbook; lands per the Phase ζ roadmap
-- [`security.md`](../../04-development/security/runbooks/security.md) — when a conduct incident crosses into "security incident"
+- [`security-incident.md`](../../04-development/security/runbooks/security-incident.md) — when a conduct incident crosses into "security incident"
 - [`audit.md`](../../04-development/security/runbooks/audit.md) — for the audit-log of moderation actions
 - [ADR-0033](../../adr/0033-community-member-graph.md) — `member_consents.revoked_at` is the mechanism for "ban + revoke all consents" at execution time
 - TBD `docs/code-of-conduct.md` — the document this playbook enforces (not yet written)

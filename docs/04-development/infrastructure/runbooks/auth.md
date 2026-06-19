@@ -10,7 +10,7 @@
 
 ## Pre-conditions
 
-- Engineer has Authentik admin (the `akadmin` account; password at `/tmp/aiqadam-secrets-AK_PW`) — see [`reference-secrets-cache`](../../.claude/projects/-home-drukker-aiqadam/memory/reference_secrets_cache.md)
+- Engineer has Authentik admin (the `akadmin` account; password at `/tmp/aiqadam-secrets-AK_PW`) — see `reference-secrets-cache`
 - Engineer has Coolify access (env-var edits + restart of `aiqadam-api` + `aiqadam-web`)
 - Engineer has prod-host SSH (`ssh aiqadam-prod`) for inspecting nginx / container logs
 - Loki query is available at `/workspace/observability` (or directly via the Loki container) — useful for `aiqadam-api` auth-callback traces

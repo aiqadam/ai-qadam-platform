@@ -111,7 +111,7 @@ The web is the primary owned surface. Sprint 3 (cabinets) is the operator UX inv
 
 Already live via Interactions dispatcher. Sprint 1 fills the automation. No new infrastructure needed; just templates + cron flows + cohort targeting.
 
-**The newsletter question**: deferred to Phase ζ explicitly (per [project-deferred-capabilities](../../.claude/projects/-home-drukker-aiqadam/memory/project_deferred_capabilities.md)). Trigger to resume: ≥4 events/month across all countries, OR ≥1 monthly digest worth of content.
+**The newsletter question**: deferred to Phase ζ explicitly (per project-deferred-capabilities). Trigger to resume: ≥4 events/month across all countries, OR ≥1 monthly digest worth of content.
 
 **Listmonk** (proper newsletter engine vs Resend transactional) ships when newsletter cadence triggers, not before.
 
@@ -379,7 +379,7 @@ Sponsors at Silver+ tier can upgrade to a "talent slice" — entitled access to 
 
 ---
 
-## 12. What we explicitly DON'T do (full list in [project-deferred-capabilities](../../.claude/projects/-home-drukker-aiqadam/memory/project_deferred_capabilities.md))
+## 12. What we explicitly DON'T do (full list in project-deferred-capabilities)
 
 Recurring "no"s: Twenty CRM (ADR-0033), Discord (Telegram is primary CA), Slack (same), magic-link auth (Authentik suffices), buying/scraping member data, third-party CRM as source of truth, Enterprise paid tiers of OSS tools, premature i18n, premature paid ads spend, separate-system spin-offs (every product is a thin consumer of the member graph).
 
@@ -411,4 +411,4 @@ Quarterly review of this doc. Reshape when reality diverges from a major branch 
 - [ADR-0032](../adr/0032-operator-tools-must-sso-or-embed.md) — operator-tools auth/embed policy (Accepted)
 - [ADR-0033](../adr/0033-community-member-graph.md) — community member graph on Directus (Accepted)
 - [`docs/adr/`](../adr) — full ADR archive
-- [`docs/runbooks/`](../runbooks) — operational procedures
+- [`docs/runbooks/`](../04-development/infrastructure/runbooks/) — operational procedures
