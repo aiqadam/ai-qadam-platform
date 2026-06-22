@@ -23,6 +23,9 @@ Before writing any code in a new session, read these files in this order:
 6. `docs/04-development/security/security.md` — security baseline
 7. `docs/05-other/ai-collab.md` — how we work together
 8. `docs/01-business/glossary.md` — domain terms
+9. `docs/04-development/design-system/Design system for AI agents/readme.md` —
+   **required before any UI work**: brand tokens, component classes, copy rules,
+   icon policy (Lucide only), color rules (no raw hex, no gradients, no new tokens)
 
 If any of these files is missing or contradicts another, **stop and report it** before
 proceeding.
