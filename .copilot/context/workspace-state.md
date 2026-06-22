@@ -6,7 +6,7 @@
 
 ## Active Workflows
 
-- **wf-20260623-fix-3** — issue-resolution / ISS-PREEX-001 / `fix/ISS-PREEX-001-pre-existing-lint` — Step 8 (TestRunner) complete; awaiting Step 11 (commit + push + PR).
+_(none)_
 
 ---
 
@@ -16,7 +16,7 @@
 |---|---|---|---|---|---|
 | wf-20260622-feat-001 | requirement-development | FR-MIG-003 Form block | main → merged | — | 2026-06-22 |
 | wf-20260623-feat-2 | requirement-development | FR-MIG-007 Tooltip kit atom | feature/FR-MIG-007-tooltip-kit-atom | [PR #11](https://github.com/tvolodi/aiqadam/pull/11) | 2026-06-23 |
-| wf-20260623-fix-3 | issue-resolution | ISS-PREEX-001 pre-existing lint cleanup | fix/ISS-PREEX-001-pre-existing-lint | (pending) | 2026-06-23 |
+| wf-20260623-fix-3 | issue-resolution | ISS-PREEX-001 pre-existing lint cleanup | fix/ISS-PREEX-001-pre-existing-lint | [PR #12](https://github.com/tvolodi/aiqadam/pull/12) | 2026-06-23 |
 
 ---
 
