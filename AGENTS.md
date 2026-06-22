@@ -242,7 +242,73 @@ Scopes follow the module structure in
 
 ---
 
-## 11. Final priorities, in order
+## 11. Design system
+
+The approved AI Qadam design system lives in:
+
+```
+docs/04-development/design-system/Design system for AI agents/readme.md
+```
+
+**Read that file first** before building or editing any UI surface. It is the
+canonical reference for brand, tokens, components, and copy rules. The SKILL.md
+in the same directory is the Claude-facing skill entry point.
+
+### CSS entry points (already wired into `apps/web`)
+
+| File | What it contains |
+|---|---|
+| `design-system/tokens.css` | OKLCH color tokens (light + dark), fonts, radii, shadows |
+| `design-system/components.css` | CSS class library: `.btn`, `.badge`, `.card`, `.avatar`, `.input`, … |
+| `design-system/portal.css` | Domain compositions: event cards, hero, scanner, leaderboard, … |
+
+`apps/web/src/styles/globals.css` imports all three — do not add a fourth layer;
+extend `portal.css` instead.
+
+### Non-negotiables for UI code
+
+These are in addition to the main Ten Non-Negotiables above:
+
+1. **Never raw hex.** Every color must be `var(--token-name)`. The one allowed
+   exception is inside `<img>`-referenced SVG files where CSS variables don't
+   reach. Fallbacks like `var(--destructive, #c00)` are **not** acceptable in
+   new code — the token is always defined.
+
+2. **No gradients.** The palette is solid-only. `linear-gradient`,
+   `radial-gradient`, and CSS `gradient()` are forbidden in component styles.
+
+3. **Lucide icons only.** `import { X } from 'lucide-react'`. No PrimeIcons
+   (`pi pi-*`), Heroicons, Phosphor, or any other library. Stroke only —
+   `stroke="currentColor"`, never an explicit fill color. Sizes: 16px in
+   buttons, 20px in nav, 24px in cards, 48px in empty states.
+
+4. **Three font families, via token.** `var(--font-display)` (Geist) for
+   headings, `var(--font-sans)` (Inter) for body, `var(--font-mono)`
+   (JetBrains Mono) for tags/times/status labels. Never hardcode a font name
+   in a component.
+
+5. **No emoji in product copy.** The only exceptions are country flags in
+   the leaderboard/country switcher and the 🔥 streak badge. `✓`, `✅`, `❌`
+   in UI text are violations — use a Lucide `Check` or `X` icon instead.
+
+6. **Copy casing rules.** Sentence case for buttons and menu items. Title Case
+   for page titles. `UPPERCASE MONO` (`.badge.mono` class) for status labels
+   (`UPCOMING`, `LIVE`, `PAST`, `ONLINE`).
+
+7. **No new color tokens.** The palette is intentionally closed. If a new
+   semantic state is needed, raise it with the user first — do not invent a
+   one-off hex or add a CSS variable outside the token files.
+
+### Brand teal rule
+
+`var(--primary)` / `#3CA29E` / `oklch(0.58 0.10 192)` is the **only** color
+with brand identity meaning. It is used for: primary buttons, focus rings,
+active/selected states, link accents. Do not use it as generic decoration, and
+do not use `var(--accent)` as a proxy for success green — use `var(--success)`.
+
+---
+
+## 12. Final priorities, in order
 
 When in conflict, this is the order:
 
