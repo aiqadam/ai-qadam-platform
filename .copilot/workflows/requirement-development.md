@@ -216,6 +216,10 @@ Read and increment `.copilot/meta/next-workflow-id`. Create the task directory a
 - `07-test-results.md`
 - Relevant current documentation files
 
+**Required updates (do not skip):**
+1. Update `docs/03-requirements/FR-<CODE>.md` — change `status` frontmatter from current value to `Implemented`
+2. Update `docs/03-requirements/requirements-registry.md` — change the Status column for that FR in the implementation order table from current value to `Shipped`
+
 **Output file:** `08-doc-update.md`
 
 **Gate:**
