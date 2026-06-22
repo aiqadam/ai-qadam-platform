@@ -118,7 +118,7 @@ Why split: runbooks answer "what do I do when this breaks". The operator playboo
 - [`country-lead-activation.md`](../../../02-business-processes/operations/country-lead-activation.md) — engineer-side activation sequence for a newly-identified country lead (per F-S4.3; gated on ADR-0022 acceptance).
 
 ### Email (Agent-Infra / Agent-Marketing crossover)
-- [`operator-email-send-as.md`](../../../02-business-processes/operations/operator-email-send-as.md) — operator email "send as" automation (per ADR-0012).
+- [`operator-email-send-as.md`](../../../02-business-processes/operations/archive/operator-email-send-as.md) — operator email "send as" automation (per ADR-0012; archived, superseded by docker-mailserver auto-provisioning).
 
 ### Planned (not yet written — links go to the issues that track them)
 

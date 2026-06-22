@@ -6,7 +6,7 @@ Accepted (design), 2026-05-15. Implementation deferred to Phase 1 weeks 4–6.
 ## Context
 Per [ADR-0009](0009-email-stack-saas-exception.md), each operator (board members, country leads, volunteers with personal `name@aiqadam.org` addresses) must manually configure Gmail "Send mail as" with their Resend SMTP credentials to send outbound mail branded as `name@aiqadam.org`.
 
-The manual procedure (documented in [docs/02-business-processes/operations/operator-email-send-as.md](../02-business-processes/operations/operator-email-send-as.md)) takes ~10 minutes per operator and requires:
+The manual procedure (documented in [docs/02-business-processes/operations/archive/operator-email-send-as.md](../02-business-processes/operations/archive/operator-email-send-as.md)) takes ~10 minutes per operator and requires:
 
 1. Operator opens Gmail Settings → Accounts → Send mail as
 2. Adds the alias with SMTP details (server, port, username, password)
@@ -66,10 +66,10 @@ Build an internal **Astro page + NestJS module + Cloudflare Email Worker** that 
 - ⚠️ ~1–2 dev days to build (Astro page + NestJS module + Worker + polling logic)
 - ⚠️ Adds Google Cloud Project as a project dependency (free for OAuth, just an account)
 - ⚠️ Workspace + non-Gmail edge cases require fallback paths
-- 📝 The manual runbook ([docs/02-business-processes/operations/operator-email-send-as.md](../02-business-processes/operations/operator-email-send-as.md)) stays as fallback documentation forever — automation can fail and humans need a path.
+- 📝 The manual runbook ([docs/02-business-processes/operations/archive/operator-email-send-as.md](../02-business-processes/operations/archive/operator-email-send-as.md)) stays as fallback documentation forever — automation can fail and humans need a path.
 
 ## References
 - [ADR-0009](0009-email-stack-saas-exception.md) — email stack this automates a slice of
-- [Operator Send-as runbook](../02-business-processes/operations/operator-email-send-as.md) — manual fallback (always valid)
+- [Operator Send-as runbook](../02-business-processes/operations/archive/operator-email-send-as.md) — manual fallback (always valid, archived)
 - [Gmail API users.settings.sendAs reference](https://developers.google.com/gmail/api/reference/rest/v1/users.settings.sendAs)
 - [Cloudflare Email Workers docs](https://developers.cloudflare.com/email-routing/email-workers/)

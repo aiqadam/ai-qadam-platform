@@ -32,7 +32,7 @@ Accept a **bounded SaaS exception** for email transport and addressing. The stac
 - **Cloudflare Email Workers** (free at our scale) — programmatic inbound for `bot.aiqadam.org` subdomain, see [ADR-0010](0010-inbound-email-cloudflare-workers.md)
 - **Resend** (free tier: 3,000 emails/month, 100/day) — outbound transactional + per-operator Gmail "Send mail as" SMTP relay
 
-Each operator manually configures Gmail "Send mail as" for their `name@aiqadam.org` address using a per-operator Resend API key. Automation deferred to Phase 1 weeks 4–6 — see [ADR-0012](0012-operator-send-as-automation.md). Manual procedure documented in [docs/02-business-processes/operations/operator-email-send-as.md](../02-business-processes/operations/operator-email-send-as.md).
+Each operator manually configures Gmail "Send mail as" for their `name@aiqadam.org` address using a per-operator Resend API key. Automation deferred to Phase 1 weeks 4–6 — see [ADR-0012](0012-operator-send-as-automation.md). Manual procedure documented in [docs/02-business-processes/operations/archive/operator-email-send-as.md](../02-business-processes/operations/archive/operator-email-send-as.md).
 
 The exception is **scoped strictly to email transport and addressing**. All other system components (application data, identity provider, content storage, queues, search, observability) remain self-hosted.
 
@@ -64,4 +64,4 @@ The literal reading of [PROJECT.md §Constraints](../01-business/project.md) "no
 - [ADR-0002](0002-deployment-target.md) — the PTR blocker context
 - [ADR-0010](0010-inbound-email-cloudflare-workers.md) — programmatic inbound (the API-driven half)
 - [ADR-0012](0012-operator-send-as-automation.md) — Send-as automation (the friction-mitigation half)
-- [Operator Send-as runbook](../02-business-processes/operations/operator-email-send-as.md) — the manual procedure
+- [Operator Send-as runbook](../02-business-processes/operations/archive/operator-email-send-as.md) — the manual procedure (archived)

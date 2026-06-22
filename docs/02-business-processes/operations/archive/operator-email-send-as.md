@@ -19,7 +19,7 @@
 
 **Audience:** AI Qadam operators (board members, country leads, volunteers with a personal `@aiqadam.org` address).
 **Time:** ~10 minutes per operator.
-**Pre-reading:** [ADR-0009](../../adr/0009-email-stack-saas-exception.md) for the architecture context (optional).
+**Pre-reading:** [ADR-0009](../../../adr/0009-email-stack-saas-exception.md) for the architecture context (optional).
 
 ## What this enables
 
@@ -162,4 +162,4 @@ Send the project lead a quick "I'm set up, sent test, all green." They'll mark y
 
 ## When automation arrives
 
-Phase 1 weeks 4–6 brings the [Send-as automation](../../adr/0012-operator-send-as-automation.md): an Astro page where you click "Connect your Gmail," accept Google's OAuth consent, and the rest happens automatically (~30 seconds). Until then, this manual procedure is the path. Even after automation lands, this runbook stays as fallback documentation — automation can fail and humans need a path.
+Phase 1 weeks 4–6 brings the [Send-as automation](../../../adr/0012-operator-send-as-automation.md): an Astro page where you click "Connect your Gmail," accept Google's OAuth consent, and the rest happens automatically (~30 seconds). Until then, this manual procedure is the path. Even after automation lands, this runbook stays as fallback documentation — automation can fail and humans need a path.
