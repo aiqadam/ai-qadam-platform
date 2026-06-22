@@ -1,7 +1,7 @@
 name: smoke
 
 # Sprint 0.10 — browser-agent smoke tests (Lane 2 of 3-lane execution model).
-# See docs/community-platform-roadmap.md §2.5 + §7.5.
+# See docs/01-business/community-platform-roadmap.md §2.5 + §7.5.
 #
 # Runs Playwright tests against production (read-only assertions only).
 # A separate workflow (Sprint 0.11 — smoke-production-probe.yml) runs every

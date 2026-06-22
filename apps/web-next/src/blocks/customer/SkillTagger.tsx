@@ -9,7 +9,7 @@
 // via useAddSkill / useRemoveSkill. Cache invalidation in the hook
 // re-fetches the profile so all consumers see the new list.
 //
-// Wiring: docs/architecture/wiring-map.md → member_skills.
+// Wiring: docs/04-development/architecture/wiring-map.md → member_skills.
 
 import { Button, Input } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';

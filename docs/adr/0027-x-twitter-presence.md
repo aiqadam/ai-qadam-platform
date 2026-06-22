@@ -3,11 +3,11 @@
 ## Status
 Accepted, 2026-05-21
 
-> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Zero ongoing recurring spend — Option D requires a one-time ~1-day engineering integration with F-S5.4 social cards; subsequent auto-post traffic costs nothing per X's free tier. Squat-prevent the handle immediately as a separate HUMAN one-off step.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md). Zero ongoing recurring spend — Option D requires a one-time ~1-day engineering integration with F-S5.4 social cards; subsequent auto-post traffic costs nothing per X's free tier. Squat-prevent the handle immediately as a separate HUMAN one-off step.
 
 ## Context
 
-Per [project-essentials](../../.claude/projects/-home-drukker-aiqadam/memory/project_essentials.md), AI Qadam's current social surfaces are Telegram group + LinkedIn (manually solo by Viktor) + web. No X (Twitter) presence today.
+Per project-essentials, AI Qadam's current social surfaces are Telegram group + LinkedIn (manually solo by Viktor) + web. No X (Twitter) presence today.
 
 X is dominant globally for AI / ML engineer conversations (~70% of the global AI community has an active X account; conference recaps, paper threads, and tooling announcements compete primarily on X). In Central Asia, however, X is a niche channel — Telegram + LinkedIn dominate engineer reach. Russian-language AI conversations on X are dwarfed by Habr + Telegram. UZ + KZ government had periodic X blocks in past years; reliability is uneven.
 
@@ -49,7 +49,7 @@ Claim `@aiqadam`. Each event publication auto-posts an event-card thread + day-o
 **Option D (event-driven X bursts via auto-posting)** with these scope guards:
 
 - One handle: `@aiqadam` (no per-country handles; reduces operator surface count and matches the cross-country signal).
-- Auto-post triggers (per [marketing playbook §14 cadence](../marketing-and-pr-playbook.md)): T-14 event-announce thread, T-2 reminder thread, T+1 recap thread with speaker quote-cards, T+3 speaker-spotlight thread per speaker.
+- Auto-post triggers (per [marketing playbook §14 cadence](../02-business-processes/marketing-and-pr-playbook.md)): T-14 event-announce thread, T-2 reminder thread, T+1 recap thread with speaker quote-cards, T+3 speaker-spotlight thread per speaker.
 - Threads use the same F-S5.4 social-card image-pair we generate for OG/Twitter image; no separate content workflow.
 - Replies + DMs: NOT monitored (account bio links to Telegram for actual conversation).
 - Quarterly review: subscriber count, impression count, click-through to events. Kill criteria: ≤ 50 followers + ≤ 5% CTR on event-card threads after 12 months → drop to Option C (passive holding).
@@ -67,6 +67,6 @@ Claim `@aiqadam`. Each event publication auto-posts an event-card thread + day-o
 
 - [ADR-0026 — Telegram channel](./0026-telegram-channel.md) (Proposed) — primary social surface for CA reach
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — social is funnel, community is asset
-- [`marketing-and-pr-playbook.md` §11](../marketing-and-pr-playbook.md) — social channel mix
-- [`marketing-and-pr-playbook.md` §14](../marketing-and-pr-playbook.md) — per-event cadence
-- [`community-platform-roadmap.md` §7 Sprint 5.4](../community-platform-roadmap.md) — social-card generation feature (the dependency)
+- [`marketing-and-pr-playbook.md` §11](../02-business-processes/marketing-and-pr-playbook.md) — social channel mix
+- [`marketing-and-pr-playbook.md` §14](../02-business-processes/marketing-and-pr-playbook.md) — per-event cadence
+- [`community-platform-roadmap.md` §7 Sprint 5.4](../01-business/community-platform-roadmap.md) — social-card generation feature (the dependency)

@@ -33,7 +33,7 @@ A bolt-on B2B sales motion may emerge years out (e.g., selling enterprise sponso
 
 ### Why Directus is the right substrate
 
-We already operate Directus 11 as the entity store ([migration to Directus-centric](../migration-to-directus-centric.md)). It is:
+We already operate Directus 11 as the entity store ([migration to Directus-centric](../04-development/architecture/migration-to-directus-centric.md)). It is:
 
 - API-first (REST + GraphQL) — every product spawn is a thin consumer
 - Permissioned per-role, per-collection, per-record — sponsor X cannot see member Y unless the consent chain allows it
@@ -125,7 +125,7 @@ event_followups
 
 ### Part 3 — Operator surface: five cabinets covering ~80% of operator work
 
-Built incrementally as vertical features per [`docs/agent-prompts.md`](../agent-prompts.md) §2 template. Ordered by frequency × persona-pain:
+Built incrementally as vertical features per [`docs/05-other/agent-prompts.md`](../05-other/agent-prompts.md) §2 template. Ordered by frequency × persona-pain:
 
 | # | Cabinet | URL | Primary persona | What it does | Why first | Effort |
 |---|---|---|---|---|---|---|
@@ -204,10 +204,10 @@ Each is 1–2 vertical PRs on top of the graph. None requires a new database, a 
 ## References
 
 - [ADR-0032](./0032-operator-tools-must-sso-or-embed.md) — operator-tools-must-SSO-or-embed; this ADR is its application to the Directus engine
-- [migration to Directus-centric](../migration-to-directus-centric.md) — why Directus is the entity store
-- [interaction-architecture](../interaction-architecture.md) — the dispatcher cohorts feed into
+- [migration to Directus-centric](../04-development/architecture/migration-to-directus-centric.md) — why Directus is the entity store
+- [interaction-architecture](../04-development/architecture/interaction-architecture.md) — the dispatcher cohorts feed into
 - [PR #73](https://github.com/viktordrukker/aiqadam/pull/73) — Twenty Enterprise OIDC gate documentation (closed by this ADR)
-- [marketing-and-pr-playbook.md §3.5](../marketing-and-pr-playbook.md) — sponsor tier model
-- [community-platform-roadmap.md §1](../community-platform-roadmap.md) — north-star metrics this graph powers
-- [community-platform-roadmap.md §3](../community-platform-roadmap.md) — actor lifecycles whose data lives in the graph
+- [marketing-and-pr-playbook.md §3.5](../02-business-processes/marketing-and-pr-playbook.md) — sponsor tier model
+- [community-platform-roadmap.md §1](../01-business/community-platform-roadmap.md) — north-star metrics this graph powers
+- [community-platform-roadmap.md §3](../01-business/community-platform-roadmap.md) — actor lifecycles whose data lives in the graph
 - Pattern references (no link — strategic context): Reforge (member graph powering courses + hiring), Indie Hackers (member graph pre-acquisition), DEV.to / Forem (open source community engine with sponsorships + jobs as products), MLH / Devpost (hackathon ops on a member graph)

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Sprint 0.10 — smoke test infrastructure (Lane 2 of the 3-lane execution model).
-// See docs/community-platform-roadmap.md §2.5 + §7.5 for the smoke catalog convention.
+// See docs/01-business/community-platform-roadmap.md §2.5 + §7.5 for the smoke catalog convention.
 //
 // Targeting strategy:
 //   - default: BASE_URL=https://aiqadam.org (production probe)

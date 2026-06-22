@@ -1,5 +1,5 @@
 // L1 runtime — TanStack Query hooks for the three reference data
-// surfaces called out in docs/architecture/web-migration-plan.md row
+// surfaces called out in docs/04-development/frontend/web-migration-plan.md row
 // 0d acceptance:
 //
 //   useMyProfile()    GET /v1/auth/me           — the signed-in user
@@ -11,7 +11,7 @@
 // MUST NOT import this file (ADR-0038 §Locks #1, enforced by
 // packages/biome-config/biome.json overrides).
 //
-// Adding a new hook? Update docs/architecture/wiring-map.md in the
+// Adding a new hook? Update docs/04-development/architecture/wiring-map.md in the
 // SAME PR — the arch-check looks for that touch when the
 // wiring-map.md gets cross-referenced from blocks/.
 

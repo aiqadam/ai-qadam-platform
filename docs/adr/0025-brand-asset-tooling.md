@@ -3,11 +3,11 @@
 ## Status
 Accepted, 2026-05-21
 
-> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Unblocks F-S0.7 (operator playbook) and F-S0.9b (real brand-asset library). Zero new spend — Tier 1 stays in the existing git repo; Tier 2 lives in the already-deployed Directus instance.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md). Unblocks F-S0.7 (operator playbook) and F-S0.9b (real brand-asset library). Zero new spend — Tier 1 stays in the existing git repo; Tier 2 lives in the already-deployed Directus instance.
 
 ## Context
 
-[`marketing-and-pr-playbook.md` §15](../marketing-and-pr-playbook.md#15-brand-assets--ai-design-pipeline) commits us to: Viktor as human-in-loop reviewer for every AI-generated asset, country leads producing event-specific assets (event photos, social cards), one `marketing_assets` library, and a public `/press` page with downloadable logo pack + bios + fact sheet.
+[`marketing-and-pr-playbook.md` §15](../02-business-processes/marketing-and-pr-playbook.md#15-brand-assets--ai-design-pipeline) commits us to: Viktor as human-in-loop reviewer for every AI-generated asset, country leads producing event-specific assets (event photos, social cards), one `marketing_assets` library, and a public `/press` page with downloadable logo pack + bios + fact sheet.
 
 What is **not yet decided** is where the assets physically live, who has write access, and how Viktor's approval gate is enforced. §15.3 explicitly defers this: "Lives in Directus (`marketing_assets` collection) so country leads can self-serve OR in object storage (S3-compatible) with Directus tracking metadata. Decision: Sprint 0.9."
 
@@ -15,7 +15,7 @@ Constraints inherited from the rest of the stack:
 - Logos already live in [`apps/web/public/brand/`](../../apps/web/public/brand/) (per playbook §15.2). Removing them breaks the running web app.
 - We have Directus deployed with built-in file storage on the host's local disk, backed up by restic to Cloudflare R2 ([ADR-0017](./0017-backup-architecture.md)).
 - We have **no** S3-compatible storage stood up for application files. Cloudflare R2 is configured only for backups; reusing it for application files conflates two failure domains.
-- We are on a **single-VM Coolify** host (per [community-platform-roadmap §7 Sprint 0.1](../community-platform-roadmap.md)). Disk is finite (~80 GB) but ample for marketing-asset volumes for years.
+- We are on a **single-VM Coolify** host (per [community-platform-roadmap §7 Sprint 0.1](../01-business/community-platform-roadmap.md)). Disk is finite (~80 GB) but ample for marketing-asset volumes for years.
 - Country leads are **not** given git access (per [ADR-0021 §2](./0021-rbac-manifest.md) — they live in Authentik groups, not GitHub). Whatever host we pick must be reachable through Directus admin UI or workspace UI.
 - Notion was raised in the original roadmap (§7 Sprint 0.7) as a possible operator-playbook host. It carries similar properties to Directus for asset management (uploads, comments, gallery view).
 
@@ -48,7 +48,7 @@ Scope (exhaustive):
 - Sponsor logo placements (sponsor-provided sources + AI-Qadam-composed variants)
 - Video files (event recaps, speaker clips)
 - Press kit (founder/COO headshots, fact sheet PDF, press-pack ZIP)
-- Quarterly digest PDFs (per [playbook §14](../marketing-and-pr-playbook.md#14-quarterly-sponsor-digest-specification))
+- Quarterly digest PDFs (per [playbook §14](../02-business-processes/marketing-and-pr-playbook.md#14-quarterly-sponsor-digest-specification))
 
 Why: country leads can upload event-day photos directly via Directus admin without touching git or talking to engineering. Viktor reviews via a Directus "Pending Review" filter view — his approval consists of flipping `status: pending_review → approved`. The `/press` page automatically updates.
 
@@ -145,8 +145,8 @@ The 5 GB trigger flips both of these — at scale, the local-disk constraint dom
 - ✅ Logos cannot be accidentally broken by a country lead — they are git-tracked and require an engineer PR.
 - ✅ One backup pipeline (restic) covers both logos (via repo backups) and produced assets (via Directus file storage backups).
 - ✅ Migration to R2 is a planned future event with a clear trigger, not an open question.
-- ⚠️ **Two hosts to know about.** Documentation in [`docs/runbooks/brand-asset-production.md`](../runbooks/brand-asset-production.md) (Agent-Marketing, Sprint 0.9) must explain "logos = git, everything else = Directus" plainly.
-- ⚠️ **Pending-review queue must not become a stale-review queue.** Workspace dashboard tile (Sprint 2.4) needs an SLA indicator; if Viktor has > 7 days of backlog, flag visibly. Risk noted in [roadmap §6 risk #5](../community-platform-roadmap.md#6-behavioral-risks--mitigations).
+- ⚠️ **Two hosts to know about.** Documentation in `docs/runbooks/brand-asset-production.md` (Agent-Marketing, Sprint 0.9) must explain "logos = git, everything else = Directus" plainly.
+- ⚠️ **Pending-review queue must not become a stale-review queue.** Workspace dashboard tile (Sprint 2.4) needs an SLA indicator; if Viktor has > 7 days of backlog, flag visibly. Risk noted in [roadmap §6 risk #5](../01-business/community-platform-roadmap.md#6-behavioral-risks--mitigations).
 - ⚠️ **No multi-step approval.** A country-lead's photo of a sponsor logo at an event does not get sponsor-approval before publishing on `/press`. If a sponsor objects post-hoc, the asset goes back to `archived`. Acceptable risk at Phase 1 (one-step approval); revisit when we have a sponsor cabinet (Sprint 3.2) able to surface a "report this asset" action.
 - 📝 The 5 GB migration trigger should be monitored in observability (Sprint 0.4) — emit a metric `marketing_assets.bytes_total` weekly.
 - 📝 Press-kit PDF is generated externally today; future ADR may automate from Directus contents.
@@ -156,8 +156,8 @@ The 5 GB trigger flips both of these — at scale, the local-disk constraint dom
 - 2026-05-20: Initial draft (Proposed). Awaiting decision-batch review.
 
 ## References
-- [`docs/community-platform-roadmap.md` §7 Sprint 0.7 + 0.9 + 0.12](../community-platform-roadmap.md) — the items this unblocks
-- [`docs/marketing-and-pr-playbook.md` §15](../marketing-and-pr-playbook.md#15-brand-assets--ai-design-pipeline) — production pipeline + guardrails this ADR makes operable
-- [`docs/decision-batch-process.md`](../decision-batch-process.md) — how this Proposed status flips to Accepted
+- [`docs/01-business/community-platform-roadmap.md` §7 Sprint 0.7 + 0.9 + 0.12](../01-business/community-platform-roadmap.md) — the items this unblocks
+- [`docs/02-business-processes/marketing-and-pr-playbook.md` §15](../02-business-processes/marketing-and-pr-playbook.md#15-brand-assets--ai-design-pipeline) — production pipeline + guardrails this ADR makes operable
+- [`docs/02-business-processes/decision-batch-process.md`](../02-business-processes/decision-batch-process.md) — how this Proposed status flips to Accepted
 - [ADR-0017 — Backup architecture](./0017-backup-architecture.md) — why R2 is a backup target, not an application target (today)
 - [ADR-0021 — RBAC manifest](./0021-rbac-manifest.md) — country-lead permission boundaries this approval workflow inherits

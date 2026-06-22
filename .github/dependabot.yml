@@ -1,6 +1,6 @@
 # Dependabot — automated dependency PRs for Sprint 0.3 supply-chain.
 # Triages CVEs flagged by .github/workflows/supply-chain.yml.
-# Runbook: docs/runbooks/supply-chain.md
+# Runbook: docs/04-development/security/runbooks/supply-chain.md
 #
 # Cadence: weekly Mondays so the queue lands alongside the weekly Trivy scan.
 

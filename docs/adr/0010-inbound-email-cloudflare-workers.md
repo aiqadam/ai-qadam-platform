@@ -65,9 +65,9 @@ Separating concerns by subdomain makes the address scheme self-documenting: huma
 - ⚠️ **Cloudflare-specific** for inbound. Migration would require reimplementing the Worker on another platform (Mailgun Routes, SendGrid Inbound, or self-hosted SMTP-receiver service).
 - ⚠️ **Worker request size limits** apply (Email Workers cap message body at ~25 MB). Large attachments (recordings, slides) need a different path — Resend can be configured to forward to a presigned S3/MinIO URL instead.
 - ⚠️ **HMAC shared secret** lives in two places (Cloudflare Worker secret + NestJS env var). Rotation requires synchronized updates.
-- 📝 **Audit retention**: every parsed inbound mail is stored in Postgres with raw body for 90 days, then archived to MinIO with restic backup. Per [SECURITY.md §"Logging and audit"](../../.claude/SECURITY.md) retention policy.
+- 📝 **Audit retention**: every parsed inbound mail is stored in Postgres with raw body for 90 days, then archived to MinIO with restic backup. Per [SECURITY.md §"Logging and audit"](../04-development/security/security.md) retention policy.
 
 ## References
 - [ADR-0009](0009-email-stack-saas-exception.md) — overall email architecture this slots into
 - [Cloudflare Email Workers docs](https://developers.cloudflare.com/email-routing/email-workers/)
-- [SECURITY.md §"Logging and audit"](../../.claude/SECURITY.md) — retention policy
+- [SECURITY.md §"Logging and audit"](../04-development/security/security.md) — retention policy

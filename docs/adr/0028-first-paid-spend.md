@@ -1,13 +1,13 @@
 # ADR-0028: First paid spend — when, on what, what we're testing
 
 ## Status
-Deferred, 2026-05-21 — on the [business-process gap list](../business-process-gaps.md)
+Deferred, 2026-05-21 — on the [business-process gap list](../02-business-processes/business-process-gaps.md)
 
-> Reviewed by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Decision: **defer**, not accept. Reason: any paid spend (Options B/C/D) requires recurring budget that isn't authorized at this stage. **Operating reality stays Option A (no paid spend Year-1; organic only)** until sponsor revenue stabilizes enough to fund test campaigns from real platform revenue. Logged in [`docs/business-process-gaps.md`](../business-process-gaps.md) with the trigger conditions for revisit. Paid-channel CAPABILITY (campaign landing pages + UTM scheme + Plausible attribution) still ships per [community-platform-roadmap §7 Sprint 5.9](../community-platform-roadmap.md); only the SPEND decision is deferred.
+> Reviewed by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md). Decision: **defer**, not accept. Reason: any paid spend (Options B/C/D) requires recurring budget that isn't authorized at this stage. **Operating reality stays Option A (no paid spend Year-1; organic only)** until sponsor revenue stabilizes enough to fund test campaigns from real platform revenue. Logged in [`docs/02-business-processes/business-process-gaps.md`](../02-business-processes/business-process-gaps.md) with the trigger conditions for revisit. Paid-channel CAPABILITY (campaign landing pages + UTM scheme + Plausible attribution) still ships per [community-platform-roadmap §7 Sprint 5.9](../01-business/community-platform-roadmap.md); only the SPEND decision is deferred.
 
 ## Context
 
-[`marketing-and-pr-playbook.md` §4.3](../marketing-and-pr-playbook.md#43-paid-channels-capability-built-deployment-deferred) commits to paid-channel capability being built but explicitly defers the **first paid spend** decision: "no spend planned without ADR". This is that ADR.
+[`marketing-and-pr-playbook.md` §4.3](../02-business-processes/marketing-and-pr-playbook.md#43-paid-channels-capability-built-deployment-deferred) commits to paid-channel capability being built but explicitly defers the **first paid spend** decision: "no spend planned without ADR". This is that ADR.
 
 Today AI Qadam's growth is fully organic: existing Telegram group + LinkedIn + word of mouth + the event ladder. Sprint 5.9 ships campaign landing pages — the technical machinery to support paid spend. The question this ADR answers: **when does the first paid dollar go out, and on what.**
 
@@ -53,7 +53,7 @@ Year-1: Option B (event-day spend, USD 50-150 per event). Phase-ζ.1 hackathon l
   - UZ: LinkedIn (Sponsored Updates targeting tech roles + Tashkent), Yandex.Direct (`AI meetup Tashkent` exact match), Telegram promoted posts in 2–3 relevant CA tech groups (cost ≈ USD 15-30 per group per week).
   - KZ: LinkedIn + Yandex.Direct + Telegram (similar mix).
   - TJ: Telegram only initially; LinkedIn audience too thin.
-- Attribution: every paid surface uses the per-event UTM scheme (per [marketing playbook §16](../marketing-and-pr-playbook.md)); event registration count attributable to `utm_medium=paid` is the per-event success metric.
+- Attribution: every paid surface uses the per-event UTM scheme (per [marketing playbook §16](../02-business-processes/marketing-and-pr-playbook.md)); event registration count attributable to `utm_medium=paid` is the per-event success metric.
 - Kill criteria per event: if paid attributed registrations < 5 AND CPA > USD 50, that country's paid budget for the next event is halved. Two consecutive failures = pause paid for that country.
 - Total Year-1 event-day spend ceiling: USD 1,500 (10 events × ~USD 150) per country = USD 4,500 across 3 countries.
 
@@ -68,7 +68,7 @@ Year-1: Option B (event-day spend, USD 50-150 per event). Phase-ζ.1 hackathon l
 
 - No platform-level brand campaign without a flagship product to point at (Year-1).
 - No Google Ads / Meta Ads at this stage (channel-mix returns lower than LinkedIn + Yandex.Direct in CA per industry data).
-- No influencer-marketing spend until we've run organic creator partnerships (per [marketing playbook §11 partnerships](../marketing-and-pr-playbook.md)).
+- No influencer-marketing spend until we've run organic creator partnerships (per [marketing playbook §11 partnerships](../02-business-processes/marketing-and-pr-playbook.md)).
 
 ## Consequences
 
@@ -82,6 +82,6 @@ Year-1: Option B (event-day spend, USD 50-150 per event). Phase-ζ.1 hackathon l
 
 - [ADR-0022 — Country-lead compensation](./0022-country-lead-compensation.md) (Proposed) — paid spend competes with this budget line
 - [ADR-0024 — Future revenue phasing](./0024-future-revenue-phasing.md) (Proposed) — Phase ζ.1 hackathon is the brand-campaign trigger
-- [`marketing-and-pr-playbook.md` §4.3](../marketing-and-pr-playbook.md#43-paid-channels-capability-built-deployment-deferred) — paid-channel capability + deferral
-- [`marketing-and-pr-playbook.md` §16](../marketing-and-pr-playbook.md) — UTM + attribution scheme
-- [`community-platform-roadmap.md` §7 Sprint 5.9](../community-platform-roadmap.md) — campaign landing pages (the technical capability)
+- [`marketing-and-pr-playbook.md` §4.3](../02-business-processes/marketing-and-pr-playbook.md#43-paid-channels-capability-built-deployment-deferred) — paid-channel capability + deferral
+- [`marketing-and-pr-playbook.md` §16](../02-business-processes/marketing-and-pr-playbook.md) — UTM + attribution scheme
+- [`community-platform-roadmap.md` §7 Sprint 5.9](../01-business/community-platform-roadmap.md) — campaign landing pages (the technical capability)

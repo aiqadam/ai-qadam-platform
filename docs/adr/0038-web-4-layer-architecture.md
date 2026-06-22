@@ -99,7 +99,7 @@ Both apps:
 cutover.
 
 Cutover happens when v2 hits parity (see
-[parity-matrix.md](../architecture/parity-matrix.md)). Coolify FQDN
+[parity-matrix.md](../03-requirements/parity-matrix.md)). Coolify FQDN
 flip; ~30 minute window; instant rollback by re-flipping. v1 stays
 deployed for 2 weeks as fallback, then deleted.
 
@@ -143,7 +143,7 @@ Effect: Blocks (`apps/web-next/src/blocks/**`) cannot import from
 - New files under `apps/web-next/src/components/` (deprecated path —
   blocks live under `src/blocks/`).
 - Edits to `apps/web-next/src/blocks/*` without a corresponding edit
-  to `docs/architecture/blocks.md`.
+  to `docs/04-development/architecture/blocks.md`.
 
 Wired into:
 - `.husky/pre-commit`
@@ -167,16 +167,16 @@ documented exemption) fails arch-check.
 `.github/pull_request_template.md` requires explicit confirmation:
 - [ ] I composed L3 blocks; did not write inline styles
 - [ ] I added no raw `fetch()` calls outside `lib/api-*.ts`
-- [ ] If I added a block, I updated `docs/architecture/blocks.md`
-- [ ] If I changed data wiring, I updated `docs/architecture/wiring-map.md`
+- [ ] If I added a block, I updated `docs/04-development/architecture/blocks.md`
+- [ ] If I changed data wiring, I updated `docs/04-development/architecture/wiring-map.md`
 
 ### 5. Agent-prompts Pre-Flight Gate 0
 
-`docs/agent-prompts.md` is amended to require, as the FIRST step of
+`docs/05-other/agent-prompts.md` is amended to require, as the FIRST step of
 any agent assignment that touches `apps/web-next/`:
 
 1. Read this ADR.
-2. Read `docs/architecture/blocks.md` and find an existing block.
+2. Read `docs/04-development/architecture/blocks.md` and find an existing block.
 3. If no block matches, draft a block proposal in the PR description
    before writing code.
 4. Run `pnpm gen:page` or `pnpm gen:cabinet` to scaffold any new page.
@@ -219,7 +219,7 @@ sign-off in a decision batch.
 - Customer + operator surfaces share the block catalogue → consistency
   by construction.
 - The cabinet ↔ aggregate wiring is explicit
-  ([wiring-map.md](../architecture/wiring-map.md)) — no surprise
+  ([wiring-map.md](../04-development/architecture/wiring-map.md)) — no surprise
   data-source drift.
 
 **Negative:**
@@ -236,11 +236,11 @@ sign-off in a decision batch.
 ## Migration plan reference
 
 The phased execution plan lives at
-[`docs/architecture/web-migration-plan.md`](../architecture/web-migration-plan.md).
+[`docs/04-development/frontend/web-migration-plan.md`](../04-development/frontend/web-migration-plan.md).
 The block catalogue is at
-[`docs/architecture/blocks.md`](../architecture/blocks.md). The
+[`docs/04-development/architecture/blocks.md`](../04-development/architecture/blocks.md). The
 cabinet ↔ customer aggregate wiring registry is at
-[`docs/architecture/wiring-map.md`](../architecture/wiring-map.md).
+[`docs/04-development/architecture/wiring-map.md`](../04-development/architecture/wiring-map.md).
 
 ## Related
 

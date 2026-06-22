@@ -5,7 +5,7 @@ import { defineConfig } from 'astro/config';
 
 // apps/web-next/ — ADR-0038 greenfield build. Deployed to next.aiqadam.org
 // (engineer-only behind Authentik forward-auth) until cutover. See
-// docs/architecture/web-migration-plan.md.
+// docs/04-development/frontend/web-migration-plan.md.
 //
 // Output mode is 'server' (full SSR). v2 leans on the SSR auth-bootstrap
 // pattern that landed in v1 (PR #389) — the middleware always runs, so

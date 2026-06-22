@@ -1,6 +1,6 @@
 // Server-side Directus reader. Public collections (events, event_types,
 // countries, partners, homepage_hero) are exposed via the Public policy
-// bound to the null role — see docs/migration-to-directus-centric.md
+// bound to the null role — see docs/04-development/architecture/migration-to-directus-centric.md
 // §"What stays / goes".
 //
 // We talk to Directus over the public CMS URL (https://cms.aiqadam.org)

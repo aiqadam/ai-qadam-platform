@@ -85,7 +85,7 @@ one cheap probe.
 
 ## Related
 
-- `docs/runbooks/operator-email-send-as.md` — operator mailbox operations.
+- `docs/02-business-processes/operations/operator-email-send-as.md` — operator mailbox operations.
 - ADR-0009 — email-stack scope.
 - Authentik LDAP outpost: provider `aiqadam-mail-ldap-outpost`,
   Coolify service `aiqadam-authentik-ldap`. The `mailboxEmail` attribute

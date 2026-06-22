@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // Sprint 0.10 smoke catalog — public surfaces. Read-only assertions.
-// See docs/community-platform-roadmap.md §7.5 for the catalog.
+// See docs/01-business/community-platform-roadmap.md §7.5 for the catalog.
 //
 // Catalog convention: every [CC] sprint item adds its scenarios HERE
 // (public surfaces) or in a sibling spec file (authenticated / cabinet /

@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 // F-S3.7 — operator approval queue (empty-shell v1).
 //
 // The cabinet aggregates "items pending an operator's one-click approve"
-// across these sources (per [roadmap §7 Sprint 3.7](docs/community-platform-roadmap.md)):
+// across these sources (per [roadmap §7 Sprint 3.7](docs/01-business/community-platform-roadmap.md)):
 //
 //   - Sponsor onboarding submissions  → lands with F-S3.5 sponsor cabinet
 //                                        (companies.onboarding_status enum + queue source)

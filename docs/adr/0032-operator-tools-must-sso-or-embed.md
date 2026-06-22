@@ -25,7 +25,7 @@ Today the platform runs several engines, each historically picked tool-first and
 
 Pattern: every tool shipped before today's ADR was picked by an agent or an engineer on "what's easiest to deploy" criteria. None of them speak Authentik out of the box without configuration; many can't speak OIDC at all. The result is **a growing number of auth islands** — each one a separate username/password for an operator to remember, a separate admin page to bookmark, a separate place to forget about when a country lead leaves.
 
-The [authentik-should-be-wrapped memory](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_authentik_should_be_wrapped.md) already names the principle: operators never visit a separate admin site. This ADR formalises it as a hard rule and lays out the remediation for the tools already shipped.
+The authentik-should-be-wrapped memory already names the principle: operators never visit a separate admin site. This ADR formalises it as a hard rule and lays out the remediation for the tools already shipped.
 
 The trigger was [S0.4 observability deploy](https://github.com/viktordrukker/aiqadam/pull/112): Uptime Kuma went live at `https://status.aiqadam.org` with a public first-boot signup. Viktor immediately asked "why this and not something with SSO?". Correct question; this ADR is the answer.
 
@@ -64,7 +64,7 @@ Tools that need to display in the workspace must support either an iframe embed 
 | **Plausible** | 🟡 local auth, locked-down post-bootstrap | **Wrap, not OIDC-plug.** Embed Plausible's `analytics.aiqadam.org` dashboards iframe-style in `/workspace/analytics`. Plausible's stats are read-only-per-operator anyway; the iframe carries our auth cookie via a shared-domain trick, the Plausible login page never shows. Plausible admin URL stays engineer-only. |
 | **Twenty CRM** | 🔴 local auth (OIDC is Enterprise) | **Embed in workspace cabinet** per the existing Sprint 3.2 sponsor-cabinet plan. CRM data flows via API (`/v1/sponsors/...`), operators never see Twenty's UI. Twenty's own admin URL stays for engineer config only. Per [PR #73](https://github.com/viktordrukker/aiqadam/pull/73) we already abandoned Twenty OIDC — this ADR confirms the embed path is right. |
 | **Listmonk** (future) | not deployed | **Either** install with OIDC plugin (preferred) **or** embed-only like Plausible. Decided in the Listmonk deploy PR per this rule. |
-| **Discourse** (Phase ζ) | not deployed | **SSO** via Authentik OIDC (already planned in [roadmap §7 ζ.2](../community-platform-roadmap.md#section-7-phase-z)). Embed not feasible for forum UX. |
+| **Discourse** (Phase ζ) | not deployed | **SSO** via Authentik OIDC (already planned in [roadmap §7 ζ.2](../01-business/community-platform-roadmap.md#section-7-phase-z)). Embed not feasible for forum UX. |
 | **Directus admin** | OIDC ✅ | Keep. Engineers + content editors only. |
 | **Coolify admin** | OIDC ✅ (GitHub OAuth) | Keep. Engineers only. |
 | **Authentik admin** | self ✅ | Keep. Engineers only. |
@@ -101,10 +101,10 @@ Tools that need to display in the workspace must support either an iframe embed 
 
 ## References
 
-- [feedback-authentik-should-be-wrapped](../../.claude/projects/-home-drukker-aiqadam/memory/feedback_authentik_should_be_wrapped.md) — the original principle, now formalised here
+- feedback-authentik-should-be-wrapped — the original principle, now formalised here
 - [ADR-0021 — RBAC manifest](./0021-rbac-manifest.md) — what gates what inside the workspace
 - [PR #73 — Twenty Enterprise OIDC gate](https://github.com/viktordrukker/aiqadam/pull/73) — the lesson that triggered the embed-as-fallback clause
 - [PR #112 — Uptime Kuma deploy](https://github.com/viktordrukker/aiqadam/pull/112) — the deploy that surfaced the gap
 - [Uptime Kuma OIDC will-not-implement](https://github.com/louislam/uptime-kuma/issues/2434) — why Uptime Kuma fails the policy
 - [Gatus OIDC docs](https://gatus.io/docs/security#oidc) — why Gatus passes
-- [`docs/community-platform-roadmap.md` §7 Sprint 2.1](../community-platform-roadmap.md) — workspace shell spec
+- [`docs/01-business/community-platform-roadmap.md` §7 Sprint 2.1](../01-business/community-platform-roadmap.md) — workspace shell spec

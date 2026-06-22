@@ -6,7 +6,7 @@ import { defineMiddleware } from 'astro:middleware';
 // ONE difference: the refresh-cookie name is `aiqadam-next-refresh` so
 // v1 and v2 can coexist in different tabs during the build window
 // without colliding on the same single-use refresh cookie. See
-// docs/architecture/web-migration-plan.md §Cookie isolation.
+// docs/04-development/frontend/web-migration-plan.md §Cookie isolation.
 //
 // At cutover (T+0), the API will start issuing the canonical
 // `aiqadam-refresh` cookie from v2 and accept `aiqadam-next-refresh`

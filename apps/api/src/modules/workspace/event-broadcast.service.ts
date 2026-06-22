@@ -14,7 +14,7 @@ import { MembersService } from './members.service';
 // revoked consent is silently skipped (delivery state = skipped_consent
 // in the deliveries table — operator sees the breakdown).
 //
-// Per [ux-and-content-guidelines.md §13](docs/ux-and-content-guidelines.md#13-notification-copy-library)
+// Per [ux-and-content-guidelines.md §13](docs/04-development/design-system/ux-and-content-guidelines.md#13-notification-copy-library)
 // canonical subject + body shape for `event_announce`.
 
 export type AnnouncementKind = 'published' | 'speaker_added' | 'post_event_followup';

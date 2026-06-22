@@ -1,8 +1,8 @@
 # @aiqadam/e2e — browser-agent smoke tests (Lane 2)
 
-> Sprint 0.10 — the verification lane in the 3-lane execution model. See [`docs/community-platform-roadmap.md` §2.5](../../docs/community-platform-roadmap.md#25-execution-model--three-lanes) for context.
+> Sprint 0.10 — the verification lane in the 3-lane execution model. See [`docs/01-business/community-platform-roadmap.md` §2.5](../../docs/01-business/community-platform-roadmap.md#25-execution-model--three-lanes) for context.
 >
-> **Every `[CC]` sprint item is expected to add 1–3 scenarios here as part of its PR.** The smoke catalog ([§7.5 of the roadmap](../../docs/community-platform-roadmap.md#75-smoke-scenarios-catalog-lane-2--browser-agent-verification)) lists what's expected per sprint.
+> **Every `[CC]` sprint item is expected to add 1–3 scenarios here as part of its PR.** The smoke catalog ([§7.5 of the roadmap](../../docs/01-business/community-platform-roadmap.md#75-smoke-scenarios-catalog-lane-2--browser-agent-verification)) lists what's expected per sprint.
 
 ---
 
@@ -67,7 +67,7 @@ When you ship a new `[CC]` sprint item (or write any user-facing change), add sc
 
 1. **Decide the spec file:** is the scenario public / auth-gated / accessibility / tenant-scoped? Pick the matching `smoke-*.spec.ts`. New category → new spec.
 2. **Name it `S{sprint}.{item}` plus a short purpose:** e.g., `'S1.1c post-event flow: CSAT email dispatched after event ends'`.
-3. **Update the smoke catalog** in [roadmap §7.5](../../docs/community-platform-roadmap.md#75-smoke-scenarios-catalog-lane-2--browser-agent-verification) with the scenario name.
+3. **Update the smoke catalog** in [roadmap §7.5](../../docs/01-business/community-platform-roadmap.md#75-smoke-scenarios-catalog-lane-2--browser-agent-verification) with the scenario name.
 4. **Smoke tests are READ-ONLY** in this workflow. Write-side tests live in `smoke-fullstack.spec.ts` (post-Sprint 1).
 
 ## Failure debugging
@@ -90,7 +90,7 @@ For production probe alerts: the alert message contains the failing scenario nam
 ## Catalog maintenance rule
 
 Every PR that ships a `[CC]` sprint item:
-- (a) adds the listed smoke scenarios from [roadmap §7.5](../../docs/community-platform-roadmap.md#75-smoke-scenarios-catalog-lane-2--browser-agent-verification)
+- (a) adds the listed smoke scenarios from [roadmap §7.5](../../docs/01-business/community-platform-roadmap.md#75-smoke-scenarios-catalog-lane-2--browser-agent-verification)
 - (b) updates the catalog in §7.5 if the item adds new flows beyond what's pre-listed
 
 The browser agent (this suite + production probe) IS the verification lane. If it doesn't catch a regression, it's a gap in the catalog — file an issue + add the scenario.

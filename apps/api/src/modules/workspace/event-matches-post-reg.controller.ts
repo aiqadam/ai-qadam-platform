@@ -7,7 +7,7 @@ import {
 
 // F-S1.5b — T+3 post-registration match cron entrypoint.
 // Auth: InternalAuthGuard (`x-internal-auth`). External scheduler ticks
-// hourly. See docs/runbooks/event-member-matches.md for wiring.
+// hourly. See docs/02-business-processes/operations/event-member-matches.md for wiring.
 
 @Controller('v1/internal/event-matches-post-reg')
 @UseGuards(InternalAuthGuard)

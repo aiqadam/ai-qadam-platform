@@ -3,15 +3,15 @@
 ## Status
 Accepted (override → Option C), 2026-05-21
 
-> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md), with **override to Option C (community-led editor pool, zero cash cost) instead of the recommended Option D**. Constraint: no new hiring or recurring spend at this stage. The paid-editor half of Option D is **deferred** to the business-process gap list (revisit when the community pool can't meet quality at scale, or when sponsor revenue stabilizes); the community-pool half is the operating model now. The Russian voice guide (`docs/voice-guide-ru.md`) is still produced — Viktor + a rotating community editor draft it together in the editor's first 2 weeks of activation.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md), with **override to Option C (community-led editor pool, zero cash cost) instead of the recommended Option D**. Constraint: no new hiring or recurring spend at this stage. The paid-editor half of Option D is **deferred** to the business-process gap list (revisit when the community pool can't meet quality at scale, or when sponsor revenue stabilizes); the community-pool half is the operating model now. The Russian voice guide (`docs/voice-guide-ru.md`) is still produced — Viktor + a rotating community editor draft it together in the editor's first 2 weeks of activation.
 
 ## Context
 
-[`marketing-and-pr-playbook.md` §13](../marketing-and-pr-playbook.md) defines two founder voices (Binali + Viktor) in English. Central Asia operates primarily in Russian for technical / B2B comms (≈ 90% of regional AI engineer-targeted content is Russian-first), with Uzbek-Latin / Kazakh / Tajik as audience-respectful augmentation for member-facing surfaces.
+[`marketing-and-pr-playbook.md` §13](../02-business-processes/marketing-and-pr-playbook.md) defines two founder voices (Binali + Viktor) in English. Central Asia operates primarily in Russian for technical / B2B comms (≈ 90% of regional AI engineer-targeted content is Russian-first), with Uzbek-Latin / Kazakh / Tajik as audience-respectful augmentation for member-facing surfaces.
 
 Today: every Russian-language string is either Binali-or-Viktor improvised + manually reviewed, or member-contributed (Telegram chat is Russian-default, organically). No documented voice, no translation process, no owner.
 
-Phase ζ.6 (i18n cabinets per [community-platform-roadmap.md §7](../community-platform-roadmap.md)) ships translation infrastructure (Tolgee vs i18next decision; not the subject of this ADR). What this ADR decides: **who owns the Russian voice + translation review process** so the platform's Russian-language content has the same coherence as its English-language content.
+Phase ζ.6 (i18n cabinets per [community-platform-roadmap.md §7](../01-business/community-platform-roadmap.md)) ships translation infrastructure (Tolgee vs i18next decision; not the subject of this ADR). What this ADR decides: **who owns the Russian voice + translation review process** so the platform's Russian-language content has the same coherence as its English-language content.
 
 Constraints:
 - Volume is growing fast: every UX-guideline surface, every operator playbook page, every notification template, every brand-asset caption needs a Russian rendition.
@@ -33,7 +33,7 @@ Engage a part-time contractor (5–10 hrs/week) to review, edit, and translate a
 - **Cons:** USD 800-2,000/month recurring; recruiting the right person is hard (must understand AI engineering + Central Asia regional Russian register); accountability if quality drops.
 
 ### Option C — Community-led editor pool with rotation
-Recruit 3-5 native-Russian-speaking members willing to review on a rotation; provide a Russian voice-guide they maintain; compensate via points + brand-asset credit (per [marketing playbook §15](../marketing-and-pr-playbook.md)).
+Recruit 3-5 native-Russian-speaking members willing to review on a rotation; provide a Russian voice-guide they maintain; compensate via points + brand-asset credit (per [marketing playbook §15](../02-business-processes/marketing-and-pr-playbook.md)).
 
 - **Pros:** zero recurring cash cost; deepens community engagement; spreads accountability; community owns its voice.
 - **Cons:** lower SLA on turn-around (community volunteers ≠ contractors); rotation overhead; quality variance.
@@ -65,7 +65,7 @@ Paid editor (Option B, lower hours ~3-5/week) reviews strategic surfaces (UX gui
 
 ### Russian voice guide (`docs/voice-guide-ru.md`)
 
-To be created in the editor's first 2 weeks. Mirrors [ux-and-content-guidelines.md](../ux-and-content-guidelines.md) §1 in structure: anti-patterns, register, formality level per surface class (UX = professional-warm; marketing = energetic-respectful; operator playbook = clear-imperative; notifications = brief-direct). PM (Viktor) reviews + signs off.
+To be created in the editor's first 2 weeks. Mirrors [ux-and-content-guidelines.md](../04-development/design-system/ux-and-content-guidelines.md) §1 in structure: anti-patterns, register, formality level per surface class (UX = professional-warm; marketing = energetic-respectful; operator playbook = clear-imperative; notifications = brief-direct). PM (Viktor) reviews + signs off.
 
 ### Uzbek-Latin / Kazakh / Tajik
 
@@ -83,6 +83,6 @@ Out of scope for this ADR. Russian is the prerequisite layer; member-language au
 
 - [ADR-0026 — Telegram channel](./0026-telegram-channel.md) (Proposed) — primary Russian-language surface today
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — `member_consents.purpose=content` is the consent primitive for the community pool
-- [`marketing-and-pr-playbook.md` §13](../marketing-and-pr-playbook.md) — founder voices doc (this ADR extends it to Russian)
-- [`ux-and-content-guidelines.md`](../ux-and-content-guidelines.md) — English voice rules (the structural reference for the Russian guide)
-- [`community-platform-roadmap.md` §7 Phase ζ.6](../community-platform-roadmap.md) — i18n cabinets
+- [`marketing-and-pr-playbook.md` §13](../02-business-processes/marketing-and-pr-playbook.md) — founder voices doc (this ADR extends it to Russian)
+- [`ux-and-content-guidelines.md`](../04-development/design-system/ux-and-content-guidelines.md) — English voice rules (the structural reference for the Russian guide)
+- [`community-platform-roadmap.md` §7 Phase ζ.6](../01-business/community-platform-roadmap.md) — i18n cabinets
