@@ -25,7 +25,8 @@ Updates project documentation to reflect the implemented requirement. Keeps arch
 | New coding convention or pattern | `docs/04-development/standards.md` |
 | New security rule | `docs/04-development/security/security.md` |
 | New operational scenario | `docs/runbooks/<slug>.md` |
-| New feature shipped | `docs/03-requirements/` — update status to `✅ implemented` |
+| New feature shipped | `docs/03-requirements/FR-<CODE>.md` — update `status` frontmatter from `Not Started` / `In Progress` / `Planned` to `Implemented` |
+| New feature shipped | `docs/03-requirements/requirements-registry.md` — update the Status column in the FR implementation order table from `Not Started` / `In Progress` / `Planned` to `Shipped` |
 | New shared-types schema | `packages/shared-types/README.md` |
 
 ## What Does NOT Require Doc Updates

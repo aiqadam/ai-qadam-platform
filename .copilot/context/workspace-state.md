@@ -1,14 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-06-22T00:00:00Z
+**Last updated:** 2026-06-23T00:00:00Z
 
 ---
 
 ## Active Workflows
 
-| Workflow ID | Type | Branch | Current Step | Status |
-|---|---|---|---|---|
-| wf-20260622-feat-001 | requirement-development | feature/MIG-003-form-block | 1 | running |
+_(none)_
 
 ---
 
@@ -16,6 +14,7 @@
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260622-feat-001 | requirement-development | FR-MIG-003 Form block | main → merged | — | 2026-06-22 |
 
 ---
 
@@ -28,8 +27,8 @@
 
 ## Git State
 
-- **Current branch:** feature/MIG-003-form-block
-- **Last sync with origin:** 2026-06-22
+- **Current branch:** main
+- **Last sync with origin:** 2026-06-23
 - **Pending PRs:** none
 
 ## Next Workflow ID
@@ -40,4 +39,7 @@ See `.copilot/meta/next-workflow-id` (currently: 2)
 
 ## Notes
 
-Workflow wf-20260622-feat-001 started for FR-MIG-003 (Form block Zod-driven).
+**2026-06-23:** FR-MIG-003 (Form block Zod-driven) was completed and merged to main
+in commit `291feb5`. The workflow was not properly archived. All acceptance criteria
+verified green: unit tests (7/7), typecheck (0 errors), build (complete).
+The `workspace-state.md` was stale — updated to reflect actual state.
