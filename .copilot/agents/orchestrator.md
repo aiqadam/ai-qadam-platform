@@ -19,25 +19,13 @@ The Orchestrator is the only agent that invokes other agents. No specialized age
 
 ---
 
-## Invariant: Working Tree Must Be Clean At Workflow End
+## Invariants (defined in `.copilot/schemas/protocol.md`)
 
-**Every workflow MUST end with a fully clean and synced git working tree.** No committed-but-unpushed work, no uncommitted changes, no diverged branches.
+- **Clean-Tree Invariant** — every workflow ends with a synced, clean tree.
+- **Counter semantics** — retry counters increment on the failing step, not the retry target.
+- **Workflow-Finish Protocol** — all commit/push/PR operations go through `scripts/workflow-finish.sh`.
 
-A workflow is **not complete** until ALL of the following are true on the workflow's branch:
-
-1. `git status` reports `nothing to commit, working tree clean`
-2. `git status -sb` shows `[up to date with 'origin/<branch>']` — no `[ahead N]`, no `[behind N]`
-3. The branch is pushed to `origin` and a GitHub PR exists
-4. `handoff.yaml` is committed and pushed along with all other workflow artifacts
-
-**Enforcement points:**
-
-- **Step 0 (Initialize):** Verify `git status` is clean on the base branch. If dirty, refuse to start — finish or stash first.
-- **Step 10 (Commit & Push):** Verify `git status -sb` shows `[up to date with origin/<branch>]` after push. If push is rejected (non-fast-forward), rebase and retry.
-- **Step 11 (Archive):** Confirm the branch is fully synced before archiving.
-- **Quality Gate (Step 9):** `[ahead N]` state is a gate failure, not a warning.
-
-**Cross-workflow invariant:** At every workflow start, verify the base branch is in sync with `origin/main`. If behind, run `git pull --rebase origin main` first.
+Read `protocol.md` before routing gates or finishing a workflow. Do not restate those rules here.
 
 ---
 
@@ -75,81 +63,35 @@ Follow the output format specified in your agent definition.
 
 ### Evaluating a Gate
 
-After invoking an agent, read its output file and check the gate status:
+After invoking an agent, read its output file. Agent outputs always contain a
+`gate_result` block (format defined in `.copilot/schemas/protocol.md`).
 
-```yaml
-# Agent output files always contain a gate_result section:
-gate_result:
-  status: passed | failed-retry | failed-retry-code | failed-retry-tests | failed-escalate | deferred
-  summary: "..."
-  findings: [...]
-```
+**CRITICAL: The Orchestrator MUST read the agent's output file and act on
+`gate_result.status` before advancing `current_step`.**
 
 ### Gate Routing Logic
 
-**CRITICAL: The Orchestrator MUST read the agent's output file and act on `gate_result.status` before advancing `current_step`.**
-
 ```
-gate_result.status == "passed"
-  → Update handoff.yaml: mark step completed, advance current_step
-  → Proceed to next step
+passed            → mark step completed, advance current_step, proceed.
+deferred          → append to docs/03-requirements/FEAT-<MODULE>-<N>.md "## Open Gaps";
+                    record in handoff.yaml.deferrals[]; continue (treat as passed).
+failed-retry      → increment retry_counts[current_step];
+                      if < limit → re-invoke same step;
+                      if ≥ limit → register issue, status=needs-review, write NEEDS_REVIEW, stop.
+failed-retry-code → same as failed-retry but route to CodeDeveloper step.
+failed-retry-tests→ same as failed-retry but route to TestDesigner step.
+failed-escalate   → register issue in .copilot/issues/;
+                      attempt nested issue-resolution subworkflow;
+                      mark parent workflow `paused`;
+                      on subworkflow success: rebase parent onto fix, re-run failed step;
+                      on subworkflow exhaustion: status=needs-review, write NEEDS_REVIEW, stop.
 
-gate_result.status == "failed-retry"
-  → Increment retry_counts[current_step_name]
-  → If retry_counts[current_step_name] < retry_max:
-      → Update handoff.yaml with failure summary
-      → Return to current step (re-invoke the same agent)
-  → If retry_counts[current_step_name] >= retry_max:
-      → Register issue in .copilot/issues/
-      → Update handoff.yaml: status = "needs-review"
-      → Create NEEDS_REVIEW artifact
-      → Stop workflow
-
-gate_result.status == "failed-retry-code"
-  → Increment retry_counts[current_step_name]
-  → If retry_counts[current_step_name] < retry_max:
-      → Update handoff.yaml with failure summary
-      → Return to CodeDeveloper step (re-invoke with test results)
-  → If retry_counts[current_step_name] >= retry_max:
-      → Register issue in .copilot/issues/
-      → Update handoff.yaml: status = "needs-review"
-      → Create NEEDS_REVIEW artifact
-      → Stop workflow
-
-gate_result.status == "failed-retry-tests"
-  → Increment retry_counts[current_step_name]
-  → If retry_counts[current_step_name] < retry_max:
-      → Update handoff.yaml with failure summary
-      → Return to TestDesigner step (re-invoke with updated test plan)
-  → If retry_counts[current_step_name] >= retry_max:
-      → Register issue in .copilot/issues/
-      → Update handoff.yaml: status = "needs-review"
-      → Create NEEDS_REVIEW artifact
-      → Stop workflow
-
-NOTE ON RETRY COUNTERS: Each step has its own retry quota stored in handoff.yaml. When a gate
-returns a specialized status like "failed-retry-code" or "failed-retry-tests", the counter
-increments on the **current step** that produced the failure, not on the target step being
-retried. The target step's counter is only incremented when that step itself is re-invoked.
-
-gate_result.status == "deferred"
-  → Append to docs/03-requirements/FEAT-<MODULE>-<N>.md under "## Open Gaps"
-  → Do NOT register an issue
-  → Update handoff.yaml: record deferral in deferrals[]
-  → Continue workflow (treat as passed for the current feature)
-
-gate_result.status == "failed-escalate"
-  → Attempt autonomous issue resolution — spawn a nested issue-resolution subworkflow
-  → Register the issue in .copilot/issues/
-  → Mark parent workflow `paused`
-  → On subworkflow success: rebase parent onto fix branch, re-run failed step, continue
-  → On subworkflow exhausting retries: mark parent `needs-review`, stop
-
-OUTPUT FILE MISSING OR gate_result SECTION ABSENT
-  → Treat as failed-retry (agent did not complete)
-  → Do NOT advance current_step
-  → Retry agent invocation
+output file missing OR gate_result absent
+                  → treat as failed-retry (agent did not complete); retry invocation.
 ```
+
+Counter semantics: see `protocol.md` §Counter Semantics. The counter increments
+on the **current step that produced the failure**, not on the retry target.
 
 ### Updating the Handoff File
 
@@ -211,13 +153,13 @@ Contents:
 
 ---
 
-## Git Operations (Performed Directly by Orchestrator)
+## Git Operations
 
 ### Step 0: Initialize Branch
 
 ```bash
 # 1. Verify current branch has a clean working tree
-git status --porcelain  # Must be empty
+git status --porcelain   # Must be empty
 
 # 2. Sync base branch with origin
 git fetch origin main
@@ -228,42 +170,11 @@ git pull --rebase origin main
 git checkout -b feature/<area>-<n>-<slug>   # or fix/ISS-<n>-<slug>
 ```
 
-### Step 10: Commit, Push, Create PR
+### Final Step: Commit, Push, Create PR
 
-**All git and PR operations are handled by `scripts/workflow-finish.sh`.** This script is the canonical last action of every workflow.
-
-**Invocation:**
-```bash
-scripts/workflow-finish.sh
-scripts/workflow-finish.sh --workflow-dir .copilot/tasks/active/wf-20260622-feat-001
-scripts/workflow-finish.sh --push-only   # commit + push, skip PR creation
-GITHUB_TOKEN=ghp_...  scripts/workflow-finish.sh  # enables REST API PR creation
-```
-
-**What the script does:**
-
-| Step | Action | Idempotent? |
-|------|--------|-------------|
-| A | Resolve workflow dir (handoff.yaml) | Yes |
-| B | Verify clean tree + on workflow branch | Yes — refuses if dirty |
-| C | Commit any pending workflow artifacts | Yes — no-op if already clean |
-| D | Push with rebase+retry on non-fast-forward (max 3) | Yes |
-| E | Create PR via `gh` CLI → REST API → web URL fallback | Yes — 409/existing PR reused |
-| F | Write PR URL back into `handoff.yaml`, commit + push | Yes |
-| G | `git checkout main` + `pull --rebase` | Yes |
-
-**Pre-push gate check (Orchestrator verifies before invoking the script):**
-```bash
-test -f 09-quality-gate.md && grep -q "status: passed" 09-quality-gate.md
-test -f 04-security-review.md && grep -q "status: passed" 04-security-review.md
-test -f 07-test-results.md && grep -q "status: passed" 07-test-results.md
-```
-
-**PR creation is mandatory.** A workflow is not complete without a GitHub PR. Try in this order:
-
-1. **`gh` CLI** (preferred): `gh pr create --base main --head <branch> --title "..." --body "..."`
-2. **GitHub REST API** (when `gh` unavailable): `POST /repos/{owner}/{repo}/pulls`
-3. **Web URL fallback**: record `https://github.com/<owner>/<repo>/compare/<branch>?expand=1` in `handoff.yaml` with `workflow_status: needs-human-pr-creation`
+Delegate entirely to `scripts/workflow-finish.sh` per the **Workflow-Finish
+Protocol** in `.copilot/schemas/protocol.md`. Do not reimplement commit/push/PR
+logic — read the protocol for invocation flags and the pre-push gate checks.
 
 ---
 

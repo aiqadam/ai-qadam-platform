@@ -75,19 +75,11 @@ and invoke specialized subagents.
 
 ### Agents available
 
-| Agent | File | Role |
-|---|---|---|
-| Orchestrator | `.copilot/agents/orchestrator.md` | Routes work, manages git/PRs |
-| RequirementAnalyst | `.copilot/agents/requirement-analyst.md` | Validates and formalizes requirements |
-| ImpactAnalyzer | `.copilot/agents/impact-analyzer.md` | Scopes the change across layers |
-| DBMigrationAuthor | `.copilot/agents/db-migration-author.md` | Writes Drizzle schema + migrations |
-| CodeDeveloper | `.copilot/agents/code-developer.md` | Implements the feature |
-| SecurityReviewer | `.copilot/agents/security-reviewer.md` | Checks 11 security invariants |
-| TestStrategist | `.copilot/agents/test-strategist.md` | Plans what to test and at which level |
-| TestDesigner | `.copilot/agents/test-designer.md` | Writes unit + integration + E2E tests |
-| TestRunner | `.copilot/agents/test-runner.md` | Executes tests and diagnoses failures |
-| DocWriter | `.copilot/agents/doc-writer.md` | Updates architecture docs and ADRs |
-| QualityGate | `.copilot/agents/quality-gate.md` | Final end-to-end check before PR |
+Agent definitions live in `.copilot/agents/` (one file per agent: orchestrator,
+requirement-analyst, impact-analyzer, db-migration-author, code-developer,
+security-reviewer, test-strategist, test-designer, test-runner, doc-writer,
+quality-gate). Shared protocol (gate format, retry limits, finish script) is in
+`.copilot/schemas/protocol.md`.
 
 ### Workflow finish script
 

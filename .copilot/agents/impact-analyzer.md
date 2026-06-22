@@ -40,88 +40,16 @@ Determines the full scope of change implied by a validated requirement. Produces
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/02-impact-analysis.md`
 
-```markdown
-# Impact Analysis
+Required sections:
+- `## Validated Requirement` — `FEAT-<MODULE>-<N>` summary
+- `## Affected Layers` — subsections: API (NestJS table), DB Changes Required (yes/no + schema details), Shared Types, Frontend, Bot, Workers
+- `## API Surface Changes` — table: `| Endpoint | Method | Change | Breaking? |`
+- `## Cross-Module Calls` — table: `| Caller | Called | Via |`
+- `## Risk Flags` — Security Review Required; Architecture Rule Risks
+- `## Test Scope` — Unit / Integration (Testcontainers) / E2E (Playwright)
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Validated Requirement
-FEAT-<MODULE>-<N>: <summary>
+### Gate status semantics (this agent)
 
-## Affected Layers
-
-### API (NestJS)
-| Module | Change Type | Description |
-|---|---|---|
-| apps/api/src/modules/<name> | new/modify | ... |
-| apps/api/src/core/<name> | modify | ... |
-
-### DB Changes Required
-- [ ] Yes — DBMigrationAuthor required
-- [ ] No
-
-#### Schema Changes (if yes)
-- Table: <name>
-- Changes: <columns added/modified/removed>
-- Migration: <drizzle-kit generate required>
-
-### Shared Types (packages/shared-types)
-- [ ] New Zod schemas needed: <list>
-- [ ] Existing schemas modified: <list>
-- [ ] No changes
-
-### Frontend (apps/web)
-- Pages/routes affected: <list or "None">
-- Components affected: <list or "None">
-- API client changes: <list or "None">
-
-### Bot (apps/bot)
-- Handlers affected: <list or "None">
-- Keyboards affected: <list or "None">
-
-### Workers (apps/workers)
-- Queues affected: <list or "None">
-- Processors affected: <list or "None">
-
-## API Surface Changes
-| Endpoint | Method | Change | Breaking? |
-|---|---|---|---|
-| /v1/... | POST | new | No |
-
-## Cross-Module Calls
-| Caller Module | Called Module | Via |
-|---|---|---|
-| registrations | events | EventsService.getById() |
-
-## Risk Flags
-
-### Security Review Required
-- <list any paths touching tenant isolation, auth, secrets, Zod validation boundaries>
-- If none: "None"
-
-### Architecture Rule Risks
-- <list any module boundary violations, cross-schema query risks, N+1 risks>
-- If none: "None"
-
-## Test Scope
-
-### Unit Tests Needed
-- <service/function>: <what to test>
-
-### Integration Tests Needed (Testcontainers)
-- <service>: <scenarios>
-
-### E2E Tests Needed (Playwright)
-- <user flow>: yes/no — <reason>
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-escalate
-  summary: "<one sentence>"
-  findings:
-    - "<finding>"
-```
-
-### Gate Status Rules
-
-- `passed`: Impact is fully analyzed. All affected components identified.
-- `failed-escalate`: The requirement as stated would require violating an architecture rule (module boundaries, cross-schema queries, unapproved stack deviation). Must escalate.
+- `passed`: impact fully analyzed; all affected components identified.
+- `failed-escalate`: requirement would violate an architecture rule (module boundaries, cross-schema queries, unapproved stack deviation).

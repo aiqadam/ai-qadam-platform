@@ -47,41 +47,16 @@ Authors Drizzle schema changes and generates the corresponding migration files. 
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/05-migration-plan.md`
 
-```markdown
-# DB Migration Plan
+Required sections:
+- `## Requirement` — `FEAT-<MODULE>-<N>` summary
+- `## Schema Changes` — module path + what was added/modified
+- `## Migration File` — path, type (reversible / forward-only), destructive yes/no
+- `## Tenant Scoping` — new tables tenant-scoped / `countryCode` column / `countryCode` index
+- `## Rollback Strategy`
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Requirement
-FEAT-<MODULE>-<N>: <summary>
+### Gate status semantics (this agent)
 
-## Schema Changes
-
-### Module: apps/api/src/modules/<name>/schema.ts
-- <description of what was added/modified>
-
-## Migration File
-- Path: apps/api/drizzle/<timestamp>_<slug>.sql
-- Type: reversible / forward-only (with reason)
-- Destructive: yes/no — <detail if yes>
-
-## Tenant Scoping
-- New tables tenant-scoped: yes/no
-- countryCode column added: yes/no
-- countryCode index added: yes/no
-
-## Rollback Strategy
-<If reversible: "standard drizzle-kit rollback". If not: "restore from backup — reason: ...">
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry | failed-escalate
-  summary: "<one sentence>"
-  findings:
-    - "<finding>"
-```
-
-### Gate Status Rules
-
-- `passed`: Schema changes complete, migration generated, all self-checks pass.
-- `failed-retry`: Generated migration is malformed, schema has a mistake, or `pnpm db:generate` fails. Include the error.
-- `failed-escalate`: Migration requires a destructive change on a table with production data, or a schema design decision that conflicts with architecture rules.
+- `passed`: schema complete, migration generated, all self-checks pass.
+- `failed-retry`: generated migration malformed, schema mistake, or `pnpm db:generate` failed. Include the error.
+- `failed-escalate`: destructive change on populated table, or schema design conflicts with architecture rules.

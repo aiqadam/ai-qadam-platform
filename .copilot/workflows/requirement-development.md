@@ -9,21 +9,34 @@
 
 Takes a raw requirement from input to a committed, tested, documented feature on a Git branch with a GitHub PR open. Fully autonomous — no human gates mid-workflow.
 
-**Retry limits (default):**
-- RequirementAnalyst retry: 1
-- DBMigrationAuthor retry: 2
-- CodeDeveloper retry: 3
-- TestStrategist retry: 2
-- TestDesigner retry: 3
-- TestRunner → CodeDeveloper: counts against CodeDeveloper's 3
-- TestRunner → TestDesigner: counts against TestDesigner's 3
-- DocWriter retry: 2
-- QualityGate: routes to the indicated step; each step's own counter applies
-- Issue-resolution subworkflow: at most 3 per parent workflow
+**Retry limits, gate status values, and counter semantics:** see
+`.copilot/schemas/protocol.md` and `handoff.yaml.retry_limits`. Do not restate
+here — read from those sources.
 
 **Autonomous Issue Resolution (no human in the loop):**
 - Every `failed-escalate` gate MUST first attempt a nested `issue-resolution` subworkflow
 - UAT (user review) is the only human touchpoint — NEEDS_REVIEW is the terminal state when autonomous recovery is exhausted
+
+## Step → Agent → Output File Map
+
+The workflow uses two parallel numbering schemes. **Step numbers** drive flow;
+**file numbers** drive artifact naming. They do not match — see the table.
+
+| Step | Agent | Output file | Notes |
+|---|---|---|---|
+| 0 | Orchestrator | — | branch + handoff init |
+| 1 | RequirementAnalyst | `01-requirement-validation.md` | |
+| 2 | ImpactAnalyzer | `02-impact-analysis.md` | |
+| 3 | DBMigrationAuthor | `05-migration-plan.md` | conditional; file prefix `05` |
+| 4 | CodeDeveloper | `03-code-summary.md` | |
+| 5 | SecurityReviewer | `04-security-review.md` | |
+| 6 | TestStrategist | `06-test-strategy.md` | |
+| 7 | TestDesigner | `06-test-design.md` | shares prefix `06` with strategist |
+| 8 | TestRunner | `07-test-results.md` | |
+| 9 | DocWriter | `08-doc-update.md` | |
+| 10 | QualityGate | `09-quality-gate.md` | |
+| 11 | Orchestrator | — | commit/push/PR via `scripts/workflow-finish.sh` |
+| 12 | Orchestrator | — | archive task dir |
 
 ---
 
@@ -226,21 +239,9 @@ Read and increment `.copilot/meta/next-workflow-id`. Create the task directory a
 
 ### Step 11: Commit, Push, Create PR (Orchestrator, direct)
 
-**All git and PR operations are delegated to `scripts/workflow-finish.sh`.**
-
-**Invocation:**
-```bash
-scripts/workflow-finish.sh
-# With explicit workflow dir:
-# scripts/workflow-finish.sh --workflow-dir .copilot/tasks/active/wf-20260622-feat-001
-```
-
-**Pre-script gate checks (Orchestrator verifies before invoking):**
-```bash
-test -f 09-quality-gate.md && grep -q "status: passed" 09-quality-gate.md
-test -f 04-security-review.md && grep -q "status: passed" 04-security-review.md
-test -f 07-test-results.md && grep -q "status: passed" 07-test-results.md
-```
+Delegate to `scripts/workflow-finish.sh` per the **Workflow-Finish Protocol** in
+`.copilot/schemas/protocol.md`. Do not reimplement commit/push/PR logic here.
+Run the pre-push gate checks defined in the protocol before invoking the script.
 
 **Gate:** Push succeeds, PR is created, `handoff.yaml.github_pr_url` is non-empty, local branch is `main` → workflow complete.
 
@@ -248,21 +249,12 @@ test -f 07-test-results.md && grep -q "status: passed" 07-test-results.md
 
 ### Step 12: Archive Task (Orchestrator, direct)
 
-**Pre-archive invariant check:**
+**Pre-archive invariant check (Clean-Tree Invariant — see `protocol.md`):**
 ```bash
-git status -sb
-# MUST show main with clean tree.
-# Task directories (.copilot/tasks/) are excluded by .gitignore — never in git.
-```
-
-**Actions:**
-```bash
+git status -sb   # MUST show main with clean tree.
+                 # Task directories (.copilot/tasks/) are excluded by .gitignore.
 mv .copilot/tasks/active/<workflow-id> .copilot/tasks/completed/<workflow-id>
-```
-
-**Final invariant check:**
-```bash
-git status -sb  # MUST show: ## main...origin/main [up to date]
+git status -sb   # MUST show: ## main...origin/main [up to date]
 ```
 
 **Gate:** Directory moved, local `git status` is clean → workflow complete.

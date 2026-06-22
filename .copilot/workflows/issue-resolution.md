@@ -9,10 +9,11 @@
 
 Resolves a registered issue: identifies root cause, implements a fix, verifies it resolves the issue, and updates the issue registry.
 
-**Retry limits:**
-- CodeDeveloper retry: 3 (shared with security/test bouncebacks)
-- TestStrategist retry: 2
-- TestDesigner retry: 3
+**Retry limits, gate status values, counter semantics:** see
+`.copilot/schemas/protocol.md` and `handoff.yaml.retry_limits`.
+
+Steps 3, 5, 8, 9, 10, 11, 12, 13 reuse `requirement-development.md` definitions
+verbatim. The only differences are flagged inline below.
 
 ---
 
