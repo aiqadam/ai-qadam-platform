@@ -1,0 +1,157 @@
+# Handoff File Schema v1.0
+#
+# Location: .copilot/tasks/active/<workflow-id>/handoff.yaml
+# Purpose: Single source of truth for a running workflow instance.
+#          The Orchestrator reads this to resume after interruption.
+#          All agent invocations reference this file for context.
+#
+# Naming convention for workflow_instance_id:
+#   wf-YYYYMMDD-<type-abbrev>-<global-n>
+#   where global-n is read from and incremented in .copilot/meta/next-workflow-id
+#   e.g. wf-20260622-feat-001, wf-20260622-fix-003
+#   NEVER reuse or guess IDs. Always read the counter file.
+#
+# VALIDATION RULES (Orchestrator MUST check before advancing workflow_status to "completed"):
+#   1. workflow_instance_id must not be empty
+#   2. All required gate_results entries must have status == "passed"
+#   3. current_step must equal the final step of the workflow_type
+#   4. last_updated_at must be set
+#   5. branch must not be empty
+#   6. Leaf steps (SecurityReviewer, TestRunner, QualityGate) must have output files in artifacts[]
+#   7. github_pr_url must not be empty for workflow_status "completed"
+
+# ─── Identity ────────────────────────────────────────────────────────────────
+
+schema_version: "1.0"
+
+workflow_instance_id: ""          # wf-YYYYMMDD-<type>-<n>
+workflow_type: ""                 # requirement-development | issue-resolution
+workflow_version: "1.0"
+
+created_at: ""                    # ISO 8601, set at Step 0
+last_updated_at: ""               # ISO 8601, updated after every step
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: ""               # FEAT-<MODULE>-<N> or ISS-<n>
+requirement_text: ""              # Raw input text (1–2 sentences)
+github_issue_url: ""              # Optional: GitHub issue URL if pre-created
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: ""                        # feature/FEAT-<MODULE>-<N>-<slug>
+                                  # fix/ISS-<n>-<slug>
+base_branch: "main"
+github_pr_url: ""                 # Populated by Step 11 after PR creation
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 0
+current_step_name: ""
+workflow_status: ""               # running | gate-failed | completed |
+                                  # needs-review | abandoned | paused
+
+# ─── Subworkflow Link (populated when this workflow is a subworkflow) ─────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""       # "fix-and-rebase" | "no-fix-architectural-conflict"
+
+# ─── Subworkflow History (populated by the PARENT workflow) ──────────────────
+# subworkflow_history:
+#   - id: wf-20260622-fix-003
+#     branch: fix/ISS-003-...
+#     issue_ref: ISS-003
+#     spawned_at: "2026-06-22T10:00:00Z"
+#     completed_at: "2026-06-22T11:30:00Z"
+#     outcome: passed | failed-retry | failed-escalate | in-progress
+#     pr_url: https://github.com/.../pull/...
+
+subworkflow_history: []
+subworkflow_retry_count: 0        # 0..3
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+# gate_results:
+#   requirement-validation:
+#     status: passed
+#     attempt: 1
+#     timestamp: "2026-06-22T10:05:00Z"
+#     summary: "Requirement formalized as FEAT-EVENTS-12"
+#     output_file: ".copilot/tasks/active/wf-20260622-feat-001/01-requirement-validation.md"
+
+gate_results: {}
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+# agent_assignments:
+#   requirement-analyst:
+#     status: completed
+#     step: 1
+#     output_file: ".copilot/tasks/active/.../01-requirement-validation.md"
+#     timestamp: "2026-06-22T10:05:00Z"
+
+agent_assignments: {}
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+# retry_counts:
+#   code-developer: 1
+#   test-designer: 0
+
+retry_counts: {}
+
+# ─── Retry Limits (from workflow definition) ─────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: ""             # For issue-resolution workflow: ISS number being resolved
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+# deferrals:
+#   - from_feature: "FEAT-EVENTS-12"
+#     to_feature: "FEAT-NOTIF-5"
+#     reason: "Email notification on registration deferred — NOTIF module not yet built"
+#     step: 4
+#     timestamp: "2026-06-22T10:30:00Z"
+
+deferrals: []
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts: []
+
+# ─── Context References ──────────────────────────────────────────────────────
+# Key documents this workflow instance needs. Agents receive paths, not contents.
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  # Added after Step 2 impact analysis:
+  # - apps/api/src/modules/<affected>/
+  # - packages/shared-types/src/
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/<wf-id>/NEEDS_REVIEW.md"

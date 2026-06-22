@@ -8,6 +8,7 @@
 
 | Workflow ID | Type | Branch | Current Step | Status |
 |---|---|---|---|---|
+<<<<<<< HEAD
 | wf-20260622-feat-001 | requirement-development | feature/MIG-003-form-block | 1 | running |
 
 ---
@@ -28,16 +29,22 @@
 
 ## Git State
 
+<<<<<<< HEAD
 - **Current branch:** feature/MIG-003-form-block
 - **Last sync with origin:** 2026-06-22
 - **Pending PRs:** none
 
 ## Next Workflow ID
 
+<<<<<<< HEAD
 See `.copilot/meta/next-workflow-id` (currently: 2)
 
 ---
 
 ## Notes
 
+<<<<<<< HEAD
 Workflow wf-20260622-feat-001 started for FR-MIG-003 (Form block Zod-driven).
+=======
+Multi-agent system initialized 2026-06-22. No workflows run yet.
+>>>>>>> origin/agents
