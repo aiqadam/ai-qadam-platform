@@ -23,6 +23,8 @@ How we build and run the platform. Code standards and workflow, architecture, an
 
 ## Frontend
 
+Two frontends coexist during the rewrite: `apps/web/` (legacy) and `apps/web-next/` (Astro 5 + React 19, target per ADR-0038). New work lands in `web-next`. See [frontend/README.md](frontend/README.md) for orientation.
+
 - [Web migration plan — `apps/web-next/` build-aside + cutover](frontend/web-migration-plan.md)
 - [Migration status — live cutover tracker](frontend/migration-status.md)
 - [Kickoff prompt — `apps/web-next/` greenfield build](frontend/web-next-kickoff.md)
