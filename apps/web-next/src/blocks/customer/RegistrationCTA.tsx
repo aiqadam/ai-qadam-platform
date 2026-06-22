@@ -84,56 +84,53 @@ function AuthedCta({
   const register = useRegisterForEvent(eventId);
   const cancel = useCancelRegistration(eventId);
 
-  const onRegister = (): void => {
-    register.mutate(undefined, {
-      onSuccess: (next) => {
-        if (next === 'registered') onCountDelta(+1);
-      },
-    });
-  };
-  const onCancel = (): void => {
-    cancel.mutate(undefined, {
-      onSuccess: () => {
-        if (status === 'registered') onCountDelta(-1);
-      },
-    });
-  };
-
-  const busy = register.isPending || cancel.isPending;
-  const mutationError = register.error?.message ?? cancel.error?.message ?? null;
+  const isBusy = register.isPending || cancel.isPending;
+  const errorMsg = register.error?.message ?? cancel.error?.message ?? null;
 
   if (statusPending) {
     return <p className="text-xs text-muted-foreground">Loading registration…</p>;
   }
+
+  const handleRegister = (): void => {
+    register.mutate(undefined, { onSuccess: () => onCountDelta(+1) });
+  };
+
   if (status === null) {
+    const label = isBusy ? '…' : isFull ? 'Join waitlist' : 'Register';
     return (
-      <Button onClick={onRegister} disabled={busy} className="w-full">
-        {busy ? '…' : isFull ? 'Join waitlist' : 'Register'}
+      <Button onClick={handleRegister} disabled={isBusy} className="w-full">
+        {label}
       </Button>
     );
   }
+
+  const handleCancel = (): void => {
+    cancel.mutate(undefined);
+  };
+
   if (status === 'registered') {
     return (
       <>
         <div className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-foreground">
           ✓ You're registered
         </div>
-        <Button variant="outline" onClick={onCancel} disabled={busy} className="w-full">
-          {busy ? '…' : 'Cancel registration'}
+        <Button variant="outline" onClick={handleCancel} disabled={isBusy} className="w-full">
+          {isBusy ? '…' : 'Cancel registration'}
         </Button>
-        {mutationError && <p className="text-xs text-destructive">{mutationError}</p>}
+        {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
       </>
     );
   }
+
   return (
     <>
       <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
         On waitlist — we'll email if a seat opens
       </div>
-      <Button variant="outline" onClick={onCancel} disabled={busy} className="w-full">
-        {busy ? '…' : 'Leave waitlist'}
+      <Button variant="outline" onClick={handleCancel} disabled={isBusy} className="w-full">
+        {isBusy ? '…' : 'Leave waitlist'}
       </Button>
-      {mutationError && <p className="text-xs text-destructive">{mutationError}</p>}
+      {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
     </>
   );
 }

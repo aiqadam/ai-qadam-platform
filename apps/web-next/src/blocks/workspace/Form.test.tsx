@@ -94,17 +94,24 @@ function extractFields(schema: z.ZodTypeAny): Record<string, FieldMeta> {
 describe('extractFields', () => {
   it('infers a string field as text', () => {
     const schema = z.object({ title: z.string() });
-    const fields = extractFields(schema);
+    // biome-ignore: must use bracket notation due to noUncheckedIndexedAccess
+    const fields = extractFields(schema) as Record<string, FieldMeta>;
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
     expect(fields['title']).toMatchObject({ type: 'text', label: 'Title', required: true });
   });
 
   it('infers a date field from key naming convention', () => {
-    const fields = extractFields(z.object({ eventDate: z.string() }));
+    const fields = extractFields(z.object({ eventDate: z.string() })) as Record<string, FieldMeta>;
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
     expect(fields['eventDate']).toMatchObject({ type: 'date' });
   });
 
   it('marks optional fields as not required', () => {
-    const fields = extractFields(z.object({ title: z.string().optional() }));
+    const fields = extractFields(z.object({ title: z.string().optional() })) as Record<
+      string,
+      FieldMeta
+    >;
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
     expect(fields['title']).toMatchObject({ required: false });
   });
 
@@ -118,19 +125,25 @@ describe('extractFields', () => {
   // });
 
   it('infers boolean as checkbox', () => {
-    const fields = extractFields(z.object({ isPublic: z.boolean() }));
+    const fields = extractFields(z.object({ isPublic: z.boolean() })) as Record<string, FieldMeta>;
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
     expect(fields['isPublic']).toMatchObject({ type: 'checkbox' });
   });
 
   it('infers number as number', () => {
-    const fields = extractFields(z.object({ capacity: z.number() }));
+    const fields = extractFields(z.object({ capacity: z.number() })) as Record<string, FieldMeta>;
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
     expect(fields['capacity']).toMatchObject({ type: 'number' });
   });
 
   it('generates readable labels from camelCase keys', () => {
-    const fields = extractFields(z.object({ eventTitle: z.string(), createdAt: z.string() }));
-    expect(fields['eventTitle']!.label).toBe('Event Title');
-    expect(fields['createdAt']!.label).toBe('Created At');
+    const fields = extractFields(
+      z.object({ eventTitle: z.string(), createdAt: z.string() }),
+    ) as Record<string, FieldMeta>;
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
+    expect(fields['eventTitle']?.label).toBe('Event Title');
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
+    expect(fields['createdAt']?.label).toBe('Created At');
   });
 
   it('extracts all fields from a mixed schema', () => {
@@ -141,11 +154,15 @@ describe('extractFields', () => {
         role: z.enum(['admin', 'user']),
         active: z.boolean(),
       }),
-    );
+    ) as Record<string, FieldMeta>;
     expect(Object.keys(fields)).toHaveLength(4);
-    expect(fields['name']!.type).toBe('text');
-    expect(fields['age']!.type).toBe('number');
-    expect(fields['role']!.type).toBe('select');
-    expect(fields['active']!.type).toBe('checkbox');
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
+    expect(fields['name']?.type).toBe('text');
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
+    expect(fields['age']?.type).toBe('number');
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
+    expect(fields['role']?.type).toBe('select');
+    // biome-ignore lint/complexity/useLiteralKeys: Record<string, T> requires bracket access
+    expect(fields['active']?.type).toBe('checkbox');
   });
 });
