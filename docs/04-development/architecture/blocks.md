@@ -43,7 +43,7 @@ These are the underlying shadcn-based atoms that blocks compose. Not
 | `<Dialog>` | `@/kit` | `open, onOpenChange, title, children` | [link]() |
 | `<Select>` | `@/kit` | `value, onValueChange, options` | [link]() |
 | `<Drawer>` | `@/kit` | Radix Dialog side-sheet: `Drawer` / `DrawerTrigger` / `DrawerContent side='right'\|'left'` / `DrawerHeader` / `DrawerFooter` / `DrawerTitle` / `DrawerDescription` / `DrawerClose` (M1.1) | `L2 Kit / Drawer` story |
-| `<Tooltip>` | `@/kit` | `content, children` | [link]() |
+| `<Tooltip>` | `@/kit` | `content, children, side?, align?` | [L2 Kit / Tooltip](https://storybook.aiqadam.org/?path=/story/l2-kit-tooltip--default) |
 
 ## Layer 3 (blocks) — the catalogue
 
