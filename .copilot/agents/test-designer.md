@@ -54,46 +54,14 @@ Writes the test code. Given a test strategy and the code summary, produces the a
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/06-test-design.md`
 
-```markdown
-# Test Design
+Required sections:
+- `## Tests Written` — tables for Unit / Integration / E2E (File, Count/Focus, Required?)
+- `## Acceptance Criteria Coverage` — `| AC | Test | Status |`
+- `## Known Test Gaps` — with TODO comments in source
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Tests Written
+### Gate status semantics (this agent)
 
-### Unit Tests
-| File | Test Count | Coverage Focus |
-|---|---|---|
-| apps/api/src/modules/.../<name>.test.ts | N | ... |
-
-### Integration Tests
-| File | Test Count | Infrastructure |
-|---|---|---|
-| apps/api/src/modules/.../<name>.integration.test.ts | N | Postgres (Testcontainers) |
-
-### E2E Tests
-| File | Flow | Required? |
-|---|---|---|
-| apps/e2e/src/... | <flow name> | yes/no — <reason> |
-
-## Acceptance Criteria Coverage
-| AC | Test | Status |
-|---|---|---|
-| AC-1 | <test name> | covered |
-| AC-2 | <test name> | covered |
-
-## Known Test Gaps
-<Tests that couldn't be written — with TODO comments in source>
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry | deferred
-  summary: "<one sentence>"
-  findings:
-    - "<finding>"
-```
-
-### Gate Status Rules
-
-- `passed`: All required tests written, no `it.skip`, coverage targets met.
-- `failed-retry`: A test couldn't be written due to a missing mock, missing type, or unclear acceptance criterion. List the specific issue.
-- `deferred`: An E2E or integration test is deferred to a future feature (e.g., feature under test depends on another not-yet-implemented feature). Must set `deferred_to_feature`.
+- `passed`: all required tests written, no `it.skip`, coverage targets met.
+- `failed-retry`: a test couldn't be written (missing mock, missing type, unclear AC). List the specific issue.
+- `deferred`: an E2E or integration test deferred to a future feature (feature under test depends on another not-yet-implemented feature). Must set `deferred_to_feature`.

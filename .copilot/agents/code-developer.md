@@ -53,38 +53,18 @@ Implements the validated requirement in code — NestJS API, Astro/React web, Py
 
 ## Architecture Self-Check (Before Declaring Done)
 
-For every new or modified NestJS service:
-- [ ] Service methods have typed inputs and outputs (no `any`)
-- [ ] All external input validated via Zod schemas (controller + DTO layer)
-- [ ] Custom typed error classes used (not bare `throw new Error(...)`)
-- [ ] Promises always awaited or explicitly handled
+These names expand **AGENTS.md §1, §3, §5, §9**. Confirm each applies; do not
+re-explain the rule — see AGENTS.md.
 
-For every new database query:
-- [ ] Uses Drizzle — no raw SQL strings outside `` sql`...` `` template tags
-- [ ] Tenant-scoped tables filtered by `countryCode`
-- [ ] N+1 patterns avoided (joins or separate batched queries)
-
-For every cross-module call:
-- [ ] Called through a service interface, not via direct entity/repository import
-- [ ] No circular module imports
-
-For every new API endpoint:
-- [ ] Auth guard applied at controller level (not service level)
-- [ ] Rate limiting configured for public endpoints
-- [ ] Response shape matches RFC 7807 for errors
-
-For shared-types changes:
-- [ ] Zod schema updated in `packages/shared-types`
-- [ ] Both API and web/bot consumers updated if schema changed
-
-For every new React component:
-- [ ] Functional component only, no class components
-- [ ] No `dangerouslySetInnerHTML`
-- [ ] Props typed explicitly
-
-For every new Astro page:
-- [ ] Tenant context passed to API client via `X-Tenant` header
-- [ ] Auth state checked before rendering protected content
+- [ ] Service methods: typed I/O, no `any`, all external input Zod-validated (controller + DTO)
+- [ ] Custom typed errors (no bare `throw new Error(...)`)
+- [ ] All promises awaited or explicitly handled
+- [ ] DB queries: Drizzle only (no raw SQL outside `` sql`...` ``); tenant tables filtered by `countryCode`; N+1 avoided
+- [ ] Cross-module calls via service interface — no direct entity/repository import, no circular module imports
+- [ ] New endpoints: auth guard at controller level; rate limit on public; RFC 7807 error shape
+- [ ] shared-types changes: Zod schema updated in `packages/shared-types`; both API and web/bot consumers updated
+- [ ] New React component: functional only, no `dangerouslySetInnerHTML`, explicit prop types
+- [ ] New Astro page: tenant context via `X-Tenant` header; auth state checked before protected content
 
 ---
 
@@ -105,54 +85,21 @@ After any rebase: `pnpm typecheck && pnpm lint && pnpm build` — all must pass.
 
 ## Output
 
-**Write code changes** directly to the affected files.
+**Write code changes** directly to affected files.
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/03-code-summary.md`
 
-```markdown
-# Code Development Summary
+Required sections:
+- `## Requirement Implemented`
+- `## Files Changed` — table: `| File | Change Type | Description |`
+- `## Key Design Decisions` — rationale where alternatives existed
+- `## Architecture Rule Compliance` — confirm: module boundaries / tenant scoping / Zod at boundaries / no cross-schema queries / no `any` / auth at controller level
+- `## Formatter Check` — `pnpm biome check` clean? Python ruff clean?
+- `## Known Limitations`
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Requirement Implemented
-FEAT-<MODULE>-<N>: <summary>
+### Gate status semantics (this agent)
 
-## Files Changed
-| File | Change Type | Description |
-|---|---|---|
-| apps/api/src/modules/... | modified | ... |
-| packages/shared-types/src/... | modified | ... |
-
-## Key Design Decisions
-<Any choices made where alternatives existed — brief rationale>
-
-## Architecture Rule Compliance
-- Module boundaries respected: [confirmed / N/A]
-- Tenant scoping applied: [confirmed / N/A]
-- Zod validation at boundaries: [confirmed / N/A]
-- No cross-schema queries: [confirmed / N/A]
-- No `any` types: [confirmed / N/A]
-- Auth at controller level: [confirmed / N/A]
-
-## Formatter Check
-- `pnpm biome check` clean: [yes / files: ...]
-- Python ruff clean: [yes / N/A]
-
-## Known Limitations
-<Anything not implemented, deferred, or requiring follow-up>
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry | deferred
-  summary: "<one sentence>"
-  # Required when status == deferred:
-  deferred_to_feature: "FEAT-<MODULE>-<N>"
-  deferred_reason: "<one sentence>"
-  findings:
-    - "<finding>"
-```
-
-### Gate Status Rules
-
-- `passed`: Code compiles, passes type-check and lint, all architecture rules confirmed.
-- `failed-retry`: Type error, lint failure, or architecture rule violation found during self-check.
-- `deferred`: Implementation complete for the current feature, but an integration gap exists that is not a bug and belongs to a known future feature.
+- `passed`: compiles, type-check and lint clean, all architecture rules confirmed.
+- `failed-retry`: type error, lint failure, or architecture rule violation found during self-check.
+- `deferred`: implementation complete for this feature but an integration gap belongs to a known future feature. Must set `deferred_to_feature` + `deferred_reason`.

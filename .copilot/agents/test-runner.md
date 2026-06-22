@@ -65,48 +65,18 @@ cd apps/bot && uv run pytest tests/ -v
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/07-test-results.md`
 
-```markdown
-# Test Results
+Required sections:
+- `## Execution Summary` — `| Suite | Tests | Passed | Failed | Skipped |` (Unit / Integration / E2E)
+- `## Type Check` — `pnpm typecheck` pass/fail + error count
+- `## Lint / Format Check` — `pnpm biome check` clean/dirty + dirty file list
+- `## Failed Tests` — `| Test | File | Error | Classification |` (code-bug / test-error)
+- `## Flaky Tests` — any `@flaky` tags
+- `## Coverage` — line / branch / error paths in business logic
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Execution Summary
+### Gate status semantics (this agent)
 
-| Suite | Tests | Passed | Failed | Skipped |
-|---|---|---|---|---|
-| Unit | N | N | N | 0 |
-| Integration | N | N | N | 0 |
-| E2E | N | N | N | 0 |
-
-## Type Check
-- `pnpm typecheck`: passed / failed — <error count>
-
-## Lint / Format Check
-- `pnpm biome check`: clean / dirty — <list dirty files if any>
-
-## Failed Tests (if any)
-| Test | File | Error | Classification |
-|---|---|---|---|
-| <test name> | <file> | <error> | code-bug / test-error |
-
-## Flaky Tests
-<List any @flaky tests — must be investigated before merge>
-
-## Coverage
-- Line: X%
-- Branch: X%
-- Error paths in business logic: X%
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry-code | failed-retry-tests | failed-escalate
-  summary: "<one sentence>"
-  findings:
-    - "<specific failure>"
-```
-
-### Gate Status Rules
-
-- `passed`: All tests pass, no skipped integration tests, biome clean, type-check clean.
-- `failed-retry-code`: Type error, lint error, or code bug. Return to CodeDeveloper.
-- `failed-retry-tests`: Test logic is wrong. Return to TestDesigner.
-- `failed-escalate`: Infrastructure failure (Testcontainers can't start, Docker unavailable). Register issue.
+- `passed`: all tests pass, no skipped integration tests, biome clean, type-check clean.
+- `failed-retry-code`: type error, lint error, or code bug. Route to CodeDeveloper.
+- `failed-retry-tests`: test logic is wrong. Route to TestDesigner.
+- `failed-escalate`: infrastructure failure (Testcontainers can't start, Docker unavailable). Register issue.

@@ -59,65 +59,18 @@ From `.copilot/tasks/active/<workflow-id>/`:
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/09-quality-gate.md`
 
-```markdown
-# Quality Gate — Final Check
+Required sections:
+- `## Workflow Instance`
+- `## Step Completion Check` — `| Step | Agent | Status | Gate Result |` (01–09)
+- `## Traceability Check` — feature ID in code summary; ACs mapped to tests
+- `## Test Coverage Check` — rubric score; integration tests required/present; `it.skip`; `@flaky`; coverage line/branch
+- `## Security Check` — applicable invariants PASS; no open BLOCKER findings
+- `## Branch and Commit Readiness` — `git status --porcelain` empty; `git status -sb` shows `[up to date with origin/<branch>]`; `pnpm biome check` clean; `handoff.yaml.github_pr_url` non-empty
+- `## Documentation Check` — required docs updated; feature marked ✅ implemented
+- `## Final Assessment` — one paragraph
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Workflow Instance
-<workflow-id>
+### Gate status semantics (this agent)
 
-## Step Completion Check
-| Step | Agent | Status | Gate Result |
-|---|---|---|---|
-| 01 | RequirementAnalyst | completed | passed |
-| 02 | ImpactAnalyzer | completed | passed |
-| 03 | DBMigrationAuthor | skipped (no entity changes) | N/A |
-| 04 | CodeDeveloper | completed | passed |
-| 05 | SecurityReviewer | completed | passed |
-| 06 | TestStrategist | completed | passed |
-| 07 | TestDesigner | completed | passed |
-| 08 | TestRunner | completed | passed |
-| 09 | DocWriter | completed | passed |
-
-## Traceability Check
-- Feature identifier in code summary: yes/no
-- ACs mapped to tests: yes/no
-
-## Test Coverage Check
-- Rubric score (from test strategy): N
-- Integration tests required and present: yes/no/N/A
-- All tests passing: yes/no
-- No `it.skip`: confirmed/violations: [list]
-- No `@flaky` unresolved: confirmed/violations: [list]
-- Coverage (line/branch): X% / X%
-
-## Security Check
-- All applicable invariants: PASS
-- No open BLOCKER findings: confirmed
-
-## Branch and Commit Readiness
-- `git status --porcelain` empty: yes/no
-- `git status -sb` shows `[up to date with origin/<branch>]`: yes/no
-- `pnpm biome check` clean: yes/no — <list files if no>
-- `handoff.yaml.github_pr_url` non-empty: yes/no
-
-## Documentation Check
-- Required docs updated: yes/no
-- Feature marked ✅ implemented: yes/no
-
-## Final Assessment
-<one paragraph>
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry
-  summary: "<one sentence>"
-  retry_target: <step-name>  # If failed-retry
-  findings:
-    - "<specific gap>"
-```
-
-### Gate Status Rules
-
-- `passed`: All checks pass. Orchestrator may proceed to commit and push.
-- `failed-retry`: A specific gap found (missing test, open security finding, formatter drift, no PR URL). Include exact gap and `retry_target`.
+- `passed`: all checks pass. Orchestrator may commit and push.
+- `failed-retry`: a specific gap found (missing test, open security finding, formatter drift, no PR URL). Include exact gap and `retry_target`.

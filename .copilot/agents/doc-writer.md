@@ -56,29 +56,12 @@ Updates project documentation to reflect the implemented requirement. Keeps arch
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/08-doc-update.md`
 
-```markdown
-# Documentation Update Summary
+Required sections:
+- `## Documents Updated` — `| Document | Section | Change Description |`
+- `## Documents Not Updated` — docs considered but not changed, and why
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Documents Updated
+### Gate status semantics (this agent)
 
-| Document | Section | Change Description |
-|---|---|---|
-| docs/04-development/architecture/architecture.md | Module boundaries | Added <module> |
-| docs/03-requirements/... | Status | Marked FEAT-<MODULE>-<N> as ✅ implemented |
-
-## Documents Not Updated
-<List docs considered but not changed, and why>
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry
-  summary: "<one sentence>"
-  findings:
-    - "<finding>"
-```
-
-### Gate Status Rules
-
-- `passed`: All required documentation updated correctly, no duplication, no unaffected content altered.
-- `failed-retry`: Inconsistency found during writing (e.g., new feature conflicts with existing docs, ADR needed but format is wrong). List the specific issue.
+- `passed`: all required documentation updated correctly, no duplication, no unaffected content altered.
+- `failed-retry`: inconsistency found during writing (new feature conflicts with existing docs, ADR needed but format wrong). List the specific issue.

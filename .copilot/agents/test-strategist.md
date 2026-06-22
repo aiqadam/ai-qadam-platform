@@ -53,50 +53,17 @@ Score the change to determine required test levels:
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/06-test-strategy.md`
 
-```markdown
-# Test Strategy
+Required sections:
+- `## Requirement` — `FEAT-<MODULE>-<N>` summary
+- `## Rubric Score` — score + brief justification
+- `## Required Test Levels` — checkboxes: Unit / Integration (Testcontainers) / E2E (Playwright)
+- `## Unit Test Plan` — `| Target | Happy Path | Failure Paths |`
+- `## Integration Test Plan` — `| Scenario | Infrastructure | Key Assertions |`
+- `## E2E Test Plan` — `| User Flow | Entry Point | Exit Assertion |`
+- `## Acceptance Criteria → Test Mapping` — `| AC | Test Level | Test Description |`
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Requirement
-FEAT-<MODULE>-<N>: <summary>
+### Gate status semantics (this agent)
 
-## Rubric Score
-<score> — <brief justification>
-
-## Required Test Levels
-- [ ] Unit tests
-- [ ] Integration tests (Testcontainers)
-- [ ] E2E tests (Playwright)
-
-## Unit Test Plan
-| Target | Happy Path | Failure Paths |
-|---|---|---|
-| <service>.<method>() | <what to assert> | <error cases> |
-
-## Integration Test Plan
-| Scenario | Infrastructure | Key Assertions |
-|---|---|---|
-| <scenario name> | Postgres, Redis | ... |
-
-## E2E Test Plan
-| User Flow | Entry Point | Exit Assertion |
-|---|---|---|
-| <flow name> | /... | <observable outcome> |
-
-## Acceptance Criteria → Test Mapping
-| AC | Test Level | Test Description |
-|---|---|---|
-| AC-1 | unit | ... |
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry
-  summary: "<one sentence>"
-  findings:
-    - "<finding>"
-```
-
-### Gate Status Rules
-
-- `passed`: Strategy is complete, all ACs mapped to tests, rubric applied correctly.
-- `failed-retry`: Ambiguous AC that can't be mapped to a test — list the specific AC.
+- `passed`: strategy complete, all ACs mapped to tests, rubric applied correctly.
+- `failed-retry`: ambiguous AC that can't be mapped to a test — list the specific AC.

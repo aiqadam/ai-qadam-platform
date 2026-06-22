@@ -39,43 +39,15 @@ Before starting any task, read:
 
 **Write to:** `.copilot/tasks/active/<workflow-id>/01-requirement-validation.md`
 
-```markdown
-# Requirement Validation
+Required sections:
+- `## Raw Input`
+- `## Analysis` — Completeness Issues Found / Conflicts with Existing Features / Architectural Feasibility
+- `## Formalized Requirement` — `FEAT-<MODULE>-<N>` statement + cross-refs
+- `## Acceptance Criteria (draft)` — `AC-n: Given/when/then` for TestDesigner to formalize
+- `## Gate Result` — per `.copilot/schemas/protocol.md` format
 
-## Raw Input
-<original requirement text>
+### Gate status semantics (this agent)
 
-## Analysis
-
-### Completeness Issues Found
-<list each issue, or "None">
-
-### Conflicts with Existing Features
-<list each conflict, or "None">
-
-### Architectural Feasibility
-<notes, or "No issues">
-
-## Formalized Requirement
-
-**FEAT-<MODULE>-<N>** The system shall <specific, testable statement>.
-[Cross-references to related features]
-
-## Acceptance Criteria (draft — for TestDesigner to formalize)
-- AC-1: Given <input>, when <action>, then <observable outcome>
-- AC-2: ...
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry | failed-escalate
-  summary: "<one sentence>"
-  findings:
-    - "<finding 1>"
-```
-
-### Gate Status Rules
-
-- `passed`: Requirement is specific, testable, non-conflicting, and architecturally feasible.
-- `failed-retry`: Requirement can be completed with reasonable assumptions; analyst produced a detailed version. Flag: `needs-clarification`.
-- `failed-escalate`: Requirement fundamentally conflicts with architecture decisions or existing features. Cannot be resolved without a design change.
+- `passed`: specific, testable, non-conflicting, architecturally feasible.
+- `failed-retry`: completable with reasonable assumptions; analyst produced a detailed version, flagged `needs-clarification`.
+- `failed-escalate`: fundamentally conflicts with architecture or existing features; needs design change.
