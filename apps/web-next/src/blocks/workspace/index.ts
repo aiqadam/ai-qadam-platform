@@ -14,6 +14,7 @@ export { DataTable } from './DataTable';
 export { EventEditForm } from './EventEditForm';
 export { EventFollowups } from './EventFollowups';
 export { EventsList } from './EventsList';
+export { Form, FormIsland } from './Form';
 export { FormsList } from './FormsList';
 export { InvitesList } from './InvitesList';
 export { KpiTile } from './KpiTile';
