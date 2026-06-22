@@ -55,9 +55,13 @@ def main() -> int:
         print(f"error: '{root}' is not a directory", file=sys.stderr)
         return 2
     broken = find_broken(root)
+    # Broken links are diagnostics -> stderr. The summary is a normal result line
+    # -> stdout. Splitting them this way keeps PowerShell from flagging a clean run
+    # as an error (NativeCommandError fires on any stderr output from native commands)
+    # and lets CI grep stdout for the count without capturing diagnostic noise.
     for md_path, target in sorted(broken):
-        print(f"BROKEN  {md_path} -> {target}")
-    print(f"\n{len(broken)} broken link(s) under '{root}'", file=sys.stderr)
+        print(f"BROKEN  {md_path} -> {target}", file=sys.stderr)
+    print(f"\n{len(broken)} broken link(s) under '{root}'")
     return 1 if broken else 0
 
 
