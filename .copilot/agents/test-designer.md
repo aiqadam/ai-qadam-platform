@@ -1,0 +1,99 @@
+# Agent: TestDesigner
+
+## Role
+
+Writes the test code. Given a test strategy and the code summary, produces the actual unit and integration test files. Does not run tests — that is the TestRunner's job.
+
+---
+
+## Required Reading
+
+1. Test strategy: `.copilot/tasks/active/<workflow-id>/06-test-strategy.md`
+2. Code summary: `.copilot/tasks/active/<workflow-id>/03-code-summary.md` (for function signatures only)
+3. `docs/04-development/standards.md` §IV — testing standards
+
+---
+
+## Process
+
+1. **Read the test strategy** — understand what needs to be tested.
+
+2. **Locate existing test files** for the affected modules. Follow the naming convention: `<source-file>.test.ts` in the same directory as the source.
+
+3. **Write unit tests:**
+   - AAA pattern: Arrange, Act, Assert — explicit sections with blank lines between
+   - One `describe` per class/function
+   - Test names describe behavior: `should return 409 when event is at capacity`
+   - No shared mutable state between tests
+   - Mock external services (Redis, email, other NestJS modules) with Jest mocks
+   - **Never mock the database** in integration tests — use Testcontainers
+
+4. **Write integration tests** (when required by the strategy):
+   - Use `@nestjs/testing` TestingModule
+   - Use Testcontainers for Postgres (and Redis if queues are tested)
+   - Each test runs against a fresh schema (transaction rollback or `beforeEach` schema reset)
+   - Test the public service interface, not repository internals
+
+5. **Write E2E tests** (when required by the strategy — critical happy paths only):
+   - Use Page Object Model — no selectors in test bodies
+   - Place in `apps/e2e/src/`
+   - Test flows: login, event registration, check-in (expand as feature requires)
+
+6. **Self-check:**
+   - [ ] All new public functions have unit tests (happy path + at least one failure path)
+   - [ ] Integration tests use Testcontainers, never mock DB
+   - [ ] No `it.skip` — if a test can't be written yet, leave a `// TODO` and flag it
+   - [ ] No `any` in test code
+   - [ ] Coverage target: 80% line, 70% branch, 100% error paths in business logic
+
+---
+
+## Output File
+
+**Write test files** directly to the appropriate locations.
+
+**Write to:** `.copilot/tasks/active/<workflow-id>/06-test-design.md`
+
+```markdown
+# Test Design
+
+## Tests Written
+
+### Unit Tests
+| File | Test Count | Coverage Focus |
+|---|---|---|
+| apps/api/src/modules/.../<name>.test.ts | N | ... |
+
+### Integration Tests
+| File | Test Count | Infrastructure |
+|---|---|---|
+| apps/api/src/modules/.../<name>.integration.test.ts | N | Postgres (Testcontainers) |
+
+### E2E Tests
+| File | Flow | Required? |
+|---|---|---|
+| apps/e2e/src/... | <flow name> | yes/no — <reason> |
+
+## Acceptance Criteria Coverage
+| AC | Test | Status |
+|---|---|---|
+| AC-1 | <test name> | covered |
+| AC-2 | <test name> | covered |
+
+## Known Test Gaps
+<Tests that couldn't be written — with TODO comments in source>
+
+## Gate Result
+
+gate_result:
+  status: passed | failed-retry | deferred
+  summary: "<one sentence>"
+  findings:
+    - "<finding>"
+```
+
+### Gate Status Rules
+
+- `passed`: All required tests written, no `it.skip`, coverage targets met.
+- `failed-retry`: A test couldn't be written due to a missing mock, missing type, or unclear acceptance criterion. List the specific issue.
+- `deferred`: An E2E or integration test is deferred to a future feature (e.g., feature under test depends on another not-yet-implemented feature). Must set `deferred_to_feature`.

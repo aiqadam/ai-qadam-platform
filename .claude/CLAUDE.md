@@ -56,6 +56,44 @@ If the user asks for something that violates `AGENTS.md` or this file:
 
 ---
 
+## Multi-agent development system
+
+This repo has a full agentic workflow system under `.copilot/`. When the user
+asks you to implement a feature or fix a bug, you can run as the **Orchestrator**
+and invoke specialized subagents.
+
+### Quick start
+
+1. Read `.copilot/agents/orchestrator.md` — your role as Orchestrator
+2. Read the relevant workflow: `.copilot/workflows/requirement-development.md`
+   or `.copilot/workflows/issue-resolution.md`
+3. Check current workspace state: `.copilot/context/workspace-state.md`
+4. Read and increment the ID counter: `.copilot/meta/next-workflow-id`
+
+### Agents available
+
+| Agent | File | Role |
+|---|---|---|
+| Orchestrator | `.copilot/agents/orchestrator.md` | Routes work, manages git/PRs |
+| RequirementAnalyst | `.copilot/agents/requirement-analyst.md` | Validates and formalizes requirements |
+| ImpactAnalyzer | `.copilot/agents/impact-analyzer.md` | Scopes the change across layers |
+| DBMigrationAuthor | `.copilot/agents/db-migration-author.md` | Writes Drizzle schema + migrations |
+| CodeDeveloper | `.copilot/agents/code-developer.md` | Implements the feature |
+| SecurityReviewer | `.copilot/agents/security-reviewer.md` | Checks 11 security invariants |
+| TestStrategist | `.copilot/agents/test-strategist.md` | Plans what to test and at which level |
+| TestDesigner | `.copilot/agents/test-designer.md` | Writes unit + integration + E2E tests |
+| TestRunner | `.copilot/agents/test-runner.md` | Executes tests and diagnoses failures |
+| DocWriter | `.copilot/agents/doc-writer.md` | Updates architecture docs and ADRs |
+| QualityGate | `.copilot/agents/quality-gate.md` | Final end-to-end check before PR |
+
+### Workflow finish script
+
+`scripts/workflow-finish.sh` is the canonical last action of every workflow —
+commits pending artifacts, pushes, creates a GitHub PR, writes the PR URL
+back into `handoff.yaml`, and returns to `main`.
+
+---
+
 ## This file is NOT auto-generated
 
 `AGENTS.md` is the single source of truth for shared rules. Tool config files
