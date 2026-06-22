@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Operator cohort builder (`/workspace/members`)
 
 **Audience:** country leads, super-admins, board members.
@@ -6,7 +10,7 @@
 
 ## What this cabinet replaces
 
-Before: operator pings Viktor on Telegram → "can you pull a list of CEOs in fintech?" → engineer writes SQL → CSV → manual paste into the dispatcher. Hours-to-days.
+Before: operator pings COO on Telegram → "can you pull a list of CEOs in fintech?" → engineer writes SQL → CSV → manual paste into the dispatcher. Hours-to-days.
 
 After: operator opens `/workspace/members` → filters → live audience preview → saves as named cohort. ~2 minutes. Cohort feeds the dispatcher directly (zero translation hop — same JSON filter shape).
 
@@ -98,3 +102,12 @@ This is the marketing dashboard's job (S5.8). For an ad-hoc operator query, buil
 - ADR-0021 RBAC accepted + S2.2 RBAC sync ships → country auto-injection becomes real (drop the "once S2.2 ships" caveats)
 - S2.5 audit module ships → uncomment the audit_events linkage notes
 - F-S3.5 sponsor cabinet ships → cross-link the partner_audiences entitlement page
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-ADM-002](../../03-requirements/FR-ADM-002.md) | Member directory | Shipped |
+| [FR-CMS-005](../../03-requirements/FR-CMS-005.md) | Audience segment builder | Shipped |
+| [FR-EVT-007](../../03-requirements/FR-EVT-007.md) | Topic tagging | Planned |

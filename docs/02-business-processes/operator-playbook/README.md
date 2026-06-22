@@ -2,13 +2,13 @@
 
 > **What this is.** Step-by-step procedures for running AI Qadam events + the work around them: how to recruit a speaker, how to onboard a sponsor, what to do at the door on event day, how to chase CSAT, when to launch a country, what brand assets to produce.
 >
-> **Audience.** Country leads, the founder (Binali), the COO (Viktor), and any future operators who join. NOT engineers — engineers read [`docs/runbooks/`](../../04-development/infrastructure/runbooks/) instead. The two are deliberately separate: runbooks answer "what do I do when this breaks"; the playbook answers "how do I run this".
+> **Audience.** Country leads, the Founder, the COO, and any future operators who join. NOT engineers — engineers read [`docs/runbooks/`](../../04-development/infrastructure/runbooks/) instead. The two are deliberately separate: runbooks answer "what do I do when this breaks"; the playbook answers "how do I run this".
 >
-> **Status.** This directory holds **v0 scaffolds** (F-S0.7, shipped 2026-05-21). Each file follows the canonical scaffold template — Outcome / Inputs / Steps / Templates / Anti-patterns / Country variants / Done criteria / Related. **Each scaffold needs a single fill-pass from Binali + Viktor** before it's truly load-bearing for a country lead at activation time; the scaffolds give us the skeleton so the fill-pass is hours, not weeks.
+> **Status.** This directory holds **v0 scaffolds** (F-S0.7, shipped 2026-05-21). Each file follows the canonical scaffold template — Outcome / Inputs / Steps / Templates / Anti-patterns / Country variants / Done criteria / Related. **Each scaffold needs a single fill-pass from Founder + COO** before it's truly load-bearing for a country lead at activation time; the scaffolds give us the skeleton so the fill-pass is hours, not weeks.
 
 ## When this gets updated
 
-Whenever an operator hits a workflow step that didn't work as documented OR finds a recurring shortcut worth codifying, they edit the relevant playbook file. Same "live document" model as the runbooks. PR approval comes from Binali (Founder) for community-voice content + Viktor (COO) for process content.
+Whenever an operator hits a workflow step that didn't work as documented OR finds a recurring shortcut worth codifying, they edit the relevant playbook file. Same "live document" model as the runbooks. PR approval comes from Founder for community-voice content + COO for process content.
 
 ## What lives here
 

@@ -61,7 +61,7 @@ Form for creating + editing draft broadcasts.
 - Respects `telegram_opted_out_at` (always excluded) + per-topic opt-ins from #289 preferences.
 
 **Cabinet:**
-- `/workspace/integrations/telegram/segments` — create, name, preview match count + sample members (anonymized to "Viktor D., 247 others").
+- `/workspace/integrations/telegram/segments` — create, name, preview match count + sample members (anonymized to "A. Member, 247 others").
 
 **Effort:** ~6h.
 

@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Operator event control panel (`/workspace/events`)
 
 **Audience:** country leads, super-admins, day-of organisers.
@@ -67,3 +71,14 @@ The button only renders when `starts_at ≤ now ≤ ends_at`. If you need check-
 - `apps/web/src/components/workspace/EventControlPanel.tsx` — detail view island
 - `apps/api/test/events-service.spec.ts` — 8 unit tests covering counts aggregation, 404, patch, upsert followup paths
 - `infrastructure/directus/bootstrap.sh` `[event_followups]` — collection that backs the checklist
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-EVT-001](../../03-requirements/FR-EVT-001.md) | Event CRUD | Shipped |
+| [FR-EVT-005](../../03-requirements/FR-EVT-005.md) | Operator event control panel | Shipped |
+| [FR-REG-001](../../03-requirements/FR-REG-001.md) | Registration flow | Shipped |
+| [FR-REG-004](../../03-requirements/FR-REG-004.md) | QR check-in | Shipped |
+| [FR-ADM-004](../../03-requirements/FR-ADM-004.md) | Approvals queue | Shipped |

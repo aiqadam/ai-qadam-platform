@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Pre-event member-to-member matching (T-7)
 
 **Audience:** engineers wiring the scheduler; members who want to opt out.
@@ -145,3 +149,13 @@ Look at api logs for `event-matches tick — evaluated=N dispatched=N skipped=N`
 - `infrastructure/directus/bootstrap.sh` — `directus_users.appear_in_matches` field + `event_announcements.kind` enum extension
 - F-S1.4 (T-2 / T-3h reminders) uses the same `event_announcements` collection + same scheduler-wiring story
 - F-S3.6b shipped `member_interests` (topic_tag + intent) — the data this algorithm reads
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-REG-001](../../03-requirements/FR-REG-001.md) | Registration flow | Shipped |
+| [FR-USR-002](../../03-requirements/FR-USR-002.md) | Profile editing (interests) | Shipped |
+| [FR-NTF-001](../../03-requirements/FR-NTF-001.md) | Notification dispatcher | Shipped |
+| [FR-EVT-007](../../03-requirements/FR-EVT-007.md) | Topic tagging | Planned |

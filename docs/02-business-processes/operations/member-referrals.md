@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Member referral codes (`/me/referrals`)
 
 **Audience:** members + operators (operators read attribution; members issue codes).
@@ -78,3 +82,11 @@ The flow's API handler should accept the same `attributionSchema` (see `registra
 - `infrastructure/directus/bootstrap.sh` §F-S3.9 — schema (`referral_codes` + `registrations.referred_by` + `.acquisition_source`)
 - Marketing playbook §16.3 — attribution model spec
 - Sprint 2.6 — K-factor + top-referrer dashboard reads this data
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-USR-005](../../03-requirements/FR-USR-005.md) | Referral programme | Shipped |
+| [FR-CMS-006](../../03-requirements/FR-CMS-006.md) | UTM URL builder | Shipped |

@@ -26,7 +26,8 @@
     "prepare": "husky || true",
     "arch:check": "tsx tools/architecture-check.ts",
     "gen:page": "tsx tools/gen/page.ts",
-    "gen:cabinet": "tsx tools/gen/cabinet.ts"
+    "gen:cabinet": "tsx tools/gen/cabinet.ts",
+    "ai:sync": "bash scripts/sync-ai-rules.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",

@@ -1,3 +1,7 @@
+---
+type: engineering-runbook
+---
+
 # Runbook — Member graph foundation (F-S3.0)
 
 This runbook covers operating + extending the community member graph
@@ -111,7 +115,7 @@ Schema-sprawl mitigation per ADR-0033:
 
 - New product = new namespaced prefix (`hack_*`, `edu_*`, `hr_*`,
   `paid_*`, `mentor_*`) + a cabinet.
-- Quarterly schema review (PM + Viktor) before any new namespace.
+- Quarterly schema review (PM + PM) before any new namespace.
 - Move heavy edits to API + custom cabinet pages once member count
   exceeds 10k (Directus admin perf degrades; cabinets stay fast).
 
@@ -131,3 +135,14 @@ Schema-sprawl mitigation per ADR-0033:
 - [docs/04-development/architecture/migration-to-directus-centric.md](../../04-development/architecture/migration-to-directus-centric.md) — why Directus is the entity store
 - [docs/04-development/architecture/interaction-architecture.md](../../04-development/architecture/interaction-architecture.md) — dispatcher that consumes `cohorts`
 - [`infrastructure/directus/bootstrap.sh`](../../../infrastructure/directus/bootstrap.sh) — the source of truth for the schema
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-USR-001](../../03-requirements/FR-USR-001.md) | Signup / first-time experience | Shipped |
+| [FR-USR-002](../../03-requirements/FR-USR-002.md) | Profile editing | Shipped |
+| [FR-GAM-001](../../03-requirements/FR-GAM-001.md) | Points engine | Shipped |
+| [FR-REG-001](../../03-requirements/FR-REG-001.md) | Registration flow | Shipped |
+| [FR-USR-005](../../03-requirements/FR-USR-005.md) | Referral programme | Shipped |

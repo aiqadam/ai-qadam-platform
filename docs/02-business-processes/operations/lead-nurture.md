@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Lead nurture (F-S1.6)
 
 Anonymous visitors enter the funnel via the lead form on `/` and `/events`.
@@ -137,3 +141,14 @@ auth too.
 - `infrastructure/directus/bootstrap.sh` §F-S1.6 — directus_users fields
 - ADR-0033 — community-graph: leads are part of the same member graph as
   active members; not a separate CRM.
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-CMS-002](../../03-requirements/FR-CMS-002.md) | Landing pages | Shipped |
+| [FR-CMS-003](../../03-requirements/FR-CMS-003.md) | Form builder | Shipped |
+| [FR-USR-001](../../03-requirements/FR-USR-001.md) | Signup / first-time experience | Shipped |
+| [FR-CRM-001](../../03-requirements/FR-CRM-001.md) | Twenty CRM deployment | Planned |
+| [FR-CRM-002](../../03-requirements/FR-CRM-002.md) | Contact sync to Twenty | Planned |

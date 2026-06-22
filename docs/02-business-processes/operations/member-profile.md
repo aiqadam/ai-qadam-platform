@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Member self-service profile (`/me/profile`)
 
 **Audience:** members + operators (operators read aggregates; members own writes).
@@ -69,3 +73,13 @@ The Anon view renders inline when `/api/v1/auth/refresh` returns non-200. The re
 - `apps/api/test/me-profile-service.spec.ts` — 10 unit tests on F-S3.6b interests + employments paths
 - `infrastructure/directus/bootstrap.sh` — `[member_interests]`, `[member_employments]`, `[member_consents]`, `[member_skills]`, `[companies]` collections
 - ADR-0033 — member graph foundation + sponsor PII boundary
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-USR-001](../../03-requirements/FR-USR-001.md) | Signup / first-time experience | Shipped |
+| [FR-USR-002](../../03-requirements/FR-USR-002.md) | Profile editing | Shipped |
+| [FR-USR-003](../../03-requirements/FR-USR-003.md) | Member dashboard (/me) | Shipped |
+| [FR-USR-007](../../03-requirements/FR-USR-007.md) | Public member profile | Shipped |

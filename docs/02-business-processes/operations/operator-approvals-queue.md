@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Operator approval queue (`/workspace/approvals`)
 
 **Audience:** country leads, super-admins, board members.
@@ -68,3 +72,12 @@ Browser cache or the loader's filter doesn't match the new state. Hard-reload th
 - `apps/web/src/components/workspace/ApprovalsQueue.tsx` — cabinet island
 - `apps/api/test/approvals-service.spec.ts` — v1 empty-shell tests
 - ADR-0033 — operators-never-touch-Directus-admin posture; this cabinet exists to keep approval flow out of Directus
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-ADM-004](../../03-requirements/FR-ADM-004.md) | Approvals queue | Shipped |
+| [FR-EVT-001](../../03-requirements/FR-EVT-001.md) | Event CRUD | Shipped |
+| [FR-SPK-002](../../03-requirements/FR-SPK-002.md) | Speaker management | Shipped |

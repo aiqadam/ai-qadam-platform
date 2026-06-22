@@ -2,7 +2,7 @@
 
 > **Companion to [`community-platform-roadmap.md`](../01-business/community-platform-roadmap.md) and [`ux-and-content-guidelines.md`](../04-development/design-system/ux-and-content-guidelines.md).** The roadmap says WHAT to build. UX guidelines say HOW IT FEELS to members. This doc says HOW WE GROW.
 >
-> **Audience:** PM (Binali Rustamov), COO (Viktor Drukker), future Community Manager, country leads, Community Volunteering Board, content + design contributors, future PR partner. Engineering-touching items are inherited into the roadmap as new sprint items (see §20).
+> **Audience:** Founder, COO, future Community Manager, country leads, Community Volunteering Board, content + design contributors, future PR partner. Engineering-touching items are inherited into the roadmap as new sprint items (see §20).
 >
 > Authored 2026-05-19 by a marketing manager with 15 years across community + B2B SaaS + tech-conference marketing.
 
@@ -22,7 +22,7 @@
 9. [Influencer + community partnerships](#9-influencer--community-partnerships)
 10. [Sponsor co-marketing kit](#10-sponsor-co-marketing-kit)
 11. [Speaker amplification kit](#11-speaker-amplification-kit)
-12. [Founder-led growth (Binali + Viktor)](#12-founder-led-growth-binali--viktor)
+12. [Founder-led growth (Founder + COO)](#12-founder-led-growth-founder--coo)
 13. [Event marketing playbook (per event)](#13-event-marketing-playbook-per-event)
 14. [Quarterly sponsor digest specification](#14-quarterly-sponsor-digest-specification)
 15. [Brand assets + AI design pipeline](#15-brand-assets--ai-design-pipeline)
@@ -48,7 +48,7 @@
 - Founder + COO content cadence
 - Event-specific marketing run-of-show (per-event timeline)
 - Quarterly sponsor digest as a key deliverable
-- Brand asset library structure (production via Claude Design + ChatGPT Image Generator with Viktor as human-in-loop)
+- Brand asset library structure (production via Claude Design + ChatGPT Image Generator with COO as human-in-loop)
 - Attribution standards (UTM scheme)
 - Marketing dashboard specification
 - Crisis comms protocol
@@ -74,7 +74,7 @@
 >
 > AI Qadam brings them into one room (or one Telegram channel) every month. Real talks from real practitioners. Side-projects find collaborators. Hiring happens face-to-face.
 >
-> Founded by Binali Rustamov in 2026, AI Qadam is run by a distributed team of country leads with a working community across all three Central Asian republics.
+> Founded by Founder in 2026, AI Qadam is run by a distributed team of country leads with a working community across all three Central Asian republics.
 
 ### 1.3 Why "incubator network" not "meetup community"
 
@@ -121,7 +121,7 @@ Different from product personas (UX §2). Marketing thinks about ICP (Ideal Cust
 - **Geography:** CA-based (Kaspi, Beeline, Halyk, Toptal-CA, etc.) OR international companies expanding to CA OR diaspora-led startups
 - **Pain:** Hard to reach high-quality AI engineers in CA. Generic ads don't work. Conferences are expensive. LinkedIn cold outreach has 2% response rate.
 - **What we offer:** A curated audience, recurring monthly access, post-event lead lists with explicit consent, deliverables checklist.
-- **Channels to reach them:** Binali's LinkedIn (warm), Viktor's LinkedIn (warm), Twenty CRM outbound (cold-to-warm), inbound `/sponsor` form, referrals from existing sponsors
+- **Channels to reach them:** Founder's LinkedIn (warm), COO's LinkedIn (warm), Twenty CRM outbound (cold-to-warm), inbound `/sponsor` form, referrals from existing sponsors
 
 ### 2.2 ICP-2: Speaker prospect (key amplification audience)
 - **Title:** Engineer (ML/AI), founder, researcher, technical leader
@@ -129,7 +129,7 @@ Different from product personas (UX §2). Marketing thinks about ICP (Ideal Cust
 - **Geography:** Primarily CA-based; secondarily diaspora; tertiary international with CA tie
 - **Pain:** Few high-quality stages in CA for tech talks. International conferences = travel + visa. Personal blog has small reach.
 - **What we offer:** Engaged audience, recording, photos, public profile page, transferable speaker credential.
-- **Channels to reach them:** Personal network (Viktor + Binali), speaker referrals (a speaker recommends another), inbound propose-talk form, scouting from local tech Twitter/LinkedIn
+- **Channels to reach them:** Personal network (COO + Founder), speaker referrals (a speaker recommends another), inbound propose-talk form, scouting from local tech Twitter/LinkedIn
 
 ### 2.3 ICP-3: Member (the audience sponsors pay to reach)
 - See UX §2 personas (Aigerim, Sardor, Karina)
@@ -281,8 +281,8 @@ Per AARRR stage, by ownership type.
 | **Speaker network amplification** | Manual ad-hoc; formalize Sprint 3.3 | Operator + speaker | Acquisition + Retention |
 | **Sponsor network amplification** | Manual ad-hoc; formalize Sprint 3.2 | Operator + sponsor | Acquisition (sponsor's company channels) |
 | **Member word-of-mouth** | Sprint 5 surfaces | Members | Referral |
-| **Press coverage** | DEFERRED — §8 | Binali (spokesperson) | Acquisition + Trust |
-| **Industry awards + nominations** | Concurrent | Binali + Viktor | Trust + Acquisition |
+| **Press coverage** | DEFERRED — §8 | Founder (spokesperson) | Acquisition + Trust |
+| **Industry awards + nominations** | Concurrent | Founder + COO | Trust + Acquisition |
 | **Cross-listings (Lu.ma / Meetup.com / Eventbrite)** | NOT STARTED — concurrent | Country leads | Acquisition (cheap discovery) |
 
 ### 4.3 Paid channels (capability-built, deployment deferred)
@@ -322,7 +322,7 @@ For a sponsor-led model, content marketing serves:
 2. **Speaker spotlights** (1–2/month) — interview-style post or speaker's own write-up. Distributed to speaker's network.
 3. **Technical notes** (1–2/month) — member-written or country-lead-curated. "How we use {tool} at {company} in {country}."
 4. **Quarterly community report** (every 3 months) — numbers, growth, lessons. Public PR-grade content.
-5. **Founder essays** (1/month) — Binali on the AI scene in CA, founding insights, vision. Published on blog + LinkedIn.
+5. **Founder essays** (1/month) — Founder on the AI scene in CA, founding insights, vision. Published on blog + LinkedIn.
 6. **Member case studies** (when notable) — "Member X built Y after meeting collaborator at AI Qadam." Validates the incubator positioning.
 7. **Sponsor-driven content** (when sponsor agreement includes it) — sponsor publishes a guest post on their use case. Mutual value.
 8. **Talk videos** (each event) — YouTube + embedded on /events/{id}/recap.
@@ -336,7 +336,7 @@ Lives in Directus as `editorial_calendar` collection (or Notion if faster to sta
 | Week | Content piece | Author | Channel mix |
 |---|---|---|---|
 | Week 1 | Event 1 recap of last month | Country lead | Blog + LinkedIn + Telegram channel + speaker's network |
-| Week 2 | Speaker spotlight (interview) | CM (or Binali) | Blog + speaker's LinkedIn + Twitter |
+| Week 2 | Speaker spotlight (interview) | CM (or Founder) | Blog + speaker's LinkedIn + Twitter |
 | Week 3 | Technical note OR community announcement | Member-written / country-lead-curated | Blog + Telegram channel |
 | Week 4 | Monthly digest newsletter (when density supports it) | CM | Email list + Telegram channel cross-post |
 
@@ -351,13 +351,13 @@ Editorial calendar (Directus or Notion)
   ↓
 Author drafts (in Directus content editor or external)
   ↓
-Review by PM (Binali) — voice + facts + brand fit
+Review by PM — voice + facts + brand fit
   ↓
-Asset creation (header image, social cards) — Claude Design + ChatGPT Image Generator with Viktor as reviewer
+Asset creation (header image, social cards) — Claude Design + ChatGPT Image Generator with COO as reviewer
   ↓
 Publish on /blog (Phase ζ.8)
   ↓
-Distribute: LinkedIn (Binali + Viktor + organization page) + Telegram channel + cross-post to community partners + email when relevant
+Distribute: LinkedIn (Founder + COO + organization page) + Telegram channel + cross-post to community partners + email when relevant
   ↓
 Track: Plausible page-views + UTM-tagged inbound links + Twenty CRM for sponsor/journalist referrers
 ```
@@ -390,8 +390,8 @@ Every piece published goes to a minimum 5 surfaces:
 
 1. **Blog (canonical)** — `/blog/{slug}`
 2. **LinkedIn organization page** — full post or excerpt + link
-3. **Binali's personal LinkedIn** — comment + share with personal framing
-4. **Viktor's personal LinkedIn** — when topic is platform/tech-ops relevant
+3. **Founder's personal LinkedIn** — comment + share with personal framing
+4. **COO's personal LinkedIn** — when topic is platform/tech-ops relevant
 5. **Telegram broadcast channel** — short post + link
 6. **Cross-post to community partners** — when relevant
 7. **Email to subscribers** — when batch hits monthly digest
@@ -465,7 +465,7 @@ Want different topics? [Adjust your preferences →]
 Don't want monthly emails? [Unsubscribe (one click) →]
 
 — {country_lead_name}, AI Qadam {country}
-{Binali Rustamov when global digest}
+{Founder when global digest}
 ```
 
 **Production process:**
@@ -499,7 +499,7 @@ Don't want monthly emails? [Unsubscribe (one click) →]
 
 ### 7.1 Current state (locked-in)
 
-- **LinkedIn:** Viktor's personal page, manual posts, solo. No organization page yet.
+- **LinkedIn:** COO's personal page, manual posts, solo. No organization page yet.
 - **Telegram:** group chat (UZ exists); **no broadcast channel** (gap).
 - **X / Twitter:** not active.
 - **Instagram:** not active.
@@ -508,8 +508,8 @@ Don't want monthly emails? [Unsubscribe (one click) →]
 
 | Platform | Account | Owner | Cadence |
 |---|---|---|---|
-| LinkedIn — Viktor's personal | Existing | Viktor | 1–2 posts/week (platform + tech-ops content) |
-| LinkedIn — Binali's personal | Existing (set up if not) | Binali | 1–2 posts/week (founder + vision + community content) |
+| LinkedIn — COO's personal | Existing | COO | 1–2 posts/week (platform + tech-ops content) |
+| LinkedIn — Founder's personal | Existing (set up if not) | Founder | 1–2 posts/week (founder + vision + community content) |
 | LinkedIn — AI Qadam organization page | TO SET UP — concurrent | PM | 1 post/week (events + speakers + sponsors) |
 | Telegram channels (broadcast) | TO LAUNCH — concurrent | Country leads | 2–4 posts/week (event announcements + recaps + opportunities) |
 | Telegram groups (chat) | UZ exists; KZ + TJ to launch with country activation | Country leads | Native conversation; no posting cadence |
@@ -602,8 +602,8 @@ Hashtag use is platform-specific (LinkedIn = 3–5 tags fine, Twitter = 1–2 ma
 
 - **Response time SLA:** mentions + DMs in business hours respond within 4 hours; sponsor + speaker DMs within 1 hour during business hours.
 - **Voice:** matches §1.5 marketing voice variants per platform.
-- **Who responds:** PM (Binali) for high-visibility threads; Viktor for tech-platform questions; country leads for country-specific.
-- **Crisis escalation:** any negative public mention → triage to Binali within 1 hour. See §18.
+- **Who responds:** PM for high-visibility threads; COO for tech-platform questions; country leads for country-specific.
+- **Crisis escalation:** any negative public mention → triage to Founder within 1 hour. See §18.
 
 ---
 
@@ -619,7 +619,7 @@ What we produce now that becomes press-ready material later:
 |---|---|---|
 | Event 1 numbers (100+ attendees, 75% conversion) | Done | "Tashkent's first AI Qadam draws 100+ engineers" — local press hook |
 | Event-by-event photo essays | Each event | Photographer-quality images give press something visual |
-| Founder + COO LinkedIn posts | Weekly | Builds Binali's quotable presence |
+| Founder + COO LinkedIn posts | Weekly | Builds Founder's quotable presence |
 | Quarterly community report | Quarterly (§14) | Numbers + narrative — press uses as source |
 | Speaker quotes worth sharing | Per event | "On AI Qadam stage: '{quote}' — {speaker}" — sharable + quotable |
 | Country launch announcement | Per country | "AI Qadam expands to Kazakhstan" — local press hook per country |
@@ -638,14 +638,14 @@ What we produce now that becomes press-ready material later:
 | Press list in Twenty CRM | `media_contacts` view: journalist, outlet, beat, last contact, story preferences | PM |
 | Pitch templates | "Milestone story", "Speaker spotlight pitch", "Community impact pitch", "Country launch pitch" | PM |
 | Press release template | Standardized format: headline, dateline, body, quote, boilerplate, contact | PM |
-| Spokesperson designation | **Binali for company/vision/community stories; Viktor for platform/tech/ops stories.** Country leads as local spokespeople once activated. | (Already known) |
+| Spokesperson designation | **Founder for company/vision/community stories; COO for platform/tech/ops stories.** Country leads as local spokespeople once activated. | (Already known) |
 | Embargo policy | When we share news with press before public; trust + relationship management | PM |
 | Coverage tracker | Twenty CRM custom view: which stories ran, what outlet, what tier | PM |
 
 ### 8.3 Pitch story types (when ready)
 
 1. **Milestone stories**: "AI Qadam crosses {N} members", "First country expansion", "{N}th event"
-2. **Founder vision stories**: Binali on CA AI scene, founding origin, lessons
+2. **Founder vision stories**: Founder on CA AI scene, founding origin, lessons
 3. **Speaker spotlights**: when speaker has independent newsworthiness
 4. **Sponsor announcement stories**: when sponsor is notable enough
 5. **Member success stories**: side-projects/companies that came from the community
@@ -715,7 +715,7 @@ Build the same way we built sponsor pipeline (Sprint 3.2a):
 >
 > {Specific reference to their recent post or work — proves you're not mass-DMing.}
 >
-> I'm Viktor at AI Qadam — we're building Central Asia's AI engineer community. Currently UZ; KZ + TJ launching soon.
+> I'm COO at AI Qadam — we're building Central Asia's AI engineer community. Currently UZ; KZ + TJ launching soon.
 >
 > Two things I'd love to explore:
 >
@@ -725,7 +725,7 @@ Build the same way we built sponsor pipeline (Sprint 3.2a):
 >
 > No pressure either way. If yes, let me know format that works for you (call / DM / async).
 >
-> {Viktor's signature}
+> {COO's signature}
 
 ### 9.5 Community partnership infrastructure
 
@@ -833,7 +833,7 @@ Speaker cabinet shows: "Your post drove {N} visits + {M} registrations." Speaker
 
 ---
 
-## 12. Founder-led growth (Binali + Viktor)
+## 12. Founder-led growth (Founder + COO)
 
 The founder + COO are themselves marketing channels. Their personal brands compound with the community's brand.
 
@@ -841,10 +841,10 @@ The founder + COO are themselves marketing channels. Their personal brands compo
 
 | Person | Role | Voice on personal channels | Frequency |
 |---|---|---|---|
-| **Binali Rustamov** | Founder | Vision, founding story, CA AI ecosystem commentary, community wins, big-deal welcomes | 2 posts/week LinkedIn, occasional X, monthly long-form essay |
-| **Viktor Drukker** | COO + Head of Vibe Code & Platform Operations | Platform building updates, team operations, ops lessons, dev culture, tech-ops insights | 2 posts/week LinkedIn, occasional X |
+| **Founder** | Vision, founding story, CA AI ecosystem commentary, community wins, big-deal welcomes | 2 posts/week LinkedIn, occasional X, monthly long-form essay |
+| **COO** | Platform building updates, team operations, ops lessons, dev culture, tech-ops insights | 2 posts/week LinkedIn, occasional X |
 
-### 12.2 Binali's content cadence
+### 12.2 Founder's content cadence
 
 **Weekly LinkedIn posts (2/week):**
 - Monday: Vision / strategic post (industry observation, AI in CA, community-building lesson)
@@ -855,7 +855,7 @@ The founder + COO are themselves marketing channels. Their personal brands compo
 
 **Ad-hoc:** big announcements (event recaps with strong numbers, sponsor wins, country launches, press features when they happen)
 
-### 12.3 Viktor's content cadence
+### 12.3 COO's content cadence
 
 **Weekly LinkedIn posts (2/week):**
 - Tuesday: Build-in-public (what's shipping, what we learned)
@@ -868,9 +868,9 @@ The founder + COO are themselves marketing channels. Their personal brands compo
 - Both publish the SAME piece on different timing (not simultaneous — looks coordinated/inauthentic)
 - Each comments + shares the other's posts (warm engagement)
 - Each tags the other when relevant
-- Both maintain DISTINCT voices (Binali = vision + community; Viktor = platform + ops + build-culture)
+- Both maintain DISTINCT voices (Founder = vision + community; COO = platform + ops + build-culture)
 
-### 12.5 What Binali + Viktor should NOT do
+### 12.5 What Founder + COO should NOT do
 
 - Post sponsor's marketing copy verbatim (sponsor amplification is separate; founder posts have founder voice)
 - Auto-cross-post (every platform needs platform-native voice)
@@ -889,9 +889,9 @@ End-to-end marketing run-of-show for each event. Operator + country lead execute
 - [ ] Event scoped (date + venue confirmed + topic agreed)
 - [ ] First speaker confirmed (per event-lifecycle parallel workstreams — roadmap §3.5)
 - [ ] Event detail page drafted in Directus
-- [ ] Branded event hero image generated (Claude Design + ChatGPT, Viktor reviews)
+- [ ] Branded event hero image generated (Claude Design + ChatGPT, COO reviews)
 - [ ] Social cards generated (1200×630 + 1080×1080)
-- [ ] Pre-written announcement posts drafted (LinkedIn org page + Binali + Viktor + Telegram channel + cross-posts)
+- [ ] Pre-written announcement posts drafted (LinkedIn org page + Founder + COO + Telegram channel + cross-posts)
 - [ ] Influencer + community partner outreach started (T-30 to T-14)
 - [ ] Sponsor co-marketing kit prepared (logo + briefing if relevant)
 
@@ -900,8 +900,8 @@ End-to-end marketing run-of-show for each event. Operator + country lead execute
 - [ ] Publication status flipped to `published` (Sprint 1.1 publication flow fires)
 - [ ] LinkedIn organization page post live
 - [ ] Telegram broadcast channel post live
-- [ ] Binali's personal LinkedIn post live
-- [ ] Viktor's personal LinkedIn post live (if relevant — when content is platform/ops adjacent)
+- [ ] Founder's personal LinkedIn post live
+- [ ] COO's personal LinkedIn post live (if relevant — when content is platform/ops adjacent)
 - [ ] Cross-post to community partners
 - [ ] Lu.ma / Meetup.com event mirror (if active on these platforms)
 - [ ] Sponsor + first speakers given amplification kits + prompted to share
@@ -937,11 +937,11 @@ End-to-end marketing run-of-show for each event. Operator + country lead execute
 - [ ] Event-end flow fires (Sprint 1.1 — CSAT + thank-you + next-event teaser)
 - [ ] Photos selected (best 30–50 from photographer)
 - [ ] Recap blog post drafted (UX §16.4 template)
-- [ ] 5–10 social-ready quote graphics produced (Claude Design + ChatGPT, Viktor reviews)
+- [ ] 5–10 social-ready quote graphics produced (Claude Design + ChatGPT, COO reviews)
 - [ ] Recap published on /blog
 - [ ] LinkedIn organization page recap post
 - [ ] Telegram channel recap post (compressed version)
-- [ ] Binali's personal LinkedIn recap post (with personal framing)
+- [ ] Founder's personal LinkedIn recap post (with personal framing)
 - [ ] Speaker amplification kits updated (recording + photos + quote graphics → speakers re-share)
 - [ ] Sponsor cabinet updated with post-event report (Sprint 3.5 generates PDF)
 - [ ] Quarterly sponsor digest captures this event for next quarter cycle
@@ -1031,8 +1031,8 @@ Q4 (Oct-Dec) → digest published January 15 (also serves as annual report)
 - Open decisions involving sponsor input
 
 ---
-{Binali Rustamov, Founder}
-{Viktor Drukker, COO + Head of Vibe Code & Platform Operations}
+{Founder name, title}
+{COO name, title}
 {Country lead names}
 {Board members}
 ```
@@ -1040,9 +1040,9 @@ Q4 (Oct-Dec) → digest published January 15 (also serves as annual report)
 ### 14.5 Production process
 
 - Week 1 of quarter end: pull metrics from Plausible + Metabase + Twenty + Directus
-- Week 2: draft narrative (PM/Binali) + member stories (country leads)
+- Week 2: draft narrative (PM/Founder) + member stories (country leads)
 - Week 3: review with Community Volunteering Board
-- Week 4: final design + PDF render (Claude Design + ChatGPT for layouts, Viktor reviews) + distribution
+- Week 4: final design + PDF render (Claude Design + ChatGPT for layouts, COO reviews) + distribution
 
 ### 14.6 Engineering support needed
 
@@ -1058,18 +1058,18 @@ Q4 (Oct-Dec) → digest published January 15 (also serves as annual report)
 
 ### 15.1 Production workflow (locked)
 
-**Current pipeline:** Viktor prompts **Claude Design** + **ChatGPT Image Generator** for visual assets. Viktor is the human-in-loop reviewer. This is the actual production reality.
+**Current pipeline:** COO prompts **Claude Design** + **ChatGPT Image Generator** for visual assets. COO is the human-in-loop reviewer. This is the actual production reality.
 
 | Asset type | Tool | Reviewer | Cadence |
 |---|---|---|---|
-| Event hero images | Claude Design (composition) + ChatGPT (image gen) | Viktor | Per event |
-| Social cards (1200×630 + 1080×1080) | Same | Viktor | Per event + per content piece |
-| Quote graphics | ChatGPT + canvas tool | Viktor | Post-event |
-| Speaker spotlight cards | Same | Viktor | Per speaker |
-| Sponsor logo placements | Sponsor-provided logos + Canva/Figma composition | Viktor | Per sponsor onboarding |
-| Newsletter header images | Claude Design + ChatGPT | Viktor | Monthly |
-| Blog post header images | Claude Design + ChatGPT | Viktor | Per post |
-| Quarterly digest PDF layout | Claude Design (layout) + Canva (template) | Viktor + Binali | Quarterly |
+| Event hero images | Claude Design (composition) + ChatGPT (image gen) | COO | Per event |
+| Social cards (1200×630 + 1080×1080) | Same | COO | Per event + per content piece |
+| Quote graphics | ChatGPT + canvas tool | COO | Post-event |
+| Speaker spotlight cards | Same | COO | Per speaker |
+| Sponsor logo placements | Sponsor-provided logos + Canva/Figma composition | COO | Per sponsor onboarding |
+| Newsletter header images | Claude Design + ChatGPT | COO | Monthly |
+| Blog post header images | Claude Design + ChatGPT | COO | Per post |
+| Quarterly digest PDF layout | Claude Design (layout) + Canva (template) | COO + Founder | Quarterly |
 
 ### 15.2 Brand consistency guardrails (for AI-generated assets)
 
@@ -1117,9 +1117,9 @@ Lives in Directus (`marketing_assets` collection) so country leads can self-serv
 Surfaces:
 - AI Qadam logo (downloadable in multiple formats)
 - Brand color palette
-- Founder + COO bios (Binali + Viktor — high-resolution headshots)
+- Founder + COO bios (Founder + COO — high-resolution headshots)
 - Fact sheet (1-page PDF: what we do, mission, history, numbers)
-- Press contact: `press@aiqadam.org` (forwards to Binali)
+- Press contact: `press@aiqadam.org` (forwards to Founder)
 - Quarterly community reports (latest + archive)
 - Past press coverage (when applicable)
 
@@ -1135,7 +1135,7 @@ Every marketing link includes:
 
 | Param | What it is | Examples |
 |---|---|---|
-| `utm_source` | Specific account / channel that drove the click | `binali-li` (Binali's LinkedIn) / `viktor-li` / `aiqadam-orgli` (org page) / `aiqadam-tg-uz` / `inf-{handle}` (specific influencer) / `partner-{slug}` / `speaker-{handle}` / `sponsor-{slug}` / `member-{handle}` (member referral) |
+| `utm_source` | Specific account / channel that drove the click | `binali-li` (Founder's LinkedIn) / `viktor-li` / `aiqadam-orgli` (org page) / `aiqadam-tg-uz` / `inf-{handle}` (specific influencer) / `partner-{slug}` / `speaker-{handle}` / `sponsor-{slug}` / `member-{handle}` (member referral) |
 | `utm_medium` | Channel type | `linkedin_post` / `linkedin_message` / `telegram_channel` / `telegram_group` / `email_digest` / `email_transactional` / `referral` / `sponsor_post` / `speaker_post` / `paid_li` / `paid_meta` / `paid_telegram` / `aggregator` |
 | `utm_campaign` | Specific campaign / event | `event-{N}` / `quarterly-digest-{Q}{YY}` / `country-launch-kz` / `sponsor-recruitment-{Q}{YY}` |
 | `utm_content` | Variant identifier (for A/B testing) | `headline-a` / `image-v2` / `cta-register` (optional, only when A/B testing) |
@@ -1260,14 +1260,14 @@ TRIAGE: Who is affected? Members / sponsors / speakers / public / regulator?
 SEVERITY:
   ├─ Low: handle internally, document for retro
   ├─ Medium: respond to affected parties, no public statement needed
-  ├─ High: public statement required, escalate to Binali
+  ├─ High: public statement required, escalate to Founder
   └─ Critical: legal involvement, comms freeze until cleared, possible event cancellation
   ↓
 SPOKESPERSON:
-  ├─ Internal-only → country lead or COO (Viktor)
-  ├─ Member-facing → country lead OR Binali for high-severity
-  ├─ Press-facing → Binali always (others quote-only if needed)
-  └─ Regulatory → Binali + legal counsel
+  ├─ Internal-only → country lead or COO
+  ├─ Member-facing → country lead OR Founder for high-severity
+  ├─ Press-facing → Founder always (others quote-only if needed)
+  └─ Regulatory → Founder + legal counsel
   ↓
 COMMS WINDOW: 4 hours for High; 1 hour for Critical
   ↓
@@ -1289,14 +1289,14 @@ Stored in `docs/crisis-comms-templates/`. Examples (to be drafted in Phase ζ.7)
 ### 18.4 Code of conduct enforcement (member-facing)
 
 - Code of conduct lives at `/code-of-conduct` (Sprint 5.6 visibility section + content production)
-- Reporting mechanism: anonymous form + named complaint (both supported); routes to `safety@aiqadam.org` (forwards to Binali + designated Board member)
+- Reporting mechanism: anonymous form + named complaint (both supported); routes to `safety@aiqadam.org` (forwards to Founder + designated Board member)
 - Enforcement actions: warning → temporary ban → permanent ban → public statement (last only for repeat/severe)
 - All actions logged in audit log (Sprint 2.5) + reported in quarterly digest (anonymized counts)
 
 ### 18.5 Pre-crisis preparation
 
 - [ ] Crisis response templates drafted (Phase ζ.7)
-- [ ] Spokesperson designation documented + agreed (Binali primary)
+- [ ] Spokesperson designation documented + agreed (Founder primary)
 - [ ] Legal counsel relationship established (concurrent)
 - [ ] Media holding statement ready: "We're aware of the situation and looking into it. We'll share an update by {time}."
 - [ ] Member trust & safety policy published
@@ -1353,18 +1353,18 @@ The following marketing-required engineering items are inherited into [`communit
 
 | Decision | Blocks | Owner |
 |---|---|---|
-| **Future revenue streams** (demo-day fees / mentorship / equity-in-alumni)? Phasing? | Sprint 3.2 (sponsor cabinet's pricing surface should reflect what we DO and DON'T charge for) | PM (Binali) |
+| **Future revenue streams** (demo-day fees / mentorship / equity-in-alumni)? Phasing? | Sprint 3.2 (sponsor cabinet's pricing surface should reflect what we DO and DON'T charge for) | PM |
 | **LinkedIn organization page** set up by whom + posting cadence ownership | Concurrent operator work | PM |
 | **Telegram broadcast channel** structure (one per country + cross-country aggregator?) + admin assignment | Concurrent operator work | PM + country leads |
-| **Twitter/X presence** — set up org account or operate from Binali + Viktor only? | Concurrent | PM |
+| **Twitter/X presence** — set up org account or operate from Founder + COO only? | Concurrent | PM |
 | **Instagram start trigger** — what milestone justifies launching IG? | Phase ζ | PM |
 | **Newsletter trigger** — what's the exact "≥ 4 events/month" threshold trigger? | Phase ζ.x | PM |
 | **First paid spend trigger** — what milestone unlocks LinkedIn Sponsored / Telegram boosts / podcast ads? | Sprint 5+ | PM |
 | **Press machine activation trigger** — what milestone justifies the `/press` page + press list? | When first inbound press request lands, or month 4 proactive | PM |
-| **Brand asset library tooling** — Directus collection (single source) vs S3 bucket + Directus tracking + Figma? | Sprint 0.9 | PM + Viktor |
+| **Brand asset library tooling** — Directus collection (single source) vs S3 bucket + Directus tracking + Figma? | Sprint 0.9 | PM + COO |
 | **Influencer compensation model** — when influencer drives ≥ N registrations, do we pay them? Revenue share? Sponsor commission? | Concurrent (post-Sprint 3.2a) | PM |
 | **Photo + video producer relationship** — in-house, contractor per event, or member volunteer? | Concurrent | PM + country leads |
-| **Quarterly digest design ownership** — Viktor (AI design pipeline) or external designer? | Q1 digest production | Binali |
+| **Quarterly digest design ownership** — COO (AI design pipeline) or external designer? | Q1 digest production | Founder |
 
 ---
 

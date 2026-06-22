@@ -1,7 +1,7 @@
 # Customer-Surface Finish Line
 
 **Status:** Proposed (2026-05-24).
-**Owner:** Viktor (PM/COO).
+**Owner:** PM.
 **Author:** Claude Code session (auto-audit).
 **Goal:** Lock down every customer-facing surface — main page, leaderboard, account page, events, public profiles — and inventory the static-to-CMS work + counter/trigger gaps that need to be addressed before we pivot to the operator-UX rebuild.
 
@@ -48,7 +48,7 @@ Customer-facing content currently hardcoded in JSX/Astro that should move to Dir
 |---|---|---|
 | `pages/index.astro:195,216` | Telegram channel URL + `partners@aiqadam.org` mailto | `site_settings.social_links`, `site_settings.contact_emails` |
 | `pages/press.astro:92,95,111,115` | Press hero headline + company boilerplate + `press@aiqadam.org` + SLA copy | New: `press_page` singleton |
-| `pages/press.astro:157,164–168,197,202,204–208` | Binali + Viktor names, titles, bios | New: `team_members` collection |
+| `pages/press.astro:157,164–168,197,202,204–208` | Founder + COO names, titles, bios | New: `team_members` collection |
 | `pages/press.astro:225–228` | Logo usage guidelines copy | New: `brand_guidelines` singleton |
 | `layouts/Layout.astro:17` | Default meta description ("Multi-tenant community platform…") | `site_settings.default_description` |
 | `components/LeadCaptureForm.tsx:11–23` | Interest topics array (`'AI/ML', 'LLMs', 'fintech', …`) | New: `lead_form_config.interest_topics` |
@@ -251,7 +251,7 @@ The "Recent badges" strip on the account page (deferred from U-Me1c) now has rea
 
 ## 7. Other PM Questions (still pending)
 
-1. **`team_members`** — only Binali + Viktor for now, or include the future country leads slate? *(Affects C-3 only.)*
+1. **`team_members`** — only Founder + COO for now, or include the future country leads slate? *(Affects C-3 only.)*
 2. **"Countries served" counter** — fixed at 3 (UZ/KZ/TJ) or include `xx` global as a 4th? *(Resolved by making it CMS-editable — defaults to 3, change anytime via `/workspace/site-settings`.)*
 3. **No-show tracking** — included in scope or deferred? It changes capacity-planning numbers. *(Affects C-2/T-* phases.)*
 4. **Operator cabinet ordering (Phase C-4)** — which collection's cabinet should land first if we have to stage? *(Affects C-4 sequencing; not blocking.)*

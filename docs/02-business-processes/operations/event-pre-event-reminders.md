@@ -1,3 +1,7 @@
+---
+type: engineering-runbook
+---
+
 # Runbook: Pre-event reminder cron (`reminder_72h` + `reminder_3h`)
 
 **Audience:** engineers wiring the scheduler; operators monitoring delivery.
@@ -141,3 +145,12 @@ WHERE e.status='published'
 - `infrastructure/directus/bootstrap.sh` `[event_announcements]` — ledger schema (kind enum extended in F-S1.4b)
 - UX copy: [`ux-and-content-guidelines.md §13`](../../04-development/design-system/ux-and-content-guidelines.md#13-notification-copy-library) `reminder_72h` + `reminder_3h` rows
 - F-S1.1a (publication) + F-S1.1b (speaker_added) + F-S1.1c (post-event cron) share the same ledger collection.
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-REG-001](../../03-requirements/FR-REG-001.md) | Registration flow | Shipped |
+| [FR-NTF-001](../../03-requirements/FR-NTF-001.md) | Notification dispatcher | Shipped |
+| [FR-NTF-003](../../03-requirements/FR-NTF-003.md) | 24h pre-event reminder | Planned |

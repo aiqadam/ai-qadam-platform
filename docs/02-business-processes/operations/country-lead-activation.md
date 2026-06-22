@@ -1,12 +1,16 @@
+---
+type: engineering-runbook
+---
+
 # Runbook: Country-lead activation
 
-**Audience:** engineer (you) running the onboarding sequence for a newly-identified country lead. Triggers: a country lead candidate has been interviewed + accepted by Binali + Viktor; their Authentik account exists; the country's tenant in Directus is provisioned.
+**Audience:** engineer (you) running the onboarding sequence for a newly-identified country lead. Triggers: a country lead candidate has been interviewed + accepted by Founder + COO; their Authentik account exists; the country's tenant in Directus is provisioned.
 
-**Pre-reading:** [`docs/04-development/architecture/auth-architecture.md`](../../04-development/architecture/auth-architecture.md), [ADR-0021](../../adr/0021-rbac-manifest.md) (Proposed — the role manifest), [ADR-0033](../../adr/0033-community-member-graph.md) (the data layer they'll operate inside cabinets), [`docs/operator-playbook/`](../operator-playbook/) (where the operator-facing how-tos live; this runbook is the engineer-side counterpart).
+**Pre-reading:** [`docs/04-development/architecture/auth-architecture.md`](../../04-development/architecture/auth-architecture.md), [ADR-0021](../../adr/0021-rbac-manifest.md) (Accepted 2026-05-21 — the role manifest), [ADR-0033](../../adr/0033-community-member-graph.md) (the data layer they'll operate inside cabinets), [`docs/operator-playbook/`](../operator-playbook/) (where the operator-facing how-tos live; this runbook is the engineer-side counterpart).
 
 **Total time:** ~45 min if F-S2.2 RBAC sync + F-S4.1 country provisioning + F-S4.3 onboarding wizard have shipped; longer if any of those is still placeholder.
 
-> **Scaffold** — full procedure lands with F-S4.3 (Sprint 4.3 country-lead onboarding) per `docs/01-business/community-platform-roadmap.md` §7. Until then, country-lead activation is a manual sequence we run for each lead; this scaffold codifies the steps so we don't forget one. **Track Sprint 4 gating on ADR-0022 (country-lead compensation, Proposed)** — a country lead cannot be onboarded without the compensation model accepted.
+> **Scaffold** — full procedure lands with F-S4.3 (Sprint 4.3 country-lead onboarding) per `docs/01-business/community-platform-roadmap.md` §7. Until then, country-lead activation is a manual sequence we run for each lead; this scaffold codifies the steps so we don't forget one. **Track Sprint 4 gating on ADR-0022 (country-lead compensation, Deferred — see G-1)** — a country lead cannot be onboarded without the compensation model accepted.
 
 ## Pre-conditions
 
@@ -74,9 +78,18 @@ Country-lead deactivation: remove from `country_lead_<xx>` Authentik group → F
 ## References
 
 - [`docs/01-business/community-platform-roadmap.md` §7 Sprint 4](../../01-business/community-platform-roadmap.md) — Sprint 4 country provisioning + 4.3 onboarding
-- [ADR-0021](../../adr/0021-rbac-manifest.md) — RBAC manifest (Proposed)
-- [ADR-0022 — Country-lead compensation](../../adr/0022-country-lead-compensation.md) — Proposed; **gates this runbook**
+- [ADR-0021](../../adr/0021-rbac-manifest.md) — RBAC manifest (Accepted 2026-05-21)
+- [ADR-0022 — Country-lead compensation](../../adr/0022-country-lead-compensation.md) — Deferred; **gates this runbook** (see [G-1 in business-process-gaps.md](../business-process-gaps.md))
 - [ADR-0032](../../adr/0032-operator-tools-must-sso-or-embed.md) — cabinet routing rule
 - [ADR-0033](../../adr/0033-community-member-graph.md) — sponsor PII boundary the country lead is responsible for honoring
 - [`audit.md`](../../04-development/security/runbooks/audit.md) — for the periodic check that the country lead is operating within scope
-- [`auth.md`](../../04-development/infrastructure/runbooks/auth.md) — for RBAC-sync failure during activation
+- [`auth.
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-ADM-005](../../03-requirements/FR-ADM-005.md) | Operator invites | Shipped |
+| [FR-ADM-006](../../03-requirements/FR-ADM-006.md) | Country provisioning | Shipped |
+| [FR-ADM-007](../../03-requirements/FR-ADM-007.md) | RBAC sync | Shipped |
+| [FR-ADM-008](../../03-requirements/FR-ADM-008.md) | Audit log | Shipped |

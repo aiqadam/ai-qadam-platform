@@ -1,6 +1,6 @@
 # Operator playbook: Community conduct (v0)
 
-**Audience:** country lead, Binali (Founder), Viktor (COO).
+**Audience:** country lead, Founder, COO.
 **When to use:** when a community-conduct issue surfaces — bad behavior at an event, abusive content in Telegram, sponsor reps overstepping, a member reporting another member.
 **Frequency:** rare today; grows with scale. This playbook is the precursor to the full ζ.7 crisis-comms framework.
 
@@ -25,11 +25,11 @@ The incident is **handled within 48 hours**: facts collected; affected parties s
    - The reporter (what they observed, when, where, what they want)
    - The accused party (their side; do not name the reporter unless they consent)
    - Any witnesses (if anyone else was present and willing to comment)
-3. **Document privately.** Write a one-page incident note in a private location (Viktor's notes for now; future: a private Directus collection with sponsor-PII-boundary-class permissions). Include: timestamp, parties, facts, evidence references.
+3. **Document privately.** Write a one-page incident note in a private location (COO's notes for now; future: a private Directus collection with sponsor-PII-boundary-class permissions). Include: timestamp, parties, facts, evidence references.
 
 ### Day 1 (within 48h of report)
 
-4. **Decision.** Operator (the country lead if local; Viktor if cross-country) decides the action. Bias toward proportional + community-trust-preserving:
+4. **Decision.** Operator (the country lead if local; COO if cross-country) decides the action. Bias toward proportional + community-trust-preserving:
    - **No action** if the report doesn't substantiate
    - **Verbal warning** (1:1 conversation, recorded as a note)
    - **Temporary cooldown** (mute in Telegram for N days; not invited to next event)

@@ -1,3 +1,7 @@
+---
+type: engineering-runbook
+---
+
 # Runbook: Event publication broadcast (`event_announce`)
 
 **Audience:** country leads + super-admins.
@@ -88,3 +92,15 @@ v1: send to yourself first (set your account's `country` matching the event, ens
 - `infrastructure/directus/bootstrap.sh` `[event_announcements]` — ledger schema
 - UX copy: [`ux-and-content-guidelines.md §13`](../../04-development/design-system/ux-and-content-guidelines.md#13-notification-copy-library) `event_announce` row
 - F-S1.1b (speaker_added) + F-S1.1c (post-event followup) reuse the same `event_announcements` pattern — they add new `kind` values to the same collection.
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-EVT-001](../../03-requirements/FR-EVT-001.md) | Event CRUD | Shipped |
+| [FR-EVT-005](../../03-requirements/FR-EVT-005.md) | Operator event control panel | Shipped |
+| [FR-NTF-001](../../03-requirements/FR-NTF-001.md) | Notification dispatcher | Shipped |
+| [FR-NTF-002](../../03-requirements/FR-NTF-002.md) | Announcement fan-out | Planned |
+| [FR-CMS-005](../../03-requirements/FR-CMS-005.md) | Audience segment builder | Shipped |
+| [FR-ADM-003](../../03-requirements/FR-ADM-003.md) | Announcement composer | Shipped |

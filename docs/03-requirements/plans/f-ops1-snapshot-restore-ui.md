@@ -1,7 +1,7 @@
 # F-OPS1 — Snapshot + Restore + UI for the operational layer
 
 **Status:** Proposed
-**Owner:** Viktor (PM) — TBD on engineering owner
+**Owner:** PM — TBD on engineering owner
 **Triggered by:** 2026-05-24 web outage (~40 min) caused by a Coolify `custom_labels` PATCH that wiped Coolify's auto-generated Traefik labels with no rollback path other than manual reconstruction.
 
 ## Why this exists
@@ -12,7 +12,7 @@ Related memories established the same day:
 - feedback-coolify-fqdn-patch-blast-radius
 - feedback-coolify-custom-labels-replaces-autogen
 
-## Constraints (Viktor's explicit guidance, 2026-05-24)
+## Constraints (guidance, 2026-05-24)
 
 - **Off-the-shelf only.** "Not to wire and test something homebrew."
 - **Combine with existing monitoring.** We already run Loki (logs) + Gatus (uptime probes) + restic (volume backups to Cloudflare R2). Reuse, don't replace.

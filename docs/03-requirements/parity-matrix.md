@@ -103,4 +103,4 @@ Cutover is approved when:
    both `aiqadam.org` (v1) and `next.aiqadam.org` (v2).
 3. Lighthouse perf on v2 ≥ 90 on `/`, `/events`, `/leaderboard`.
 4. Backrest snapshot taken within the last hour.
-5. Viktor's explicit sign-off in a decision-batch entry.
+5. PM sign-off in a decision-batch entry.

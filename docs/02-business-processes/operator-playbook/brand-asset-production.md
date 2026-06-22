@@ -1,19 +1,19 @@
 # Operator playbook: Brand asset production
 
-**Audience:** Viktor (COO) as the human-in-loop reviewer; country leads as Tier-2 uploaders.
+**Audience:** COO as the human-in-loop reviewer; country leads as Tier-2 uploaders.
 **When to use:** producing event-specific brand assets (social cards, event photos, speaker spotlights, recap visuals).
 **Frequency:** per event + on-demand for marketing surfaces.
 
 ## Outcome
 
-The asset exists in Directus `marketing_assets` with `status = approved` (Viktor's flip), correctly tagged + linked to its event / sponsor / speaker if applicable, and renderable on the public surfaces that need it (`/press`, event recap page, social-card OG image, etc.).
+The asset exists in Directus `marketing_assets` with `status = approved` (COO's flip), correctly tagged + linked to its event / sponsor / speaker if applicable, and renderable on the public surfaces that need it (`/press`, event recap page, social-card OG image, etc.).
 
 ## Inputs
 
 - Per [ADR-0025 Tier 2](../../adr/0025-brand-asset-tooling.md): produced assets live in Directus `marketing_assets`. Schema includes `status` enum (`draft | pending_review | approved | archived`), uploader, approver, category, country scope.
 - The brand color tokens + voice guide (`apps/web/src/styles/`; per [marketing playbook §15](../marketing-and-pr-playbook.md))
 - The originating context: which event / speaker / sponsor / recap this is for
-- AI design pipeline tools: Claude Design (Viktor's prompted) + ChatGPT Image Generator. **Both are Viktor-operated** today; country leads contribute photos + captions, not generated images.
+- AI design pipeline tools: Claude Design (COO's prompted) + ChatGPT Image Generator. **Both are COO-operated** today; country leads contribute photos + captions, not generated images.
 
 ## Steps
 
@@ -30,9 +30,9 @@ The asset exists in Directus `marketing_assets` with `status = approved` (Viktor
    - `status = pending_review`
    - `uploader = <directus_users.id>` (auto-populated from the session)
 
-### Approval flow (Viktor only)
+### Approval flow (COO only)
 
-4. **Viktor's "Pending Review" filter view** in Directus admin lists every `status = pending_review` row. Review each:
+4. **COO's "Pending Review" filter view** in Directus admin lists every `status = pending_review` row. Review each:
    - Brand voice + color match
    - Photo consent honored (cross-check `pictured_members.photo_consent` if applicable)
    - Sponsor PII boundary honored (no raw member info in the image; per ADR-0033)
@@ -42,7 +42,7 @@ The asset exists in Directus `marketing_assets` with `status = approved` (Viktor
 
 ### Variant: load-bearing brand assets (Tier 1)
 
-Logos / favicons / brand mark stay in git per [ADR-0025 Tier 1](../../adr/0025-brand-asset-tooling.md). These do NOT go through this playbook — they're engineer-PR'd via the normal git flow. If a country lead identifies a need for a new Tier-1 asset, file an issue tagged `brand` and Viktor cuts the engineering PR.
+Logos / favicons / brand mark stay in git per [ADR-0025 Tier 1](../../adr/0025-brand-asset-tooling.md). These do NOT go through this playbook — they're engineer-PR'd via the normal git flow. If a country lead identifies a need for a new Tier-1 asset, file an issue tagged `brand` and COO cuts the engineering PR.
 
 ## Templates
 
@@ -61,14 +61,14 @@ ai_prompt:     "<the prompt used if AI-generated, otherwise null>"
 **AI prompt voice notes** (in line with [marketing playbook §15](../marketing-and-pr-playbook.md)):
 
 - Visual register: confident, warm, professional. NOT corporate-stock-photo.
-- People in images: where AI-generated faces appear, Viktor reviews for the uncanny-valley / brand-fit issues. Default: prefer event photos (real people, real consent) over AI-generated people for member-facing surfaces.
+- People in images: where AI-generated faces appear, COO reviews for the uncanny-valley / brand-fit issues. Default: prefer event photos (real people, real consent) over AI-generated people for member-facing surfaces.
 - Sponsor logo placements: explicit, neutral. Don't AI-generate sponsor logos; use the sponsor-provided source.
 - Type + iconography: use existing brand tokens; don't hallucinate fonts that aren't ours.
 
 ## Anti-patterns
 
 - ❌ **Uploading images with non-consented attendees.** Hard violation of ADR-0030. Cross-check `pictured_members.photo_consent` for every picture-of-people asset before upload.
-- ❌ **Auto-publishing without Viktor's approval.** Tier 2 assets MUST go through `pending_review → approved`. Skipping this drifts brand quality.
+- ❌ **Auto-publishing without COO's approval.** Tier 2 assets MUST go through `pending_review → approved`. Skipping this drifts brand quality.
 - ❌ **AI-generating sponsor logos.** Always use the sponsor's official asset. The same applies to any partner / venue / institutional logo.
 - ❌ **AI prompt that hides the source.** Per [marketing playbook §15.4 transparency](../marketing-and-pr-playbook.md): we don't claim AI-generated images as photographs. The `ai_prompt` metadata field is the audit trail.
 - ❌ **Treating brand assets like ephemeral content.** Each approved asset goes into the archive intentionally; the recap page + the press kit + the quarterly digest all read from this same archive.
@@ -87,7 +87,7 @@ ai_prompt:     "<the prompt used if AI-generated, otherwise null>"
 - [ ] Asset uploaded to Directus `marketing_assets` with all metadata populated
 - [ ] Photo-consent cross-check completed (or N/A if no people pictured)
 - [ ] Sponsor PII boundary respected (no raw member info in the image)
-- [ ] Viktor approved (`status = approved`) — or sent back with a clear next-step comment
+- [ ] COO approved (`status = approved`) — or sent back with a clear next-step comment
 - [ ] Asset renders correctly on its target surface (`/press`, event recap, social-card OG, etc.)
 - [ ] `ai_prompt` field populated if the asset was AI-generated (for the transparency audit trail)
 

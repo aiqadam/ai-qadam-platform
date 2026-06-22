@@ -120,7 +120,7 @@ If at 90 days neither is hit, the forum is a leak (resource-consumer, not return
 
 1. **Categories on day 1** — one per country (uz/kz/tj), plus `general`, `events`, `help`, `jobs`? Or simpler `general + events + help`?
 2. **Moderator pool** — who? Country leads + super-admins? Or also community managers (operational tier)?
-3. **Content seed** — does Binali write the first 3-4 sticky threads (intro, code of conduct, weekly thread, AMA), or do we recruit one founding member to do it?
+3. **Content seed** — does the Founder write the first 3-4 sticky threads (intro, code of conduct, weekly thread, AMA), or do we recruit one founding member to do it?
 4. **Trust-level → workspace permissions** — TL3+ members get any operational privileges (e.g. submit event ideas via cabinet)? Probably no for v1, revisit at TL3 sample size ≥10.
 5. **Anonymous read** — public threads readable without sign-in (SEO + word-of-mouth) or members-only?
 6. **Cross-post automation** — post Discourse threads to Telegram channel automatically, or keep the two channels distinct?

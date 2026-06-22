@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Event CSAT — capture + operator surface
 
 **Audience:** operators reading scores; engineers wiring the post-event dispatcher.
@@ -113,3 +117,13 @@ Directus admin only (engineers). Operator UI deliberately can't because once you
 - `apps/web/src/components/workspace/EventControlPanel.tsx` `CsatSummaryCard` — operator surface (rendered when event phase=post)
 - `infrastructure/directus/bootstrap.sh` `[interaction_responses]` — added `event` FK
 - Marketing playbook §17 NPS work depends on the same pattern (different `response_intent='enps_score'`).
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-EVT-006](../../03-requirements/FR-EVT-006.md) | Post-event survey | Shipped |
+| [FR-REG-001](../../03-requirements/FR-REG-001.md) | Registration flow | Shipped |
+| [FR-NTF-001](../../03-requirements/FR-NTF-001.md) | Notification dispatcher | Shipped |
+| [FR-CMS-003](../../03-requirements/FR-CMS-003.md) | Form builder | Shipped |

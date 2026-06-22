@@ -1,6 +1,6 @@
 # Operator playbook: Country launch
 
-**Audience:** Viktor (COO) + Binali (Founder) + the new country lead.
+**Audience:** COO + Founder + the new country lead.
 **When to use:** when activating a new country tenant (KZ, TJ, KG, …).
 **Frequency:** rare — once per country.
 
@@ -11,16 +11,16 @@ The new country is **live on the platform**: tenant row in `countries`, country 
 ## Inputs
 
 - Country code chosen (ISO 3166-1 alpha-2 lowercase: `kz`, `tj`, `kg`, ...) + display names (English + Russian) + timezone (IANA).
-- Country lead identified + interviewed + accepted (by Binali + Viktor; the Volunteering Board signs off on appointment per the governance model in project-essentials).
-- AUP (Acceptable Use Policy for member data) drafted — operator-playbook v0 ships the AUP scaffold in a future PR; for now Viktor writes country-specific AUP per launch.
+- Country lead identified + interviewed + accepted (by Founder + COO; the Volunteering Board signs off on appointment per the governance model in project-essentials).
+- AUP (Acceptable Use Policy for member data) drafted — operator-playbook v0 ships the AUP scaffold in a future PR; for now COO writes country-specific AUP per launch.
 - ADR-0022 status: **gates this playbook.** Per G-1 (business-process gap list), compensation is deferred until trigger conditions fire. Country leads onboarded under G-1 conditions are VOLUNTEER; this must be made explicit + ACCEPTED in writing by the candidate before activation.
-- Sprint 4 features status: F-S4.1 country provisioning service + F-S4.2 wizard + F-S4.3 onboarding runbook. Pre-Sprint-4 the engineer (Viktor) provisions manually per the steps below.
+- Sprint 4 features status: F-S4.1 country provisioning service + F-S4.2 wizard + F-S4.3 onboarding runbook. Pre-Sprint-4 the engineer provisions manually per the steps below.
 
 ## Steps
 
 ### Pre-launch (T-4 weeks)
 
-1. **Trust-transfer ceremony** with any existing in-country community: a public announcement (Telegram + LinkedIn) introducing the country lead, signed jointly by Binali + Viktor + the lead. Done with the country lead present (literally — in-person if possible).
+1. **Trust-transfer ceremony** with any existing in-country community: a public announcement (Telegram + LinkedIn) introducing the country lead, signed jointly by Founder + COO + the lead. Done with the country lead present (literally — in-person if possible).
 2. **AUP signed.** The lead reads + signs the AUP for member data. Stored in the team password manager / SharePoint / equivalent for compliance audit trail.
 3. **Compensation context.** Per G-1: explicitly tell the lead "this is a volunteer role today; compensation is on the gap list and revisits when trigger fires". Lead acknowledges in writing.
 
@@ -32,19 +32,19 @@ The new country is **live on the platform**: tenant row in `countries`, country 
    - Plausible: create the new site at `<xx>.aiqadam.org`
    - Coolify: register the new FQDN on `aiqadam-web` (already routes by `country` from URL prefix)
 5. **DNS.** Cloudflare → add the new `<xx>.aiqadam.org` CNAME → point at Coolify; cert auto-issues.
-6. **Brand voice adaptation.** Per [marketing playbook §13](../marketing-and-pr-playbook.md) + ADR-0029: the lead drafts country-specific voice notes (what register works for their audience). Reviewed by Viktor.
+6. **Brand voice adaptation.** Per [marketing playbook §13](../marketing-and-pr-playbook.md) + ADR-0029: the lead drafts country-specific voice notes (what register works for their audience). Reviewed by COO.
 7. **Walk-through (engineer-side).** Per [`docs/02-business-processes/operations/country-lead-activation.md`](../operations/country-lead-activation.md): RBAC binding, cabinet walk-through, permission verification.
 
 ### Launch (T-0)
 
 8. **First event scheduled.** Per `venue-selection.md` + `speaker-outreach.md`. Date set 4-6 weeks out from launch.
-9. **Public announcement.** Telegram per-country channel (per ADR-0026) launch announcement + LinkedIn (Viktor solo today).
+9. **Public announcement.** Telegram per-country channel (per ADR-0026) launch announcement + LinkedIn (COO solo today).
 10. **Volunteering Board check-in.** Brief async note to the board introducing the new country + lead + first-event date.
 
 ### Post-launch (T+4 weeks)
 
 11. **First-event retrospective with the lead.** What worked, what didn't, what needs unblocking. Capture into the country's notes (TBD location).
-12. **Quarterly check-in cadence set up.** Recurring meeting between Viktor + the country lead.
+12. **Quarterly check-in cadence set up.** Recurring meeting between COO + the country lead.
 
 ## Templates
 
@@ -83,8 +83,8 @@ What this means for the {country} community:
 For anyone running tech meetups in {city}: get in touch with
 {lead name} at {Telegram handle / email}. Cross-promotion welcome.
 
-— Binali Rustamov, Founder
-— Viktor Drukker, COO
+— Founder, Founder
+— COO, COO
 ```
 
 ## Anti-patterns
@@ -101,7 +101,7 @@ This playbook IS the country-launch sequence; each country instance is itself a 
 
 | Country | Launch date | Lead | Notes |
 |---|---|---|---|
-| UZ | (current; pre-platform launch) | Binali | Founder's home; not a "launch" in the post-launch sense |
+| UZ | (current; pre-platform launch) | Founder | Founder's home; not a "launch" in the post-launch sense |
 | KZ | TBD — gated on G-1 | TBD | Candidate identification in progress per [`docs/01-business/community-platform-roadmap.md` §11](../../01-business/community-platform-roadmap.md) |
 | TJ | TBD — gated on G-1 | TBD | Smaller market; consider after KZ proves the activation playbook |
 

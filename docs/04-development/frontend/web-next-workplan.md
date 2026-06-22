@@ -85,7 +85,7 @@ dependencies for later PRs.
 
 ### M4 — Cutover (Phase 4)
 
-Gated on parity-matrix all-✅ + Viktor sign-off. Sequenced:
+Gated on parity-matrix all-✅ + PM sign-off. Sequenced:
 
 1. **Auth/cookie parity** — canonical `aiqadam-refresh` issued from v2; API
    accepts `aiqadam-next-refresh` for 24h overlap then drops it; 30s
@@ -154,5 +154,5 @@ are next; ends on cutover. ~28–32 PRs at the ≤5-file / ≤400-LOC cadence.
 ## Division of labour
 
 - **Claude can drive M0–M3 + Phase 3 autonomously** (PRs + CI + merge).
-- **Human (Viktor) required for M4:** the Coolify FQDN flip (web-UI-only) +
+- **PM required for M4:** the Coolify FQDN flip (web-UI-only) +
   the parity-gate sign-off in a decision-batch entry.

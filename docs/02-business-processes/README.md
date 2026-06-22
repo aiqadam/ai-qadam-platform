@@ -36,12 +36,12 @@ How the organization and community operate day to day. Operator playbooks, marke
 - [Runbook: Operator announce composer (`/workspace/announce`)](operations/operator-announce-composer.md)
 - [Runbook: Operator approval queue (`/workspace/approvals`)](operations/operator-approvals-queue.md)
 - [Runbook: Operator cohort builder (`/workspace/members`)](operations/operator-cohort-builder.md)
-- [Runbook: Setting up Send-as for your `@aiqadam.org` address (in Gmail)](operations/operator-email-send-as.md)
 - [Runbook: Operator event control panel (`/workspace/events`)](operations/operator-event-control.md)
+- ~~Runbook: Setting up Send-as for Gmail~~ — [archived](operations/archive/operator-email-send-as.md), superseded by docker-mailserver auto-provisioning (F-S2.12)
 
 ## Related decisions (ADRs)
 
 ADRs live in the chronological log at [`docs/adr/`](../adr/). Those most relevant here:
 
 - [0012-operator-send-as-automation](../adr/0012-operator-send-as-automation.md) - Operator Send-as automation
-- [0036-sponsor-digest-rollups](../adr/0036-sponsor-digest-rollups.md) - Sponsor quarterly-digest rollups
+- [0036-sponsor-digest-rollups](../adr/0036-sponsor-di

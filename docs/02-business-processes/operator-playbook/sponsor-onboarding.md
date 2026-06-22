@@ -1,6 +1,6 @@
 # Operator playbook: Sponsor onboarding
 
-**Audience:** Viktor (COO) + country leads in the sponsor pipeline.
+**Audience:** COO + country leads in the sponsor pipeline.
 **When to use:** when a sponsor candidate has signaled intent + a sponsor-tier decision is in scope.
 **Frequency:** per sponsor; ~5-15 new sponsors per year at current scale.
 
@@ -24,7 +24,7 @@ A new sponsor lands in Directus as `companies WHERE is_sponsor=true AND status=a
    - Create the `companies` row: `name`, `slug`, `country`, `is_sponsor = true`, optional `is_employer` / `is_product_partner` flags, `status = active`, `logo` upload (or path under `apps/web/public/brand/sponsors/` per ADR-0025 Tier 1 if a logo is truly load-bearing).
    - Until F-S3.5 ships its sponsor cabinet: also create the existing-shape `sponsors` row (PR #78) as the cabinet-display alias.
 5. **Provision their cabinet user.**
-   - Operator (Viktor) creates an Authentik account for the sponsor contact + adds them to the `sponsor_rep_<slug>` group (per ADR-0021 once accepted; placeholder until then).
+   - Operator (COO role) creates an Authentik account for the sponsor contact + adds them to the `sponsor_rep_<slug>` group (per ADR-0021 once accepted; placeholder until then).
    - Set `companies.rep_user` to the new account.
 6. **Grant entitled cohorts.** Per tier + scope (NEVER raw member access). For each entitled cohort:
    - Create the `cohorts` row if it doesn't exist (operator builds via the F-S3.2 Member directory cabinet)

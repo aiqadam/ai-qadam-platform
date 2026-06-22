@@ -1,7 +1,7 @@
 # Decision-batch process — weekly ADR review cadence
 
 > **Status:** authoritative as of 2026-05-20.
-> **Audience:** the PM (Viktor), agents drafting ADRs, anyone touching `docs/adr/`.
+> **Audience:** the PM, agents drafting ADRs, anyone touching `docs/adr/`.
 > **Companions:** [agent-prompts.md §0.1](../05-other/agent-prompts.md#01-canonical-documents--read-at-every-iteration), [community-platform-roadmap.md §7 Sprint 0.12](../01-business/community-platform-roadmap.md), [ADR-0001](../adr/0001-docs-live-in-claude-folder.md).
 
 ---

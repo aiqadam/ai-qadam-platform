@@ -1,3 +1,7 @@
+---
+type: engineering-runbook
+---
+
 # Runbook: Speaker pipeline + post-event cron
 
 **Audience:** operators managing speaker confirmations; engineers wiring the post-event scheduler.
@@ -158,3 +162,14 @@ In Directus admin: `UPDATE events SET post_event_processed=false WHERE id='<uuid
 - `apps/e2e/tests/smoke-speaker-pipeline.spec.ts` — 6 smoke tests
 - `infrastructure/directus/bootstrap.sh` — `event_speakers` collection + `event_announcements.speaker` FK + `events.post_event_processed`
 - UX copy: `speaker_added`, `speaker_thanks_with_referral_ask`, `next_event_teaser` in `ux-and-content-guidelines.md §13`
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-SPK-001](../../03-requirements/FR-SPK-001.md) | Speaker profiles | Shipped |
+| [FR-SPK-002](../../03-requirements/FR-SPK-002.md) | Speaker management | Shipped |
+| [FR-EVT-001](../../03-requirements/FR-EVT-001.md) | Event CRUD | Shipped |
+| [FR-NTF-001](../../03-requirements/FR-NTF-001.md) | Notification dispatcher | Shipped |
+| [FR-EVT-006](../../03-requirements/FR-EVT-006.md) | Post-event survey | Shipped |

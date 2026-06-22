@@ -84,8 +84,8 @@ weekly digest.
 
 | Pattern | When |
 |---|---|
-| `binali-li` | Binali Rustamov's LinkedIn (personal) |
-| `viktor-li` | Viktor Drukker's LinkedIn (personal) |
+| `binali-li` | Founder's LinkedIn (personal) |
+| `viktor-li` | COO's LinkedIn (personal) |
 | `aiqadam-orgli` | AI Qadam org page on LinkedIn |
 | `aiqadam-tg-{country}` | The country-specific Telegram channel (`aiqadam-tg-uz`, `aiqadam-tg-kz`, `aiqadam-tg-tj`) |
 | `aiqadam-tg-global` | The pan-CA Telegram channel |
@@ -142,7 +142,7 @@ When not A/B testing, omit the parameter entirely. An empty
 
 ## 6. Worked examples
 
-A LinkedIn post by Binali promoting AI Drinks UZ #12:
+A LinkedIn post by Founder promoting AI Drinks UZ #12:
 
 ```
 https://uz.aiqadam.org/events/12?utm_source=binali-li&utm_medium=linkedin_post&utm_campaign=event-12

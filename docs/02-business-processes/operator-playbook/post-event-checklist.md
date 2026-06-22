@@ -32,7 +32,7 @@ The post-event flow completes within 7 days: CSAT collected (anonymity floor hon
 
 ### Day +4 to +7
 
-7. **Publish recap.** As an event-recap page (when that ships) OR as a Telegram-channel post (per ADR-0026 per-country channel) + LinkedIn share (Viktor solo today, country lead once their channel is set up).
+7. **Publish recap.** As an event-recap page (when that ships) OR as a Telegram-channel post (per ADR-0026 per-country channel) + LinkedIn share (COO solo today, country lead once their channel is set up).
 8. **CSAT chase.** Read responses from `interaction_responses` (response_intent = csat_score). If response rate < 30% by day +5, send one polite reminder via the dispatcher (cohort = attended but-not-responded). Honor the anonymity floor: `event_outcomes.csat_avg` stays null if N < 3 responses.
 9. **Populate `event_outcomes`.** Once F-S3.4 cabinet ships, the cabinet writes this on operator-driven "mark followups complete"; until then, the F-S1.1c post-event cron writes the count fields + the operator manually flips `follow_up_completed = true`.
 10. **Sponsor report (if applicable).** Per ADR-0033, sponsors NEVER see raw member rows. The report = cohort-aggregated counts + the recap link + the quote cards + their entitled-cohort match metrics. Quarterly digest (F-S3.8) is the auto-generated version; per-event ad-hoc reports follow the same constraint.

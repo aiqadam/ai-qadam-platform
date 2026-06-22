@@ -1,3 +1,7 @@
+---
+type: operator-runbook
+---
+
 # Runbook: Operator announce composer (`/workspace/announce`)
 
 **Audience:** country leads, super-admins, board members.
@@ -88,3 +92,14 @@ This cabinet currently sends only email. To extend to Telegram (Phase ζ.5):
 3. UI: add a channel picker to the composer (today it's email-only, hardcoded)
 
 No schema changes needed — the dispatcher already supports a channel array.
+
+
+## System requirements
+
+| FR | Capability | Status |
+|---|---|---|
+| [FR-ADM-002](../../03-requirements/FR-ADM-002.md) | Member directory | Shipped |
+| [FR-ADM-003](../../03-requirements/FR-ADM-003.md) | Announcement composer | Shipped |
+| [FR-CMS-005](../../03-requirements/FR-CMS-005.md) | Audience segment builder | Shipped |
+| [FR-NTF-001](../../03-requirements/FR-NTF-001.md) | Notification dispatcher | Shipped |
+| [FR-NTF-002](../../03-requirements/FR-NTF-002.md) | Announcement fan-out | Planned |
