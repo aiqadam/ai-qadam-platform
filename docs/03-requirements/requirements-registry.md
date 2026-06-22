@@ -34,6 +34,7 @@ Individual capability-level requirements live as `FR-<MODULE>-<NNN>.md` files in
 | CRM | CRM | [FR-CRM-001](FR-CRM-001.md) · [002](FR-CRM-002.md) · [003](FR-CRM-003.md) |
 | Ops / Infra | OPS | [FR-OPS-001](FR-OPS-001.md) |
 | Migration | MIG | [FR-MIG-001](FR-MIG-001.md) · [002](FR-MIG-002.md) · [003](FR-MIG-003.md) · [004](FR-MIG-004.md) · [005](FR-MIG-005.md) · [006](FR-MIG-006.md) · [007](FR-MIG-007.md) · [008](FR-MIG-008.md) · [009](FR-MIG-009.md) · [010](FR-MIG-010.md) · [011](FR-MIG-011.md) · [012](FR-MIG-012.md) · [013](FR-MIG-013.md) · [014](FR-MIG-014.md) · [015](FR-MIG-015.md) · [016](FR-MIG-016.md) · [017](FR-MIG-017.md) · [018](FR-MIG-018.md) · [019](FR-MIG-019.md) · [020](FR-MIG-020.md) · [021](FR-MIG-021.md) · [022](FR-MIG-022.md) · [023](FR-MIG-023.md) · [024](FR-MIG-024.md) · [025](FR-MIG-025.md) · [026](FR-MIG-026.md) · [027](FR-MIG-027.md) · [028](FR-MIG-028.md) · [029](FR-MIG-029.md) · [030](FR-MIG-030.md) · [031](FR-MIG-031.md) |
+| Workflow | WORKFLOW | [FR-WORKFLOW-001](FR-WORKFLOW-001.md) |
 
 ## FR implementation order
 
@@ -102,6 +103,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 59 | [FR-BOT-003](FR-BOT-003.md) | Operator runtime commands | Planned | BOT-001, REG-004 |
 | 60 | [FR-NTF-004](FR-NTF-004.md) | Telegram channel notification adapter | Planned | NTF-001, BOT-001, AUTH-002 |
 | 61 | [FR-AUTH-007](FR-AUTH-007.md) | Linked identity surface | Planned | AUTH-002, AUTH-003, AUTH-005 |
+| 62 | [FR-WORKFLOW-001](FR-WORKFLOW-001.md) | Context drift guard for the agentic workflow layer | Shipped | — |
 
 > **Note on CMS-004 / CMS-005:** both shipped in V1 against the existing `tg.dispatch.v1` notifier infrastructure (ADR-0034), not the planned aiogram bot (BOT-001). Their position above reflects this — they are independent of the BOT track.
 

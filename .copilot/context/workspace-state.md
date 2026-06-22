@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-23T00:00:00Z
+**Last updated:** 2026-06-23T05:30:00Z
 
 ---
 
@@ -17,6 +17,7 @@ _(none)_
 | wf-20260622-feat-001 | requirement-development | FR-MIG-003 Form block | main → merged | — | 2026-06-22 |
 | wf-20260623-feat-2 | requirement-development | FR-MIG-007 Tooltip kit atom | feature/FR-MIG-007-tooltip-kit-atom | [PR #11](https://github.com/tvolodi/aiqadam/pull/11) | 2026-06-23 |
 | wf-20260623-fix-3 | issue-resolution | ISS-PREEX-001 pre-existing lint cleanup | fix/ISS-PREEX-001-pre-existing-lint | [PR #12](https://github.com/tvolodi/aiqadam/pull/12) | 2026-06-23 |
+| wf-20260623-feat-004 | requirement-development | FR-WORKFLOW-001 Context drift guard | feature/FEAT-WORKFLOW-001-context-drift-guard | [PR #13](https://github.com/tvolodi/aiqadam/pull/13) | 2026-06-23 |
 
 ---
 

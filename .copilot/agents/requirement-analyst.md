@@ -29,7 +29,7 @@ Before starting any task, read:
 
 6. **Assign feature identifier** if not already assigned. Format: `FEAT-<MODULE>-<N>` (e.g., `FEAT-EVENTS-12`, `FEAT-REG-3`, `FEAT-GAMIF-7`).
 
-   Module codes: `USERS`, `EVENTS`, `REG` (registrations), `SPEAKERS`, `PARTNERS`, `GAMIF`, `NOTIF`, `CONTENT`, `ADMIN`, `BOT`, `WORKERS`, `WEB`, `INFRA`
+   Module codes: `USERS`, `EVENTS`, `REG` (registrations), `SPEAKERS`, `PARTNERS`, `GAMIF`, `NOTIF`, `CONTENT`, `ADMIN`, `BOT`, `WORKERS`, `WEB`, `INFRA`, `WORKFLOW`
 
 7. **Write the formalized requirement.**
 

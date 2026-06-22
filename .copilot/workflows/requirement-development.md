@@ -25,6 +25,7 @@ The workflow uses two parallel numbering schemes. **Step numbers** drive flow;
 | Step | Agent | Output file | Notes |
 |---|---|---|---|
 | 0 | Orchestrator | — | branch + handoff init |
+| 0.5 | Orchestrator (direct) | — | context drift check; blocking |
 | 1 | RequirementAnalyst | `01-requirement-validation.md` | |
 | 2 | ImpactAnalyzer | `02-impact-analysis.md` | |
 | 3 | DBMigrationAuthor | `05-migration-plan.md` | conditional; file prefix `05` |
@@ -56,6 +57,51 @@ git checkout -b feature/FEAT-<MODULE>-<N>-<slug>
 Read and increment `.copilot/meta/next-workflow-id`. Create the task directory and `handoff.yaml`.
 
 **Gate:** Branch exists in local repo → proceed.
+
+---
+
+### Step 0.5: Context Sync (blocking)
+
+**Agent:** Orchestrator (direct — no specialized agent)
+
+**Purpose:** Detect drift between project-level state files and `origin/<base>`
+*before* any other step runs. Drift at this checkpoint means the agentic
+workflow layer's bookkeeping has diverged from git history and the workflow
+must not advance until the divergence is reconciled.
+
+**Inputs:**
+- `.copilot/context/workspace-state.md`
+- `.copilot/issues/registry.md`
+- `docs/03-requirements/requirements-registry.md`
+- `origin/main` (or `origin/<base>` from `handoff.yaml.base_branch`)
+
+**Action:**
+```bash
+scripts/check-workflow-state.sh --base "origin/${BASE_BRANCH:-main}"
+```
+
+The script compares state-file content against `git show origin/<base>:<file>`
+(NOT the working tree or local HEAD — see `02-impact-analysis.md` R-3
+mitigation). It checks for:
+
+1. **Orphaned workflow IDs** — rows in `workspace-state.md` Active Workflows
+   table pointing to `.copilot/tasks/{active,completed}/<wf-id>/` that do
+   not exist on disk or in git history.
+2. **Missing `Last updated` frontmatter** on `workspace-state.md`.
+3. **Orphaned FR references** — `FR-<MODULE>-<NNN>` ids listed in
+   `requirements-registry.md` whose `FR-*.md` file is missing on the base ref.
+4. **Orphaned ISS references** — `ISS-*` ids listed in `issues/registry.md`
+   whose `ISS-*.md` file is missing on the base ref.
+
+**Gate:**
+- Script exits 0 → Step 1.
+- Script exits 1 → workflow MUST NOT advance. Orchestrator MUST reconcile
+  the offending state file (or run `scripts/check-workflow-state.sh --skip`
+  with explicit user override) and re-run Step 0.5 until it passes.
+- Script exits 2 → invocation error (e.g., base ref not fetched); fix and retry.
+
+This step is **additive** — it does not renumber subsequent steps. File
+prefixes (01–09) follow the existing numbering and are unaffected.
 
 ---
 

@@ -78,6 +78,11 @@ coverage/
 # --- Claude Code transcripts / state --------------------------------------
 .claude/projects/
 
+# --- Agent session memory (per-developer / per-session; never committed) ---
+# Created by the Copilot / Claude session memory tools. Ephemeral notes
+# about how a specific session resolved a problem; not project state.
+.memories/
+
 # --- Coolify / VM-side files (never in repo) ------------------------------
 # (Coolify state lives at /data/coolify on the host, never here.
 # Listed for awareness if anyone ever copies one into the repo.)
