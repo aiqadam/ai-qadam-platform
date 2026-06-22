@@ -186,7 +186,10 @@ Use `node:assert` or a project-wide `invariant()` helper. Failures should not be
 
 ## Part V — Style and formatting
 
-Prettier handles formatting. ESLint handles linting. These are not debates.
+**Biome** is the single tool for both formatting and linting — it replaces
+Prettier + ESLint. See [ADR-0014](../adr/0014-lint-format-biome.md).
+Formatting and linting rules are not debates; Biome enforces them in the
+pre-commit hook (`husky` + `lint-staged`) and in CI.
 
 ### File and folder names
 

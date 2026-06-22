@@ -79,37 +79,40 @@ Single monorepo using **pnpm workspaces** + **Turborepo** for caching.
 
 ```
 aiqadam/
-├── .claude/                  # operating instructions for Claude Code (read every session)
-│   ├── CLAUDE.md             # rules
-│   ├── PROJECT.md            # business context
-│   ├── ARCHITECTURE.md       # this file
-│   ├── STANDARDS.md          # code standards
-│   ├── WORKFLOW.md           # process rules
-│   ├── SECURITY.md           # security baseline
-│   ├── AI_COLLAB.md          # collaboration patterns
-│   └── GLOSSARY.md           # domain terms
+├── AGENTS.md                 # canonical AI rule file (read by all assistants; .github/copilot-instructions.md is generated from it)
+├── .claude/
+│   └── CLAUDE.md             # Claude Code–specific additions on top of AGENTS.md
 ├── apps/
-│   ├── web/                  # Astro frontend
-│   ├── api/                  # NestJS backend
-│   ├── bot/                  # Python Telegram bot
-│   └── workers/              # Background job processors
+│   ├── web/                  # Astro frontend (legacy, being replaced by web-next)
+│   ├── web-next/             # Astro 5 + React 19 + Tailwind 4 rewrite (ADR-0038)
+│   ├── api/                  # NestJS 11 backend
+│   ├── bot/                  # Python aiogram 3 Telegram bot
+│   ├── workers/              # BullMQ background job processors
+│   ├── e2e/                  # Playwright end-to-end smoke suite
+│   └── storybook/            # component stories
 ├── packages/
 │   ├── shared-types/         # Zod schemas + TS types (source of truth)
-│   ├── ui/                   # shadcn/ui components (shared if needed)
-│   ├── eslint-config/        # shared ESLint rules
+│   ├── ui/                   # shared UI components
+│   ├── biome-config/         # shared Biome rules (replaces eslint-config per ADR-0014)
 │   └── tsconfig/             # shared TypeScript configs
-├── design-system/            # canonical static HTML/CSS visual reference (tokens + components)
+├── design-system/            # canonical static HTML/CSS visual reference (tokens.css, components.css, portal.css)
 ├── infrastructure/
 │   ├── docker-compose.yml    # local-dev shared services (PG, Redis, MinIO, Authentik, …)
 │   └── scripts/              # local-dev scripts (seed, reset, backup-test)
 ├── docs/
-│   ├── adr/                  # architecture decision records
-│   ├── runbooks/             # operational procedures
-│   └── api/                  # generated OpenAPI docs
+│   ├── 01-business/          # business context, glossary, roadmap
+│   ├── 03-requirements/      # functional requirements (FR-*)
+│   ├── 04-development/       # ← architecture, standards, workflow, security, design-system (THIS FILE)
+│   ├── 05-other/             # ai-collab, agent-prompts
+│   └── adr/                  # architecture decision records
 └── README.md                 # repo entry point: orientation + how to run locally
 ```
 
-Operating docs live in `.claude/` (where Claude Code reads them automatically) rather than at repo root. Decision recorded in [ADR-0001](../../adr/0001-docs-live-in-claude-folder.md).
+The canonical operating docs live in `docs/04-development/` (standards, workflow,
+security, architecture) and `docs/01-business/` (project, glossary). `.claude/CLAUDE.md`
+and `AGENTS.md` are the AI-facing entry points that reference these. See
+[ADR-0001](../../adr/0001-docs-live-in-claude-folder.md) for the original docs-location
+decision.
 
 ## Module boundaries (the most important section)
 

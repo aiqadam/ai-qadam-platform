@@ -44,7 +44,7 @@ Same-origin per the PR #18 routing decision:
 - `aiqadam.org` DNS managed in Cloudflare with wildcard `*.aiqadam.org` → host IP (per the project's existing email DNS)
 - Repository pushed to GitHub with the `feature/production-deploy` branch (Dockerfiles + this runbook)
 - Restic backups configured (per [restic-backups.md](restic-backups.md)) — Coolify volumes are included
-- Per-operator Gmail Send-as completed (per [operator-email-send-as.md](../../../02-business-processes/operations/operator-email-send-as.md))
+- Per-operator Gmail Send-as completed (per [operator-email-send-as.md](../../../02-business-processes/operations/archive/operator-email-send-as.md))
 
 ## Step 1 — Provision shared Postgres + Redis stacks
 

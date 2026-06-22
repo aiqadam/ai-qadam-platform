@@ -24,6 +24,7 @@ How we build and run the platform. Code standards and workflow, architecture, an
 ## Frontend
 
 - [Web migration plan — `apps/web-next/` build-aside + cutover](frontend/web-migration-plan.md)
+- [Migration status — live cutover tracker](frontend/migration-status.md)
 - [Kickoff prompt — `apps/web-next/` greenfield build](frontend/web-next-kickoff.md)
 - [Web-next workplan — from current state to cutover](frontend/web-next-workplan.md)
 
