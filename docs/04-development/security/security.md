@@ -298,10 +298,12 @@ Required before launch. Drafted with help from a lawyer or template (open-source
 
 ## Dependency security
 
-### Before adding a dependency
+The canonical dependency policy (download thresholds, license rules, commercial-package ban, PR-description requirements) lives in [`AGENTS.md` §8](../../../AGENTS.md). This section adds the **security-specific** checks on top of it.
+
+### Before adding a dependency (security checks)
 
 1. Check `npm audit` / `pnpm audit` — no known critical CVEs.
-2. Verify package legitimacy: weekly downloads, last update, maintainer reputation.
+2. Verify package legitimacy: weekly downloads > 10k, last update < 6 months, maintainer reputation (matches AGENTS.md §8).
 3. Pin version in `package.json` (no `^` for security-critical packages like auth, crypto).
 4. Check license compatibility.
 
@@ -314,7 +316,6 @@ Required before launch. Drafted with help from a lawyer or template (open-source
 
 ### Forbidden
 
-- **No packages with < 1k weekly downloads** unless explicitly justified.
 - **No packages not updated in > 24 months** without explicit risk acceptance.
 - **No `postinstall` scripts** from untrusted packages — review before install.
 
