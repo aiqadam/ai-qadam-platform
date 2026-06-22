@@ -2,6 +2,7 @@
 
 | ID | Severity | Module | Summary | Status | Workflow | Date |
 |---|---|---|---|---|---|---|
+| [ISS-PREEX-001](ISS-PREEX-001.md) | minor | web-next/lint | 17 pre-existing biome lint errors in apps/web-next | resolved | wf-20260623-fix-3 | 2026-06-23 |
 
 ---
 

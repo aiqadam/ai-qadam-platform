@@ -191,6 +191,16 @@ const ALLOWED_MATERIAL_KINDS = new Set<EventMaterial['kind']>([
   'other',
 ]);
 
+function rowToMaterial(row: CmsEventMaterialRow): EventMaterial | null {
+  const title = row.title?.trim() ?? '';
+  if (title.length === 0) return null;
+  const kind = ALLOWED_MATERIAL_KINDS.has(row.kind) ? row.kind : 'other';
+  const fileUrl = row.file ? `${directusBase()}/assets/${row.file}` : null;
+  const url = row.url ? row.url : null;
+  if (!fileUrl && !url) return null;
+  return { id: row.id, title, kind, fileUrl, url, orderIndex: row.order_index ?? 0 };
+}
+
 export async function fetchEventMaterials(eventId: string): Promise<EventMaterial[]> {
   try {
     const params = new URLSearchParams({
@@ -202,17 +212,7 @@ export async function fetchEventMaterials(eventId: string): Promise<EventMateria
     const body = await get<{ data: CmsEventMaterialRow[] }>(
       `/items/event_materials?${params.toString()}`,
     );
-    return body.data
-      .map((row): EventMaterial | null => {
-        const title = row.title?.trim() ?? '';
-        if (title.length === 0) return null;
-        const kind = ALLOWED_MATERIAL_KINDS.has(row.kind) ? row.kind : 'other';
-        const fileUrl = row.file ? `${directusBase()}/assets/${row.file}` : null;
-        const url = row.url ? row.url : null;
-        if (!fileUrl && !url) return null;
-        return { id: row.id, title, kind, fileUrl, url, orderIndex: row.order_index ?? 0 };
-      })
-      .filter((m): m is EventMaterial => m !== null);
+    return body.data.map(rowToMaterial).filter((m): m is EventMaterial => m !== null);
   } catch (err) {
     console.error('[cms] fetchEventMaterials failed:', err instanceof Error ? err.message : err);
     return [];
