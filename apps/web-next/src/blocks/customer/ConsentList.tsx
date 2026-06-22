@@ -10,7 +10,7 @@
 // useUpdateConsent() — both via lib/use-me-profile (allowed in blocks
 // under the lib/use-* convention from PR 1.4).
 //
-// Wiring: docs/architecture/wiring-map.md → member_consents.
+// Wiring: docs/04-development/architecture/wiring-map.md → member_consents.
 
 import { Button } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';

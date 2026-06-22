@@ -99,7 +99,7 @@ Cross-layer contracts (only required when >1 layer touched):
   - customer-visible artifact + the data feed that produces it
 ```
 
-This becomes the first triage section of every new feature spec in [`docs/agent-prompts.md`](../agent-prompts.md) §2 going forward. A feature that touches one layer ships through that layer's owner; a feature that touches more is explicitly multi-layer with documented contracts.
+This becomes the first triage section of every new feature spec in [`docs/05-other/agent-prompts.md`](../05-other/agent-prompts.md) §2 going forward. A feature that touches one layer ships through that layer's owner; a feature that touches more is explicitly multi-layer with documented contracts.
 
 ### What this ADR does NOT decide
 
@@ -140,7 +140,7 @@ C1. **Audit `aiqadam.org/*` for any leaked operator surfaces.** (Currently looks
 
 C2. **Make the customer-facing nav explicit about what's public vs member vs operator.** Today the `/workspace` link is exposed from the public nav for signed-in users; that should be conditional on the operator role.
 
-C3. **Document the "guest → lead → member → engaged" journey** so we know which surface each event maps to. Touches `docs/product-plan.md` + `docs/community-platform-roadmap.md` §3.
+C3. **Document the "guest → lead → member → engaged" journey** so we know which surface each event maps to. Touches `docs/01-business/product-plan.md` + `docs/01-business/community-platform-roadmap.md` §3.
 
 ### Sequencing
 
@@ -207,9 +207,9 @@ To prevent the rewire's value from being eroded by piling more cross-layer mess 
 | Risk | Severity | Mitigation |
 |---|---|---|
 | Phase A consumes a session or two and reveals more Authentik upstream bugs | Medium | The work is bounded — five concrete tasks (A1–A5). If we hit walls, document them, ship the parts that work, defer the rest. |
-| Defer-list grows informally as more cross-layer work surfaces | Medium | Defer-list is captured in this ADR + the [roadmap doc](../community-platform-roadmap.md) §7 inline marks; PM (Viktor) reviews additions to it weekly per decision-batch process. |
+| Defer-list grows informally as more cross-layer work surfaces | Medium | Defer-list is captured in this ADR + the [roadmap doc](../01-business/community-platform-roadmap.md) §7 inline marks; PM (Viktor) reviews additions to it weekly per decision-batch process. |
 | Operators get confused during the Phase B re-org | Medium | One operator-facing change at a time; each cabinet move documented in the operator playbook; pre-announce before any nav move. |
-| "Cross-layer contract" becomes a fig leaf — agents skip documenting it | Medium | The three-layer triage section in `docs/agent-prompts.md` §2 makes contracts a PR-checklist item; gate enforced at review time. |
+| "Cross-layer contract" becomes a fig leaf — agents skip documenting it | Medium | The three-layer triage section in `docs/05-other/agent-prompts.md` §2 makes contracts a PR-checklist item; gate enforced at review time. |
 | We over-correct and try to move things that should stay where they are | Low | Defer-list + the rule "rewire only items in the defer-list, leave shipped surfaces alone unless they're actively broken." |
 | Authentik becomes a single point of failure for the engineering layer | Low | F-S0.2 break-glass already mitigates for Directus + Postgres. Phase A5 extends break-glass to Coolify + Authentik itself. |
 
@@ -220,7 +220,7 @@ To prevent the rewire's value from being eroded by piling more cross-layer mess 
 | Sprint 4 — Self-serve country provisioning (HARD-BLOCKED by G-1) | **DEFERRED — pending Phase A + G-1.** Re-evaluate when both resolve. |
 | Phase ζ.1–ζ.8 | **DEFERRED — pending rewire.** Each item re-evaluated against the layer triage when un-deferred. |
 | Sprint 1 follow-ups (1.1b, 1.1c, 1.5, 1.6b) | **DEFERRED — pending Phase B.** Workspace IA rework changes where they should live. |
-| `docs/agent-prompts.md` §2 (feature template) | Gets a new top section: "Layer triage" — every feature spec runs the triage before any layer-specific work. |
+| `docs/05-other/agent-prompts.md` §2 (feature template) | Gets a new top section: "Layer triage" — every feature spec runs the triage before any layer-specific work. |
 | New roadmap section: Phase rewire | Phases A, B, C become tracked roadmap items with their own PR sequencing once this ADR Accepts. |
 
 ## Outcome — what already shipped (2026-05-23)
@@ -239,8 +239,8 @@ These are early Phase A engineering-layer work. The remaining Phase A tasks (A1 
 - [ADR-0033](./0033-community-member-graph.md) — community member graph on Directus; this ADR places the graph in the operational layer
 - [ADR-0021](./0021-rbac-manifest.md) — RBAC manifest; the role-to-layer mapping
 - [ADR-0035](./0035-admin-cabinet-and-invite-link-onboarding.md) — admin cabinet + invite-link onboarding; partially superseded by Phase A3 (the invite-link flow moves into Authentik's native enrollment flow)
-- [`docs/agent-prompts.md`](../agent-prompts.md) §2 — feature template that gains the three-layer triage
-- [`docs/community-platform-roadmap.md`](../community-platform-roadmap.md) §7 — sprints and Phase ζ; deferred items marked inline
+- [`docs/05-other/agent-prompts.md`](../05-other/agent-prompts.md) §2 — feature template that gains the three-layer triage
+- [`docs/01-business/community-platform-roadmap.md`](../01-business/community-platform-roadmap.md) §7 — sprints and Phase ζ; deferred items marked inline
 - [Authentik docs — Brands](https://docs.goauthentik.io/branding/) — Phase A1 reference
 - [Authentik docs — Single Logout (SLO)](https://docs.goauthentik.io/add-secure-apps/providers/single-logout/) — engineering-layer SLO behaviour referenced in Outcome
 - [Authentik issue #10430](https://github.com/goauthentik/authentik/issues/10430) — known upstream bug on `post_logout_redirect_uri`; the reason Phase A includes redirect stages in our custom invalidation flow

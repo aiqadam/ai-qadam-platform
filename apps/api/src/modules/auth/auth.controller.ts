@@ -26,7 +26,7 @@ import {
   RefreshTokenService,
 } from './refresh-token.service';
 
-// COOKIES — see docs/auth-architecture.md §"Cookies"
+// COOKIES — see docs/04-development/architecture/auth-architecture.md §"Cookies"
 //
 // REFRESH_COOKIE — opaque refresh token. Domain=.aiqadam.org so a sign-in
 // on uz.aiqadam.org is also live on kz/tj/admin/global. We dropped the

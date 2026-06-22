@@ -6,7 +6,7 @@ import { EventRemindersService, type TickResult } from './event-reminders.servic
 // Auth: InternalAuthGuard (Bearer token from INTERNAL_API_TOKEN). The
 // expected caller is an external scheduler (GitHub Actions cron, Coolify
 // scheduled task, or a host systemd timer) that ticks every ~10 min.
-// See `docs/runbooks/event-pre-event-reminders.md` for the wiring.
+// See `docs/02-business-processes/operations/event-pre-event-reminders.md` for the wiring.
 
 @Controller('v1/internal/event-reminders')
 @UseGuards(InternalAuthGuard)

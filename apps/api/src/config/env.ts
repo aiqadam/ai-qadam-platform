@@ -24,7 +24,7 @@ const envSchema = z.object({
   JWT_SIGNING_SECRET: z.string().min(32),
 
   // Authentik OIDC application discovery URL — see
-  // docs/runbooks/authentik-local-bootstrap.md for the values to use locally.
+  // docs/04-development/infrastructure/runbooks/authentik-local-bootstrap.md for the values to use locally.
   OIDC_ISSUER_URL: z.string().url(),
   OIDC_CLIENT_ID: z.string().min(1),
   OIDC_CLIENT_SECRET: z.string().min(1),
@@ -129,7 +129,7 @@ const envSchema = z.object({
   // bot token via the workspace cabinet. Rotation of THIS key is a
   // separate ops procedure that requires decrypting all rows with the
   // old key and re-encrypting with the new one — runbook lives at
-  // docs/runbooks/telegram-token-rotation.md (TODO, ships with R5).
+  // docs/04-development/infrastructure/runbooks/telegram-token-rotation.md (TODO, ships with R5).
   TG_CONFIG_ENCRYPTION_KEY: z
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, 'must be 64 hex chars (32 bytes)')

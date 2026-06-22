@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # infrastructure/restic/aiqadam-restore-drill.sh — F-S0.5 monthly
-# backup-restore drill per ADR-0017 + docs/runbooks/restic-backups.md.
+# backup-restore drill per ADR-0017 + docs/04-development/infrastructure/runbooks/restic-backups.md.
 #
 # Runs on the platform host. Pulls the latest restic snapshot from R2
 # into a scratch directory, asserts that a set of canonical paths
@@ -33,7 +33,7 @@ set -euo pipefail
 
 # ──────────── config ───────────────────────────────────────────────────
 
-# Same env file the daily backup uses (per docs/runbooks/restic-backups.md).
+# Same env file the daily backup uses (per docs/04-development/infrastructure/runbooks/restic-backups.md).
 RESTIC_ENV_FILE="${RESTIC_ENV_FILE:-/etc/restic/r2.env}"
 
 # Scratch root for the restore. Hex-suffixed so concurrent runs (e.g.

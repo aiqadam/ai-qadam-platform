@@ -17,7 +17,7 @@
 // and the block prepends it to its local list — no other consumer
 // needs the data so we skip cache invalidation.
 //
-// Wiring: docs/architecture/wiring-map.md → event_questions.
+// Wiring: docs/04-development/architecture/wiring-map.md → event_questions.
 
 import { Button } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';

@@ -64,12 +64,12 @@ sudo netfilter-persistent save
 
 - ✅ Public exposure of admin UIs and internal services is prevented even if a Compose file is wrong.
 - ✅ iptables rules survive reboots via `iptables-persistent`.
-- ⚠️ Two places to remember when adding a new internal service (Compose file binding + iptables rule). Both are documented in [docs/runbooks/docker-iptables-and-ufw.md](../runbooks/docker-iptables-and-ufw.md).
+- ⚠️ Two places to remember when adding a new internal service (Compose file binding + iptables rule). Both are documented in [docs/04-development/infrastructure/runbooks/docker-iptables-and-ufw.md](../04-development/infrastructure/runbooks/docker-iptables-and-ufw.md).
 - ⚠️ Cargo-culting the iptables rule without understanding `--ctorigdstport` can lead to either over-restriction (breaking inter-container traffic) or under-restriction (typo'd port number).
 - ⚠️ Public-facing services exposed via Traefik on 80/443 should NOT have `DOCKER-USER` DROP rules added. The runbook covers the distinction.
 - 📝 The 2026-05-14 incident (~4 minutes of port-8000 exposure during Coolify install) had no observed exploitation — Coolify's `users` table was empty post-lockdown. Captured for the record in the runbook.
 
 ## References
-- [Runbook: Docker iptables, UFW, and DOCKER-USER](../runbooks/docker-iptables-and-ufw.md) — the procedural how-to
+- [Runbook: Docker iptables, UFW, and DOCKER-USER](../04-development/infrastructure/runbooks/docker-iptables-and-ufw.md) — the procedural how-to
 - [Docker iptables documentation](https://docs.docker.com/network/packet-filtering-firewalls/) — DOCKER-USER chain reference
 - [ADR-0007](0007-coolify-orchestration.md) — Coolify orchestration choice

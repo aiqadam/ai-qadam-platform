@@ -29,7 +29,7 @@
 
 - [ ] I composed L3 blocks; I did not write inline `style=` or raw `fetch()`
 - [ ] No `fetch('/api/...')` outside `apps/web-next/src/lib/api-*.ts`
-- [ ] If I added a block: I added a Storybook story AND updated `docs/architecture/blocks.md`
-- [ ] If I changed data wiring: I updated `docs/architecture/wiring-map.md`
+- [ ] If I added a block: I added a Storybook story AND updated `docs/04-development/architecture/blocks.md`
+- [ ] If I changed data wiring: I updated `docs/04-development/architecture/wiring-map.md`
 - [ ] If I added a new page or cabinet: it was generated via `pnpm gen:page` / `pnpm gen:cabinet` (carries the `@generated-from` marker)
 - [ ] `pnpm arch:check` passes locally

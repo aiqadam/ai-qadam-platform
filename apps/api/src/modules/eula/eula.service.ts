@@ -3,7 +3,7 @@ import { DirectusClient } from '../directus/directus.client';
 
 // Sprint 5.5/7 — EULA resolution + acceptance recording.
 //
-// Per docs/interaction-architecture.md §5: events resolve their EULA via
+// Per docs/04-development/architecture/interaction-architecture.md §5: events resolve their EULA via
 //   event.eula_id  ?? event_type.default_eula_id  ?? null
 // A null result means "no prompt" — the registration flow is a no-op
 // for consent, as in Sprints 1-4.

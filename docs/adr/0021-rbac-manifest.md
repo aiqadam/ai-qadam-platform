@@ -3,16 +3,16 @@
 ## Status
 Accepted, 2026-05-21
 
-> Drafted 2026-05-20 per `docs/community-platform-roadmap.md` §7 Sprint 0.6. **Refreshed + Accepted 2026-05-21** by Viktor (PM) via the [decision-batch process](../decision-batch-process.md). The refresh reflects: Twenty CRM removal (ADR-0033 / F-S3.0 / PR #134), single-origin cabinet routing (ADR-0031 / F-S3.1 / PR #147), and break-glass admin path now shipped (F-S0.2 / PR #158). F-S2.2 RBAC sync, S2.4 Metabase + country dashboard, S2.5 audit log, S2.6 cross-country dashboard, and the F-#113 `rbac.denied` ops-event hook are now **unblocked** + may proceed against this manifest.
+> Drafted 2026-05-20 per `docs/01-business/community-platform-roadmap.md` §7 Sprint 0.6. **Refreshed + Accepted 2026-05-21** by Viktor (PM) via the [decision-batch process](../02-business-processes/decision-batch-process.md). The refresh reflects: Twenty CRM removal (ADR-0033 / F-S3.0 / PR #134), single-origin cabinet routing (ADR-0031 / F-S3.1 / PR #147), and break-glass admin path now shipped (F-S0.2 / PR #158). F-S2.2 RBAC sync, S2.4 Metabase + country dashboard, S2.5 audit log, S2.6 cross-country dashboard, and the F-#113 `rbac.denied` ops-event hook are now **unblocked** + may proceed against this manifest.
 
 ## Context
 
-[SECURITY.md §Authorization](../../.claude/SECURITY.md) commits us to RBAC via Authentik groups + JWT claims, default-deny, controller-level checks, and tenant isolation. Today the implementation is partial and unevenly enforced:
+[SECURITY.md §Authorization](../04-development/security/security.md) commits us to RBAC via Authentik groups + JWT claims, default-deny, controller-level checks, and tenant isolation. Today the implementation is partial and unevenly enforced:
 
 - `users.role` is a Postgres enum with `member | organizer | country_admin | super_admin` ([migration 0009](../../apps/api/src/db/migrations/0009_smooth_pretty_boy.sql)). It is set manually after the first promotion comment in the migration — no Authentik linkage.
-- [`SECURITY.md`](../../.claude/SECURITY.md#roles-in-ai-qadam) lists seven roles (the four above plus `speaker`, `bot_service`, `worker_service`). The two service roles have no carrier in either Postgres or Authentik today.
-- [`auth-architecture.md` §6.7](../auth-architecture.md#67-add-per-country--per-resource-rbac-the-planned-next-step) sketches `users.scope_country_codes text[]` for per-country gating. Not implemented.
-- Sprint 4.5 migrated authoritative user storage to Directus ([migration-to-directus-centric.md](../migration-to-directus-centric.md)). Directus has its own permission-policy model. Twenty CRM (Sprint C5) has workspace-level roles. Plausible has site-level access. Discourse (Phase ζ.2) adds yet another permission model.
+- [`SECURITY.md`](../04-development/security/security.md#roles-in-ai-qadam) lists seven roles (the four above plus `speaker`, `bot_service`, `worker_service`). The two service roles have no carrier in either Postgres or Authentik today.
+- [`auth-architecture.md` §6.7](../04-development/architecture/auth-architecture.md#67-add-per-country--per-resource-rbac-the-planned-next-step) sketches `users.scope_country_codes text[]` for per-country gating. Not implemented.
+- Sprint 4.5 migrated authoritative user storage to Directus ([migration-to-directus-centric.md](../04-development/architecture/migration-to-directus-centric.md)). Directus has its own permission-policy model. Twenty CRM (Sprint C5) has workspace-level roles. Plausible has site-level access. Discourse (Phase ζ.2) adds yet another permission model.
 
 Sprint 2.2 (RBAC sync service) must reconcile Authentik group membership into all four of those engines on every change, and partial failures must be visible — never silent. Before that code can be written, we need one canonical manifest answering: which roles exist, what they map to in each engine, how sync is triggered, who wins in a conflict, what happens when an engine is unreachable.
 
@@ -31,12 +31,12 @@ Authorisation decisions in our API read JWT claims (`groups`, `country_codes`) p
 | Role | Authentik group name | Scope | Sample permissions | Notes |
 |---|---|---|---|---|
 | **member** | `aiqadam-member` | Self + public content | Read public content, manage own profile, register for events, submit feedback | Default for every Authentik user. All other roles are **additive** on top. |
-| **speaker** | `aiqadam-speaker` | Own speaker record | + Edit own speaker profile, view own past-talk analytics, propose next talk | Per [roadmap §3.2](../community-platform-roadmap.md#32-speaker-lifecycle). Cabinet read-mostly. |
-| **sponsor_rep** | `aiqadam-sponsor-rep` | Own sponsoring org's events | + View sponsored-event analytics, download opt-in lead list (per [PII data-flow](../pii-data-flow.md), aggregate-only fields by default), download co-marketing kit | Multiple reps per sponsoring org via Authentik group `aiqadam-sponsor-rep-<org-slug>`. |
+| **speaker** | `aiqadam-speaker` | Own speaker record | + Edit own speaker profile, view own past-talk analytics, propose next talk | Per [roadmap §3.2](../01-business/community-platform-roadmap.md#32-speaker-lifecycle). Cabinet read-mostly. |
+| **sponsor_rep** | `aiqadam-sponsor-rep` | Own sponsoring org's events | + View sponsored-event analytics, download opt-in lead list (per PII data-flow, aggregate-only fields by default), download co-marketing kit | Multiple reps per sponsoring org via Authentik group `aiqadam-sponsor-rep-<org-slug>`. |
 | **organizer** | `aiqadam-organizer-<country>` | Events in assigned country | + Create/edit events in country, view registrations, run check-in, send announcements, see CSAT | Country-scoped. One group per country (`aiqadam-organizer-uz`, `aiqadam-organizer-kz`, `aiqadam-organizer-tj`, `aiqadam-organizer-demo`). |
-| **country_lead** | `aiqadam-country-lead-<country>` | All operations within country | + Manage organizer roster, manage sponsor pipeline, approve speakers, see member PII for matching workflows, run the activate-country wizard for sub-regions | Renamed from `country_admin` for plain-language consistency with the [country-lead lifecycle](../community-platform-roadmap.md#34-operator--country-lead-lifecycle). The old enum value `country_admin` is preserved in Postgres for the denormalised cache during migration. |
+| **country_lead** | `aiqadam-country-lead-<country>` | All operations within country | + Manage organizer roster, manage sponsor pipeline, approve speakers, see member PII for matching workflows, run the activate-country wizard for sub-regions | Renamed from `country_admin` for plain-language consistency with the [country-lead lifecycle](../01-business/community-platform-roadmap.md#34-operator--country-lead-lifecycle). The old enum value `country_admin` is preserved in Postgres for the denormalised cache during migration. |
 | **super_admin** | `aiqadam-super-admin` | All operations everywhere | + Break-glass operations, add countries, edit roles, see everything | Limited to ≤ 3 humans. MFA mandatory (Sprint 5 follow-up). |
-| **bot_service** | `aiqadam-svc-bot` | Internal API surface for Telegram bot | Issue/refresh user JWTs via `/v1/internal/bot/oauth-callback`, write check-ins, read leaderboard | Machine principal. Audience-separated JWT per [auth-architecture §6.4](../auth-architecture.md#64-add-a-telegram-bot-or-other-api-consumer). |
+| **bot_service** | `aiqadam-svc-bot` | Internal API surface for Telegram bot | Issue/refresh user JWTs via `/v1/internal/bot/oauth-callback`, write check-ins, read leaderboard | Machine principal. Audience-separated JWT per [auth-architecture §6.4](../04-development/architecture/auth-architecture.md#64-add-a-telegram-bot-or-other-api-consumer). |
 | **worker_service** | `aiqadam-svc-worker` | Internal API surface for BullMQ workers | Read/write `interactions`, `deliveries`, `responses`; dispatch emails | Machine principal. Audience-separated JWT. |
 
 **Rules:**
@@ -78,7 +78,7 @@ Directus is the data plane (collections: `events`, `registrations`, `users`, `sp
 | `aiqadam-member` | `policy.member` | Read public collections; CRUD on own `directus_users` row; create `registrations`, `feedback_responses` keyed to self. |
 | `aiqadam-speaker` | `policy.speaker` | + Update own `speakers` row, read own `event_speakers` rows. |
 | `aiqadam-sponsor-rep-<org>` | `policy.sponsor_rep` + dynamic filter `{ sponsorships: { sponsor_id: { _eq: $CURRENT_USER.sponsor_id } } }` | Read own org's sponsorships and opt-in leads only. |
-| `aiqadam-organizer-<country>` | `policy.organizer` + filter `{ country_code: { _eq: "<country>" } }` | CRUD `events`, `registrations`, `event_speakers` in country. Read PII fields per [PII data-flow §3](../pii-data-flow.md) only on opt-in flag. |
+| `aiqadam-organizer-<country>` | `policy.organizer` + filter `{ country_code: { _eq: "<country>" } }` | CRUD `events`, `registrations`, `event_speakers` in country. Read PII fields per PII data-flow §3 only on opt-in flag. |
 | `aiqadam-country-lead-<country>` | `policy.country_lead` + filter `{ country_code: { _eq: "<country>" } }` | Organizer permissions + roster management + sponsor pipeline + see PII. |
 | `aiqadam-super-admin` | Directus built-in `Admin` policy | Unrestricted. |
 | `aiqadam-svc-bot` | `policy.svc_bot` (no filter) | Read all `events`, write `registrations.checked_in_at`, read `point_awards`. No PII fields except `telegram_user_id`. |
@@ -138,7 +138,7 @@ Concretely, on every sync (webhook-triggered or poll-triggered):
 2. Read the *current* state from each engine.
 3. Diff. Apply the delta. Log every add/remove to `audit_events` (collection shipped in Sprint 2.5).
 4. If a user has been **deleted in Authentik** but still exists in an engine, the sync **revokes** all engine memberships (does NOT delete the engine record itself — orphaned records remain for audit, marked `status: revoked`).
-5. If a user has been **added directly in an engine** without an Authentik mirror (e.g., someone clicked "invite" inside Twenty), the sync **revokes** that engine seat. Operators get a one-time email: "Add `<user>` to Authentik group `<group>` instead — see [country-lead runbook](../runbooks/country-lead-activation.md)."
+5. If a user has been **added directly in an engine** without an Authentik mirror (e.g., someone clicked "invite" inside Twenty), the sync **revokes** that engine seat. Operators get a one-time email: "Add `<user>` to Authentik group `<group>` instead — see [country-lead runbook](../02-business-processes/operations/country-lead-activation.md)."
 
 ### 7. Per-engine state machine + partial-failure handling
 
@@ -190,7 +190,7 @@ Per-engine status is also surfaced on the user's own `/me/access-log` page (Spri
 
 ### 10. Open sub-decisions deferred to ADRs
 
-- ~~**ADR-0032 — break-glass override path for RBAC sync failure**~~ — **Resolved 2026-05-21 by F-S0.2 (PR #158).** When Authentik is unreachable mid-country-activation OR the sync service itself wedges, a `super_admin` falls back to the cached break-glass credentials at `/tmp/aiqadam-secrets-BREAKGLASS_DIRECTUS_TOKEN` (Directus admin API) or `/tmp/aiqadam-secrets-BREAKGLASS_PG_PASSWORD` (Postgres `aiqadam_breakglass` SUPERUSER role). The two paths together cover schema-level + data-level repair without going through Authentik. Procedure in [`docs/runbooks/break-glass.md`](../runbooks/break-glass.md). The note in §"Consequences" below (Authentik-as-load-bearing) is the failure mode this resolves.
+- ~~**ADR-0032 — break-glass override path for RBAC sync failure**~~ — **Resolved 2026-05-21 by F-S0.2 (PR #158).** When Authentik is unreachable mid-country-activation OR the sync service itself wedges, a `super_admin` falls back to the cached break-glass credentials at `/tmp/aiqadam-secrets-BREAKGLASS_DIRECTUS_TOKEN` (Directus admin API) or `/tmp/aiqadam-secrets-BREAKGLASS_PG_PASSWORD` (Postgres `aiqadam_breakglass` SUPERUSER role). The two paths together cover schema-level + data-level repair without going through Authentik. Procedure in [`docs/04-development/security/runbooks/break-glass.md`](../04-development/security/runbooks/break-glass.md). The note in §"Consequences" below (Authentik-as-load-bearing) is the failure mode this resolves.
 - **Discourse mapping** (Phase ζ.2): re-open §4.4 when Discourse is provisioned.
 
 ## Rationale
@@ -216,7 +216,7 @@ Per-country groups scale to ~20 countries × 2 groups = 40 groups. Below Authent
 
 ### Why `country_lead` instead of `country_admin`
 
-Consistency with [`community-platform-roadmap.md` §3.4](../community-platform-roadmap.md#34-operator--country-lead-lifecycle) and [`ux-and-content-guidelines.md` §1](../ux-and-content-guidelines.md#1-voice) (plain words, not jargon). The Postgres enum keeps `country_admin` as a denormalised cache value until the column itself is retired in a future migration; the JWT/Authentik canonical name is `country_lead`.
+Consistency with [`community-platform-roadmap.md` §3.4](../01-business/community-platform-roadmap.md#34-operator--country-lead-lifecycle) and [`ux-and-content-guidelines.md` §1](../04-development/design-system/ux-and-content-guidelines.md#1-voice) (plain words, not jargon). The Postgres enum keeps `country_admin` as a denormalised cache value until the column itself is retired in a future migration; the JWT/Authentik canonical name is `country_lead`.
 
 ### Why no per-resource ACLs (sharing) in Phase 1
 
@@ -230,7 +230,7 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
 - ✅ Partial-failure visibility eliminates the silent-corruption mode that ungated cross-engine sync usually has.
 - ⚠️ **Authentik becomes load-bearing**. An Authentik outage means: no new sign-ins, no role changes, but in-flight 15-min JWTs continue to work. Mitigated by the break-glass admin path (Sprint 0.2).
 - ⚠️ **Group sprawl** if we grow to many countries (40+ groups at 20 countries). Acceptable below 20 countries; revisit if Phase 2 exceeds.
-- ⚠️ **The bootstrap is human-paced.** Steps 2–3 of §9 require an operator to hand-create groups in Authentik before Sprint 2.2 code can be exercised end-to-end. Documented in the runbook ([`docs/runbooks/rbac-bootstrap.md`](../runbooks/rbac-bootstrap.md), follow-up).
+- ⚠️ **The bootstrap is human-paced.** Steps 2–3 of §9 require an operator to hand-create groups in Authentik before Sprint 2.2 code can be exercised end-to-end. Documented in the runbook (`docs/runbooks/rbac-bootstrap.md`, follow-up).
 - 📝 Postgres `users.role` enum is now advisory. Future ADR may retire the column once all readers are migrated.
 - 📝 The `speaker` role only governs the speaker cabinet (Sprint 3.3). A speaker's basic permissions to register / give CSAT come from their parallel `member` membership.
 
@@ -255,14 +255,14 @@ Some apps (Notion, Google Drive) let an admin override role-based defaults per r
 - **2026-05-20:** Initial draft (Proposed). Awaiting decision-batch review.
 
 ## References
-- [`docs/community-platform-roadmap.md` §7 Sprint 0.6 + Sprint 2.2](../community-platform-roadmap.md) — the requirement this implements
-- [`docs/auth-architecture.md` §6.7](../auth-architecture.md#67-add-per-country--per-resource-rbac-the-planned-next-step) — the placeholder this ADR makes concrete
-- [`.claude/SECURITY.md` §Authorization](../../.claude/SECURITY.md) — the principle and starting role list
-- [`.claude/GLOSSARY.md`](../../.claude/GLOSSARY.md) — domain terms (Country Admin, Role, Tenant)
-- [`docs/migration-to-directus-centric.md`](../migration-to-directus-centric.md) — why Directus permission policies are the data-plane gate
+- [`docs/01-business/community-platform-roadmap.md` §7 Sprint 0.6 + Sprint 2.2](../01-business/community-platform-roadmap.md) — the requirement this implements
+- [`docs/04-development/architecture/auth-architecture.md` §6.7](../04-development/architecture/auth-architecture.md#67-add-per-country--per-resource-rbac-the-planned-next-step) — the placeholder this ADR makes concrete
+- [`docs/04-development/security/security.md` §Authorization](../04-development/security/security.md) — the principle and starting role list
+- [`docs/01-business/glossary.md`](../01-business/glossary.md) — domain terms (Country Admin, Role, Tenant)
+- [`docs/04-development/architecture/migration-to-directus-centric.md`](../04-development/architecture/migration-to-directus-centric.md) — why Directus permission policies are the data-plane gate
 - [ADR-0031 — Single-origin cabinet routing](./0031-single-origin-cabinet-routing.md) — Accepted; the routing layer that consumes the JWT claims minted here
 - [ADR-0032 — Operator tools must SSO or embed](./0032-operator-tools-must-sso-or-embed.md) — Accepted; constrains which engines this RBAC manifest needs to propagate to
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — Accepted; replaces Twenty CRM with the Directus member graph + partner_audiences entitlements (why §4.2 changed)
-- [ADR-0001](./0001-docs-live-in-claude-folder.md), [ADR-0016 — Auth bootstrap](./0016-auth-bootstrap.md) — format + auth context
-- [`docs/runbooks/break-glass.md`](../runbooks/break-glass.md) — the fallback this ADR's §10 + §Consequences delegates to
+- [ADR-0001](./0001-docs-live-in-claude-folder.md), [ADR-0016 — Web auth flow](./0016-web-auth-flow.md) — format + auth context
+- [`docs/04-development/security/runbooks/break-glass.md`](../04-development/security/runbooks/break-glass.md) — the fallback this ADR's §10 + §Consequences delegates to
 - [Authentik webhook docs](https://docs.goauthentik.io/docs/sys-mgmt/events/notifications)

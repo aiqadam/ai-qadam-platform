@@ -5,11 +5,11 @@ Proposed, 2026-05-23
 
 ## Context
 
-[Sprint 3 §3.8](../community-platform-roadmap.md#sprint-3) calls for an auto-generated quarterly sponsor digest PDF — per-sponsor cohort analytics + co-marketing summary, mailed/downloadable on a quarterly cadence. The original spec planned this feature on top of Metabase queries against `bi.*` SQL views (architecture doc §8).
+[Sprint 3 §3.8](../01-business/community-platform-roadmap.md#sprint-3) calls for an auto-generated quarterly sponsor digest PDF — per-sponsor cohort analytics + co-marketing summary, mailed/downloadable on a quarterly cadence. The original spec planned this feature on top of Metabase queries against `bi.*` SQL views (architecture doc §8).
 
 Two things have changed since that spec was written:
 
-1. **S2.4 Metabase deploy is HUMAN-deferred** under the zero-recurring-spend filter ([business-process-gaps.md G-2](../business-process-gaps.md)). The capability is needed; the operational decision to deploy it has been deferred until sponsor revenue stabilises. There is no committed date.
+1. **S2.4 Metabase deploy is HUMAN-deferred** under the zero-recurring-spend filter ([business-process-gaps.md G-2](../02-business-processes/business-process-gaps.md)). The capability is needed; the operational decision to deploy it has been deferred until sponsor revenue stabilises. There is no committed date.
 2. **F-S3.5-b ([PR #236](https://github.com/viktordrukker/aiqadam/pull/236))** shipped per-partner asset scoping on the sponsor cabinet using a direct Directus filter (no `bi.*` views, no Metabase). That precedent demonstrated that aggregate-only queries against Directus are tractable, performant enough for cabinet rendering, and respect the [ADR-0033 sponsor PII boundary](./0033-community-member-graph.md) by construction (Directus aggregate API never returns row-level data unless the caller selects it).
 
 The quarterly digest is structurally similar to F-S3.5-b: aggregate counts grouped by cohort, scoped to one sponsor at a time, no member-row PII. There is no analytical complexity in the digest that requires a query engine beyond what Directus already exposes.
@@ -58,7 +58,7 @@ When Metabase deploys, no rewrite is required — the rollup service is independ
 
 ## References
 
-- [Sprint 3 §3.8](../community-platform-roadmap.md#sprint-3) — original spec
+- [Sprint 3 §3.8](../01-business/community-platform-roadmap.md#sprint-3) — original spec
 - [ADR-0033](./0033-community-member-graph.md) — sponsor PII boundary
 - [ADR-0025](./0025-brand-asset-tooling.md) — marketing_assets visibility + approval workflow
 - [PR #236](https://github.com/viktordrukker/aiqadam/pull/236) — F-S3.5-b precedent for direct-Directus aggregate queries on the sponsor cabinet

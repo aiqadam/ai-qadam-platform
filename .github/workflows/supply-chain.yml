@@ -6,7 +6,7 @@ name: supply-chain
 #   - gitleaks scans the tree for committed secrets on every PR + push to main
 #   - Dependabot config in .github/dependabot.yml feeds the auto-bump PRs
 #     that keep the lockfile + image tags green between scans
-# Runbook: docs/runbooks/supply-chain.md
+# Runbook: docs/04-development/security/runbooks/supply-chain.md
 
 on:
   pull_request:

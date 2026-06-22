@@ -8,7 +8,7 @@ Proposed, 2026-05-21
 > already exists at `/home/drukker/aiqadam-telegram-bot/` (commit `f2eee50`,
 > not yet pushed to GitHub) — this ADR codifies the architectural decisions
 > that scaffold encodes, for PM acceptance via the
-> [decision-batch process](../decision-batch-process.md).
+> [decision-batch process](../02-business-processes/decision-batch-process.md).
 
 ## Context
 
@@ -22,7 +22,7 @@ Proposed, 2026-05-21
   tool SSO via Authentik OR embed in workspace; no auth islands.
 - [ADR-0033](./0033-community-member-graph.md) — community-as-platform; member
   graph in Directus is canonical; no sales CRM.
-- [community-platform-roadmap.md §Sprint 5.5](../community-platform-roadmap.md):
+- [community-platform-roadmap.md §Sprint 5.5](../01-business/community-platform-roadmap.md):
   bot v0 (account-link only, "4 PRs").
 - [PRs #67–#87](https://github.com/viktordrukker/aiqadam/pulls?q=is%3Apr+is%3Amerged+%2367+OR+%2387)
   shipped: Interactions primitive + dispatcher + EmailAdapter +
@@ -52,7 +52,7 @@ Proposed, 2026-05-21
 | **ntfy.sh / Gotify** | MIT/Apache | Wrong shape — server→device push, not member broadcast. |
 | **AlertManager** | Apache | Wrong shape — ops alerts. |
 | **Botpress / Rasa** | AGPL/Apache | Pass. NLU framework over-scope; AGPL needs explicit approval per [CLAUDE.md §9](../../.claude/CLAUDE.md). |
-| **aiogram 3** | MIT (Python) | **Adopt.** Already named in [ARCHITECTURE.md](../../.claude/ARCHITECTURE.md). |
+| **aiogram 3** | MIT (Python) | **Adopt.** Already named in [ARCHITECTURE.md](../04-development/architecture/architecture.md). |
 | **viktordrukker/tgblaster bot-stack** | MIT | **Crib from, don't import.** Reference for flood/retry, FSM, QR deeplink, schema-versioned reg forms, broadcaster idempotency. |
 
 ## Decision
@@ -261,7 +261,7 @@ In the **aiqadam repo**:
 
 ### Phase Bot-B — full member-bot per ADR-0015
 
-(Sized in [community-platform-roadmap.md](../community-platform-roadmap.md) §Phase ζ; not in S5.5.)
+(Sized in [community-platform-roadmap.md](../01-business/community-platform-roadmap.md) §Phase ζ; not in S5.5.)
 
 ## Risks + mitigations
 
@@ -331,12 +331,12 @@ single `bytea` column. The version byte reserves room for an algorithm
 swap without schema churn; decrypt refuses unknown versions.
 
 **Why not Vault/KMS**: out of scope for Phase 1 (zero-recurring-spend
-filter per `docs/business-process-gaps.md`). Adopting a managed KMS
+filter per `docs/02-business-processes/business-process-gaps.md`). Adopting a managed KMS
 becomes load-bearing when (a) we run more than one secret of this
 class, OR (b) per-tenant encryption keys are needed (currently NULL =
 global default per §Q4).
 
-**Key rotation**: documented at `docs/runbooks/telegram-token-rotation.md`
+**Key rotation**: documented at `docs/04-development/infrastructure/runbooks/telegram-token-rotation.md`
 (stub in PR-1; full procedure with R5). Out of scope for R2.
 
 **What this addendum does NOT change** from the original ADR: the
@@ -350,8 +350,8 @@ endpoint.
 - [ADR-0026](./0026-telegram-channel.md) — per-country channels
 - [ADR-0032](./0032-operator-tools-must-sso-or-embed.md) — no auth islands
 - [ADR-0033](./0033-community-member-graph.md) — community-as-platform
-- [community-platform-roadmap.md §Sprint 5.5](../community-platform-roadmap.md)
-- [decision-batch-process](../decision-batch-process.md) — how this gets accepted
+- [community-platform-roadmap.md §Sprint 5.5](../01-business/community-platform-roadmap.md)
+- [decision-batch-process](../02-business-processes/decision-batch-process.md) — how this gets accepted
 - AsyncAPI 3.0 spec: published in the new repo at `docs/asyncapi.yaml`
 - `viktordrukker/tgblaster` — MIT reference for bot-stack patterns
 - AsyncAPI: https://www.asyncapi.com/docs

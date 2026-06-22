@@ -20,7 +20,7 @@
 # All other OIDC values are public (issuer URL, client ID, redirect
 # URL) and inlined below.
 #
-# Deployment: see docs/runbooks/observability.md.
+# Deployment: see docs/04-development/infrastructure/runbooks/observability.md.
 
 name: gatus
 
@@ -103,7 +103,7 @@ configs:
       # ──────────────────────────────────────────────────────────────
       # Endpoints — every public AI Qadam surface gets a probe here.
       # When you add a new FQDN, add a corresponding entry below in the
-      # SAME PR that adds the FQDN (rule per docs/runbooks/observability.md).
+      # SAME PR that adds the FQDN (rule per docs/04-development/infrastructure/runbooks/observability.md).
       # ──────────────────────────────────────────────────────────────
       endpoints:
         - name: web — aiqadam.org (apex)

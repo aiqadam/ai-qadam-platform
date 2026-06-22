@@ -5,7 +5,7 @@ import { LeadNurtureCronService, type TickResult } from './lead-nurture-cron.ser
 // F-S1.6b — lead nurture cron entrypoint.
 // Auth: InternalAuthGuard (Bearer token from INTERNAL_API_TOKEN). Caller
 // is an external scheduler ticking ~hourly. See
-// `docs/runbooks/lead-nurture.md` for wiring options.
+// `docs/02-business-processes/operations/lead-nurture.md` for wiring options.
 
 @Controller('v1/internal/lead-nurture')
 @UseGuards(InternalAuthGuard)

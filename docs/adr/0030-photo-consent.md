@@ -3,13 +3,13 @@
 ## Status
 Accepted, 2026-05-21
 
-> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../decision-batch-process.md). Recurring cost is negligible — wristbands ~$5/event × ~10 events/year/country ≈ $150/year across UZ+KZ+TJ; the schema work + cron sit alongside the F-S3.0 graph. Unblocks Phase ζ moderation work + sponsor PII boundary integrity per ADR-0033.
+> Accepted by Viktor (PM) on 2026-05-21 via the [decision-batch process](../02-business-processes/decision-batch-process.md). Recurring cost is negligible — wristbands ~$5/event × ~10 events/year/country ≈ $150/year across UZ+KZ+TJ; the schema work + cron sit alongside the F-S3.0 graph. Unblocks Phase ζ moderation work + sponsor PII boundary integrity per ADR-0033.
 
 ## Context
 
 Events generate photographs that show attendees. Per ADR-0033, AI Qadam is community-as-platform; photos with attendee faces feed sponsor recap decks + the social-card + recap pipelines (F-S5.4 + F-S1.1c). Operator photographers + member-volunteer photographers + sponsor staff all take photos at events. Without an explicit consent model, every published photo is a potential GDPR / regional privacy violation + a trust hit if a member is surprised to see their face on a sponsor's recap.
 
-[`ux-and-content-guidelines.md`](../ux-and-content-guidelines.md) (§11 onboarding scripts + §15 empty/error states) mentions registration-time consent but doesn't define the photo-consent flow specifically. Existing primitives:
+[`ux-and-content-guidelines.md`](../04-development/design-system/ux-and-content-guidelines.md) (§11 onboarding scripts + §15 empty/error states) mentions registration-time consent but doesn't define the photo-consent flow specifically. Existing primitives:
 
 - `member_consents.purpose=content` (per ADR-0033) — coarse-grained, covers "may we use your contributions including your name in our content"
 - `eula_acceptances` (per Sprint 5.5/2) — event-EULA-bound consent, immutable
@@ -70,7 +70,7 @@ At door: colored wristband (Option B) — fast signal for photographers. Post-ev
 
 - Public recap surfaces (event recap page, social cards): only photos where ALL `pictured_members.photo_consent = true` for that event. Other photos: archive-only, not published.
 - Sponsor recap PDF (per F-S3.8): same rule as public; sponsor sees aggregated cohort analytics per ADR-0033 sponsor PII boundary, never raw photos.
-- Press / media coverage requests: photos handled per-request per [`security.md`](../runbooks/security.md) for press-data-sharing approvals (TBD as we hit our first inbound press request).
+- Press / media coverage requests: photos handled per-request per [`security-incident.md`](../04-development/security/runbooks/security-incident.md) for press-data-sharing approvals (TBD as we hit our first inbound press request).
 
 ### EULA integration
 
@@ -82,12 +82,12 @@ The event EULA (per Sprint 5.5/2 `eulas` collection) gets a `photo_consent_requi
 - Operator effort: ~5 min training per event for wristband distribution; ~30 min per event for post-event photo tagging.
 - Wristband cost: ~USD 5/event for 100 disposable bands.
 - Revocation propagation: cron + 7-day SLO; if violated, manual escalation to the country lead.
-- Compliance posture: aligned with GDPR-style "informed + revocable" consent; documented in [`audit.md`](../runbooks/audit.md) for quarterly review.
+- Compliance posture: aligned with GDPR-style "informed + revocable" consent; documented in [`audit.md`](../04-development/security/runbooks/audit.md) for quarterly review.
 
 ## References
 
 - [ADR-0033 — Community member graph](./0033-community-member-graph.md) — `member_consents` primitive + sponsor PII boundary
-- [Sprint 5.5/2 EULA + consent infrastructure](../community-platform-roadmap.md) — `eulas` + `eula_acceptances` + `consent_records` collections
-- [`ux-and-content-guidelines.md`](../ux-and-content-guidelines.md) §11 — onboarding scripts (where the consent UX surfaces)
-- [`audit.md`](../runbooks/audit.md) — audit-log queries that read this consent state
-- [`marketing-and-pr-playbook.md` §14](../marketing-and-pr-playbook.md) — per-event playbook (where the wristband step slots in)
+- [Sprint 5.5/2 EULA + consent infrastructure](../01-business/community-platform-roadmap.md) — `eulas` + `eula_acceptances` + `consent_records` collections
+- [`ux-and-content-guidelines.md`](../04-development/design-system/ux-and-content-guidelines.md) §11 — onboarding scripts (where the consent UX surfaces)
+- [`audit.md`](../04-development/security/runbooks/audit.md) — audit-log queries that read this consent state
+- [`marketing-and-pr-playbook.md` §14](../02-business-processes/marketing-and-pr-playbook.md) — per-event playbook (where the wristband step slots in)

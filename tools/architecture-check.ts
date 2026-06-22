@@ -9,7 +9,7 @@
 //   pnpm arch:check            — scan everything under apps/web-next/
 //   pnpm arch:check --staged   — scan only files staged for commit
 //
-// Spec → docs/architecture/web-next-kickoff.md and ADR-0038 §Locks.
+// Spec → docs/04-development/frontend/web-next-kickoff.md and ADR-0038 §Locks.
 // Zero runtime dependencies on purpose: this must run in pre-commit
 // in ~2s, no install step required.
 
@@ -28,8 +28,8 @@ const REPO_ROOT = (() => {
 })();
 
 const WEB_NEXT_ROOT = join(REPO_ROOT, 'apps', 'web-next');
-const BLOCKS_CATALOGUE = join(REPO_ROOT, 'docs', 'architecture', 'blocks.md');
-const WIRING_MAP = join(REPO_ROOT, 'docs', 'architecture', 'wiring-map.md');
+const BLOCKS_CATALOGUE = join(REPO_ROOT, 'docs', '04-development', 'architecture', 'blocks.md');
+const WIRING_MAP = join(REPO_ROOT, 'docs', '04-development', 'architecture', 'wiring-map.md');
 
 const STAGED_MODE = process.argv.includes('--staged');
 
@@ -248,10 +248,11 @@ function checkFile(file: string, violations: Violation[]): void {
 // ---------------------------------------------------------------------------
 
 function checkCatalogueCoherence(staged: string[], violations: Violation[]): void {
-  // Lock 4: edits/adds under blocks/ require an edit to docs/architecture/blocks.md.
+  // Lock 4: edits/adds under blocks/ require an edit to docs/04-development/architecture/blocks.md.
   const touchedBlocks = staged.filter((f) => inWebNextBlocks(f) && SOURCE_EXT.test(f));
   if (touchedBlocks.length === 0) return;
-  const catalogueRel = relative(REPO_ROOT, BLOCKS_CATALOGUE);
+  // normalize to forward-slashes so comparison matches git's output on Windows
+  const catalogueRel = relative(REPO_ROOT, BLOCKS_CATALOGUE).replace(/\\/g, '/');
   if (!staged.includes(catalogueRel)) {
     violations.push({
       file: touchedBlocks[0] ?? 'apps/web-next/src/blocks/',
@@ -294,6 +295,6 @@ for (const v of violations) {
   console.error(`    ${v.message}\n`);
 }
 console.error(
-  'See docs/adr/0038-web-4-layer-architecture.md and docs/architecture/web-next-kickoff.md for the full lock spec.',
+  'See docs/adr/0038-web-4-layer-architecture.md and docs/04-development/frontend/web-next-kickoff.md for the full lock spec.',
 );
 process.exit(1);

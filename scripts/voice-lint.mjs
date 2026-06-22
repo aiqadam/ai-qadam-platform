@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/voice-lint.mjs — flags voice/tone anti-patterns from
-// docs/ux-and-content-guidelines.md §1 against ADDED lines on the
+// docs/04-development/design-system/ux-and-content-guidelines.md §1 against ADDED lines on the
 // current diff vs origin/main (not the whole file). This keeps the
 // lint useful for new code without forcing a one-shot cleanup PR
 // for the existing codebase.
@@ -13,7 +13,7 @@
 // on the PR. Run locally with:
 //   pnpm voice-lint
 //
-// Patterns are derived from docs/ux-and-content-guidelines.md §1
+// Patterns are derived from docs/04-development/design-system/ux-and-content-guidelines.md §1
 // (Voice & tone principles). When the doc adds a new anti-pattern,
 // add it here too — keep the two in sync.
 
@@ -172,7 +172,7 @@ function main() {
   }
   if (total > 0) {
     console.log(
-      `\nvoice-lint: ${total} finding(s) on added lines. See docs/ux-and-content-guidelines.md §1.`,
+      `\nvoice-lint: ${total} finding(s) on added lines. See docs/04-development/design-system/ux-and-content-guidelines.md §1.`,
     );
     process.exit(1);
   }

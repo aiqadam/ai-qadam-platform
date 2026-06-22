@@ -1,7 +1,7 @@
 # ADR-0001: Operating documentation lives in `.claude/`
 
 ## Status
-Accepted, 2026-05-14
+Superseded by [ADR-0039](0039-five-layer-doc-architecture.md), 2026-06-19. Originally Accepted 2026-05-14.
 
 ## Context
 The eight operating documents (`CLAUDE.md`, `PROJECT.md`, `ARCHITECTURE.md`, `STANDARDS.md`, `WORKFLOW.md`, `SECURITY.md`, `AI_COLLAB.md`, `GLOSSARY.md`) need to be discoverable both by humans browsing the repository and by Claude Code at session start.
@@ -41,4 +41,4 @@ ADRs and runbooks (operational procedures) live in `docs/adr/` and `docs/runbook
 - 📝 If we ever onboard non-Claude AI tooling (Cursor, Aider, Codeium, etc.), each typically wants its own conventions-folder. We'd either duplicate the docs (bad), symlink them (acceptable), or write a small generator. Not a current concern.
 
 ## References
-- [ARCHITECTURE.md §"Repository structure"](../../.claude/ARCHITECTURE.md) cites this ADR.
+- [ARCHITECTURE.md §"Repository structure"](../04-development/architecture/architecture.md) cites this ADR.
