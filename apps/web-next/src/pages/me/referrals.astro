@@ -1,0 +1,38 @@
+---
+// slug: me/referrals
+//
+// FR-MIG-018 — referral program page.
+//
+// Shows the member's referral code + stats via <ReferralDashboard>.
+// Attribution history table deferred (no dedicated endpoint in MVP).
+
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../blocks/common';
+import { ReferralDashboard } from '../../blocks/customer';
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Referrals · AI Qadam (next)"
+  description="Your referral code and stats."
+>
+  <PageHead
+    slot="head"
+    title="Referrals · AI Qadam (next)"
+    description="Your referral code and stats."
+  />
+  <main class="mx-auto max-w-3xl px-6 py-12">
+    <p class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Account</p>
+    <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground mb-3">
+      Referrals
+    </h1>
+    <p class="text-sm text-muted-foreground leading-relaxed mb-8 max-w-prose">
+      Share your referral code with people who might benefit from AI Qadam.
+      You earn points when they attend their first event.
+    </p>
+    <AuthGate signInLabel="Sign in to view your referral code">
+      <ReferralDashboard client:load />
+    </AuthGate>
+  </main>
+</Layout>

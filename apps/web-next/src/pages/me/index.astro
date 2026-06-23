@@ -1,0 +1,168 @@
+---
+// slug: me/index
+//
+// FR-MIG-018 — /me hub page.
+//
+// Minimal hub: nav links to the four /me sub-pages + a membership
+// summary card showing display name + role chip. Full dashboard content
+// (stats, heatmap, badges, QR registrations) deferred to a follow-up
+// MIG ticket.
+//
+// SSR fetches /v1/me/profile for the display name used in the card.
+// AuthGate handles the redirect for anonymous users.
+
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../blocks/common';
+import Layout from '../../layouts/Layout.astro';
+
+const auth = Astro.locals.auth;
+const displayName = auth?.me?.email.split('@')[0] ?? 'Member';
+const primaryGroup = auth?.me?.groups?.[0] ?? null;
+
+// Derive a human-readable role label from the first Authentik group.
+// Mirrors lib/roles.ts logic but kept local here — the hub card is the
+// only consumer that needs this derivation.
+const ROLE_LABELS: Record<string, string> = {
+  'aiqadam-super-admin': 'Super Admin',
+  'aiqadam-staff': 'Staff',
+  'aiqadam-operators': 'Operator',
+  'aiqadam-members': 'Member',
+};
+const roleLabel = primaryGroup ? (ROLE_LABELS[primaryGroup] ?? primaryGroup) : null;
+---
+
+<Layout title="Your hub · AI Qadam (next)" description="Your AI Qadam member hub.">
+  <PageHead slot="head" title="Your hub · AI Qadam (next)" description="Your AI Qadam member hub." />
+  <main class="mx-auto max-w-3xl px-6 py-12">
+    <p class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Account</p>
+    <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground mb-8">Your hub</h1>
+
+    <AuthGate signInLabel="Sign in to view your hub">
+      <div class="space-y-8">
+        {/* Membership summary card */}
+        <div class="rounded-xl border border-border bg-card px-6 py-6">
+          <div class="flex items-center gap-4">
+            {/* Initials avatar — avatar upload deferred per requirement validation */}
+            <div
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-display font-semibold text-lg"
+              aria-hidden="true"
+            >
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <p class="font-display text-lg font-semibold text-foreground">{displayName}</p>
+              {roleLabel && (
+                <span class="inline-block mt-0.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  {roleLabel}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Nav links */}
+        <nav aria-label="Account sections">
+          <ul class="space-y-3">
+            <li>
+              <a
+                href="/me/profile"
+                class="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 hover:border-primary/50 hover:bg-muted/40 transition-colors group"
+              >
+                <div>
+                  <p class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    Profile &amp; skills
+                  </p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    Edit your profile, manage skills, update consents.
+                  </p>
+                </div>
+                <svg
+                  class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </li>
+            <li>
+              <a
+                href="/me/preferences"
+                class="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 hover:border-primary/50 hover:bg-muted/40 transition-colors group"
+              >
+                <div>
+                  <p class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    Email preferences
+                  </p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    Choose which emails you receive from us.
+                  </p>
+                </div>
+                <svg
+                  class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </li>
+            <li>
+              <a
+                href="/me/access-log"
+                class="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 hover:border-primary/50 hover:bg-muted/40 transition-colors group"
+              >
+                <div>
+                  <p class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    Access log
+                  </p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    See your recent sign-ins and session activity.
+                  </p>
+                </div>
+                <svg
+                  class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </li>
+            <li>
+              <a
+                href="/me/referrals"
+                class="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 hover:border-primary/50 hover:bg-muted/40 transition-colors group"
+              >
+                <div>
+                  <p class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    Referrals
+                  </p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    Your referral code and stats.
+                  </p>
+                </div>
+                <svg
+                  class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </AuthGate>
+  </main>
+</Layout>

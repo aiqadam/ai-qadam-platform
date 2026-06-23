@@ -1,0 +1,39 @@
+---
+// slug: me/preferences
+//
+// FR-MIG-018 — email preferences page.
+//
+// Wraps <ConsentList> (GDPR per-purpose consent toggles). No email-frequency
+// control (out of scope per requirement validation). The block handles all
+// API calls via useUpdateConsent() internally.
+
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../blocks/common';
+import { ConsentList } from '../../blocks/customer';
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Email preferences · AI Qadam (next)"
+  description="Choose which emails you receive from AI Qadam."
+>
+  <PageHead
+    slot="head"
+    title="Email preferences · AI Qadam (next)"
+    description="Choose which emails you receive from AI Qadam."
+  />
+  <main class="mx-auto max-w-3xl px-6 py-12">
+    <p class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Account</p>
+    <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground mb-3">
+      Email preferences
+    </h1>
+    <p class="text-sm text-muted-foreground leading-relaxed mb-8 max-w-prose">
+      Transactional messages (event confirmations, password resets) are always
+      sent. Toggle the ones you want below. Defaults are off.
+    </p>
+    <AuthGate signInLabel="Sign in to manage your preferences">
+      <ConsentList client:load />
+    </AuthGate>
+  </main>
+</Layout>

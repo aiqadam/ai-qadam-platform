@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-018
 name: /me hub + /me/preferences + /me/access-log + /me/referrals
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M3
 ---

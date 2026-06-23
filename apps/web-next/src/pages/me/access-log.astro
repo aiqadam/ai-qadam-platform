@@ -1,0 +1,39 @@
+---
+// slug: me/access-log
+//
+// FR-MIG-018 — member-facing access log (auth events only).
+//
+// MVP scope: sign-in, token refresh, sign-out events from GET /v1/me/access-log.
+// No profile/role-change events (deferred to FR-ADM-008).
+// No IP column — the API strips it for self-view per ADR-0033.
+
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../blocks/common';
+import { AccessLogTable } from '../../blocks/customer';
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Access log · AI Qadam (next)"
+  description="Your recent sign-ins and session activity."
+>
+  <PageHead
+    slot="head"
+    title="Access log · AI Qadam (next)"
+    description="Your recent sign-ins and session activity."
+  />
+  <main class="mx-auto max-w-3xl px-6 py-12">
+    <p class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Account</p>
+    <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground mb-3">
+      Access log
+    </h1>
+    <p class="text-sm text-muted-foreground leading-relaxed mb-8 max-w-prose">
+      Recent sign-ins, token refreshes, and sign-outs. Shows your own activity
+      only — IP addresses and other details are not shown here.
+    </p>
+    <AuthGate signInLabel="Sign in to view your access log">
+      <AccessLogTable client:load />
+    </AuthGate>
+  </main>
+</Layout>
