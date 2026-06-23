@@ -5,6 +5,8 @@
 #   scripts/workflow-finish.sh
 #   scripts/workflow-finish.sh --workflow-dir .copilot/tasks/active/wf-20260622-feat-001
 #   scripts/workflow-finish.sh --push-only        # commit + push, skip PR
+#   scripts/workflow-finish.sh --source-only      # define functions, exit 0
+#                                                # (for bats tests to source)
 #   GITHUB_TOKEN=ghp_... scripts/workflow-finish.sh
 #
 # What it does (in order, idempotent):
@@ -13,7 +15,8 @@
 #   C. Commit any pending workflow artifacts
 #   D. Push with rebase+retry on non-fast-forward (max 3 attempts)
 #   E. Create PR via `gh` CLI → REST API → web URL fallback
-#   F. Write PR URL back into handoff.yaml, commit + push#   F.5 Context Sync amendment (FEAT-WORKFLOW-001): if 09-quality-gate.md
+#   F. Write PR URL back into handoff.yaml, commit + push
+#   F.5 Context Sync amendment (FEAT-WORKFLOW-001): if 09-quality-gate.md
 #       shows status: passed AND 08-doc-update.md contains a context_update:
 #       fenced YAML block, apply the registry row + workspace-state row to
 #       the appropriate tracked state files, then commit (--amend only when
@@ -36,6 +39,7 @@ export HUSKY=0
 
 WORKFLOW_DIR=""
 PUSH_ONLY=false
+SOURCE_ONLY=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -43,10 +47,279 @@ while [[ $# -gt 0 ]]; do
       WORKFLOW_DIR="$2"; shift 2 ;;
     --push-only)
       PUSH_ONLY=true; shift ;;
+    --source-only)
+      SOURCE_ONLY=true; shift ;;
+    --help|-h)
+      sed -n '2,22p' "$0" | sed 's/^# \?//'
+      exit 0 ;;
     *)
       echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
+
+# ─── Functions (FEAT-WORKFLOW-002: extracted for testability) ────────────────
+#
+# All F.5 logic lives in these helpers. The script body below calls
+# apply_context_sync_update() with explicit args. The --source-only flag
+# exits here so bats tests can `source <(workflow-finish.sh --source-only)`
+# to load the functions without running the script body.
+
+# extract_context_block <doc_update_file>
+# Reads the `context_update:` fenced YAML block from 08-doc-update.md.
+# Emits the inner YAML (without the `context_update:` key) on stdout.
+# Returns 0 always; emits empty string if block not found.
+extract_context_block() {
+  local doc_update="$1"
+  awk '
+    /^```yaml[[:space:]]*$/ { fence=1; next }
+    fence==1 && /^```[[:space:]]*$/ { exit }
+    fence==1 { print }
+  ' "$doc_update" 2>/dev/null \
+    | awk '
+        /^[[:space:]]*context_update:[[:space:]]*$/ { in_block=1; print; next }
+        in_block==1 { print }
+      ' || true
+}
+
+# parse_context_block <yaml_text>
+# Reads a context_update YAML block and writes 4 lines to globals:
+#   CTX_REGISTRY_FILE, CTX_REGISTRY_ROW, CTX_WS_SECTION, CTX_WS_ROW
+# Multi-line values are concatenated; leading "|" (literal-block marker)
+# is stripped on read.
+parse_context_block() {
+  local ctx_text="$1"
+  CTX_REGISTRY_FILE=""
+  CTX_REGISTRY_ROW=""
+  CTX_WS_SECTION=""
+  CTX_WS_ROW=""
+
+  local current_key=""
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^[[:space:]]*([a-z_]+):[[:space:]]*(.*) ]]; then
+      current_key="${BASH_REMATCH[1]}"
+      local rest="${BASH_REMATCH[2]}"
+      case "$current_key" in
+        registry_file)
+          CTX_REGISTRY_FILE=$(echo "$rest" | sed -E 's/^["'"'"']?(.*)["'"'"']?$/\1/') ;;
+        registry_row)
+          CTX_REGISTRY_ROW="$rest"; current_key="registry_row_continued" ;;
+        workspace_state_section)
+          CTX_WS_SECTION=$(echo "$rest" | sed -E 's/^["'"'"']?(.*)["'"'"']?$/\1/') ;;
+        workspace_state_row)
+          CTX_WS_ROW="$rest"; current_key="workspace_state_row_continued" ;;
+        *) current_key="" ;;
+      esac
+    elif [[ "$current_key" == "registry_row_continued" \
+         || "$current_key" == "workspace_state_row_continued" ]]; then
+      if [[ "$line" =~ ^[[:space:]]+ ]]; then
+        if [[ "$current_key" == "registry_row_continued" ]]; then
+          CTX_REGISTRY_ROW+=$'\n'"$line"
+        else
+          CTX_WS_ROW+=$'\n'"$line"
+        fi
+      else
+        current_key=""
+      fi
+    fi
+  done <<< "$ctx_text"
+
+  # Strip leading "|" from the captured row (YAML literal-block marker).
+  CTX_REGISTRY_ROW=$(echo "$CTX_REGISTRY_ROW" | sed -E 's/^\|//; s/^[[:space:]]+//')
+  CTX_WS_ROW=$(echo "$CTX_WS_ROW" | sed -E 's/^\|//; s/^[[:space:]]+//')
+}
+
+# apply_registry_row <registry_file> <row>
+# Appends <row> to <registry_file> (with idempotency on FR/FEAT IDs).
+# Stages the change in git. Emits progress to stdout.
+apply_registry_row() {
+  local registry_file="$1"
+  local row="$2"
+  if [[ ! -f "$registry_file" ]]; then
+    echo "ERROR: registry_file '$registry_file' does not exist on disk." >&2
+    return 1
+  fi
+  local new_fr_id
+  new_fr_id=$(echo "$row" \
+    | grep -oE '(FR|FEAT)-[A-Z0-9]+-[0-9]+' | head -1 || true)
+  if [[ -n "$new_fr_id" ]] \
+      && grep -qE "\[${new_fr_id}\]" "$registry_file"; then
+    echo "Idempotency: registry row for ${new_fr_id} already present — skipping append."
+    return 0
+  fi
+  echo "" >> "$registry_file"
+  echo "$row" >> "$registry_file"
+  echo "Applied registry row to $registry_file"
+  git add "$registry_file"
+}
+
+# apply_workspace_state_row <workspace_state_file> <section> <row>
+# Inserts <row> under <section> in <workspace_state_file>. Creates the
+# section if absent. Stages the change in git.
+apply_workspace_state_row() {
+  local ws_file="$1"
+  local section="$2"
+  local row="$3"
+  if [[ ! -f "$ws_file" ]]; then
+    echo "ERROR: workspace-state file '$ws_file' not found." >&2
+    return 1
+  fi
+  if grep -q "^## $section" "$ws_file"; then
+    local section_line
+    section_line=$(grep -n "^## $section" "$ws_file" | head -1 | cut -d: -f1)
+    local next_section_line
+    next_section_line=$(awk -v start="$section_line" '
+      NR > start && /^## / { print NR; exit }
+    ' "$ws_file" || true)
+    if [[ -n "$next_section_line" ]]; then
+      head -n $((next_section_line - 1)) "$ws_file" > "$ws_file.tmp"
+      echo "$row" >> "$ws_file.tmp"
+      tail -n +"$next_section_line" "$ws_file" >> "$ws_file.tmp"
+      mv "$ws_file.tmp" "$ws_file"
+    else
+      echo "" >> "$ws_file"
+      echo "$row" >> "$ws_file"
+    fi
+    echo "Applied workspace-state row to $ws_file (section: $section)"
+  else
+    echo "" >> "$ws_file"
+    echo "## $section" >> "$ws_file"
+    echo "" >> "$ws_file"
+    echo "$row" >> "$ws_file"
+    echo "Created section '$section' in $ws_file and appended row."
+  fi
+  git add "$ws_file"
+}
+
+# push_context_sync <branch> <feat_ref> <unpushed_count>
+# Either amend + force-with-lease (when unpushed_count==1) or
+# follow-up commit + rebase-retry. No-op if registry+ws rows didn't change.
+push_context_sync() {
+  local branch="$1"
+  local feat_ref="$2"
+  local unpushed_count="$3"
+  if [[ "$unpushed_count" == "1" ]]; then
+    echo "Amending HEAD with context-sync update (unpushed commits = 1)..."
+    git commit --amend --no-edit
+    git push --force-with-lease origin "$branch"
+    echo "Amend + force-with-lease push complete."
+    return 0
+  fi
+  echo "Creating follow-up context-sync commit "\
+       "(unpushed commits = $unpushed_count, > 1 so amend refused)..."
+  git commit -m "chore(context-sync): update state files for ${feat_ref}"
+  local attempt=0
+  local ok=false
+  while [[ $attempt -lt 3 ]]; do
+    attempt=$((attempt + 1))
+    if git push origin "$branch" 2>/dev/null; then
+      ok=true
+      break
+    fi
+    echo "Context-sync push failed (attempt $attempt). Rebasing..." >&2
+    if ! git pull --rebase origin "$branch" 2>/dev/null; then
+      echo "ERROR: Context-sync rebase failed. Resolve manually." >&2
+      return 1
+    fi
+  done
+  if [[ "$ok" != "true" ]]; then
+    echo "ERROR: Context-sync push failed after 3 attempts." >&2
+    return 1
+  fi
+  echo "Context-sync follow-up commit pushed."
+}
+
+# apply_context_sync_update <handoff> <workflow_dir> <workspace_state> <branch>
+# Top-level orchestrator. Reads the gate + doc-update from the workflow dir,
+# parses the context_update block, applies registry + workspace-state rows,
+# and pushes. Exits non-zero on hard failure; logs and returns on soft issues.
+apply_context_sync_update() {
+  local handoff="$1"
+  local workflow_dir="$2"
+  local workspace_state="$3"
+  local branch="$4"
+
+  local quality_gate="$workflow_dir/09-quality-gate.md"
+  local doc_update="$workflow_dir/08-doc-update.md"
+
+  local expect_update="true"
+  if grep -q '^expects_registry_update:' "$handoff"; then
+    expect_update=$(grep '^expects_registry_update:' "$handoff" \
+      | awk '{print $2}' | tr -d '"' | tr -d "'")
+  fi
+
+  if [[ ! -f "$quality_gate" ]] \
+     || ! grep -qE '^[[:space:]]*status:[[:space:]]*"?passed"?' "$quality_gate" \
+     || [[ "$expect_update" == "false" ]] \
+     || [[ ! -f "$doc_update" ]]; then
+    echo "Step F.5 conditions not met (gate not passed, expects_registry_update: "\
+         "$expect_update, or doc-update missing) — no-op."
+    return 0
+  fi
+
+  local ctx_block
+  ctx_block=$(extract_context_block "$doc_update")
+  if [[ -z "$ctx_block" ]]; then
+    echo "No context_update: block in $doc_update — Step F.5 is a no-op."
+    return 0
+  fi
+
+  parse_context_block "$ctx_block"
+
+  if [[ -z "$CTX_REGISTRY_FILE" ]] || [[ -z "$CTX_REGISTRY_ROW" ]]; then
+    echo "ERROR: context_update block missing registry_file or registry_row." >&2
+    echo "       No amendment applied; QualityGate will fail this run." >&2
+    return 1
+  fi
+  if [[ -z "$CTX_WS_SECTION" ]] || [[ -z "$CTX_WS_ROW" ]]; then
+    echo "ERROR: context_update block missing workspace_state_section or workspace_state_row." >&2
+    echo "       No amendment applied; QualityGate will fail this run." >&2
+    return 1
+  fi
+
+  apply_registry_row "$CTX_REGISTRY_FILE" "$CTX_REGISTRY_ROW" || return 1
+  apply_workspace_state_row "$workspace_state" "$CTX_WS_SECTION" "$CTX_WS_ROW" \
+    || return 1
+
+  local feat_ref
+  feat_ref=$(grep '^requirement_ref:' "$handoff" \
+    | awk '{print $2}' | tr -d '"' | tr -d "'" | tr -d '\r')
+  feat_ref="${feat_ref:-workflow}"
+
+  local unpushed_count
+  unpushed_count=$(git rev-list --count "origin/${branch}..HEAD" 2>/dev/null \
+    || echo 0)
+  push_context_sync "$branch" "$feat_ref" "$unpushed_count" || return 1
+
+  # Increment context_sync_commits counter in handoff.yaml.
+  local count=0
+  if grep -q '^context_sync_commits:' "$handoff"; then
+    count=$(grep '^context_sync_commits:' "$handoff" | awk '{print $2}')
+    count=$((count + 1))
+    sed -i "s|^context_sync_commits:.*|context_sync_commits: ${count}|" \
+      "$handoff"
+  else
+    echo "context_sync_commits: 1" >> "$handoff"
+  fi
+  git add "$handoff"
+  if ! git diff --cached --quiet; then
+    git commit -m "chore(workflow): record context_sync_commits in handoff.yaml" \
+      2>/dev/null || true
+    git push origin "$branch" 2>/dev/null || true
+  fi
+}
+
+# Export helpers so bats tests can call them via `source --source-only`.
+export -f extract_context_block
+export -f parse_context_block
+export -f apply_registry_row
+export -f apply_workspace_state_row
+export -f push_context_sync
+export -f apply_context_sync_update
+
+# --source-only mode: define functions, exit 0.
+if [[ "$SOURCE_ONLY" == "true" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
 
 # ─── A. Resolve workflow directory ───────────────────────────────────────────
 
@@ -78,6 +351,8 @@ if [[ -z "$BRANCH" ]]; then
 fi
 
 echo "Branch       : $BRANCH"
+
+WORKSPACE_STATE=".copilot/context/workspace-state.md"
 
 # ─── B. Verify clean tree + correct branch ───────────────────────────────────
 
@@ -220,247 +495,9 @@ fi
 # Guard: refuses `--amend` unless `git rev-list --count origin/<branch>..HEAD`
 # equals exactly 1 (impact-analysis R-2). Otherwise falls back to a follow-up
 # commit `chore(context-sync): update state files for <FEAT-ID>`. Push uses
-# `--force-with-lease` on the amend path.
+# `--force-with-lease` on amend path.
 
-QUALITY_GATE="$WORKFLOW_DIR/09-quality-gate.md"
-DOC_UPDATE="$WORKFLOW_DIR/08-doc-update.md"
-
-EXPECT_UPDATE="true"
-if grep -q '^expects_registry_update:' "$HANDOFF"; then
-  EXPECT_UPDATE=$(grep '^expects_registry_update:' "$HANDOFF" \
-    | awk '{print $2}' | tr -d '"' | tr -d "'")
-fi
-
-if [[ -f "$QUALITY_GATE" ]] \
-   && grep -q 'status: passed' "$QUALITY_GATE" \
-   && [[ "$EXPECT_UPDATE" != "false" ]] \
-   && [[ -f "$DOC_UPDATE" ]]; then
-
-  # Extract the `context_update:` fenced YAML block from 08-doc-update.md.
-  # We accept either ```yaml or ``` block fences opened by `context_update:`.
-  CONTEXT_BLOCK=$(awk '
-    /^```yaml[[:space:]]*$/ { fence=1; next }
-    fence==1 && /^```[[:space:]]*$/ { exit }
-    fence==1 { print }
-  ' "$DOC_UPDATE" | awk '
-    /^context_update:[[:space:]]*$/ { in_block=1; next }
-    in_block==1 { print }
-  ' || true)
-
-  if [[ -n "$CONTEXT_BLOCK" ]]; then
-    FEAT_REF=$(grep '^requirement_ref:' "$HANDOFF" \
-      | awk '{print $2}' | tr -d '"' | tr -d "'" | tr -d '\r' | tr -d '\r')
-    FEAT_REF="${FEAT_REF:-workflow}"
-
-    REGISTRY_FILE=""
-    REGISTRY_ROW=""
-    WS_SECTION=""
-    WS_ROW=""
-
-    # Parse the context_update block with a minimal YAML reader.
-    # Only the keys `registry_file`, `registry_row`, `workspace_state_section`,
-    # `workspace_state_row` are honored. Everything else is ignored.
-    current_key=""
-    while IFS= read -r line; do
-      # Detect top-level keys (no leading whitespace).
-      if [[ "$line" =~ ^[a-z_]+:[[:space:]]*(.*) ]]; then
-        current_key="${BASH_REMATCH[0]%%:*}"
-        rest="${BASH_REMATCH[1]}"
-        case "$current_key" in
-          registry_file)
-            REGISTRY_FILE=$(echo "$rest" | sed -E 's/^["'"'"']?(.*)["'"'"']?$/\1/')
-            ;;
-          registry_row)
-            # Multi-line: take the rest of the line as start; subsequent
-            # indented lines are appended.
-            REGISTRY_ROW="$rest"
-            current_key="registry_row_continued"
-            ;;
-          workspace_state_section)
-            WS_SECTION=$(echo "$rest" | sed -E 's/^["'"'"']?(.*)["'"'"']?$/\1/')
-            ;;
-          workspace_state_row)
-            WS_ROW="$rest"
-            current_key="workspace_state_row_continued"
-            ;;
-          *)
-            current_key=""
-            ;;
-        esac
-      elif [[ "$current_key" == "registry_row_continued" ]]; then
-        # Indented continuation lines belong to the multi-line value.
-        if [[ "$line" =~ ^[[:space:]]+ ]]; then
-          REGISTRY_ROW+=$'\n'"$line"
-        else
-          current_key=""
-        fi
-      elif [[ "$current_key" == "workspace_state_row_continued" ]]; then
-        if [[ "$line" =~ ^[[:space:]]+ ]]; then
-          WS_ROW+=$'\n'"$line"
-        else
-          current_key=""
-        fi
-      fi
-    done <<< "$CONTEXT_BLOCK"
-
-    # Strip leading "|" from the captured row (YAML literal-block marker).
-    REGISTRY_ROW_CLEAN=$(echo "$REGISTRY_ROW" | sed -E 's/^\|//; s/^[[:space:]]+//')
-    WS_ROW_CLEAN=$(echo "$WS_ROW" | sed -E 's/^\|//; s/^[[:space:]]+//')
-
-    # Refuse to write if either essential piece is missing or empty.
-    if [[ -z "$REGISTRY_FILE" ]] || [[ -z "$REGISTRY_ROW_CLEAN" ]]; then
-      echo "ERROR: context_update block missing registry_file or registry_row." >&2
-      echo "       No amendment applied; QualityGate will fail this run." >&2
-    elif [[ -z "$WS_SECTION" ]] || [[ -z "$WS_ROW_CLEAN" ]]; then
-      echo "ERROR: context_update block missing workspace_state_section or workspace_state_row." >&2
-      echo "       No amendment applied; QualityGate will fail this run." >&2
-    else
-      # Apply registry row. Insert before the first `---` (or at end).
-      if [[ -f "$REGISTRY_FILE" ]]; then
-        # Insert after the last existing row in the target table.
-        # We use a simple append-to-table approach: add at end of file before EOF.
-        # For both registries, this preserves the existing ordering convention
-        # (shipped-first; the new row is the most recent by virtue of being
-        # appended to the file's table section). For the requirements-registry,
-        # DocWriter conventionally appends near the table; for issues/registry,
-        # the same pattern applies.
-        # Idempotency: if any existing row already references this FR ID,
-        # skip the append. We extract the FR identifier from the new row
-        # (looks for `FR-XXXX-NNN` or `FEAT-XXXX-NNN`) and check for an
-        # existing match. This avoids duplicates when DocWriter and Step F.5
-        # both target the same row.
-        NEW_FR_ID=$(echo "$REGISTRY_ROW_CLEAN" \
-          | grep -oE '(FR|FEAT)-[A-Z0-9]+-[0-9]+' | head -1 || true)
-        if [[ -n "$NEW_FR_ID" ]] \
-            && grep -qE "\[(FR|FEAT)-[A-Z0-9]+-[0-9]+\]" "$REGISTRY_FILE"; then
-          if grep -qE "\[${NEW_FR_ID}\]" "$REGISTRY_FILE"; then
-            echo "Idempotency: registry row for ${NEW_FR_ID} already present — skipping append."
-          else
-            # Different FR IDs in the row — apply as normal.
-            echo "" >> "$REGISTRY_FILE"
-            echo "$REGISTRY_ROW_CLEAN" >> "$REGISTRY_FILE"
-            echo "Applied registry row to $REGISTRY_FILE"
-          fi
-        else
-          echo "" >> "$REGISTRY_FILE"
-          echo "$REGISTRY_ROW_CLEAN" >> "$REGISTRY_FILE"
-          echo "Applied registry row to $REGISTRY_FILE"
-        fi
-
-        git add "$REGISTRY_FILE"
-      else
-        echo "ERROR: registry_file '$REGISTRY_FILE' does not exist on disk." >&2
-        echo "       No amendment applied." >&2
-      fi
-
-      # Apply workspace-state row.
-      if [[ -f "$WORKSPACE_STATE" ]]; then
-        # Locate the target section heading and insert after the last row of
-        # its table. If section not found, append at end of file.
-        WS_FILE="$WORKSPACE_STATE"
-        if grep -q "^## $WS_SECTION" "$WS_FILE"; then
-          # Find line number of the section heading; insert before next `##`
-          # heading (or EOF).
-          SECTION_LINE=$(grep -n "^## $WS_SECTION" "$WS_FILE" | head -1 \
-            | cut -d: -f1)
-          NEXT_SECTION_LINE=$(awk -v start="$SECTION_LINE" '
-            NR > start && /^## / { print NR; exit }
-          ' "$WS_FILE" || true)
-          if [[ -n "$NEXT_SECTION_LINE" ]]; then
-            # Insert before the next section heading.
-            head -n $((NEXT_SECTION_LINE - 1)) "$WS_FILE" \
-              > "$WS_FILE.tmp"
-            echo "$WS_ROW_CLEAN" >> "$WS_FILE.tmp"
-            tail -n +"$NEXT_SECTION_LINE" "$WS_FILE" >> "$WS_FILE.tmp"
-            mv "$WS_FILE.tmp" "$WS_FILE"
-          else
-            # No next section; append at end.
-            echo "" >> "$WS_FILE"
-            echo "$WS_ROW_CLEAN" >> "$WS_FILE"
-          fi
-          echo "Applied workspace-state row to $WS_FILE (section: $WS_SECTION)"
-        else
-          echo "" >> "$WS_FILE"
-          echo "## $WS_SECTION" >> "$WS_FILE"
-          echo "" >> "$WS_FILE"
-          echo "$WS_ROW_CLEAN" >> "$WS_FILE"
-          echo "Created section '$WS_SECTION' in $WS_FILE and appended row."
-        fi
-
-        git add "$WS_FILE"
-      else
-        echo "ERROR: workspace-state file '$WORKSPACE_STATE' not found." >&2
-        echo "       No workspace-state row applied." >&2
-      fi
-
-      # Decide amend vs follow-up based on unpushed-commits count (R-2).
-      UNPUSHED_COUNT=$(git rev-list --count "origin/${BRANCH}..HEAD" 2>/dev/null \
-        || echo 0)
-
-      if [[ "$UNPUSHED_COUNT" == "1" ]]; then
-        # Amend path. Use --force-with-lease (R-2 mitigation).
-        echo "Amending HEAD with context-sync update (unpushed commits = 1)..."
-        git commit --amend --no-edit
-        git push --force-with-lease origin "$BRANCH"
-        echo "Amend + force-with-lease push complete."
-      else
-        # Follow-up commit path.
-        echo "Creating follow-up context-sync commit "\
-             "(unpushed commits = $UNPUSHED_COUNT, > 1 so amend refused)..."
-        git commit -m "chore(context-sync): update state files for ${FEAT_REF}"
-        # Standard rebase+retry on the follow-up path.
-        CONTEXT_PUSH_ATTEMPT=0
-        CONTEXT_PUSH_MAX=3
-        CONTEXT_PUSH_OK=false
-        while [[ $CONTEXT_PUSH_ATTEMPT -lt $CONTEXT_PUSH_MAX ]]; do
-          CONTEXT_PUSH_ATTEMPT=$((CONTEXT_PUSH_ATTEMPT + 1))
-          if git push origin "$BRANCH" 2>/dev/null; then
-            CONTEXT_PUSH_OK=true
-            break
-          else
-            echo "Context-sync push failed (attempt $CONTEXT_PUSH_ATTEMPT). "\
-                 "Rebasing onto origin/$BRANCH..." >&2
-            if ! git pull --rebase origin "$BRANCH" 2>/dev/null; then
-              echo "ERROR: Context-sync rebase failed. Resolve manually." >&2
-              exit 1
-            fi
-          fi
-        done
-        if [[ "$CONTEXT_PUSH_OK" != "true" ]]; then
-          echo "ERROR: Context-sync push failed after $CONTEXT_PUSH_MAX attempts." >&2
-          exit 1
-        fi
-        echo "Context-sync follow-up commit pushed."
-      fi
-
-      # Increment context_sync_commits counter in handoff.yaml.
-      CONTEXT_SYNC_COUNT=0
-      if grep -q '^context_sync_commits:' "$HANDOFF"; then
-        CONTEXT_SYNC_COUNT=$(grep '^context_sync_commits:' "$HANDOFF" \
-          | awk '{print $2}')
-        CONTEXT_SYNC_COUNT=$((CONTEXT_SYNC_COUNT + 1))
-        sed -i "s|^context_sync_commits:.*|context_sync_commits: ${CONTEXT_SYNC_COUNT}|" \
-          "$HANDOFF"
-      else
-        echo "context_sync_commits: 1" >> "$HANDOFF"
-      fi
-      git add "$HANDOFF"
-      # If handoff was just amended into the previous commit, there is
-      # nothing to commit; otherwise it is already part of the follow-up
-      # commit above. Either way: try once, swallow if nothing to do.
-      if ! git diff --cached --quiet; then
-        git commit -m "chore(workflow): record context_sync_commits in handoff.yaml" \
-          2>/dev/null || true
-        git push origin "$BRANCH" 2>/dev/null || true
-      fi
-    fi
-  else
-    echo "No context_update: block in $DOC_UPDATE — Step F.5 is a no-op."
-  fi
-else
-  echo "Step F.5 conditions not met (gate not passed, expects_registry_update: "\
-       "$EXPECT_UPDATE, or doc-update missing) — no-op."
-fi
+apply_context_sync_update "$HANDOFF" "$WORKFLOW_DIR" "$WORKSPACE_STATE" "$BRANCH"
 
 # ─── G. Return to main ───────────────────────────────────────────────────────
 
