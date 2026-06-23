@@ -21,10 +21,19 @@ import type {
 
 const WORKSPACE_EVENTS_BASE_KEY = ['workspace', 'events'] as const;
 
-export function useWorkspaceEvents(): UseQueryResult<{ events: WorkspaceEventListItem[] }, Error> {
+export function useWorkspaceEvents(
+  country?: string,
+): UseQueryResult<{ events: WorkspaceEventListItem[] }, Error> {
   return useQuery<{ events: WorkspaceEventListItem[] }, Error>({
-    queryKey: [...WORKSPACE_EVENTS_BASE_KEY, 'list'] as const,
-    queryFn: async () => apiClient<{ events: WorkspaceEventListItem[] }>('/v1/workspace/events'),
+    queryKey: country
+      ? ([...WORKSPACE_EVENTS_BASE_KEY, 'list', country] as const)
+      : ([...WORKSPACE_EVENTS_BASE_KEY, 'list'] as const),
+    queryFn: async () => {
+      const url = country
+        ? `/v1/workspace/events?country=${encodeURIComponent(country)}`
+        : '/v1/workspace/events';
+      return apiClient<{ events: WorkspaceEventListItem[] }>(url);
+    },
   });
 }
 

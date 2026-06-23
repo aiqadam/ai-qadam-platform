@@ -1,0 +1,31 @@
+feature: FR-MIG-014
+name: /workspace/integrations/telegram — root + segments builder
+type: requirement-development
+status: active
+branch: feature/MIG-014-telegram-segments
+created: 2026-06-23T00:00:00Z
+pr_url: null
+depends_on:
+  - FR-MIG-004
+  - FR-MIG-006
+
+steps_completed:
+  - Step 0: Workflow initialization
+
+steps_remaining:
+  - Step 1: Create types for tg-segments
+  - Step 2: Create use-tg-segments hook
+  - Step 3: Create TgSegmentsList block
+  - Step 4: Create CriteriaBuilder block
+  - Step 5: Create segments page
+  - Step 6: Create telegram root page
+  - Step 7: Update blocks.md
+  - Step 8: Run verification gates
+  - Step 9: Commit and push
+  - Step 10: Create PR
+
+acceptance_criteria:
+  - Telegram root shows bot connection status
+  - Creating a segment with country + registered_for_event saves and previews correctly
+  - Editing an existing segment loads its criteria correctly
+  - pnpm arch:check + astro check + pnpm build pass

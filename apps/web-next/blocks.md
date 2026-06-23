@@ -31,6 +31,8 @@
 | `/workspace/admin/audit` | Admin: audit log | authed |
 | `/workspace/admin/countries` | Admin: country list | authed |
 | `/workspace/admin/countries/[code]/provisioning` | Admin: country provisioning | authed |
+| `/workspace/integrations/telegram` | Telegram integration root | authed |
+| `/workspace/integrations/telegram/segments` | Telegram audience segments | authed |
 
 ## L1 lib hooks
 
@@ -39,6 +41,7 @@ L1 runtime functions that blocks and pages import.
 | Hook | File | Purpose |
 |---|---|---|
 | `signOut()` | `lib/sign-out.ts` | Explicit sign-out (clears session + IdP SLO) |
+| `useTgSegments()` | `lib/use-tg-segments.ts` | Telegram segment CRUD hooks |
 
 ## Common blocks
 
@@ -80,6 +83,8 @@ L1 runtime functions that blocks and pages import.
 | `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
 | `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |
 | `<FormResponsesCabinet>` | `blocks/workspace/FormResponsesCabinet.tsx` | Responses inbox with aggregate + CSV export |
+| `<CriteriaBuilder>` | `blocks/workspace/CriteriaBuilder.tsx` | Segment criteria DSL builder (AND/OR, country, events, topics) |
+| `<TgSegmentsList>` | `blocks/workspace/TgSegmentsList.tsx` | Telegram audience segments list + create/edit |
 
 ## Customer blocks (L2)
 
