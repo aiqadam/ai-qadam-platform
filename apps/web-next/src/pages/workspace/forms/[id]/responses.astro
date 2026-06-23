@@ -1,0 +1,41 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/forms/[id]/responses
+// FR-MIG-013 — form responses cabinet (operator responses inbox).
+//
+// Composition only (L4): <FormResponsesCabinet> reads aggregate + submissions
+// via useFormAggregate + useFormSubmissions, renders aggregate cards and
+// submissions table with CSV export.
+//
+// Wiring: docs/04-development/architecture/wiring-map.md → workspace_forms (responses).
+//
+// SSR — role gate reads Astro.locals.auth (Authentik OIDC session).
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { Breadcrumbs, FormResponsesCabinet, PageShell } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+
+const { id } = Astro.params as { id: string };
+---
+
+<Layout title="Form responses · AI Qadam workspace" description="Operator form responses inbox.">
+  <PageHead slot="head" title="Form responses · AI Qadam workspace" description="Operator form responses inbox." />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Responses"
+      description="Aggregate stats and individual submissions for your form."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Forms', href: '/workspace/forms' },
+          { label: 'Responses' },
+        ]}
+      />
+      <FormResponsesCabinet client:load formId={id} />
+    </PageShell>
+  </AuthGate>
+</Layout>
