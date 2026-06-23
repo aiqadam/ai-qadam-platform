@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-23T08:45:00Z
+**Last updated:** 2026-06-23T16:10:00Z
 
 ---
 
@@ -14,6 +14,7 @@ _(none)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260623-feat-011 | requirement-development | FR-MIG-018 /me hub + preferences | feature/MIG-018-me-hub | [PR #24](https://github.com/tvolodi/aiqadam/pull/24) | 2026-06-23 |
 | wf-20260623-feat-012 | requirement-development | FR-MIG-012 Countries list | feature/MIG-012-countries-list | [PR #22](https://github.com/tvolodi/aiqadam/pull/22) | 2026-06-23 |
 | wf-20260623-feat-010 | requirement-development | FR-MIG-010 Members filter panel | feature/MIG-010-members-filter-panel | [PR #20](https://github.com/tvolodi/aiqadam/pull/20) | 2026-06-23 |
 | wf-20260622-feat-001 | requirement-development | FR-MIG-003 Form block | main → merged | — | 2026-06-22 |
@@ -39,11 +40,18 @@ _(none)_
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 11)
+See `.copilot/meta/next-workflow-id` (currently: 12)
 
 ---
 
 ## Notes
+
+**2026-06-23:** FR-MIG-018 (/me hub + preferences + access-log + referrals) completed and PR created.
+- 4 Astro pages: /me hub, preferences, access-log, referrals
+- 2 TanStack Query hooks + 2 React blocks
+- 80 unit tests (249 total tests pass)
+- All gates passed: typecheck, biome, security review
+- PR: [https://github.com/tvolodi/aiqadam/pull/24](https://github.com/tvolodi/aiqadam/pull/24)
 
 **2026-06-23:** FR-MIG-012 (Countries list + provisioning wizard) completed and PR created.
 - CountriesList React island with DataTable showing status badges, locale, currency, TZ, holidays count
