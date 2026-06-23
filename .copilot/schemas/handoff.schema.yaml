@@ -133,6 +133,26 @@ issue_ref: ""             # For issue-resolution workflow: ISS number being reso
 
 deferrals: []
 
+# ─── Context Drift Guard (FEAT-WORKFLOW-001) ─────────────────────────────────
+# expects_registry_update:
+#   true  → QualityGate "Context-Update Check" must verify the appropriate
+#           state file (requirements-registry.md / registry.md / workspace-state.md)
+#           was modified by the PR diff.
+#   false → QualityGate skips the Context-Update Check entirely.
+#           Use for documentation-only follow-ups, subworkflows that do not
+#           introduce a new FR/ISS row, and emergency bypasses.
+# Default when absent: false (opt-out for backwards compatibility —
+# in-flight workflows under the pre-FEAT-WORKFLOW-001 contract continue to
+# pass without touching the state files).
+expects_registry_update: false
+
+# context_sync_commits:
+#   Count of context-sync follow-up commits created by the Step F.5 amendment
+#   sub-step in scripts/workflow-finish.sh. Zero is normal (marker absent,
+#   amend path, or no FEAT-ID change since the previous workflow). Populated
+#   by scripts/workflow-finish.sh when applicable.
+context_sync_commits: 0
+
 # ─── Artifacts ───────────────────────────────────────────────────────────────
 
 artifacts: []

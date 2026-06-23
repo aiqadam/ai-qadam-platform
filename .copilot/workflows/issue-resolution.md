@@ -44,6 +44,32 @@ git checkout -b fix/ISS-<n>-<slug>
 
 ---
 
+### Step 0.5: Context Sync (blocking)
+
+**Agent:** Orchestrator (direct — no specialized agent)
+
+**Purpose:** Detect drift between project-level state files and `origin/<base>`
+before any other step runs. Same behavior as the `requirement-development`
+workflow's Step 0.5 (see `.copilot/workflows/requirement-development.md`
+§Step 0.5 for full description).
+
+**Action:**
+```bash
+scripts/check-workflow-state.sh --base "origin/${BASE_BRANCH:-main}"
+```
+
+**Gate:**
+- Script exits 0 → Step 1.
+- Script exits 1 → workflow MUST NOT advance. Orchestrator MUST reconcile
+  state and re-run Step 0.5 until it passes (or apply `--skip` with
+  explicit user override and recorded reason in `handoff.yaml.needs_review.reason`).
+- Script exits 2 → invocation error; fix and retry.
+
+This step is **additive** — does not renumber subsequent steps. File prefixes
+follow the existing numbering and are unaffected.
+
+---
+
 ### Step 1: Issue Lookup
 
 **Agent:** Orchestrator (direct)

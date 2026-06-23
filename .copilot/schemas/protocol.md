@@ -88,6 +88,7 @@ GITHUB_TOKEN=ghp_... scripts/workflow-finish.sh  # enables REST API PR creation
 | D | Push with rebase+retry on non-fast-forward (max 3) | Yes |
 | E | Create PR via `gh` CLI → REST API → web URL fallback | Yes — 409/existing PR reused |
 | F | Write PR URL back into `handoff.yaml`, commit + push | Yes |
+| F.5 | **Context Sync amendment** (FEAT-WORKFLOW-001) — if `09-quality-gate.md` shows `status: passed` AND `08-doc-update.md` contains a `context_update:` fenced YAML block: apply the block (registry row + workspace-state row), commit, and push with rebase+retry. Uses `--amend` only when `git rev-list --count origin/<branch>..HEAD` equals 1; otherwise follows up with `chore(context-sync): update state files for <FEAT-ID>`. Push uses `--force-with-lease` on the amend path. If no `context_update:` block is present, this step is a no-op. | Yes |
 | G | `git checkout main` + `pull --rebase` | Yes |
 
 **Pre-push gate checks (Orchestrator verifies before invoking the script):**

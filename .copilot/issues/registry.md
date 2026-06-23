@@ -3,6 +3,7 @@
 | ID | Severity | Module | Summary | Status | Workflow | Date |
 |---|---|---|---|---|---|---|
 | [ISS-PREEX-001](ISS-PREEX-001.md) | minor | web-next/lint | 17 pre-existing biome lint errors in apps/web-next | resolved | wf-20260623-fix-3 | 2026-06-23 |
+| [FEAT-WORKFLOW-002](FEAT-WORKFLOW-002.md) | enhancement | workflow/test | Add bats-core test suite for FEAT-WORKFLOW-001 (drift script + F.5 amendment) + shellcheck CI gate + QualityGate end-to-end test harness | open | _(next workflow after FEAT-WORKFLOW-001 ships)_ | 2026-06-23 |
 
 ---
 

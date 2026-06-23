@@ -47,7 +47,40 @@ From `.copilot/tasks/active/<workflow-id>/`:
 - Were all documents that needed updating actually updated?
 - Is the feature marked `✅ implemented` in the requirements doc?
 
-### 6. Branch and Commit Readiness
+### 6. Context-Update Check
+- Read `handoff.yaml` for `expects_registry_update: true|false`.
+  - **If `false` or missing:** skip this check entirely (opt-out for
+    documentation-only follow-ups and subworkflows — see
+    `02-impact-analysis.md` R-4).
+  - **If `true`:** perform the verification below.
+- Determine the expected state file from `workflow_type`:
+  - `requirement-development` → `docs/03-requirements/requirements-registry.md`
+  - `issue-resolution` → `.copilot/issues/registry.md`
+- Both `requirement-development` and `issue-resolution` MUST also touch
+  `.copilot/context/workspace-state.md`.
+- Run:
+  ```bash
+  git diff --stat "origin/${base_branch:-main}...HEAD" -- <state-file>
+  ```
+  and confirm at least one line changed in the expected state file. The
+  expected file **for both workflow types** also includes
+  `.copilot/context/workspace-state.md`.
+- For `requirement-development`: additionally confirm the FR row matching
+  `requirement_ref` in `requirements-registry.md` was modified (Status
+  column changed, or row appended).
+- For `issue-resolution`: additionally confirm the ISS row matching
+  `issue_ref` in `issues/registry.md` was modified.
+- If the expected state file was NOT modified and `expects_registry_update`
+  was `true`: **GATE FAILURE** with `retry_target: 09-doc-update`
+  (or equivalent DocWriter step) and a clear message:
+  `"PR does not modify <state-file>; QualityGate Context-Update Check failed."`
+
+This check is **additive**. The existing six checks are unchanged. The
+amendment sub-step in `scripts/workflow-finish.sh` (Step F.5) is the
+mechanism that performs the registry update when the workflow emits a
+`context_update:` fenced YAML block in `08-doc-update.md`.
+
+### 7. Branch and Commit Readiness
 - **CLEAN TREE INVARIANT (mandatory):** Run `git status -sb` and verify output shows `[up to date with 'origin/<branch>']`. A state of `[ahead N]`, `[behind N]`, or diverged is a **GATE FAILURE**.
 - **FORMATTER CLEANLINESS (mandatory):** Run `pnpm biome check .` and verify no output. Any dirty file is a GATE FAILURE even if the tree is otherwise clean. This guards against formatter drift that only surfaces after commit.
 - Verify `handoff.yaml.branch` matches `git rev-parse --abbrev-ref HEAD`.
