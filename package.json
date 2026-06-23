@@ -20,6 +20,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:bash": "bash scripts/run-bats.sh scripts/tests/*.bats",
     "lint": "biome check .",
     "fix": "biome check --write .",
     "format": "biome format --write .",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "bats": "^1.10.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
     "tsx": "^4.22.3",
