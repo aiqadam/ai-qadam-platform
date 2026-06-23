@@ -1,0 +1,39 @@
+---
+workflow_instance_id: wf-20260623-feat-009
+workflow_type: requirement-development
+workflow_version: "1.0"
+created_at: "2026-06-23T08:00:00Z"
+requirement_ref: FR-MIG-010
+branch: feature/MIG-010-members-filter-panel
+base_branch: main
+current_step: 0
+current_step_name: initialize
+last_updated_at: "2026-06-23T08:00:00Z"
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+artifacts: []
+deferrals: []
+issues_created: []
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/20"
+workflow_status: completed
+---
+# Handoff Data
+
+## Requirement
+FR-MIG-010: /workspace/members — filter panel + cohort save/load
+
+## Description
+Extends the shipped members list with the filter panel (criteria builder) and the ability to save named cohorts for reuse in announcements and Telegram segments.
+
+## Key Details
+- Users: Country leads building targeted audience lists
+- Depends on: FR-MIG-003 (Form block)
+- Components to wire: `<MembersFilterPanel>`, `<SaveCohortModal>`, `<SavedCohortsPanel>`
+
+## Acceptance Criteria
+- [ ] Opening filter drawer and selecting criteria filters the member list without page reload
+- [ ] Filter chips appear above the table and are individually removable
+- [ ] Saving a cohort with a name persists it; refreshing and loading the cohort restores the same filters
+- [ ] URL params reflect active filters
+- [ ] `pnpm arch:check` + `astro check` + `pnpm build` pass

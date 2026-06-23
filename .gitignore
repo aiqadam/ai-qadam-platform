@@ -1,7 +1,8 @@
 # --- Agentic workflow task directories (local-only state, never committed) -
 # Agent output files and handoff YAML live here during a workflow run.
 # Completed task dirs are also local-only (archive is on the dev machine).
-.copilot/tasks/
+# --raving--
+# .copilot/tasks/
 
 # --- Dependencies ----------------------------------------------------------
 node_modules/
