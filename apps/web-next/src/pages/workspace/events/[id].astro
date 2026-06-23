@@ -16,7 +16,14 @@
 export const prerender = false;
 
 import { AuthGate, PageHead } from '../../../blocks/common';
-import { Breadcrumbs, EventEditForm, EventFollowups, EventKpiStrip, PageShell } from '../../../blocks/workspace';
+import {
+  Breadcrumbs,
+  EventControlPanelActions,
+  EventEditForm,
+  EventFollowups,
+  EventKpiStrip,
+  PageShell,
+} from '../../../blocks/workspace';
 import Layout from '../../../layouts/Layout.astro';
 
 const { id } = Astro.params as { id: string };
@@ -39,6 +46,7 @@ const { id } = Astro.params as { id: string };
         ]}
       />
       <EventKpiStrip client:load eventId={id} />
+      <EventControlPanelActions client:load eventId={id} />
       <EventEditForm client:load eventId={id} />
       <div class="border-t border-border my-10"></div>
       <EventFollowups client:load eventId={id} />

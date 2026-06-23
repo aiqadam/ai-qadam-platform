@@ -6,12 +6,14 @@
 
 export { AnnounceComposer } from './AnnounceComposer';
 export { ApprovalsList } from './ApprovalsList';
+export { ActionBar, ActionBarIsland, type Action } from './ActionBar';
 export { AsyncSelect } from './AsyncSelect';
 export { AuditLogList } from './AuditLogList';
 export { default as Breadcrumbs } from './Breadcrumbs.astro';
 export { CountryProvisioningWizard } from './CountryProvisioningWizard';
 export { DashboardKpis } from './DashboardKpis';
 export { DataTable } from './DataTable';
+export { EventControlPanelActions } from './EventControlPanelActions';
 export { EventEditForm } from './EventEditForm';
 export { EventFollowups } from './EventFollowups';
 export { EventKpiStrip } from './EventKpiStrip';
