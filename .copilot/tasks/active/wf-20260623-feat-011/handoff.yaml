@@ -13,7 +13,7 @@ github_issue_url: ""
 
 branch: "feature/MIG-018-me-hub"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/24"
 
 current_step: 8
 current_step_name: "Execute Tests"
