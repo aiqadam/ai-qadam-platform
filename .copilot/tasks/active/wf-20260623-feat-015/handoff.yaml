@@ -10,7 +10,7 @@ requirement_text: "Implement FR-MIG-015: /workspace/integrations/telegram/broadc
 github_issue_url: ""
 branch: "feature/MIG-015-telegram-broadcasts"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/28"
 current_step: 0
 current_step_name: "initialize"
 workflow_status: "running"
