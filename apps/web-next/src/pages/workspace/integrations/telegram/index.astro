@@ -1,0 +1,121 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/integrations/telegram
+// FR-MIG-014 — Telegram integration root page. Shows bot connection
+// status, linked channel, and quick links to segments and broadcasts.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { Breadcrumbs, PageShell } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+import { Bot, MessageSquare, Users } from 'lucide-react';
+---
+
+<Layout
+  title="Telegram · AI Qadam workspace"
+  description="Operator cabinet for the AI Qadam Telegram integration — segments, broadcasts, and bot status."
+>
+  <PageHead
+    slot="head"
+    title="Telegram · AI Qadam workspace"
+    description="Telegram integration settings and audience management."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Telegram"
+      description="Telegram integration for audience broadcasts and member notifications."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Integrations', href: '/workspace/integrations' },
+          { label: 'Telegram' },
+        ]}
+      />
+
+      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <!-- Bot Status -->
+        <div class="rounded-lg border border-border bg-card p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="rounded-full bg-primary/10 p-2">
+              <Bot className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 class="font-medium text-foreground">Bot Status</h3>
+              <p class="text-sm text-muted-foreground">Connection health</p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">Bot account</span>
+              <span class="rounded bg-success/10 px-2 py-0.5 text-xs font-medium text-success">Connected</span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">Webhook</span>
+              <span class="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audience Segments -->
+        <a href="/workspace/integrations/telegram/segments" class="group rounded-lg border border-border bg-card p-6 hover:border-primary hover:bg-accent/50 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="rounded-full bg-primary/10 p-2">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 class="font-medium text-foreground group-hover:text-primary transition-colors">Audience Segments</h3>
+              <p class="text-sm text-muted-foreground">Define target audiences</p>
+            </div>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Create and manage reusable audience definitions using criteria like country, event registration, and topic interests.
+          </p>
+          <p class="mt-3 text-sm font-medium text-primary">Manage segments →</p>
+        </a>
+
+        <!-- Broadcasts -->
+        <a href="/workspace/integrations/telegram/broadcasts" class="group rounded-lg border border-border bg-card p-6 hover:border-primary hover:bg-accent/50 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="rounded-full bg-primary/10 p-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 class="font-medium text-foreground group-hover:text-primary transition-colors">Broadcasts</h3>
+              <p class="text-sm text-muted-foreground">Send Telegram messages</p>
+            </div>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Compose and send broadcast messages to your audience segments. Schedule for later or send immediately.
+          </p>
+          <p class="mt-3 text-sm font-medium text-primary">View broadcasts →</p>
+        </a>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="mt-8">
+        <h3 class="mb-4 font-medium text-foreground">Quick Stats</h3>
+        <div class="grid gap-4 md:grid-cols-4">
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="text-sm text-muted-foreground">Total segments</p>
+            <p class="mt-1 text-2xl font-semibold text-foreground">—</p>
+          </div>
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="text-sm text-muted-foreground">Active broadcasts</p>
+            <p class="mt-1 text-2xl font-semibold text-foreground">—</p>
+          </div>
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="text-sm text-muted-foreground">Total subscribers</p>
+            <p class="mt-1 text-2xl font-semibold text-foreground">—</p>
+          </div>
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="text-sm text-muted-foreground">Messages sent (30d)</p>
+            <p class="mt-1 text-2xl font-semibold text-foreground">—</p>
+          </div>
+        </div>
+      </div>
+    </PageShell>
+  </AuthGate>
+</Layout>

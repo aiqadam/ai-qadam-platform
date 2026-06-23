@@ -33,4 +33,6 @@ export { PartnerDetail } from './PartnerDetail';
 export { PartnersList } from './PartnersList';
 export { SaveCohortModal } from './SaveCohortModal';
 export { SavedCohortsPanel } from './SavedCohortsPanel';
+export { CriteriaBuilder } from './CriteriaBuilder';
+export { TgSegmentsList } from './TgSegmentsList';
 export { default as WorkspaceNav } from './WorkspaceNav.astro';

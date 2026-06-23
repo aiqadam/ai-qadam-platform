@@ -741,3 +741,57 @@ export interface MyReferralStats {
   attendedReferreesCount: number;
   broughtAFriendBadge: { firstAwardedAt: string; count: number } | null;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/tg-segments (Telegram audience segments)
+//
+// FR-MIG-014 — audience segment builder for Telegram broadcasts.
+// Criteria DSL: { _and?: Leaf[] } or { _or?: Leaf[] }
+// Leaf types: country, registered_for_event, preferred_topics,
+// linked_within_days.
+// ---------------------------------------------------------------------------
+
+export type SegmentCriteria = {
+  _and?: SegmentLeaf[];
+  _or?: SegmentLeaf[];
+};
+
+export type SegmentLeaf =
+  | { country: { _eq?: string; _in?: string[] } }
+  | { registered_for_event: { _eq: string } }
+  | { preferred_topics: { _contains: string } }
+  | { linked_within_days: { _gte: number } };
+
+export interface SegmentSummary {
+  id: string;
+  name: string;
+  country: string;
+  date_created: string;
+}
+
+export interface SegmentDetail extends SegmentSummary {
+  criteria: SegmentCriteria;
+  date_updated: string | null;
+}
+
+export interface SegmentPreview {
+  segment_id: string;
+  match_count: number;
+  sample: { display_name: string }[];
+}
+
+export interface SegmentDraftPreview {
+  match_count: number;
+  sample: { display_name: string }[];
+}
+
+export interface CreateSegmentBody {
+  name: string;
+  country: string;
+  criteria: SegmentCriteria;
+}
+
+export interface UpdateSegmentBody {
+  name?: string;
+  criteria?: SegmentCriteria;
+}
