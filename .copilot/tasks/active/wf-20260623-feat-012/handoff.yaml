@@ -5,7 +5,7 @@ workflow_type: "requirement-development"
 workflow_version: "1.0"
 
 created_at: "2026-06-23T10:30:00Z"
-last_updated_at: "2026-06-23T10:30:00Z"
+last_updated_at: "2026-06-23T17:05:00Z"
 
 requirement_ref: "FR-MIG-006"
 requirement_text: "FormBuilder block (drag/reorder, 7 field types)"
@@ -13,11 +13,11 @@ github_issue_url: ""
 
 branch: "feature/MIG-006-form-builder"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/25"
 
 current_step: 0
 current_step_name: ""
-workflow_status: "running"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -34,9 +34,20 @@ blocking_issue: ""
 paused_at_step: 0
 paused_at_gate: ""
 
-gate_results: {}
-agent_assignments: {}
-retry_counts: {}
+gate_results:
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T17:00:00Z"
+    summary: "FormBuilder component with @dnd-kit drag-drop, 7 field types, preview mode"
+    output_file: ".copilot/tasks/active/wf-20260623-feat-012/03-code-summary.md"
+agent_assignments:
+  code-developer:
+    status: completed
+    step: 4
+    timestamp: "2026-06-23T17:00:00Z"
+retry_counts:
+  code-developer: 0
 
 retry_limits:
   requirement-analyst: 1
@@ -53,7 +64,10 @@ issue_ref: ""
 deferrals: []
 expects_registry_update: false
 context_sync_commits: 0
-artifacts: []
+artifacts:
+  - "apps/web-next/src/blocks/workspace/FormBuilder.tsx"
+  - "apps/web-next/blocks.md"
+  - "docs/04-development/architecture/blocks.md"
 
 context_refs:
   - docs/04-development/architecture/architecture.md
