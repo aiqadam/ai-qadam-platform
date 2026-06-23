@@ -6,6 +6,7 @@
 
 export { AnnounceComposer } from './AnnounceComposer';
 export { ApprovalsList } from './ApprovalsList';
+export { AsyncSelect } from './AsyncSelect';
 export { AuditLogList } from './AuditLogList';
 export { default as Breadcrumbs } from './Breadcrumbs.astro';
 export { CountryProvisioningWizard } from './CountryProvisioningWizard';

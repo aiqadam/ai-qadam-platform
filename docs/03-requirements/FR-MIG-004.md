@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-004
 name: AsyncSelect block (server-search dropdown)
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M1
 ---

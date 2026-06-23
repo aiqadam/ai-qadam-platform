@@ -9,8 +9,8 @@
 //   number   → z.number()          → <Input type="number">
 //   date     → z.string() + date   → <Input type="date">
 //   select   → z.enum()            → <Select>
-//   checkbox → z.boolean()          → <input type="checkbox">
-//   async-select → FR-MIG-004 (not yet built) → renders placeholder
+//   checkbox → z.boolean()         → <input type="checkbox">
+//   async-select → z.string() + meta → <AsyncSelect> (FR-MIG-004)
 //
 // AGENTS.md §5: Presentation-only — no direct API calls inside the block.
 
@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type DefaultValues, type FieldPath, type RegisterOptions, useForm } from 'react-hook-form';
 import { type AnyZodObject, type ZodTypeAny, z } from 'zod';
+import { AsyncSelect, type AsyncSelectOption } from './AsyncSelect';
 
 // ─── Field metadata ──────────────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ interface FieldMeta {
   options?: readonly string[] | undefined; // for select / enum
   required: boolean;
   disabled?: boolean | undefined;
+  /** For async-select fields: called with the search query to load matching options. */
+  loadOptions?: ((input: string) => Promise<AsyncSelectOption[]>) | undefined;
 }
 
 // ─── Zod inference helpers ────────────────────────────────────────────────────
@@ -255,6 +258,34 @@ function InputField<T extends Record<string, unknown>>({
   );
 }
 
+function AsyncSelectField<T extends Record<string, unknown>>({
+  meta,
+  id,
+  registration,
+  error,
+}: FormFieldProps<T>): React.ReactElement {
+  // RHF stores the selected option's `value` (string) in registration.value
+  const selectedValue = registration.value as string | null | undefined;
+  const { label, placeholder, loadOptions } = meta;
+
+  return (
+    <AsyncSelect
+      id={id}
+      loadOptions={loadOptions ?? (async () => [])}
+      value={selectedValue != null ? { value: selectedValue, label: selectedValue } : null}
+      onChange={(next) => {
+        const event = {
+          target: { name: id, value: next?.value ?? '' },
+        } as unknown as React.ChangeEvent<HTMLInputElement>;
+        registration.onChange?.(event);
+      }}
+      placeholder={placeholder ?? `Search ${label.toLowerCase()}…`}
+      disabled={registration.disabled}
+      className={cn(error && 'border-destructive')}
+    />
+  );
+}
+
 // ─── FormField dispatcher ──────────────────────────────────────────────────────
 
 interface FormFieldProps<T extends Record<string, unknown>> {
@@ -276,9 +307,7 @@ function FormField<T extends Record<string, unknown>>({
     case 'async-select':
       return (
         <Field label={label} htmlFor={id} hint={hint} error={error} required={required}>
-          <div className="rounded-md border border-dashed border-muted-foreground/40 p-3 text-xs text-muted-foreground">
-            async-select field — blocked on FR-MIG-004 (AsyncSelect block)
-          </div>
+          <AsyncSelectField meta={meta} id={id} registration={registration} error={error} />
         </Field>
       );
     case 'checkbox':
