@@ -186,10 +186,12 @@ describe('G1: useFetchOptions — error state (loadOptions rejects)', () => {
   });
 
   it('should preserve errorMessage across re-fetches until next successful load', async () => {
-    const rejectThenFulfill = vi.fn<(input: string) => Promise<AsyncSelectOption[]>>(async (input: string) => {
-      if (input === 'error') return Promise.reject(new Error('Server error'));
-      return Promise.resolve([{ value: input, label: `Label for ${input}` }]);
-    });
+    const rejectThenFulfill = vi.fn<(input: string) => Promise<AsyncSelectOption[]>>(
+      async (input: string) => {
+        if (input === 'error') return Promise.reject(new Error('Server error'));
+        return Promise.resolve([{ value: input, label: `Label for ${input}` }]);
+      },
+    );
 
     // First fetch: loadOptions rejects
     const r1 = callUseFetchOptions(rejectThenFulfill, '', undefined, '', true);

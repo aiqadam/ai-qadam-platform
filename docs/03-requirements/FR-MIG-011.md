@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-011
 name: /workspace/announce — full announcement composer
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M2
 ---
@@ -15,11 +15,11 @@ Country leads, super-admins sending event or community announcements.
 ## Functional scope
 1. Subject line (`<Input>`).
 2. Rich-text body editor (Telegram-safe HTML subset: bold, italic, links, code).
-3. Cohort picker via `<AsyncSelect>` (loads from `/v1/admin/cohorts`).
+3. Cohort picker via `<AsyncSelect>` (loads from `/v1/workspace/cohorts`).
 4. Consent toggle: "only send to members who opted in to announcements".
 5. Preview pane: renders the email as recipients will see it.
 6. `<ActionBar>` actions: Preview, Send (with confirm + estimated recipient count).
-7. POST `/v1/admin/announcements` on send.
+7. POST `/v1/workspace/announce` on send.
 
 ## Acceptance criteria
 - [ ] Rich-text editor supports bold, italic, link insertion, inline code.
