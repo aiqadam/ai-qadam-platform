@@ -15,8 +15,9 @@ import {
   type WorkspaceEventStatus,
 } from '@/lib/types';
 import { useWorkspaceEvents } from '@/lib/use-workspace-events';
-import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
+import { type ReactElement, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from './DataTable';
+import { FilterChip } from './FilterChip';
 
 const STATUS_TONE: Record<WorkspaceEventStatus, string> = {
   draft: 'border-border text-muted-foreground bg-card',
@@ -31,30 +32,6 @@ function StatusBadge({ status }: { status: WorkspaceEventStatus }): ReactElement
     >
       {status}
     </span>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`font-mono text-[11px] px-2 py-1 rounded border transition-colors ${
-        active
-          ? 'bg-primary text-primary-foreground border-primary'
-          : 'bg-card text-muted-foreground border-border hover:border-primary/40'
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

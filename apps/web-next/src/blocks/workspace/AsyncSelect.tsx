@@ -32,7 +32,7 @@ export interface AsyncSelectProps {
   className?: string;
 }
 
-type AsyncState = 'idle' | 'loading' | 'success' | 'error';
+export type AsyncState = 'idle' | 'loading' | 'success' | 'error';
 const DEFAULT_DEBOUNCE_MS = 300;
 
 function useDebounce<T>(value: T, delay: number): T {

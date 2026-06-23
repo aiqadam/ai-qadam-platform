@@ -10,8 +10,9 @@ import { IslandRoot } from '@/lib/island-root';
 import { COUNTRY_CODES, type CountryCode } from '@/lib/types';
 import { AUDIT_SEVERITIES, type AuditEventSummary, type AuditSeverity } from '@/lib/types';
 import { useAuditEvents } from '@/lib/use-audit';
-import { type ReactElement, type ReactNode, useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { DataTable, type DataTableColumn } from './DataTable';
+import { FilterChip } from './FilterChip';
 
 const EVENT_PREFIXES: ReadonlyArray<{ value: string; label: string }> = [
   { value: '', label: 'all' },
@@ -34,30 +35,6 @@ function SeverityBadge({ severity }: { severity: AuditSeverity }): ReactElement 
     >
       {severity}
     </span>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`font-mono text-[11px] px-2 py-1 rounded border transition-colors ${
-        active
-          ? 'bg-primary text-primary-foreground border-primary'
-          : 'bg-card text-muted-foreground border-border hover:border-primary/40'
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

@@ -17,6 +17,7 @@ export { EventControlPanelActions } from './EventControlPanelActions';
 export { EventEditForm } from './EventEditForm';
 export { EventFollowups } from './EventFollowups';
 export { EventKpiStrip } from './EventKpiStrip';
+export { FilterChip } from './FilterChip';
 export { EventsList } from './EventsList';
 export { Form, FormIsland } from './Form';
 export { FormsList } from './FormsList';

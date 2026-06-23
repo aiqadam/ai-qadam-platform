@@ -280,7 +280,7 @@ function AsyncSelectField<T extends Record<string, unknown>>({
         registration.onChange?.(event);
       }}
       placeholder={placeholder ?? `Search ${label.toLowerCase()}…`}
-      disabled={registration.disabled}
+      disabled={registration.disabled ?? false}
       className={cn(error && 'border-destructive')}
     />
   );
