@@ -8,112 +8,165 @@
 // AnnounceComposer.tsx) — same API shapes, same primitives, same
 // guard against zero-cohorts. The L3-block + IslandRoot pattern
 // replaces v1's auth-island bootstrap.
+//
+// FR-MIG-011: Replaces plain <textarea> with Tiptap rich-text editor
+// (bold, italic, links, inline code) and wires <ActionBar> for Preview/Send
+// actions with confirmation dialog on Send.
 
-import {
-  Button,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/kit';
+'use client';
+
+import { ActionBar } from '@/blocks/workspace/ActionBar';
+import type { Action } from '@/blocks/workspace/ActionBar';
+import { Button } from '@/kit';
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';
 import type { AnnouncePreview, AnnounceSent, CohortRow } from '@/lib/types';
 import { type ConsentBasis, usePreviewAnnounce, useSendAnnounce } from '@/lib/use-announce';
 import { useCohorts } from '@/lib/use-cohorts';
-import { type FormEvent, type ReactElement, useState } from 'react';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import Link from '@tiptap/extension-link';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import DOMPurify from 'isomorphic-dompurify';
+import { common, createLowlight } from 'lowlight';
+import { Bold, Code, Italic, Link2 } from 'lucide-react';
+import { type ReactElement, useCallback, useState } from 'react';
 
-interface ComposerFormProps {
-  cohorts: CohortRow[];
-  cohortId: string;
-  subject: string;
-  body: string;
-  isPreviewing: boolean;
-  onChangeCohort: (id: string) => void;
-  onChangeSubject: (s: string) => void;
-  onChangeBody: (s: string) => void;
-  onSubmit: () => void;
+// Create lowlight instance with common languages
+const lowlight = createLowlight(common);
+
+// ─── Tiptap Editor Toolbar ────────────────────────────────────────────────────
+
+interface EditorToolbarProps {
+  editor: ReturnType<typeof useEditor>;
 }
 
-function ComposerForm({
-  cohorts,
-  cohortId,
-  subject,
-  body,
-  isPreviewing,
-  onChangeCohort,
-  onChangeSubject,
-  onChangeBody,
-  onSubmit,
-}: ComposerFormProps): ReactElement {
-  const canPreview =
-    cohortId.length > 0 && subject.trim().length > 0 && body.trim().length > 0 && !isPreviewing;
-  const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
-    e.preventDefault();
-    if (canPreview) onSubmit();
-  };
+function EditorToolbar({ editor }: EditorToolbarProps): ReactElement | null {
+  if (!editor) return null;
+
+  const setLink = useCallback(() => {
+    const linkAttrs = editor.getAttributes('link') as { href?: string };
+    const previousUrl = linkAttrs.href;
+    const url = window.prompt('URL', previousUrl ?? '');
+    if (url === null) return;
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  }, [editor]);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="space-y-1">
-        <label htmlFor="announce-cohort" className="text-xs font-medium text-foreground">
-          Cohort
-        </label>
-        <Select value={cohortId} onValueChange={onChangeCohort}>
-          <SelectTrigger id="announce-cohort" className="max-w-md">
-            <SelectValue placeholder="Pick a saved cohort…" />
-          </SelectTrigger>
-          <SelectContent>
-            {cohorts.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name} ({c.member_count_cached.toLocaleString()})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1">
-        <label htmlFor="announce-subject" className="text-xs font-medium text-foreground">
-          Subject
-        </label>
-        <Input
-          id="announce-subject"
-          value={subject}
-          onChange={(e) => onChangeSubject(e.target.value)}
-          placeholder="Friday demo day — please RSVP"
-          maxLength={200}
-          required
-          className="max-w-md"
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label htmlFor="announce-body" className="text-xs font-medium text-foreground">
-          Body
-        </label>
-        <textarea
-          id="announce-body"
-          value={body}
-          onChange={(e) => onChangeBody(e.target.value)}
-          placeholder="Plain text or minimal HTML."
-          maxLength={20_000}
-          rows={8}
-          required
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        />
-      </div>
-
-      <Button type="submit" disabled={!canPreview}>
-        {isPreviewing ? 'Generating preview…' : 'Preview'}
+    <div className="flex items-center gap-1 border border-input rounded-md bg-muted/50 p-1 mb-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={!editor.can().chain().focus().toggleBold().run()}
+        className={editor.isActive('bold') ? 'bg-muted' : ''}
+        aria-label="Bold"
+      >
+        <Bold className="h-4 w-4" />
       </Button>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={!editor.can().chain().focus().toggleItalic().run()}
+        className={editor.isActive('italic') ? 'bg-muted' : ''}
+        aria-label="Italic"
+      >
+        <Italic className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={setLink}
+        className={editor.isActive('link') ? 'bg-muted' : ''}
+        aria-label="Insert link"
+      >
+        <Link2 className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        disabled={!editor.can().chain().focus().toggleCode().run()}
+        className={editor.isActive('code') ? 'bg-muted' : ''}
+        aria-label="Inline code"
+      >
+        <Code className="h-4 w-4" />
+      </Button>
+    </div>
   );
 }
+
+// ─── Tiptap Editor ───────────────────────────────────────────────────────────
+
+interface TiptapEditorProps {
+  content: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+}
+
+function TiptapEditor({ content, onChange, placeholder }: TiptapEditorProps): ReactElement {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        // Disable code block from StarterKit - using CodeBlockLowlight instead
+        codeBlock: false,
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          rel: 'noopener noreferrer',
+          target: '_blank',
+        },
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
+      }),
+    ],
+    content,
+    onUpdate: ({ editor: e }) => {
+      onChange(e.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class:
+          'prose prose-sm dark:prose-invert focus:outline-none min-h-[120px] max-w-none px-3 py-2',
+        'data-placeholder': placeholder ?? 'Write your message...',
+      },
+    },
+  });
+
+  return (
+    <div className="border border-input rounded-md bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+      <EditorToolbar editor={editor} />
+      <style>{`
+        .tiptap p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: var(--muted-foreground);
+          pointer-events: none;
+          height: 0;
+        }
+      `}</style>
+      <EditorContent editor={editor} />
+    </div>
+  );
+}
+
+// ─── Preview Card ────────────────────────────────────────────────────────────
 
 interface PreviewCardProps {
   preview: AnnouncePreview;
 }
+
 function PreviewCard({ preview }: PreviewCardProps): ReactElement {
   return (
     <section className="space-y-2 rounded-md border border-border bg-card p-4">
@@ -150,18 +203,14 @@ function PreviewCard({ preview }: PreviewCardProps): ReactElement {
   );
 }
 
+// ─── Send Controls ────────────────────────────────────────────────────────────
+
 interface SendControlsProps {
   consentBasis: ConsentBasis;
   onChangeConsentBasis: (v: ConsentBasis) => void;
-  onSend: () => void;
-  isSending: boolean;
 }
-function SendControls({
-  consentBasis,
-  onChangeConsentBasis,
-  onSend,
-  isSending,
-}: SendControlsProps): ReactElement {
+
+function SendControls({ consentBasis, onChangeConsentBasis }: SendControlsProps): ReactElement {
   return (
     <section className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-card p-4">
       <div className="space-y-1">
@@ -178,17 +227,17 @@ function SendControls({
           </SelectContent>
         </Select>
       </div>
-      <Button type="button" onClick={onSend} disabled={isSending}>
-        {isSending ? 'Sending…' : 'Send announcement'}
-      </Button>
     </section>
   );
 }
+
+// ─── Sent Summary ────────────────────────────────────────────────────────────
 
 interface SentSummaryProps {
   sent: AnnounceSent;
   onReset: () => void;
 }
+
 function SentSummary({ sent, onReset }: SentSummaryProps): ReactElement {
   const { sent: nSent, skipped_consent, failed, other } = sent.deliveriesSummary;
   return (
@@ -236,6 +285,128 @@ function SentSummary({ sent, onReset }: SentSummaryProps): ReactElement {
   );
 }
 
+// ─── Composer Form ───────────────────────────────────────────────────────────
+
+interface ComposerFormProps {
+  cohorts: CohortRow[];
+  cohortId: string;
+  subject: string;
+  body: string;
+  consentBasis: ConsentBasis;
+  isPreviewing: boolean;
+  estimatedRecipients: number | null;
+  onChangeCohort: (id: string) => void;
+  onChangeSubject: (s: string) => void;
+  onChangeBody: (s: string) => void;
+  onChangeConsentBasis: (v: ConsentBasis) => void;
+  onPreview: () => void;
+  onSend: () => void;
+}
+
+function ComposerForm({
+  cohorts,
+  cohortId,
+  subject,
+  body,
+  consentBasis,
+  isPreviewing,
+  estimatedRecipients,
+  onChangeCohort,
+  onChangeSubject,
+  onChangeBody,
+  onChangeConsentBasis,
+  onPreview,
+  onSend,
+}: ComposerFormProps): ReactElement {
+  // Preview requires cohort + subject + body (HTML stripped of tags)
+  const bodyText = body.replace(/<[^>]*>/g, '').trim();
+  const canPreview =
+    cohortId.length > 0 && subject.trim().length > 0 && bodyText.length > 0 && !isPreviewing;
+
+  const actions: Action[] = [
+    {
+      label: 'Preview',
+      onClick: onPreview,
+      disabled: !canPreview,
+      loading: isPreviewing,
+    },
+    {
+      label: 'Send',
+      onClick: onSend,
+      disabled: estimatedRecipients === null || estimatedRecipients <= 0,
+      variant: 'default',
+      confirm: {
+        title: 'Send announcement?',
+        description:
+          estimatedRecipients !== null
+            ? `This will send to approximately ${estimatedRecipients.toLocaleString()} recipient${
+                estimatedRecipients === 1 ? '' : 's'
+              } from the selected cohort.`
+            : 'No preview available. Please generate a preview first.',
+        confirmLabel: 'Send',
+      },
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <ActionBar actions={actions} />
+
+      <form className="space-y-3">
+        <div className="space-y-1">
+          <label htmlFor="announce-cohort" className="text-xs font-medium text-foreground">
+            Cohort
+          </label>
+          <Select value={cohortId} onValueChange={onChangeCohort}>
+            <SelectTrigger id="announce-cohort" className="max-w-md">
+              <SelectValue placeholder="Pick a saved cohort…" />
+            </SelectTrigger>
+            <SelectContent>
+              {cohorts.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name} ({c.member_count_cached.toLocaleString()})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="announce-subject" className="text-xs font-medium text-foreground">
+            Subject
+          </label>
+          <Input
+            id="announce-subject"
+            value={subject}
+            onChange={(e) => onChangeSubject(e.target.value)}
+            placeholder="Friday demo day — please RSVP"
+            maxLength={200}
+            required
+            className="max-w-md"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="announce-body" className="text-xs font-medium text-foreground">
+            Body
+          </label>
+          <TiptapEditor
+            content={body}
+            onChange={onChangeBody}
+            placeholder="Write your message..."
+          />
+        </div>
+      </form>
+
+      {estimatedRecipients !== null && (
+        <SendControls consentBasis={consentBasis} onChangeConsentBasis={onChangeConsentBasis} />
+      )}
+    </div>
+  );
+}
+
+// ─── Composer Inner ──────────────────────────────────────────────────────────
+
 function AnnounceComposerInner(): ReactElement {
   const cohortsQuery = useCohorts();
   const [cohortId, setCohortId] = useState('');
@@ -245,14 +416,14 @@ function AnnounceComposerInner(): ReactElement {
   const previewMutation = usePreviewAnnounce();
   const sendMutation = useSendAnnounce();
 
-  const reset = (): void => {
+  const reset = useCallback((): void => {
     setCohortId('');
     setSubject('');
     setBody('');
     setConsentBasis('explicit_opt_in');
     previewMutation.reset();
     sendMutation.reset();
-  };
+  }, [previewMutation, sendMutation]);
 
   if (cohortsQuery.isPending) {
     return <p className="text-sm text-muted-foreground">Loading cohorts…</p>;
@@ -281,6 +452,24 @@ function AnnounceComposerInner(): ReactElement {
     return <SentSummary sent={sendMutation.data} onReset={reset} />;
   }
 
+  const handlePreview = useCallback(() => {
+    // Sanitize body HTML before sending to API
+    const sanitizedBody = DOMPurify.sanitize(body, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'code'],
+      ALLOWED_ATTR: ['href', 'target', 'rel'],
+    });
+    previewMutation.mutate({ cohortId, subject, body: sanitizedBody });
+  }, [cohortId, subject, body, previewMutation]);
+
+  const handleSend = useCallback(() => {
+    // Sanitize body HTML before sending to API
+    const sanitizedBody = DOMPurify.sanitize(body, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'code'],
+      ALLOWED_ATTR: ['href', 'target', 'rel'],
+    });
+    sendMutation.mutate({ cohortId, subject, body: sanitizedBody, consentBasis });
+  }, [cohortId, subject, body, consentBasis, sendMutation]);
+
   return (
     <div className="space-y-4">
       <ComposerForm
@@ -288,38 +477,35 @@ function AnnounceComposerInner(): ReactElement {
         cohortId={cohortId}
         subject={subject}
         body={body}
+        consentBasis={consentBasis}
         isPreviewing={previewMutation.isPending}
+        estimatedRecipients={previewMutation.data?.estimatedRecipients ?? null}
         onChangeCohort={setCohortId}
         onChangeSubject={setSubject}
         onChangeBody={setBody}
-        onSubmit={() => previewMutation.mutate({ cohortId, subject, body })}
+        onChangeConsentBasis={setConsentBasis}
+        onPreview={handlePreview}
+        onSend={handleSend}
       />
 
       {previewMutation.error ? (
         <p className="text-sm text-destructive" role="alert">
-          Couldn't generate preview: {previewMutation.error.message}
+          Couldn&apos;t generate preview: {previewMutation.error.message}
         </p>
       ) : null}
 
       {previewMutation.data ? <PreviewCard preview={previewMutation.data} /> : null}
 
-      {previewMutation.data ? (
-        <SendControls
-          consentBasis={consentBasis}
-          onChangeConsentBasis={setConsentBasis}
-          onSend={() => sendMutation.mutate({ cohortId, subject, body, consentBasis })}
-          isSending={sendMutation.isPending}
-        />
-      ) : null}
-
       {sendMutation.error ? (
         <p className="text-sm text-destructive" role="alert">
-          Couldn't send: {sendMutation.error.message}
+          Couldn&apos;t send: {sendMutation.error.message}
         </p>
       ) : null}
     </div>
   );
 }
+
+// ─── Public Export ───────────────────────────────────────────────────────────
 
 export function AnnounceComposer(): ReactElement {
   return (

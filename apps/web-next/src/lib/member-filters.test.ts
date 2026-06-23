@@ -620,7 +620,10 @@ describe('buildMemberFilter', () => {
     const filters: MemberFilters = { ...EMPTY_MEMBER_FILTERS, employer: 'Google' };
     const filter = buildMemberFilter(filters);
     expect(filter).toEqual({
-      member_employments: { employer: { name: { _icontains: 'Google' } }, is_current: { _eq: true } },
+      member_employments: {
+        employer: { name: { _icontains: 'Google' } },
+        is_current: { _eq: true },
+      },
     });
   });
 
@@ -714,7 +717,10 @@ describe('parseDirectusToMemberFilters', () => {
 
   it('should parse member_employments with _icontains', () => {
     const directusFilter = {
-      member_employments: { employer: { name: { _icontains: 'Google' } }, is_current: { _eq: true } },
+      member_employments: {
+        employer: { name: { _icontains: 'Google' } },
+        is_current: { _eq: true },
+      },
     };
     const filters = parseDirectusToMemberFilters(directusFilter);
     expect(filters.employer).toBe('Google');

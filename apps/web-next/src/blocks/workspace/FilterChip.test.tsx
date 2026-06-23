@@ -20,7 +20,11 @@ type FilterChipProps = {
   type?: 'button' | 'submit' | 'reset';
 };
 
-function FilterChip({ active, onClick, children }: FilterChipProps): React.ReactElement<FilterChipProps> {
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: FilterChipProps): React.ReactElement<FilterChipProps> {
   return (
     <button
       type="button"
