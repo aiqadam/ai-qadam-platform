@@ -88,3 +88,19 @@ export function useRegenerateSocialCard(
       ),
   });
 }
+
+export function useCancelEvent(
+  eventId: string,
+): UseMutationResult<{ event: WorkspaceEventDetail }, Error, void> {
+  const qc = useQueryClient();
+  return useMutation<{ event: WorkspaceEventDetail }, Error, void>({
+    mutationFn: async () =>
+      apiClient<{ event: WorkspaceEventDetail }>(
+        `/v1/workspace/events/${encodeURIComponent(eventId)}`,
+        { method: 'PATCH', body: { status: 'cancelled' } as unknown as Record<string, unknown> },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: WORKSPACE_EVENTS_BASE_KEY });
+    },
+  });
+}
