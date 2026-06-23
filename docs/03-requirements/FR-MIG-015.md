@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-015
 name: /workspace/integrations/telegram/broadcasts — list + composer + actions
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M2
 ---

@@ -1,0 +1,49 @@
+---
+schema_version: "1.0"
+workflow_instance_id: "wf-20260623-feat-015"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+created_at: "2026-06-23T21:30:00Z"
+last_updated_at: "2026-06-23T21:30:00Z"
+requirement_ref: "FR-MIG-015"
+requirement_text: "Implement FR-MIG-015: /workspace/integrations/telegram/broadcasts — list + composer + actions"
+github_issue_url: ""
+branch: "feature/MIG-015-telegram-broadcasts"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/28"
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "running"
+parent_link: {}
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+issues_created: []
+issue_ref: ""
+deferrals: []
+expects_registry_update: false
+context_sync_commits: 0
+artifacts: []
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260623-feat-015/NEEDS_REVIEW.md"

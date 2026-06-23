@@ -1,0 +1,40 @@
+---
+// @generated-from pattern:workspace/integrations/telegram/segments
+// slug: workspace/integrations/telegram/broadcasts/new
+// FR-MIG-015 — Telegram broadcast composer (create mode).
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../../blocks/common';
+import { Breadcrumbs, PageShell, TgBroadcastComposer } from '../../../../../blocks/workspace';
+import Layout from '../../../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="New Broadcast · Telegram · AI Qadam workspace"
+  description="Create a new Telegram broadcast campaign."
+>
+  <PageHead
+    slot="head"
+    title="New Broadcast · Telegram · AI Qadam workspace"
+    description="Compose and schedule a new Telegram broadcast message."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="New Broadcast"
+      description="Compose a message and pick your audience."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Integrations', href: '/workspace/integrations' },
+          { label: 'Telegram', href: '/workspace/integrations/telegram' },
+          { label: 'Broadcasts', href: '/workspace/integrations/telegram/broadcasts' },
+          { label: 'New' },
+        ]}
+      />
+      <TgBroadcastComposer client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

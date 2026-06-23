@@ -795,3 +795,60 @@ export interface UpdateSegmentBody {
   name?: string;
   criteria?: SegmentCriteria;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/tg-broadcasts (Telegram broadcast cabinet)
+//
+// FR-MIG-015 — operator broadcast composer cabinet. List with status filter,
+// full composer (title, HTML body, image, up to 8 inline buttons, segment
+// picker, schedule), edit/view page with Send now, Test send, Duplicate,
+// Cancel actions.
+// ---------------------------------------------------------------------------
+
+export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+
+export interface BroadcastSummary {
+  id: string;
+  title: string;
+  country: string;
+  status: BroadcastStatus;
+  scheduled_at: string | null;
+  sent_count: number;
+  date_created: string;
+}
+
+export interface InlineButton {
+  label: string;
+  url: string;
+}
+
+export interface BroadcastDetail extends BroadcastSummary {
+  html_body: string;
+  image_asset: string | null;
+  inline_buttons: InlineButton[];
+  audience_segment: string | null;
+  failure_reason: string | null;
+  date_updated: string | null;
+  recurrence: 'none' | 'weekly' | 'monthly' | null;
+}
+
+export interface CreateBroadcastBody {
+  title: string;
+  country: string;
+  html_body: string;
+  image_asset?: string | null;
+  inline_buttons?: InlineButton[];
+  audience_segment?: string | null;
+  scheduled_at?: string | null;
+  recurrence?: 'none' | 'weekly' | 'monthly' | null;
+}
+
+export interface UpdateBroadcastBody {
+  title?: string;
+  html_body?: string;
+  image_asset?: string | null;
+  inline_buttons?: InlineButton[];
+  audience_segment?: string | null;
+  scheduled_at?: string | null;
+  recurrence?: 'none' | 'weekly' | 'monthly' | null;
+}
