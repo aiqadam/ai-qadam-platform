@@ -69,3 +69,33 @@ is reconciled. The fix is small and self-contained.
    a valid third home for a workflow's task dir.
 4. A regression test in `check-workflow-state.bats` (deferred to
    FEAT-WORKFLOW-002) covers the `archived/` case.
+
+## Resolution (2026-06-23)
+
+Resolved by `wf-20260623-fix-13-1`. Two-part fix:
+
+1. **Part A — script relaxation:** `scripts/check-workflow-state.sh`
+   now recognizes `.copilot/tasks/archived/$wf_id` as a valid task-dir
+   home (alongside `active/` and `completed/`). This removes the false
+   positive for workflows that have been archived on the dev machine.
+
+2. **Part B — git index cleanup:** Tracked files under
+   `.copilot/tasks/active/wf-20260622-feat-001/` (3 files) were
+   removed from the index via `git rm --cached`. These were committed
+   before `.copilot/tasks/` was added to `.gitignore`; they have no
+   informational value because the workflow has been Shipped since
+   2026-06-22 and the canonical reference is in
+   `requirements-registry.md`.
+
+After this fix, `bash scripts/check-workflow-state.sh --base origin/main`
+exits 0 (clean) and every future workflow's Step 0.5 will pass without
+requiring `--skip`.
+
+## Acceptance criteria results
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | `check-workflow-state.sh --base origin/main` exits 0 | ✅ PASS |
+| 2 | `git ls-files .copilot/tasks/active/wf-20260622-feat-001/` is empty | ✅ PASS |
+| 3 | Script helper comment documents `archived/` | ✅ PASS |
+| 4 | bats regression test (deferred to FEAT-WORKFLOW-002) | DEFERRED |
