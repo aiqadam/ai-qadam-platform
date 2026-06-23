@@ -1,7 +1,9 @@
-# --- Agentic workflow task directories (local-only state, never committed) ---
-# Agent output files and handoff YAML live here during a workflow run.
-# Completed task dirs are also local-only (archive is on the dev machine).
-.copilot/tasks/
+# --- Agentic workflow task directories ---
+# NOTE: Task outputs are committed for audit trail. Do NOT uncomment.
+# Old task directories can be manually swept/archived when repo grows.
+# If you uncomment this, the audit trail breaks - every workflow must be able to
+# reference its completed task artifacts via git history.
+# .copilot/tasks/
 
 # --- Dependencies ----------------------------------------------------------
 node_modules/
