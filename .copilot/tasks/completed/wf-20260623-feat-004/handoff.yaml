@@ -1,0 +1,98 @@
+# handoff.yaml — feature/FEAT-WORKFLOW-001-context-drift-guard
+# Generated 2026-06-23 by Copilot Orchestrator
+# Run with: workflow_type = requirement-development
+
+schema_version: "1.0"
+workflow_instance_id: wf-20260623-feat-004
+workflow_type: requirement-development
+workflow_version: "1.0"
+
+created_at: "2026-06-23T04:00:00Z"
+last_updated_at: "2026-06-23T04:00:00Z"
+
+requirement_ref: "FEAT-WORKFLOW-001"
+requirement_text: |
+  Prevent the Orchestrator from running workflows that drift from project-level
+  state files (workspace-state.md, issues/registry.md, requirements-registry.md).
+  Detect drift at workflow start (block) and at workflow end (QualityGate must
+  require the PR to have modified the appropriate state file). Add a script
+  scripts/check-workflow-state.sh that compares git history against the state
+  files; add Step 0.5 "Context Sync" to both workflow files; extend QualityGate
+  with a "context-update" sub-check.
+github_issue_url: ""
+
+branch: "feature/FEAT-WORKFLOW-001-context-drift-guard"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/13"
+
+current_step: 12
+current_step_name: "Archive task directory"
+workflow_status: "completed"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+retry_limits:
+  RequirementAnalyst: 1
+  ImpactAnalyzer: 2
+  DBMigrationAuthor: 2
+  CodeDeveloper: 3
+  SecurityReviewer: 3
+  TestStrategist: 2
+  TestDesigner: 3
+  TestRunner: 3
+  DocWriter: 2
+  QualityGate: 1
+
+retry_counts:
+  RequirementAnalyst: 0
+  ImpactAnalyzer: 0
+  DBMigrationAuthor: 0
+  CodeDeveloper: 0
+  SecurityReviewer: 0
+  TestStrategist: 0
+  TestDesigner: 0
+  TestRunner: 0
+  DocWriter: 0
+  QualityGate: 0
+
+deferrals: []
+
+gate_results: {}
+
+agent_assignments: {}
+
+issues_created: []
+issue_ref: ""
+
+artifacts: []
+
+context_refs:
+  - .copilot/workflows/requirement-development.md
+  - .copilot/workflows/issue-resolution.md
+  - .copilot/agents/orchestrator.md
+  - .copilot/agents/quality-gate.md
+  - .copilot/schemas/protocol.md
+  - .copilot/context/workspace-state.md
+  - .copilot/issues/registry.md
+  - docs/03-requirements/requirements-registry.md
+  - scripts/workflow-finish.sh
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""

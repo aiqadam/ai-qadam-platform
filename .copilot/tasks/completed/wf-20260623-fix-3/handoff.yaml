@@ -1,0 +1,188 @@
+﻿# handoff.yaml — fix/ISS-PREEX-001-pre-existing-lint
+# Generated 2026-06-23 by Copilot Orchestrator
+
+schema_version: "1.0"
+workflow_instance_id: wf-20260623-fix-3
+workflow_type: issue-resolution
+workflow_version: "1.0"
+
+created_at: "2026-06-23T00:00:00Z"
+last_updated_at: "2026-06-23T03:10:00Z"
+
+requirement_ref: "ISS-PREEX-001"
+requirement_text: |
+  Resolve 17 pre-existing biome lint errors in apps/web-next that were not
+  introduced by the current PR but accumulated over time. Errors span 3 files:
+  Form.test.tsx (12 useLiteralKeys + 2 noNonNullAssertion),
+  RegistrationCTA.tsx (1 noExcessiveCognitiveComplexity),
+  cms.ts (1 noExcessiveCognitiveComplexity).
+github_issue_url: ""
+
+branch: "fix/ISS-PREEX-001-pre-existing-lint"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/12"
+
+current_step: 13
+current_step_name: "Archive Task"
+workflow_status: "completed"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+retry_limits:
+  RequirementAnalyst: 1
+  ImpactAnalyzer: 2
+  DBMigrationAuthor: 2
+  CodeDeveloper: 3
+  SecurityReviewer: 3
+  TestStrategist: 2
+  TestDesigner: 3
+  TestRunner: 3
+  DocWriter: 2
+  QualityGate: 1
+
+retry_counts:
+  RequirementAnalyst: 0
+  ImpactAnalyzer: 0
+  CodeDeveloper: 0
+  SecurityReviewer: 0
+  TestStrategist: 0
+  TestDesigner: 0
+  TestRunner: 0
+  DocWriter: 0
+  QualityGate: 0
+
+deferrals: []
+
+notes: []
+
+gate_results:
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T00:00:00Z"
+    summary: "ISS-PREEX-001 created and registered; no prior occurrence."
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T00:00:00Z"
+    summary: "Lint-only fix; no entity, API, or migration changes."
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/02-impact-analysis.md"
+  code-summary:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T00:00:00Z"
+    summary: "All 17 lint errors fixed across 3 files. No behavior change."
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T00:00:00Z"
+    summary: "No security invariants affected. No auth, input, or data layer changes."
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T00:00:00Z"
+    summary: "Existing 7 unit tests in Form.test.tsx serve as regression suite. No new tests needed."
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T00:00:00Z"
+    summary: "Test design reuses existing test file; no new tests required."
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/06-test-design.md"
+
+agent_assignments:
+  orchestrator:
+    status: completed
+    step: 0
+    output_file: ""
+    timestamp: "2026-06-23T00:00:00Z"
+  orchestrator-issue-lookup:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/01-issue-lookup.md"
+    timestamp: "2026-06-23T00:00:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/02-impact-analysis.md"
+    timestamp: "2026-06-23T00:00:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/03-code-summary.md"
+    timestamp: "2026-06-23T00:00:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/04-security-review.md"
+    timestamp: "2026-06-23T00:00:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/06-test-strategy.md"
+    timestamp: "2026-06-23T00:00:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/06-test-design.md"
+    timestamp: "2026-06-23T00:00:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260623-fix-3/07-test-results.md"
+    timestamp: "2026-06-23T00:00:00Z"
+
+steps_completed:
+  - step: 0-Orchestrator
+    status: passed
+    output: ""
+  - step: 1-IssueLookup
+    status: passed
+    output: 01-issue-lookup.md
+  - step: 2-ImpactAnalyzer
+    status: passed
+    output: 02-impact-analysis.md
+  - step: 4-CodeDeveloper
+    status: passed
+    output: 03-code-summary.md
+  - step: 5-SecurityReviewer
+    status: passed
+    output: 04-security-review.md
+  - step: 6-TestStrategist
+    status: passed
+    output: 06-test-strategy.md
+  - step: 7-TestDesigner
+    status: passed
+    output: 06-test-design.md
+  - step: 8-TestRunner
+    status: passed
+    output: 07-test-results.md
+  - step: 9-DocWriter
+    status: passed
+    output: 08-doc-update.md
+  - step: 10-QualityGate
+    status: passed
+    output: 09-quality-gate.md
+  - step: 11-CommitPushPR
+    status: passed
+    output: ""
+    note: "gh pr create succeeded. PR: https://github.com/tvolodi/aiqadam/pull/12"
+  - step: 12-ArchiveTask
+    status: in_progress
+    output: ""

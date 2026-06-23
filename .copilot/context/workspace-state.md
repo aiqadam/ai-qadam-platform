@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-23T08:30:00Z
+**Last updated:** 2026-06-23T08:45:00Z
 
 ---
 
@@ -14,7 +14,8 @@ _(none)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
-| wf-20260623-feat-009 | requirement-development | FR-MIG-010 Members filter panel | feature/MIG-010-members-filter-panel | [PR #20](https://github.com/tvolodi/aiqadam/pull/20) | 2026-06-23 |
+| wf-20260623-feat-012 | requirement-development | FR-MIG-012 Countries list | feature/MIG-012-countries-list | [PR #22](https://github.com/tvolodi/aiqadam/pull/22) | 2026-06-23 |
+| wf-20260623-feat-010 | requirement-development | FR-MIG-010 Members filter panel | feature/MIG-010-members-filter-panel | [PR #20](https://github.com/tvolodi/aiqadam/pull/20) | 2026-06-23 |
 | wf-20260622-feat-001 | requirement-development | FR-MIG-003 Form block | main → merged | — | 2026-06-22 |
 | wf-20260623-feat-2 | requirement-development | FR-MIG-007 Tooltip kit atom | feature/FR-MIG-007-tooltip-kit-atom | [PR #11](https://github.com/tvolodi/aiqadam/pull/11) | 2026-06-23 |
 | wf-20260623-fix-3 | issue-resolution | ISS-PREEX-001 pre-existing lint cleanup | fix/ISS-PREEX-001-pre-existing-lint | [PR #12](https://github.com/tvolodi/aiqadam/pull/12) | 2026-06-23 |
@@ -34,15 +35,21 @@ _(none)_
 
 - **Current branch:** main
 - **Last sync with origin:** 2026-06-23
-- **Pending PRs:** (none)
+- **Pending PRs:** [PR #22](https://github.com/tvolodi/aiqadam/pull/22) (FR-MIG-012)
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 10)
+See `.copilot/meta/next-workflow-id` (currently: 11)
 
 ---
 
 ## Notes
+
+**2026-06-23:** FR-MIG-012 (Countries list + provisioning wizard) completed and PR created.
+- CountriesList React island with DataTable showing status badges, locale, currency, TZ, holidays count
+- useCountries hook for GET /v1/workspace/countries API
+- All gates passed: astro check (0 errors), biome check (clean), build (successful), tests (169 passed)
+- PR: [https://github.com/tvolodi/aiqadam/pull/22](https://github.com/tvolodi/aiqadam/pull/22)
 
 **2026-06-23:** FR-MIG-010 (Members filter panel + cohort save/load) completed and PR created.
 - All gates passed: unit tests (102 tests), typecheck (0 errors), biome check (clean), build (successful)

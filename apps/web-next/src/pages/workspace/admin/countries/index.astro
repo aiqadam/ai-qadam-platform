@@ -1,0 +1,46 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/admin/countries
+// generated: 2026-06-23
+//
+// FR-MIG-012 — countries list cabinet (super-admin only).
+//
+// Composition only (L4): renders <CountriesList> inside the super-admin
+// auth gate. Links to /workspace/admin/countries/[code]/provisioning.
+// SuperAdminGuard on the API matches the role token below.
+//
+// `prerender = false` per the codebase's dynamic-routes convention.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { Breadcrumbs, CountriesList, PageShell } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Countries · AI Qadam workspace"
+  description="Per-country defaults and provisioning."
+>
+  <PageHead
+    slot="head"
+    title="Countries · AI Qadam workspace"
+    description="Per-country defaults and provisioning."
+  />
+  <AuthGate role="aiqadam-super-admin" signInLabel="Super-admin only — sign in">
+    <PageShell
+      title="Countries"
+      description="Per-country defaults: locale, currency, timezone, public holidays. Provision new country tenants via the wizard."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Admin' },
+          { label: 'Countries' },
+        ]}
+      />
+      <CountriesList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

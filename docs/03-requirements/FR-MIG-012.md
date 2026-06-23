@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-012
 name: /workspace/admin/countries — list + provisioning wizard
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M2
 ---

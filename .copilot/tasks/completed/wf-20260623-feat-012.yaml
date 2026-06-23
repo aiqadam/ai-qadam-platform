@@ -1,0 +1,22 @@
+id: wf-20260623-feat-012
+type: requirement-development
+feature: FR-MIG-012
+name: "/workspace/admin/countries — list + provisioning wizard"
+status: completed
+created: 2026-06-23T08:30:00Z
+branch: feature/MIG-012-countries-list
+pr: "https://github.com/tvolodi/aiqadam/pull/22"
+dependencies: ["FR-MIG-003", "FR-MIG-005"]
+acceptance_criteria:
+  - "Countries list renders at /workspace/admin/countries with correct data — PASSED"
+  - "Wizard step machine advances on success, shows error + retry on failure — PASSED (existing wizard)"
+  - "Completed provisioning flips country to is_active = true in Directus — PASSED (existing)"
+  - "SuperAdmin-only: operator role redirect to /workspace — PASSED (<AuthGate>)"
+  - "pnpm arch:check + astro check + pnpm build pass — PASSED"
+notes:
+  - "Wizard exists at /workspace/admin/countries/[code]/provisioning — already implemented"
+  - "New: CountriesList React island with DataTable"
+  - "New: use-countries hook for GET /v1/workspace/countries"
+  - "New: CountryRow type in lib/types.ts"
+  - "blocks.md catalogue updated"
+completed: 2026-06-23T08:45:00Z

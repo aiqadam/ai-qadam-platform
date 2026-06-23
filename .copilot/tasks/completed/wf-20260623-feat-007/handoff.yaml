@@ -1,0 +1,160 @@
+# handoff.yaml — workflow state for wf-20260623-feat-007
+# Generated: 2026-06-23
+# Source requirement: FR-MIG-004 (AsyncSelect block, server-search dropdown)
+
+schema_version: "1.0"
+workflow_instance_id: "wf-20260623-feat-007"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-23T06:30:00Z"
+last_updated_at: "2026-06-23T09:16:00Z"
+
+requirement_ref: "FEAT-MIG-004"
+requirement_text: "AsyncSelect block (server-search dropdown) — debounced server-backed select for fields with large option lists (events, cohorts, segments, speakers)."
+github_issue_url: ""
+
+branch: "feature/FR-MIG-004-async-select-block"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 9
+current_step_name: "DocWriter"
+workflow_status: "running"
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T06:35:00Z"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T06:45:00Z"
+  code-developer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:16:00Z"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:20:00Z"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:22:00Z"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:26:00Z"
+  test-runner:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:27:00Z"
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260623-feat-007/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/07-test-results.md"
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260623-feat-007/01-requirement-validation.md"
+    timestamp: "2026-06-23T06:35:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260623-feat-007/02-impact-analysis.md"
+    timestamp: "2026-06-23T06:45:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260623-feat-007/03-code-summary.md"
+    timestamp: "2026-06-23T09:16:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260623-feat-007/04-security-review.md"
+    timestamp: "2026-06-23T09:20:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260623-feat-007/06-test-strategy.md"
+    timestamp: "2026-06-23T09:22:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260623-feat-007/06-test-design.md"
+    timestamp: "2026-06-23T09:26:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260623-feat-007/07-test-results.md"
+    timestamp: "2026-06-23T09:27:00Z"
+
+retry_counts:
+  code-developer: 1
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260623-feat-007/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260623-feat-007/07-test-results.md"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+retry_counts: {}
+gate_results: {}
+agent_assignments: {}
+issues_created: []
+issue_ref: ""
+deferrals: []
+artifacts: []
+expects_registry_update: true
+context_sync_commits: 0
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/architecture/blocks.md
+  - docs/03-requirements/FR-MIG-004.md
+  - apps/web-next/src/blocks/workspace/
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260623-feat-007/NEEDS_REVIEW.md"

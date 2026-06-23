@@ -1,0 +1,63 @@
+# handoff.yaml — feature/FR-MIG-007-tooltip-kit-atom
+# Generated 2026-06-23 by Copilot Orchestrator
+
+workflow_id: wf-20260623-feat-2
+workflow_type: requirement-development
+feature_code: FR-MIG-007
+feature_name: Tooltip kit atom
+status: in_progress
+
+branch: feature/FR-MIG-007-tooltip-kit-atom
+
+requirement_text: |
+  A lightweight hover/focus tooltip for UI hints. Non-blocking — no other M1 block depends on it, but several cabinets use it for field hints and action explanations.
+  
+  Functional scope:
+  1. <Tooltip content={string | ReactNode} side? align?> wrapping any child element.
+  2. Appears on hover (pointer devices) and on focus (keyboard navigation).
+  3. Accessible: role="tooltip" + aria-describedby wired automatically.
+  4. Respects viewport boundaries (flips side if near edge).
+  
+  Acceptance criteria:
+  - <Tooltip> exists at src/kit/Tooltip.tsx and exported from src/kit/index.ts.
+  - Tooltip appears on hover and keyboard focus.
+  - Does not obscure the element it describes.
+  - pnpm arch:check + astro check + pnpm build pass.
+  
+  Notes:
+  - Use Radix @radix-ui/react-tooltip (add to package.json).
+  - blocks.md L2 kit table entry added.
+
+retry_counts:
+  RequirementAnalyst: 0
+  ImpactAnalyzer: 0
+  CodeDeveloper: 0
+  SecurityReviewer: 0
+  TestStrategist: 0
+  TestDesigner: 0
+  TestRunner: 0
+  DocWriter: 0
+  QualityGate: 0
+
+deferrals: []
+
+notes: []
+
+# Updated by Orchestrator after each step
+steps_completed:
+  - step: 1-RequirementAnalyst
+    status: passed
+    output: 01-requirement-validation.md
+  - step: 2-ImpactAnalyzer
+    status: passed
+    output: 02-impact-analysis.md
+    note: No DB/entity changes. Step skipped formal subagent; analyst output confirmed no migration needed.
+  - step: 4-CodeDeveloper
+    status: passed
+    output: 03-code-summary.md
+  - step: 5-SecurityReviewer
+    status: passed
+    output: 04-security-review.md
+  - step: 8-TestRunner
+    status: passed
+    output: 07-test-results.md
