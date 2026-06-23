@@ -10,6 +10,7 @@ export { ForumThread } from './ForumThread';
 export { default as Hero } from './Hero.astro';
 export { default as Leaderboard } from './Leaderboard.astro';
 export { default as MaterialsList } from './MaterialsList.astro';
+export { OnboardingForm } from './OnboardingForm';
 export { default as ProfileCard } from './ProfileCard.astro';
 export { ReferralDashboard } from './ReferralDashboard';
 export { RegistrationCTA } from './RegistrationCTA';

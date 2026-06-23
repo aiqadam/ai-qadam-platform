@@ -926,7 +926,7 @@ export type RbacSyncFilter = 'all' | 'pending' | 'applied' | 'failed' | 'dry_run
 // FieldDef from FormBuilder.tsx so the renderer can type-check fields.
 // ---------------------------------------------------------------------------
 
-import type { FieldDef } from '../../blocks/workspace/FormBuilder';
+import type { FieldDef } from '../blocks/workspace/FormBuilder';
 
 export interface PublicFormSchema {
   fields: FieldDef[];

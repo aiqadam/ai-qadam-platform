@@ -62,6 +62,7 @@ export interface MemberProfile {
   appear_on_attendee_list: boolean;
   appear_on_public_leaderboard: boolean;
   show_company_on_public_profile: boolean;
+  onboarded_at: string | null;
 }
 
 export interface MemberConsentSummary {
@@ -113,6 +114,7 @@ interface DirectusUserRow {
   appear_on_attendee_list: boolean | null;
   appear_on_public_leaderboard: boolean | null;
   show_company_on_public_profile: boolean | null;
+  onboarded_at: string | null;
 }
 
 interface MemberConsentRow {
@@ -161,7 +163,7 @@ export interface AddEmploymentInput {
 }
 
 const PROFILE_FIELDS =
-  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory,appear_in_matches,appear_on_attendee_list,appear_on_public_leaderboard,show_company_on_public_profile';
+  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory,appear_in_matches,appear_on_attendee_list,appear_on_public_leaderboard,show_company_on_public_profile,onboarded_at';
 
 @Injectable()
 export class MeProfileService {
@@ -400,6 +402,37 @@ export class MeProfileService {
     await this.directus.delete(`/items/member_employments/${encodeURIComponent(employmentId)}`);
   }
 
+  // FR-MIG-020 — set onboarded_at on directus_users. Called once during
+  // the /v1/members/onboard flow. Idempotent: overwriting with the same
+  // value is harmless.
+  async setOnboardedAt(userId: string): Promise<void> {
+    await this.directus.patch(`/users/${encodeURIComponent(userId)}`, {
+      onboarded_at: new Date().toISOString(),
+    });
+  }
+
+  // FR-MIG-020 — read onboarded_at for a user. Returns null when the
+  // Directus field is unset (legacy users who joined before this feature).
+  async getOnboardedAt(userId: string): Promise<string | null> {
+    const row = await this.directus.get<{ data: DirectusUserRow | null }>(
+      `/users/${encodeURIComponent(userId)}?fields=onboarded_at`,
+    );
+    return row.data?.onboarded_at ?? null;
+  }
+
+  // FR-MIG-020 — patch fields on directus_users that are not part of the
+  // profile editing surface (first_name, last_name). Used by the onboarding
+  // flow where we want to set identity fields alongside job_title.
+  async patchDirectusFields(
+    userId: string,
+    fields: { first_name?: string | null | undefined; last_name?: string | null | undefined },
+  ): Promise<void> {
+    await this.directus.patch(`/users/${encodeURIComponent(userId)}`, {
+      first_name: fields.first_name,
+      last_name: fields.last_name,
+    });
+  }
+
   private async findOrCreateEmployer(rawName: string): Promise<CompanyRow> {
     const name = rawName.trim();
     if (!name) throw new NotFoundException('employer name required');
@@ -438,6 +471,7 @@ export class MeProfileService {
       appear_on_attendee_list: row.appear_on_attendee_list ?? true,
       appear_on_public_leaderboard: row.appear_on_public_leaderboard ?? true,
       show_company_on_public_profile: row.show_company_on_public_profile ?? false,
+      onboarded_at: row.onboarded_at ?? null,
     };
   }
 }

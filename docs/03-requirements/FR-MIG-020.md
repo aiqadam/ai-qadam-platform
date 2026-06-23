@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-020
 name: /onboard + /welcome/[slug] — new-member flow
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M3
 ---

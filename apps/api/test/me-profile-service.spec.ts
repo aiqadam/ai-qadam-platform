@@ -237,3 +237,153 @@ describe('MeProfileService — F-S5.6 visibility fields', () => {
     expect(url).toContain('show_company_on_public_profile');
   });
 });
+
+// FR-MIG-020 — onboarding: getOnboardedAt / setOnboardedAt
+describe('MeProfileService.getOnboardedAt', () => {
+  it('returns the ISO timestamp string when onboarded_at is set', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { onboarded_at: '2026-01-01T00:00:00Z' },
+    });
+
+    const result = await svc.getOnboardedAt('u-1');
+
+    expect(result).toBe('2026-01-01T00:00:00Z');
+  });
+
+  it('returns null when onboarded_at field is null', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { onboarded_at: null },
+    });
+
+    const result = await svc.getOnboardedAt('u-1');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the user row does not exist', async () => {
+    dx.get.mockResolvedValueOnce({ data: null });
+
+    const result = await svc.getOnboardedAt('u-nonexistent');
+
+    expect(result).toBeNull();
+  });
+
+  it('queries directus with the userId and onboarded_at field', async () => {
+    dx.get.mockResolvedValueOnce({ data: { onboarded_at: null } });
+
+    await svc.getOnboardedAt('u-123');
+
+    const url = dx.get.mock.calls[0]?.[0] as string;
+    expect(url).toContain('/users/');
+    expect(url).toContain('fields=onboarded_at');
+  });
+});
+
+describe('MeProfileService.setOnboardedAt', () => {
+  it('PATCHes directus_users with onboarded_at set to current ISO timestamp', async () => {
+    dx.patch.mockResolvedValueOnce({});
+
+    await svc.setOnboardedAt('u-1');
+
+    expect(dx.patch).toHaveBeenCalledTimes(1);
+    const call = dx.patch.mock.calls[0];
+    expect(call?.[0]).toBe('/users/u-1');
+    const body = call?.[1] as Record<string, unknown>;
+    expect(body).toHaveProperty('onboarded_at');
+    // Verify it's an ISO-8601 timestamp ending with Z
+    const ts = body.onboarded_at as string;
+    expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
+  });
+
+  it('calls patch with the correct userId', async () => {
+    dx.patch.mockResolvedValueOnce({});
+
+    await svc.setOnboardedAt('11111111-1111-4000-8000-000000000001');
+
+    expect(dx.patch.mock.calls[0]?.[0]).toContain(
+      '11111111-1111-4000-8000-000000000001',
+    );
+  });
+});
+
+// FR-MIG-020 — onboarding: PROFILE_FIELDS includes onboarded_at
+describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
+  it('getProfile includes onboarded_at in the fields query', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: {
+        id: 'u-1',
+        email: 'a@b.com',
+        first_name: null,
+        last_name: null,
+        job_title: null,
+        seniority: null,
+        industry_tags: null,
+        is_student: false,
+        bio_md: null,
+        appear_in_directory: false,
+        appear_in_matches: true,
+        appear_on_attendee_list: true,
+        appear_on_public_leaderboard: true,
+        show_company_on_public_profile: false,
+        onboarded_at: null,
+      },
+    });
+
+    await svc.getProfile('u-1');
+
+    const url = dx.get.mock.calls[0]?.[0] as string;
+    expect(url).toContain('onboarded_at');
+  });
+
+  it('toProfile passes through onboarded_at as-is', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: {
+        id: 'u-1',
+        email: 'a@b.com',
+        first_name: null,
+        last_name: null,
+        job_title: null,
+        seniority: null,
+        industry_tags: null,
+        is_student: false,
+        bio_md: null,
+        appear_in_directory: false,
+        appear_in_matches: true,
+        appear_on_attendee_list: true,
+        appear_on_public_leaderboard: true,
+        show_company_on_public_profile: false,
+        onboarded_at: '2026-06-20T12:00:00Z',
+      },
+    });
+
+    const profile = await svc.getProfile('u-1');
+
+    expect(profile.onboarded_at).toBe('2026-06-20T12:00:00Z');
+  });
+
+  it('toProfile defaults onboarded_at to null when field is null', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: {
+        id: 'u-1',
+        email: 'a@b.com',
+        first_name: null,
+        last_name: null,
+        job_title: null,
+        seniority: null,
+        industry_tags: null,
+        is_student: false,
+        bio_md: null,
+        appear_in_directory: false,
+        appear_in_matches: true,
+        appear_on_attendee_list: true,
+        appear_on_public_leaderboard: true,
+        show_company_on_public_profile: false,
+        onboarded_at: null,
+      },
+    });
+
+    const profile = await svc.getProfile('u-1');
+
+    expect(profile.onboarded_at).toBeNull();
+  });
+});

@@ -244,6 +244,15 @@ export class MeProfileController {
     await this.profile.removeEmployment(userId, id);
     return { ok: true };
   }
+
+  // FR-MIG-020 — lightweight status check for SSR redirect on /onboard.
+  // Returns whether onboarded_at is set on directus_users.
+  @Get('onboarding-status')
+  async getOnboardingStatus(@Req() req: Request): Promise<{ onboarded: boolean }> {
+    const userId = requireUserId(req);
+    const onboardedAt = await this.profile.getOnboardedAt(userId);
+    return { onboarded: onboardedAt !== null };
+  }
 }
 
 function requireUserId(req: Request): string {

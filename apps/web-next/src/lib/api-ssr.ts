@@ -54,6 +54,8 @@ import type { ApiEvent } from './types';
 // fetcher, not the type).
 export type { ApiEvent } from './types';
 
+export type { PublicForm } from './types';
+
 interface EventsResponse {
   events: ApiEvent[];
 }
@@ -147,4 +149,29 @@ export async function fetchLeaderboard(
     console.error('[api-ssr] /v1/leaderboard failed:', err instanceof Error ? err.message : err);
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// /v1/me/onboarding-status — member onboarding status (FR-MIG-020).
+//
+// Lightweight SSR call used by /onboard page to redirect already-onboarded
+// users. Requires auth token; throws on failure so the page renders the form.
+// ---------------------------------------------------------------------------
+
+export async function fetchOnboardingStatus(req: Request, accessToken: string): Promise<boolean> {
+  // Reuse the same host-forwarding + auth-header pattern.
+  const host = req.headers.get('host') ?? '';
+  const headers: Array<[string, string]> = [
+    ['accept', 'application/json'],
+    ['authorization', `Bearer ${accessToken}`],
+  ];
+  if (host) headers.push(['host', host]);
+  const res = await fetch(`${apiBase()}/v1/me/onboarding-status`, { headers });
+  if (!res.ok) {
+    // Non-ok means the session may have expired mid-render. Render the
+    // form and let the client re-auth; don't hard-redirect.
+    throw new Error(`onboarding-status → HTTP ${res.status}`);
+  }
+  const body = (await res.json()) as { onboarded: boolean };
+  return body.onboarded;
 }

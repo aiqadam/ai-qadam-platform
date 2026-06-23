@@ -1,168 +1,116 @@
-# Test Strategy — FR-MIG-015
+# Test Strategy — FEAT-MIG-020
 
 ## Requirement
 
-**FEAT-MIG-015**: Rebuild the Telegram broadcast operator cabinet in
-`apps/web-next/src/pages/workspace/integrations/telegram/broadcasts/` with three Astro pages:
-a broadcasts list with status filter, a new-broadcast composer with rich-text body,
-up to 8 inline buttons, segment picker, image upload, and future-date scheduler,
-and an edit/view page with Send now, Test send, Duplicate, and Cancel actions.
+FEAT-MIG-020 (FR-MIG-020): Telegram acquisition funnel — `/welcome/[slug]` landing page, `/onboard` 3-step onboarding form, and `POST /v1/members/onboard` API endpoint. New members arrive via Telegram invite links, land on a campaign-specific landing page sourced from Directus `landing_pages`, complete onboarding, and are redirected to `/me`.
 
 ---
 
 ## Rubric Score
 
-| Criterion | Points | Reason |
+| Criterion | Points | Detail |
 |-----------|--------|--------|
-| Touches tenant-scoped data | 0 | Frontend reads via existing NestJS endpoints; tenant scoping is handled in the backend |
-| New API endpoint | 0 | No new endpoints — all 9 NestJS endpoints already exist |
-| Business rule with edge cases | 0 | Backend rules (button cap, status transitions) already tested in `tg-broadcasts-service.spec.ts` |
-| Cross-module service call | 0 | Frontend only; NestJS backend has no new cross-module calls |
-| New database query | 0 | No Drizzle schema changes; Directus reads go through existing service |
-| Pure function / utility | 0 | `use-tg-broadcasts.ts` is a query hook layer over existing `apiClient` |
-
-**Total: 0** — Unit tests only. No integration or E2E tests required.
+| Touches tenant-scoped data | +2 | Writes to `directus_users`, `member_skills`, `member_interests`, `member_consents`, `point_awards` — all Directus collections scoped by `country_code` |
+| New API endpoint | +2 | `POST /v1/members/onboard` — new controller + service + DTO |
+| Business rule with edge cases | +2 | Idempotency: double-call must no-op; `onboarded_at` guard; skill+interest upsert |
+| Cross-module service call | +1 | `MembersOnboardingService` calls `MeProfileService` + `PointsDirectusService` |
+| New database query | +1 | `getOnboardedAt`, `awardFirstJoinPoints` pre-check, `fetchLandingPage` |
+| Pure function / utility | 0 | — |
+| UI-only change | 0 | — |
+| **Total** | **8** | |
 
 ---
 
 ## Required Test Levels
 
-- [x] **Unit** — Required
-- [ ] Integration (Testcontainers) — Not required (pure frontend; backend already covered by `tg-broadcasts-service.spec.ts`)
-- [ ] E2E (Playwright) — Not required (rubric score < 6)
+- [x] Unit Tests (Jest / Vitest) — required
+- [x] Integration Tests (Testcontainers + Directus mock) — required (score >= 4)
+- [x] E2E Tests (Playwright) — required (score >= 6)
 
 ---
 
 ## Unit Test Plan
 
-### Target: `use-tg-broadcasts.ts` (TanStack Query hooks)
-
 | Target | Happy Path | Failure Paths |
-|--------|-----------|---------------|
-| `BROADCASTS_KEY` constant | Matches `['workspace', 'tg-broadcasts']` | — |
-| `useBroadcastList(query?)` | Returns `BroadcastSummary[]` from `GET /v1/workspace/tg-broadcasts` | Handles `?status=` param; handles empty list |
-| `useBroadcastDetail(id)` | Returns `BroadcastDetail` from `GET /v1/workspace/tg-broadcasts/:id` | Handles missing broadcast (404) |
-| `useCreateBroadcast(body)` | POSTs to `/v1/workspace/tg-broadcasts`; returns new `BroadcastDetail` | Handles validation error (400) |
-| `useUpdateBroadcast(id, body)` | PATCHes `/v1/workspace/tg-broadcasts/:id`; returns updated `BroadcastDetail` | Handles sent/sending/failed state rejection |
-| `useSendNow(id)` | POSTs to `/v1/workspace/tg-broadcasts/:id/send-now` | Handles 403 (not super-admin); handles 409 (wrong status) |
-| `useSendTest(id)` | POSTs to `/v1/workspace/tg-broadcasts/:id/send-test` | Handles validation error |
-| `useDuplicate(id)` | POSTs to `/v1/workspace/tg-broadcasts/:id/duplicate`; returns new `BroadcastDetail` | Handles missing source broadcast (404) |
-| `useCancel(id, sentCount)` | POSTs to `/v1/workspace/tg-broadcasts/:id/cancel` with `sent_count` | Handles wrong status (not sending) |
+|--------|------------|---------------|
+| `OnboardMemberDtoSchema` (Zod) | Valid payload passes: `{ firstName, lastName, jobTitle, skills, interests, consents, slug }` | Missing required fields → Zod error; skills[] with values > 80 chars → error; invalid interest intent → error |
+| `MembersOnboardingService.completeOnboarding()` | All fields written to Directus; `onboarded_at` set; points awarded | Double-call → returns early without re-awarding (idempotency); skill upsert → skips existing; interest upsert → skips existing |
+| `MembersOnboardingService.patchProfileFields()` | `first_name`, `last_name`, `job_title` patched to `directus_users` | Empty string trimmed; whitespace normalised |
+| `MembersOnboardingService.awardFirstJoinPoints()` | Inserts `point_awards` row with `key='first_join'`, `amount=10` | Pre-check finds existing row → no-op (idempotency) |
+| `MeProfileService.setOnboardedAt()` | Writes current timestamp to `directus_users.onboarded_at` | — |
+| `MeProfileService.getOnboardedAt()` | Returns parsed Date or null | Field not yet added to Directus schema → returns null (pre-deploy safe) |
+| `fetchLandingPage(slug)` (cms.ts) | Returns `CmsLandingPage` for valid slug | Non-existent slug → returns null |
+| `useOnboardMember()` hook | Calls `POST /v1/members/onboard`, returns `{ mutate, isPending }` | Network error → TanStack Query error state |
+| `<OnboardingForm>` React component | Renders 3 steps; step 1 collects name+title; step 2 shows skill input; step 3 shows consent toggles; submit calls mutation | Invalid step data → Next button disabled; API error → error banner |
 
-**Note:** Hook logic will be re-implemented locally (avoiding React/Vitest ESM issues), following the pattern from `use-form-hooks.test.ts`.
-
-### Target: `TgBroadcastsList.tsx` (React island)
-
-| Target | Happy Path | Failure Paths |
-|--------|-----------|---------------|
-| Status filter renders 5 chips | Draft, Scheduled, Sending, Sent, Failed each selectable | Default shows "All" |
-| Clicking chip updates URL param | Navigates to `?status=sent` | Clears to no param on "All" |
-| Empty state | Shows "No broadcasts yet" with create button | — |
-| Loading state | Shows skeleton rows | — |
-| DataTable columns | Title, Country, Status chip, Scheduled, Sent, Created, Actions | — |
-
-### Target: `TgBroadcastComposer.tsx` (React island)
-
-| Target | Happy Path | Failure Paths |
-|--------|-----------|---------------|
-| Required fields validation | Blocks submit when `title` or `body` empty | Shows inline error messages |
-| Max 8 inline buttons enforced | "Add button" hidden at 8; 9th button not added | — |
-| Button URL validation | Validates `https?://` URL format | Shows error for invalid URL |
-| Save as Draft | PATCHes with `status=draft` | Handles network error |
-| Save + Schedule | PATCHes with `status=scheduled` + `scheduled_at` | Shows error when `scheduled_at` in past |
-| Mode switch (new vs edit) | Pre-populates form in edit mode; empty in new mode | — |
-
-### Target: ActionBar contextual actions (`TgBroadcastComposer.tsx` / `[id].astro` island)
-
-| Target | Happy Path | Failure Paths |
-|--------|-----------|---------------|
-| Send now visible (super-admin) | Calls `useSendNow`; shows confirm dialog | Hidden for non-super-admin |
-| Send now confirm dialog | Shows recipient count + duration estimate from `GET /v1/workspace/tg-segments/:id/preview` | Handles segment preview error |
-| Send now duration warning | Shows warning when `match_count > 10000` | — |
-| Test send | Calls `useSendTest` | Shows error on failure |
-| Duplicate | Calls `useDuplicate`; navigates to new draft | Shows error |
-| Cancel visible (scheduled only) | Calls `useCancel` after `window.confirm` | Hidden for non-scheduled; disabled during other operations |
-
-### Target: Status chip component
-
-| Target | Happy Path | Failure Paths |
-|--------|-----------|---------------|
-| Status → color mapping | draft=gray, scheduled=blue, sending=amber, sent=green, failed=red | — |
-| Status → label mapping | Each status renders correct label text | — |
+**Note on `OnboardingForm`:** Code summary §Known Limitations flags that the form has its own inline skill-tagger (SkillTagger adapter refactor deferred). Unit tests for the form should test the step-navigation state machine and submission payload shape, not the deferred SkillTagger internals.
 
 ---
 
 ## Integration Test Plan
 
-**Not required.** The rubric score is 0. The NestJS service + Directus layer is already covered by:
-- `apps/api/test/tg-broadcasts-service.spec.ts`
-- `apps/api/test/tg-broadcasts-sender-service.spec.ts`
-- `apps/api/test/tg-broadcasts-analytics-service.spec.ts`
+| Scenario | Infrastructure | Key Assertions |
+|----------|----------------|----------------|
+| Full `POST /v1/members/onboard` happy path | NestJS test request factory + Directus REST mock (msw or nock on Directus endpoints); `me-profile`, `points`, `members` modules loaded | HTTP 204; `directus_users` row has `first_name`, `last_name`, `job_title`, `onboarded_at`; `member_skills` row exists; `member_interests` row exists; `member_consents` row exists; `point_awards` row with `key='first_join'`, `user_id` |
+| Double-call idempotency | Same setup, call twice | First: HTTP 204 + all writes; Second: HTTP 204 + `point_awards` count unchanged (no duplicate row) |
+| Auth guard | No Bearer token | HTTP 401 |
+| Validation failure | Missing `firstName` in body | HTTP 400 + Zod error shape |
+| Already-onboarded user calls API | User with `onboarded_at` set in mock Directus | HTTP 204 + `point_awards` count unchanged (points not re-awarded) |
+| `GET /v1/me/onboarding-status` — onboarded | Mock `directus_users` with `onboarded_at = now()` | `{ onboarded: true }` |
+| `GET /v1/me/onboarding-status` — not onboarded | Mock `directus_users` with `onboarded_at = null` | `{ onboarded: false }` |
 
-No new integration tests needed.
+**Testcontainer approach:** Spin up a real NestJS app module (`MembersModule` + `MeProfileModule` + `PointsModule`) and mock the Directus HTTP layer with msw interceptors. This avoids the overhead of a full Directus container while testing the service orchestration, Zod validation, and response shapes.
 
 ---
 
 ## E2E Test Plan
 
-**Not required.** The rubric score is 0 (pure frontend, no new API endpoints, no business rule edge cases). Critical user journeys (list loads, status filter works, composer saves) are covered by unit tests above.
-
-If E2E is desired in the future, the following Playwright flows would be candidates (rubric score would need to reach 6 to make E2E mandatory):
-
 | User Flow | Entry Point | Exit Assertion |
-|-----------|-------------|-----------------|
-| List broadcasts + filter by status | `GET /workspace/integrations/telegram/broadcasts` | DataTable renders; clicking "Sent" chip shows only sent broadcasts |
-| Composer: save as draft | `GET /workspace/integrations/telegram/broadcasts/new` | Submit → navigate to list → draft row appears |
-| ActionBar: send-now confirm | `GET /workspace/integrations/telegram/broadcasts/[id]` (scheduled) | Confirm dialog shows recipient count; after confirm, status transitions to sending |
+|-----------|-------------|----------------|
+| Landing page — valid slug | `GET /welcome/telegram-uz` | Page title visible; CTA button "Join AI Qadam" present and links to `/onboard?slug=telegram-uz` |
+| Landing page — invalid slug | `GET /welcome/nonexistent` | HTTP 404 returned |
+| Onboarding redirect — anon | `GET /onboard` (no session) | 302 redirect to `/auth/sign-in?redirect=/onboard` |
+| Onboarding render — authed, not onboarded | Sign in as user with `onboarded_at = NULL`; `GET /onboard` | 200; step 1 form visible with first_name, last_name, job_title fields |
+| Onboarding redirect — already onboarded | Sign in as user with `onboarded_at = NOW`; `GET /onboard` | 302 redirect to `/me` |
+| Full onboarding happy path | Land on `/welcome/telegram-uz` → click CTA → sign in → complete step 1 → step 2 → step 3 → submit | 302 redirect to `/me` |
+| Onboarding revisits after completion | Same user from above flow; `GET /onboard` | 302 redirect to `/me` (already onboarded guard) |
+
+**Playwright configuration:**
+- Base URL: `http://localhost:4321` (web-next dev server)
+- API base: `http://localhost:3000` (API dev server)
+- Use `@playwright/test` with existing `apps/e2e/` pattern
+- Auth: `storageState` fixture with pre-seeded test user (has session cookie, `onboarded_at = NULL` for onboard tests, `onboarded_at = NOW` for redirect tests)
+- Directus data: seed script for `landing_pages` with slug `telegram-uz`
 
 ---
 
-## Acceptance Criteria → Test Mapping
+## Acceptance Criteria — Test Mapping
 
 | AC | Test Level | Test Description |
 |----|------------|------------------|
-| AC-1: List page renders DataTable with broadcasts | Unit | `TgBroadcastsList`: `useBroadcastList` is called; DataTable columns match spec |
-| AC-1: Status filter narrows list via URL param | Unit | `TgBroadcastsList`: clicking "Sent" chip navigates to `?status=sent`; filter is passed to `useBroadcastList` |
-| AC-2: Composer validates required fields (title, body) | Unit | `TgBroadcastComposer`: submit with empty fields shows errors; submit succeeds when both populated |
-| AC-2: Up to 8 inline buttons enforced | Unit | `TgBroadcastComposer`: adding 9th button is blocked; "Add button" hidden at limit |
-| AC-3: Save + Schedule sets `status=scheduled` | Unit | `useUpdateBroadcast` is called with `status=scheduled` + `scheduled_at`; AC-4 covers the hook |
-| AC-4: ActionBar actions are contextual (Cancel only on scheduled) | Unit | `TgBroadcastComposer`/`[id].astro`: Cancel button hidden when status != 'scheduled' |
-| AC-5: Send-now confirm shows recipient count + duration | Unit | `useSendNow` confirm dialog reads from `GET /v1/workspace/tg-segments/:id/preview`; shows `match_count` and `Math.round(match_count / 30)` seconds |
-| AC-6: Failed broadcast shows Send now available | Unit | `useBroadcastDetail` on failed broadcast shows Send now action; `useSendNow` callable |
-| AC-9: Status chips display correctly | Unit | Status chip component maps each `BroadcastStatus` to correct color and label |
-
-**Notes on AC-3, AC-7, AC-8:**
-- AC-3 (save + schedule), AC-7 (duplicate), AC-8 (cancel) are tested via `useUpdateBroadcast`, `useDuplicate`, and `useCancel` hook unit tests, which verify the correct API endpoints are called with the correct payloads.
-- The `TgBroadcastsService` backend is tested in `tg-broadcasts-service.spec.ts`.
+| AC-1: `/welcome/telegram-uz` renders with correct content + CTA | E2E | Landing page happy path: title, subtitle, body, CTA button linking to `/onboard?slug=telegram-uz` |
+| AC-2: `/welcome/nonexistent` returns 404 | E2E + Unit | E2E: `GET /welcome/nonexistent` → 404; Unit: `fetchLandingPage('nonexistent')` → null |
+| AC-3: Anon accessing `/onboard` redirects to sign-in | E2E | `GET /onboard` (no session) → 302 `/auth/sign-in?redirect=/onboard` |
+| AC-4: Authed + not onboarded → renders 3-step form | E2E | Sign in (no onboard), `GET /onboard` → 200 + step 1 visible |
+| AC-5: Authed + onboarded → 302 to `/me` | E2E | Sign in (onboarded), `GET /onboard` → 302 `/me` |
+| AC-6: Step 1 → Step 2 navigation | Unit | `<OnboardingForm>` test: fill step 1, click Next → step 2 renders |
+| AC-7: Skill "mlops" persisted to `member_skills` | Integration | `POST /v1/members/onboard` with `skills: ['mlops']` → `member_skills` row exists for user |
+| AC-8: Full form submit calls API + sets `onboarded_at` + awards points | Integration | `POST /v1/members/onboard` (all 3 steps valid) → 204; `directus_users.onboarded_at` set; `point_awards` row with `key='first_join'` |
+| AC-9: API 204 → frontend redirects to `/me` | E2E | Full happy path flow ends at `/me` |
+| AC-10: Double-call returns 204, no re-award | Integration | Call API twice → second call: 204; `point_awards` count unchanged |
+| AC-11: `pnpm arch:check && astro check && pnpm build` pass | CI gate | Executed in CI pipeline (not a test file; enforced by QualityGate) |
 
 ---
 
 ## Gate Result
 
-```
-gate: test-strategy
-agent: test-strategist
-status: passed
-workflow: wf-20260623-feat-015
-requirement: FR-MIG-015
-
-rubric_score: 0
-justification: Pure frontend feature. No new API endpoints, no DB schema
-  changes, no cross-module service calls. All backend rules are already
-  tested in tg-broadcasts-service.spec.ts.
-
-test_levels:
-  unit: required
-  integration: not-required (rubric < 4)
-  e2e: not-required (rubric < 6)
-
-unit_targets:
-  - use-tg-broadcasts.ts (9 hooks)
-  - TgBroadcastsList.tsx (DataTable + status filter)
-  - TgBroadcastComposer.tsx (validation + buttons + actions)
-  - Status chip component (color + label mapping)
-
-ac_coverage: all 10 ACs mapped to unit tests
-
-confidence: high
-```
+gate_result:
+  status: passed
+  summary: "Test strategy complete for FEAT-MIG-020. Rubric score 8 mandates Unit + Integration (Testcontainers) + E2E (Playwright). All 10 ACs mapped to test cases; AC-11 enforced by CI gate."
+  findings:
+    - "Rubric score 8 = Unit + Integration + E2E required"
+    - "Unit tests: 9 targets across Zod DTO, service methods, SSR helpers, React component"
+    - "Integration tests: 7 scenarios covering full POST /v1/members/onboard flow, idempotency, auth, validation, and GET /v1/me/onboarding-status"
+    - "E2E tests: 7 Playwright flows covering landing page, auth redirects, onboarding render, and full happy path"
+    - "All 10 ACs mapped; AC-11 is CI-gated, not a test file"
+    - "Known limitations noted: onboarded_at field must exist in Directus before tests run; SkillTagger adapter deferred (onboarding form has inline tagger)"

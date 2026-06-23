@@ -15,6 +15,7 @@ import { InternalCronModule } from './modules/internal-cron/internal-cron.module
 import { InternalModule } from './modules/internal/internal.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { MeProfileModule } from './modules/me-profile/me-profile.module';
+import { MembersModule } from './modules/members/members.module';
 import { PointsModule } from './modules/points/points.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { RbacSyncModule } from './modules/rbac-sync/rbac-sync.module';
@@ -46,6 +47,7 @@ const RATE_LIMIT_MAX = 60;
     TelegramModule,
     WorkspaceModule,
     LeadsModule,
+    MembersModule,
     MeProfileModule,
     ReferralsModule,
     AdminInvitesModule,

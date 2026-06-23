@@ -126,4 +126,30 @@ export class PointsDirectusService {
     }
     return entries;
   }
+
+  // FR-MIG-020 — award first-join points to `userId`. Writes one row to
+  // directus point_awards. Idempotent: checks for an existing award row
+  // with key='first_join' before inserting. Returns silently if already
+  // awarded (caller does not need to distinguish).
+  async awardFirstJoinPoints(userId: string): Promise<void> {
+    const KEY = 'first_join';
+    const POINTS = 10;
+
+    // Check idempotency — skip if already awarded.
+    const filter = encodeURIComponent(JSON.stringify({ user: { _eq: userId }, key: { _eq: KEY } }));
+    const existing = await this.directus.get<{ data: { id: string }[] }>(
+      `/items/point_awards?filter=${filter}&fields=id&limit=1`,
+    );
+    if (existing.data.length > 0) {
+      this.logger.debug(`first-join points already awarded to user=${userId}`);
+      return;
+    }
+
+    await this.directus.post('/items/point_awards', {
+      user: userId,
+      points: POINTS,
+      key: KEY,
+    });
+    this.logger.log(`first-join points awarded to user=${userId} (${POINTS} pts)`);
+  }
 }
