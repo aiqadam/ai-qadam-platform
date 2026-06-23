@@ -145,15 +145,20 @@ ISSUE_TEXT=$(git show "$BASE_REF:$ISSUE_REGISTRY" 2>/dev/null || true)
 
 # Check 1: orphaned workflow references in workspace-state.md
 # A row pointing to a path under .copilot/tasks/active/ that no longer exists
-# on disk is an orphan. We allow completed/ paths (R-3d mitigation).
+# on disk is an orphan. We allow completed/ paths (R-3d mitigation) AND
+# archived/ paths (ISS-WF-13-1: workflows past their retention window are
+# moved to archived/ on the dev machine; the workspace-state.md entry is the
+# canonical historical record).
 mapfile -t WORKFLOW_IDS < <(extract_workflow_ids "$WORKSPACE_TEXT")
 for wf_id in "${WORKFLOW_IDS[@]}"; do
   # If id is empty (e.g., table header rows that matched), skip.
   [[ -z "$wf_id" ]] && continue
-  # An ID is orphaned only if it is referenced AND neither active nor completed
-  # on disk AND no workflow artifact commit exists on the base ref.
+  # An ID is orphaned only if it is referenced AND none of {active, completed,
+  # archived} contains a corresponding directory on disk AND no workflow
+  # artifact commit exists on the base ref.
   if [[ ! -d ".copilot/tasks/active/$wf_id" \
-     && ! -d ".copilot/tasks/completed/$wf_id" ]]; then
+     && ! -d ".copilot/tasks/completed/$wf_id" \
+     && ! -d ".copilot/tasks/archived/$wf_id" ]]; then
     # Tolerate: workflow artifact committed in recent history (archived via PR).
     if ! git log --oneline -- ".copilot/tasks/active/$wf_id" \
          | grep -q .; then
