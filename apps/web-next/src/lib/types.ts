@@ -579,3 +579,27 @@ export interface WorkspaceFormRow {
   date_updated: string | null;
   submission_count: number;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/countries (operator countries list)
+//
+// FR-MIG-012 — countries list cabinet. Lists all countries with status
+// (active/inactive), country lead count, last event date.
+// ---------------------------------------------------------------------------
+
+export interface PublicHoliday {
+  date: string;
+  label: string;
+}
+
+export interface CountryRow {
+  code: string;
+  name: string;
+  name_ru: string | null;
+  tz: string;
+  is_active: boolean;
+  default_locale: string;
+  currency_code: string;
+  public_holidays: PublicHoliday[] | null;
+  default_reminder_channel: string;
+}

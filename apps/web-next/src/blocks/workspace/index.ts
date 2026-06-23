@@ -11,6 +11,7 @@ export { AsyncSelect } from './AsyncSelect';
 export { AuditLogList } from './AuditLogList';
 export { default as Breadcrumbs } from './Breadcrumbs.astro';
 export { CountryProvisioningWizard } from './CountryProvisioningWizard';
+export { CountriesList } from './CountriesList';
 export { DashboardKpis } from './DashboardKpis';
 export { DataTable } from './DataTable';
 export { EventControlPanelActions } from './EventControlPanelActions';
