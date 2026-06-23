@@ -7,6 +7,7 @@
 // PR 2.2 shipped list + search; M2.3a adds the 7-primitive filter
 // sheet (<MembersFilterPanel> over the <Drawer> atom). Cohort
 // save/load rides on this same applied-filter state in M2.3b.
+// M2.3c adds active-filter chips bar and URL param sync.
 
 import { Button, Input } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';
@@ -14,12 +15,16 @@ import {
   EMPTY_MEMBER_FILTERS,
   type MemberFilters,
   buildMemberFilter,
+  getActiveFilterChips,
   parseDirectusToMemberFilters,
+  parseParamsToFilters,
+  serializeFiltersToParams,
 } from '@/lib/member-filters';
 import type { CohortRow, MemberRow } from '@/lib/types';
 import { useMembersSearch } from '@/lib/use-members';
-import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
+import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from './DataTable';
+import { FilterChip } from './FilterChip';
 import { MembersFilterPanel } from './MembersFilterPanel';
 import { SaveCohortModal } from './SaveCohortModal';
 import { SavedCohortsPanel } from './SavedCohortsPanel';
@@ -171,18 +176,140 @@ function Toolbar({
   );
 }
 
+interface FilterChipsBarProps {
+  filters: MemberFilters;
+  onRemoveFilter: (key: keyof MemberFilters) => void;
+  onClearAll: () => void;
+}
+
+function FilterChipsBar({
+  filters,
+  onRemoveFilter,
+  onClearAll,
+}: FilterChipsBarProps): ReactElement | null {
+  const chips = getActiveFilterChips(filters);
+  if (chips.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        Active filters
+      </span>
+      {chips.map((chip) => (
+        <FilterChip key={chip.key} active={true} onClick={() => onRemoveFilter(chip.key)}>
+          {chip.label}: {chip.value}
+        </FilterChip>
+      ))}
+      <button
+        type="button"
+        onClick={onClearAll}
+        className="font-mono text-[11px] px-2 py-1 rounded border border-border bg-card text-muted-foreground hover:border-destructive/40 hover:text-destructive transition-colors"
+      >
+        Clear all
+      </button>
+    </div>
+  );
+}
+
+// Custom hook for filter state + URL sync. Extracted from MembersListInner
+// to keep cognitive complexity below 10 (Biome max-cyclomatic: 10).
+function useFilterState() {
+  const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
+  const [initialized, setInitialized] = useState(false);
+
+  // Read filters from URL on mount (browser only).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setFilters(parseParamsToFilters(params));
+    setInitialized(true);
+  }, []);
+
+  const syncFiltersToUrl = (next: MemberFilters): void => {
+    const params = serializeFiltersToParams(next);
+    const search = params.toString();
+    const newUrl = search ? `${window.location.pathname}?${search}` : window.location.pathname;
+    window.history.pushState({}, '', newUrl);
+  };
+
+  const applyFilters = (next: MemberFilters): void => {
+    setFilters(next);
+    syncFiltersToUrl(next);
+  };
+
+  const removeFilter = (key: keyof MemberFilters): void => {
+    const next: MemberFilters = { ...filters, [key]: '' };
+    applyFilters(next);
+  };
+
+  const clearAllFilters = (): void => {
+    applyFilters(EMPTY_MEMBER_FILTERS);
+  };
+
+  const loadCohortFilters = (cohort: CohortRow): void => {
+    const parsed = parseDirectusToMemberFilters(cohort.filter_query);
+    applyFilters(parsed);
+  };
+
+  return {
+    filters,
+    initialized,
+    applyFilters,
+    removeFilter,
+    clearAllFilters,
+    loadCohortFilters,
+  };
+}
+
+// Extracted to a sub-component to keep MembersListInner cognitive complexity ≤ 10.
+interface MembersTableProps {
+  query: ReturnType<typeof useMembersSearch>;
+  page: number;
+  totalPages: number;
+  narrowed: boolean;
+  onPageChange: (p: number) => void;
+}
+
+function MembersTable({
+  query,
+  page,
+  totalPages,
+  narrowed,
+  onPageChange,
+}: MembersTableProps): ReactElement {
+  return (
+    <>
+      <DataTable
+        columns={COLUMNS}
+        rows={query.data?.members ?? []}
+        rowKey={(r) => r.id}
+        pagination={{ page, totalPages, onChange: onPageChange }}
+        isLoading={query.isPending}
+        errorMessage={query.error?.message ?? null}
+        emptyHeading={narrowed ? 'No matches' : 'No members yet'}
+        emptyDescription={narrowed ? 'No members match the current search + filters.' : ''}
+      />
+      {query.data && (
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {query.data.total.toLocaleString()} members
+          {narrowed ? ' match' : ' total'}
+        </p>
+      )}
+    </>
+  );
+}
+
 function MembersListInner(): ReactElement {
   const [page, setPage] = useState(1);
   const [committedQuery, setCommittedQuery] = useState('');
-  const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
   const [saveOpen, setSaveOpen] = useState(false);
+  const { filters, initialized, applyFilters, removeFilter, clearAllFilters, loadCohortFilters } =
+    useFilterState();
 
   const filterObj = useMemo(() => buildMemberFilter(filters), [filters]);
   const hasFilter = Object.keys(filterObj).length > 0;
 
   const query = useMembersSearch({
     ...(committedQuery.length > 0 ? { q: committedQuery } : {}),
-    ...(hasFilter ? { filter: filterObj } : {}),
+    ...(hasFilter && initialized ? { filter: filterObj } : {}),
     page,
     limit: PAGE_SIZE,
   });
@@ -194,12 +321,9 @@ function MembersListInner(): ReactElement {
     setCommittedQuery(q);
     setPage(1);
   };
-  const applyFilters = (next: MemberFilters): void => {
-    setFilters(next);
-    setPage(1);
-  };
+
   const loadCohort = (cohort: CohortRow): void => {
-    setFilters(parseDirectusToMemberFilters(cohort.filter_query));
+    loadCohortFilters(cohort);
     setCommittedQuery('');
     setPage(1);
   };
@@ -216,25 +340,21 @@ function MembersListInner(): ReactElement {
         onOpenSave={() => setSaveOpen(true)}
       />
 
-      <SaveCohortModal open={saveOpen} onOpenChange={setSaveOpen} filterQuery={filterObj} />
-
-      <DataTable
-        columns={COLUMNS}
-        rows={query.data?.members ?? []}
-        rowKey={(r) => r.id}
-        pagination={{ page, totalPages, onChange: setPage }}
-        isLoading={query.isPending}
-        errorMessage={query.error?.message ?? null}
-        emptyHeading={narrowed ? 'No matches' : 'No members yet'}
-        emptyDescription={narrowed ? 'No members match the current search + filters.' : ''}
+      <FilterChipsBar
+        filters={filters}
+        onRemoveFilter={removeFilter}
+        onClearAll={clearAllFilters}
       />
 
-      {query.data && (
-        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {query.data.total.toLocaleString()} members
-          {narrowed ? ' match' : ' total'}
-        </p>
-      )}
+      <SaveCohortModal open={saveOpen} onOpenChange={setSaveOpen} filterQuery={filterObj} />
+
+      <MembersTable
+        query={query}
+        page={page}
+        totalPages={totalPages}
+        narrowed={narrowed}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

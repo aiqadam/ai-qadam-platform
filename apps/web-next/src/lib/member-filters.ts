@@ -10,6 +10,8 @@
 // under ADR-0038 §Locks #1 (the lock blocks lib/api-* imports + raw
 // fetch, not plain helpers).
 
+import { CONSENT_PURPOSES, COUNTRY_CODES } from '@/lib/types';
+
 export interface MemberFilters {
   country: string;
   seniority: string;
@@ -93,6 +95,108 @@ export function buildMemberFilter(f: MemberFilters): Record<string, unknown> {
 
 export function countActiveFilters(f: MemberFilters): number {
   return (Object.keys(f) as Array<keyof MemberFilters>).filter((k) => f[k] !== '').length;
+}
+
+// URL param prefix for member filters
+const FILTER_PARAM_PREFIX = 'f_';
+
+/**
+ * Validate a MemberFilters object against known enum/allowed-value lists.
+ * Returns a new MemberFilters with invalid field values stripped out.
+ * Invalid values are silently dropped (not thrown) to maintain UX.
+ *
+ * Validation rules:
+ * - country: must be one of COUNTRY_CODES
+ * - seniority: must be one of SENIORITY_OPTIONS
+ * - industry: free-text, no validation (contains search)
+ * - interest: free-text, no validation (topic tag lookup)
+ * - employer: free-text, no validation (icontains search)
+ * - attendedMin: must be a positive integer when non-empty
+ * - consent: must be one of CONSENT_PURPOSES
+ */
+export function validateMemberFilters(f: MemberFilters): MemberFilters {
+  return {
+    country: validateEnum(f.country, COUNTRY_CODES),
+    seniority: validateEnum(f.seniority, SENIORITY_OPTIONS),
+    industry: f.industry,
+    interest: f.interest,
+    employer: f.employer,
+    attendedMin: validatePositiveInt(f.attendedMin),
+    consent: validateEnum(f.consent, CONSENT_PURPOSES),
+  };
+}
+
+function validateEnum(value: string, allowed: readonly string[]): string {
+  if (value === '') return '';
+  return allowed.includes(value) ? value : '';
+}
+
+function validatePositiveInt(value: string): string {
+  if (value === '') return '';
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? value : '';
+}
+
+// Filter field → human-readable label map
+const FILTER_LABELS: Record<keyof MemberFilters, string> = {
+  country: 'Country',
+  seniority: 'Seniority',
+  industry: 'Industry',
+  interest: 'Interest',
+  employer: 'Employer',
+  attendedMin: 'Events Attended',
+  consent: 'Consent',
+};
+
+export interface SerializedFilter {
+  key: keyof MemberFilters;
+  value: string;
+  label: string;
+}
+
+/**
+ * Serialize a MemberFilters object into URLSearchParams.
+ * Keys are prefixed with "f_" to avoid collisions (e.g. ?f_country=UZ).
+ */
+export function serializeFiltersToParams(f: MemberFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const key of Object.keys(f) as Array<keyof MemberFilters>) {
+    const value = f[key];
+    if (value) {
+      params.set(`${FILTER_PARAM_PREFIX}${key}`, value);
+    }
+  }
+  return params;
+}
+
+/**
+ * Parse URLSearchParams back into a MemberFilters object.
+ * Only reads params that start with the "f_" prefix.
+ * Invalid values are silently stripped to maintain UX.
+ */
+export function parseParamsToFilters(params: URLSearchParams): MemberFilters {
+  const result: MemberFilters = { ...EMPTY_MEMBER_FILTERS };
+  for (const key of Object.keys(result) as Array<keyof MemberFilters>) {
+    const paramValue = params.get(`${FILTER_PARAM_PREFIX}${key}`);
+    if (paramValue !== null) {
+      result[key] = paramValue;
+    }
+  }
+  // Validate and strip invalid values before returning
+  return validateMemberFilters(result);
+}
+
+/**
+ * Return an array of active filters as label + key pairs for rendering chips.
+ */
+export function getActiveFilterChips(f: MemberFilters): SerializedFilter[] {
+  return (Object.keys(f) as Array<keyof MemberFilters>)
+    .filter((k) => f[k] !== '')
+    .map((key) => ({
+      key,
+      value: f[key],
+      label: FILTER_LABELS[key],
+    }));
 }
 
 // Inverse of buildMemberFilter. Best-effort parse of a stored Directus

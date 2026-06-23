@@ -120,8 +120,8 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 5 | [FR-MIG-003](FR-MIG-003.md) | Form block (Zod-driven) | Shipped | — |
 | 6 | [FR-MIG-004](FR-MIG-004.md) | AsyncSelect block (server-search dropdown) | Shipped | — |
 | 7 | [FR-MIG-005](FR-MIG-005.md) | ActionBar block (contextual action row) | Shipped | — |
-| 8 | [FR-MIG-009](FR-MIG-009.md) | /workspace/events/[id] control panel with PATCH | Not Started | MIG-003, MIG-004, MIG-005 |
-| 9 | [FR-MIG-010](FR-MIG-010.md) | /workspace/members filter panel + cohort save/load | Not Started | MIG-003 |
+| 8 | [FR-MIG-009](FR-MIG-009.md) | /workspace/events/[id] control panel with PATCH | Shipped | MIG-003, MIG-004, MIG-005 |
+| 9 | [FR-MIG-010](FR-MIG-010.md) | /workspace/members filter panel + cohort save/load | Shipped | MIG-003 |
 | 10 | [FR-MIG-011](FR-MIG-011.md) | /workspace/announce full composer | Not Started | MIG-003, MIG-004, MIG-005 |
 | 11 | [FR-MIG-012](FR-MIG-012.md) | /workspace/admin/countries list + provisioning wizard | Not Started | MIG-003, MIG-005 |
 | 12 | [FR-MIG-017](FR-MIG-017.md) | /auth/sign-in + /auth/signed-out pages | Not Started | MIG-001 |

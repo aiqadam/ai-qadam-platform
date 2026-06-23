@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-010
 name: /workspace/members — filter panel + cohort save/load
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M2
 ---

@@ -4,7 +4,7 @@
 // covered by the Storybook smoke story instead. Per AGENTS.md §3 every public
 // function has a unit test — the pure helpers satisfy this for the non-DOM logic.
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AsyncSelectOption, AsyncSelectProps } from './AsyncSelect';
 
 // ─── Pure helpers — verbatim copies from AsyncSelect.tsx ──────────────────────
@@ -152,7 +152,7 @@ import {
 
 describe('G1: useFetchOptions — error state (loadOptions rejects)', () => {
   it('should set asyncState=error when loadOptions rejects', async () => {
-    const rejectLoadOptions = vi.fn<[string], Promise<AsyncSelectOption[]>>(() =>
+    const rejectLoadOptions = vi.fn<(input: string) => Promise<AsyncSelectOption[]>>(() =>
       Promise.reject(new Error('Server error')),
     );
 
@@ -172,7 +172,7 @@ describe('G1: useFetchOptions — error state (loadOptions rejects)', () => {
   });
 
   it('should not update asyncState to error if effect was cancelled before rejection settles', async () => {
-    const rejectLoadOptions = vi.fn<[string], Promise<AsyncSelectOption[]>>(() =>
+    const rejectLoadOptions = vi.fn<(input: string) => Promise<AsyncSelectOption[]>>(() =>
       Promise.reject(new Error('Server error')),
     );
 
@@ -186,7 +186,7 @@ describe('G1: useFetchOptions — error state (loadOptions rejects)', () => {
   });
 
   it('should preserve errorMessage across re-fetches until next successful load', async () => {
-    const rejectThenFulfill = vi.fn<[string], Promise<AsyncSelectOption[]>>(async (input) => {
+    const rejectThenFulfill = vi.fn<(input: string) => Promise<AsyncSelectOption[]>>(async (input: string) => {
       if (input === 'error') return Promise.reject(new Error('Server error'));
       return Promise.resolve([{ value: input, label: `Label for ${input}` }]);
     });
@@ -223,14 +223,16 @@ describe('G2: displayValue — selected option label shown in input when value i
   it('should return inputValue when user is typing (inputValue takes precedence)', () => {
     const inputValue = 'AI';
     const value: AsyncSelectOption | null = { value: 'ev-1', label: 'AI Conf 2025' };
-    const displayValue = inputValue !== '' ? inputValue : (value?.label ?? '');
+    const valueLabel = (value as AsyncSelectOption).label;
+    const displayValue = inputValue.length > 0 ? inputValue : valueLabel;
     expect(displayValue).toBe('AI');
   });
 
   it('should return empty string when both inputValue and value are empty', () => {
     const inputValue = '';
     const value: AsyncSelectOption | null = null;
-    const displayValue = inputValue !== '' ? inputValue : (value?.label ?? '');
+    const valueLabel = value ? (value as AsyncSelectOption).label : '';
+    const displayValue = inputValue.length > 0 ? inputValue : valueLabel;
     expect(displayValue).toBe('');
   });
 
@@ -246,7 +248,8 @@ describe('G2: displayValue — selected option label shown in input when value i
     // User clicks into an input that has a controlled value and starts typing to search
     const inputValue = 'ML';
     const value: AsyncSelectOption | null = { value: 'ev-1', label: 'AI Conf 2025' };
-    const displayValue = inputValue !== '' ? inputValue : (value?.label ?? '');
+    const valueLabel = (value as AsyncSelectOption).label;
+    const displayValue = inputValue.length > 0 ? inputValue : valueLabel;
     expect(displayValue).toBe('ML');
   });
 
@@ -254,7 +257,8 @@ describe('G2: displayValue — selected option label shown in input when value i
     // After handleClear: inputValue='' and onChange(null)
     const inputValue = '';
     const value: AsyncSelectOption | null = null;
-    const displayValue = inputValue !== '' ? inputValue : (value?.label ?? '');
+    const valueLabel = value ? (value as AsyncSelectOption).label : '';
+    const displayValue = inputValue.length > 0 ? inputValue : valueLabel;
     expect(displayValue).toBe('');
   });
 
@@ -264,7 +268,7 @@ describe('G2: displayValue — selected option label shown in input when value i
       { value: 'ev-2', label: 'DevOps Summit' },
       { value: 'ev-3', label: 'React World' },
     ];
-    const selectedValue: AsyncSelectOption | null = options[0];
+    const selectedValue: AsyncSelectOption | null = options[0] ?? null;
     const displayValue = selectedValue !== null ? selectedValue.label : '';
     expect(displayValue).toBe('AI Conf 2025');
   });
