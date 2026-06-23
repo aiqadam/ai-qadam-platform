@@ -267,7 +267,7 @@ importers:
         version: 5.18.1(@types/node@22.19.19)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.3)(typescript@5.9.3)(yaml@2.9.0)
       geist:
         specifier: ^1.7.1
-        version: 1.7.1(next@16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
+        version: 1.7.1(next@16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
       i18next:
         specifier: ^24.0.0
         version: 24.2.3(typescript@5.9.3)
@@ -311,6 +311,15 @@ importers:
       '@astrojs/react':
         specifier: ^4.2.0
         version: 4.4.2(@types/node@22.19.19)(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(jiti@2.7.0)(lightningcss@1.32.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0)
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.2.6)
       '@hookform/resolvers':
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.80.0(react@19.2.6))
@@ -705,6 +714,28 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
+
+  '@dnd-kit/accessibility@3.1.1':
+    resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
+    peerDependencies:
+      react: '>=16.8.0'
+
+  '@dnd-kit/core@6.3.1':
+    resolution: {integrity: sha512-xkGBRQQab4RLwgXxoqETICr6S5JlogafbhNsidmrkVv2YRs5MLwpjoF2qpiGjQt8S9AoxtIV603s0GIUpY5eYQ==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@dnd-kit/sortable@10.0.0':
+    resolution: {integrity: sha512-+xqhmIIzvAYMGfBYYnbKuNicfSsk4RksY2XdmJhT+HAC01nix6fHCztU68jooFiMUB01Ky3F0FyOvhG/BZrWkg==}
+    peerDependencies:
+      '@dnd-kit/core': ^6.3.0
+      react: '>=16.8.0'
+
+  '@dnd-kit/utilities@3.2.2':
+    resolution: {integrity: sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg==}
+    peerDependencies:
+      react: '>=16.8.0'
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -7771,6 +7802,31 @@ snapshots:
 
   '@csstools/css-tokenizer@4.0.0': {}
 
+  '@dnd-kit/accessibility@3.1.1(react@19.2.6)':
+    dependencies:
+      react: 19.2.6
+      tslib: 2.8.1
+
+  '@dnd-kit/core@6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      '@dnd-kit/accessibility': 3.1.1(react@19.2.6)
+      '@dnd-kit/utilities': 3.2.2(react@19.2.6)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+      tslib: 2.8.1
+
+  '@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      '@dnd-kit/core': 6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@dnd-kit/utilities': 3.2.2(react@19.2.6)
+      react: 19.2.6
+      tslib: 2.8.1
+
+  '@dnd-kit/utilities@3.2.2(react@19.2.6)':
+    dependencies:
+      react: 19.2.6
+      tslib: 2.8.1
+
   '@drizzle-team/brocli@0.10.2': {}
 
   '@emmetio/abbreviation@2.3.3':
@@ -11544,9 +11600,9 @@ snapshots:
 
   function-bind@1.1.2: {}
 
-  geist@1.7.1(next@16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)):
+  geist@1.7.1(next@16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)):
     dependencies:
-      next: 16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
   generator-function@2.0.1: {}
 
@@ -12615,7 +12671,7 @@ snapshots:
 
   neotraverse@0.6.18: {}
 
-  next@16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+  next@16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       '@next/env': 16.2.6
       '@swc/helpers': 0.5.15
@@ -12624,7 +12680,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
-      styled-jsx: 5.1.6(@babel/core@7.29.0)(react@19.2.6)
+      styled-jsx: 5.1.6(react@19.2.6)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.2.6
       '@next/swc-darwin-x64': 16.2.6
@@ -13677,12 +13733,10 @@ snapshots:
     dependencies:
       '@tokenizer/token': 0.3.0
 
-  styled-jsx@5.1.6(@babel/core@7.29.0)(react@19.2.6):
+  styled-jsx@5.1.6(react@19.2.6):
     dependencies:
       client-only: 0.0.1
       react: 19.2.6
-    optionalDependencies:
-      '@babel/core': 7.29.0
 
   superagent@10.3.0:
     dependencies:

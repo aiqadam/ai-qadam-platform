@@ -75,6 +75,8 @@ L1 runtime functions that blocks and pages import.
 | `<InvitesList>` | `blocks/workspace/InvitesList.tsx` | Invite management |
 | `<CountriesList>` | `blocks/workspace/CountriesList.tsx` | Country list with provisioning |
 
+| `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
+
 ## Customer blocks (L2)
 
 | Block | File | Purpose |
