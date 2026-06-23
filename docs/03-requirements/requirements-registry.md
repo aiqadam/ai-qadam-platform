@@ -118,7 +118,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 3 | [FR-MIG-008](FR-MIG-008.md) | /workspace/partners/[slug] detail (read-only) | Shipped | — |
 | 4 | [FR-MIG-007](FR-MIG-007.md) | Tooltip kit atom | Not Started | — |
 | 5 | [FR-MIG-003](FR-MIG-003.md) | Form block (Zod-driven) | Shipped | — |
-| 6 | [FR-MIG-004](FR-MIG-004.md) | AsyncSelect block (server-search dropdown) | Not Started | — |
+| 6 | [FR-MIG-004](FR-MIG-004.md) | AsyncSelect block (server-search dropdown) | Shipped | — |
 | 7 | [FR-MIG-005](FR-MIG-005.md) | ActionBar block (contextual action row) | Not Started | — |
 | 8 | [FR-MIG-009](FR-MIG-009.md) | /workspace/events/[id] control panel with PATCH | Not Started | MIG-003, MIG-004, MIG-005 |
 | 9 | [FR-MIG-010](FR-MIG-010.md) | /workspace/members filter panel + cohort save/load | Not Started | MIG-003 |
