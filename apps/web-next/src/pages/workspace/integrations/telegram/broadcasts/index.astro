@@ -1,0 +1,39 @@
+---
+// @generated-from pattern:workspace/integrations/telegram/segments
+// slug: workspace/integrations/telegram/broadcasts
+// FR-MIG-015 — Telegram broadcast cabinet. List page with status filter.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../../blocks/common';
+import { Breadcrumbs, PageShell, TgBroadcastsList } from '../../../../../blocks/workspace';
+import Layout from '../../../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Telegram Broadcasts · AI Qadam workspace"
+  description="Operator cabinet for Telegram broadcast campaigns."
+>
+  <PageHead
+    slot="head"
+    title="Telegram Broadcasts · AI Qadam workspace"
+    description="Send targeted messages to your Telegram audience via audience segments."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Broadcasts"
+      description="Send targeted messages to your Telegram audience."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Integrations', href: '/workspace/integrations' },
+          { label: 'Telegram', href: '/workspace/integrations/telegram' },
+          { label: 'Broadcasts' },
+        ]}
+      />
+      <TgBroadcastsList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

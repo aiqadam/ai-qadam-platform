@@ -129,7 +129,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 14 | [FR-MIG-006](FR-MIG-006.md) | FormBuilder block (drag/reorder, 7 field types) | Shipped | — |
 | 15 | [FR-MIG-013](FR-MIG-013.md) | /workspace/forms/[id] builder + responses | Shipped | MIG-006, MIG-005 |
 | 16 | [FR-MIG-014](FR-MIG-014.md) | /workspace/integrations/telegram root + segments | In Progress | MIG-004, MIG-006 |
-| 17 | [FR-MIG-015](FR-MIG-015.md) | /workspace/integrations/telegram/broadcasts list + composer | Not Started | MIG-004, MIG-005 |
+| 17 | [FR-MIG-015](FR-MIG-015.md) | /workspace/integrations/telegram/broadcasts list + composer | Shipped | MIG-004, MIG-005 |
 | 18 | [FR-MIG-016](FR-MIG-016.md) | /workspace/admin/cron + /workspace/admin/rbac-sync | Not Started | — |
 | 19 | [FR-MIG-019](FR-MIG-019.md) | /forms/[slug] public form renderer | Not Started | MIG-006 |
 | 20 | [FR-MIG-020](FR-MIG-020.md) | /onboard + /welcome/[slug] new-member flow | Not Started | MIG-017 |

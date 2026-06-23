@@ -85,6 +85,8 @@ L1 runtime functions that blocks and pages import.
 | `<FormResponsesCabinet>` | `blocks/workspace/FormResponsesCabinet.tsx` | Responses inbox with aggregate + CSV export |
 | `<CriteriaBuilder>` | `blocks/workspace/CriteriaBuilder.tsx` | Segment criteria DSL builder (AND/OR, country, events, topics) |
 | `<TgSegmentsList>` | `blocks/workspace/TgSegmentsList.tsx` | Telegram audience segments list + create/edit |
+| `<TgBroadcastsList>` | `blocks/workspace/TgBroadcastsList.tsx` | Telegram broadcasts list with status filter |
+| `<TgBroadcastComposer>` | `blocks/workspace/TgBroadcastComposer.tsx` | Telegram broadcast composer with buttons, segment picker, scheduler |
 
 ## Customer blocks (L2)
 

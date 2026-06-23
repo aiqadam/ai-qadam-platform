@@ -18,7 +18,7 @@ import { useEventTopics } from '@/lib/use-telegram-topics';
 import { useWorkspaceEvents } from '@/lib/use-workspace-events';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
-import { type ReactElement, useCallback, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import { AsyncSelect, type AsyncSelectOption } from './AsyncSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

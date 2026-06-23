@@ -14,8 +14,10 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
+import { SuperAdminGuard } from '../admin-invites/super-admin.guard';
 import { AuthGuard } from '../auth/auth.guard';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
+import { COUNTRY_CODES, type CountryCode } from '../rbac-sync/group-mapping';
 import {
   type BroadcastAnalytics,
   TgBroadcastsAnalyticsService,
@@ -38,14 +40,14 @@ import {
 //
 // Operator-scope filtering by country happens here (rather than via
 // Directus permissions) so the same DirectusClient can serve both views.
+// Country is derived from the caller's Authentik group membership
+// (aiqadam-country-lead-<country> or aiqadam-organizer-<country>).
+// Super-admins (aiqadam-super-admin) get null (no filter) to see all.
+// Member-class users without a country group also get null.
 
 const STATUSES = ['draft', 'scheduled', 'sending', 'sent', 'failed', 'cancelled'] as const;
 
 const listQuerySchema = z.object({
-  country: z
-    .string()
-    .regex(/^[a-z]{2}$/, 'country must be ISO-3166-1 alpha-2 lowercase')
-    .optional(),
   status: z.enum(STATUSES).optional(),
 });
 
@@ -83,6 +85,31 @@ const updateSchema = z
   })
   .strict();
 
+// Country group prefixes with priority (index 0 = highest priority).
+const COUNTRY_PREFIXES = ['aiqadam-country-lead-', 'aiqadam-organizer-'] as const;
+
+// Validate that a string is a known country code.
+function isCountryCode(s: string): s is CountryCode {
+  return (COUNTRY_CODES as readonly string[]).includes(s);
+}
+
+// Extract the operator's country from their Authentik group membership.
+// aiqadam-super-admin returns null (no filter — can see all countries).
+// Member-class users with no country group also return null.
+function extractOperatorCountry(groups: string[] | undefined): CountryCode | null {
+  if (!groups) return null;
+  // Check prefixes in priority order.
+  for (const prefix of COUNTRY_PREFIXES) {
+    for (const g of groups) {
+      if (g.startsWith(prefix)) {
+        const country = g.slice(prefix.length);
+        if (isCountryCode(country)) return country;
+      }
+    }
+  }
+  return null;
+}
+
 @Controller('v1/workspace/tg-broadcasts')
 @UseGuards(AuthGuard)
 export class TgBroadcastsController {
@@ -94,13 +121,14 @@ export class TgBroadcastsController {
   ) {}
 
   @Get()
-  async list(@Query() query: unknown): Promise<{ items: BroadcastSummary[] }> {
+  async list(@Req() req: Request, @Query() query: unknown): Promise<{ items: BroadcastSummary[] }> {
     const parsed = listQuerySchema.safeParse(query);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
+    const operatorCountry = extractOperatorCountry(req.user?.groups);
     return this.broadcasts.list({
-      country: parsed.data.country ?? null,
+      country: operatorCountry,
       status: (parsed.data.status as BroadcastStatus | undefined) ?? null,
     });
   }
@@ -170,9 +198,11 @@ export class TgBroadcastsController {
   //   400: { error: 'already_sent' | 'in_progress' | 'previous_send_failed'
   //                 | 'no_audience_segment' | 'empty_body' }
   //   401: AuthGuard
+  //   403: SuperAdminGuard (super-admin only)
   //   404: { error: 'broadcast_not_found' }
   @Post(':id/send-now')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, SuperAdminGuard)
   async sendNow(@Param('id') id: string): Promise<SendNowResult> {
     const parsed = idParamSchema.safeParse(id);
     if (!parsed.success) {
