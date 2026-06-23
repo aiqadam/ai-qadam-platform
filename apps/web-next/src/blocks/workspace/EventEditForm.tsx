@@ -2,17 +2,12 @@
 //
 // Operator event control panel — metadata edit (M2.2a). Loads the
 // event detail, seeds a controlled form, PATCHes /v1/workspace/events/:id.
-// Followups checklist + regenerate-social-card land in M2.2b.
 //
-// The survey-form picker is a static <select> fed by useWorkspaceForms
-// (a country has a handful of forms — no async search needed). A
-// generic <Form> block is deliberately NOT extracted yet: this is the
-// first write-cabinet; the shared shape gets factored out once a
-// 2nd/3rd consumer (announce, forms-meta) proves it (rule of three).
-//
-// Split into a loader (<EventEditForm>) + seeded fields (<EditFields>)
-// so the controlled state initialises cleanly from async-loaded data.
+// The survey-form picker uses <AsyncSelect> (FR-MIG-004) to search
+// /v1/workspace/forms. <EventFollowups> handles the 4-kind followups
+// checklist + regenerate-social-card.
 
+import { AsyncSelect } from '@/blocks/workspace';
 import { Button, Input } from '@/kit';
 import { IslandRoot } from '@/lib/island-root';
 import {
@@ -22,7 +17,7 @@ import {
   type WorkspaceEventStatus,
 } from '@/lib/types';
 import { useUpdateEvent, useWorkspaceEvent } from '@/lib/use-workspace-events';
-import { useWorkspaceForms } from '@/lib/use-workspace-forms';
+import { type WorkspaceFormOption, useWorkspaceForms } from '@/lib/use-workspace-forms';
 import { type FormEvent, type ReactElement, type ReactNode, useState } from 'react';
 
 // ISO ⇄ <input type="datetime-local"> (local YYYY-MM-DDTHH:mm).
@@ -61,6 +56,40 @@ function Field({ label, htmlFor, children, hint }: FieldProps): ReactElement {
 const SELECT_CLASS =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
+interface SurveyFormPickerProps {
+  value: WorkspaceFormOption | null;
+  onChange: (next: WorkspaceFormOption | null) => void;
+}
+
+function SurveyFormPicker({ value, onChange }: SurveyFormPickerProps): ReactElement {
+  const forms = useWorkspaceForms();
+  const defaultOptions: WorkspaceFormOption[] =
+    forms.data?.forms.map((f) => ({
+      value: f.id,
+      label: f.title,
+    })) ?? [];
+
+  async function loadOptions(input: string): Promise<WorkspaceFormOption[]> {
+    const res = await fetch('/v1/workspace/forms', {
+      headers: input ? { 'X-Search': input } : undefined,
+    } as RequestInit);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { forms: Array<{ id: string; title: string }> };
+    return data.forms.map((f) => ({ value: f.id, label: f.title }));
+  }
+
+  return (
+    <AsyncSelect
+      loadOptions={loadOptions}
+      value={value}
+      onChange={onChange}
+      placeholder="Search forms…"
+      defaultOptions={defaultOptions}
+      loadOptionsOnMount
+    />
+  );
+}
+
 interface EditFieldsState {
   title: string;
   description: string;
@@ -69,7 +98,7 @@ interface EditFieldsState {
   ends_at: string;
   capacity: string;
   location: string;
-  survey: string;
+  survey: WorkspaceFormOption | null;
 }
 
 function seedFrom(e: WorkspaceEventDetail): EditFieldsState {
@@ -81,13 +110,12 @@ function seedFrom(e: WorkspaceEventDetail): EditFieldsState {
     ends_at: isoToLocalInput(e.ends_at),
     capacity: e.capacity == null ? '' : String(e.capacity),
     location: e.location ?? '',
-    survey: e.post_event_survey_form ?? '',
+    survey: e.post_event_survey_form ? { value: e.post_event_survey_form, label: '' } : null,
   };
 }
 
 function EditFields({ event }: { event: WorkspaceEventDetail }): ReactElement {
   const update = useUpdateEvent(event.id);
-  const forms = useWorkspaceForms();
   const [f, setF] = useState<EditFieldsState>(() => seedFrom(event));
   const [saved, setSaved] = useState(false);
 
@@ -98,11 +126,6 @@ function EditFields({ event }: { event: WorkspaceEventDetail }): ReactElement {
 
   const onSubmit = (ev: FormEvent<HTMLFormElement>): void => {
     ev.preventDefault();
-    // starts_at/ends_at are OMITTED when blank, not sent as ''. The
-    // API schema types them z.string().datetime().optional() (non-
-    // nullable), so an empty string fails .datetime() and 400s the
-    // ENTIRE patch (title/status/etc. lost). Omitting the key leaves
-    // the stored value untouched.
     const body: UpdateEventBody = {
       title: f.title.trim(),
       description: f.description.trim(),
@@ -111,15 +134,13 @@ function EditFields({ event }: { event: WorkspaceEventDetail }): ReactElement {
       ...(f.ends_at ? { ends_at: localInputToIso(f.ends_at) } : {}),
       capacity: f.capacity.trim() === '' ? null : Number.parseInt(f.capacity, 10),
       location: f.location.trim() === '' ? null : f.location.trim(),
-      post_event_survey_form: f.survey === '' ? null : f.survey,
+      post_event_survey_form: f.survey?.value ?? null,
     };
     update.mutate(body, { onSuccess: () => setSaved(true) });
   };
 
-  const formOptions = forms.data?.forms ?? [];
-
   return (
-    <form onSubmit={onSubmit} className="space-y-5 max-w-2xl">
+    <form onSubmit={onSubmit} id="ev-edit-form" className="space-y-5 max-w-2xl">
       <Field label="Title" htmlFor="ev-title">
         <Input
           id="ev-title"
@@ -195,19 +216,7 @@ function EditFields({ event }: { event: WorkspaceEventDetail }): ReactElement {
         htmlFor="ev-survey"
         hint="Attach a forms-library template, or none"
       >
-        <select
-          id="ev-survey"
-          value={f.survey}
-          onChange={(e) => set('survey', e.target.value)}
-          className={SELECT_CLASS}
-        >
-          <option value="">— none —</option>
-          {formOptions.map((form) => (
-            <option key={form.id} value={form.id}>
-              {form.title}
-            </option>
-          ))}
-        </select>
+        <SurveyFormPicker value={f.survey} onChange={(next) => set('survey', next)} />
       </Field>
 
       <div className="flex items-center gap-3 pt-2">

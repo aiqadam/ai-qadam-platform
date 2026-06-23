@@ -121,8 +121,9 @@ After merge:
 
 1. **Check that the requirement is clear.** If not, write it up first, get user sign-off.
 2. **Create an ADR if architecture-level decision is involved.** `docs/adr/0XX-title.md`.
-3. **Create the feature branch** from latest `main`.
-4. **Write tests first** when feasible (TDD for business logic; UI can be other order).
+3. **Update local `main` from origin.** Run `git fetch origin && git checkout main && git pull --rebase` to ensure you're branching from the latest.
+4. **Create the feature branch** from latest `main`.
+5. **Write tests first** when feasible (TDD for business logic; UI can be other order).
 5. **Write the smallest possible change** that gets to "works."
 6. **Iterate** — make it correct, then make it clean, then optimize if measured.
 7. **Open PR early** as draft if you want feedback before "done."

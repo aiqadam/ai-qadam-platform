@@ -14,6 +14,7 @@ export { DashboardKpis } from './DashboardKpis';
 export { DataTable } from './DataTable';
 export { EventEditForm } from './EventEditForm';
 export { EventFollowups } from './EventFollowups';
+export { EventKpiStrip } from './EventKpiStrip';
 export { EventsList } from './EventsList';
 export { Form, FormIsland } from './Form';
 export { FormsList } from './FormsList';

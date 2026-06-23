@@ -17,3 +17,23 @@ export function useWorkspaceForms(): UseQueryResult<{ forms: WorkspaceFormRow[] 
     queryFn: async () => apiClient<{ forms: WorkspaceFormRow[] }>('/v1/workspace/forms'),
   });
 }
+
+export interface WorkspaceFormOption {
+  value: string;
+  label: string;
+}
+
+export function useWorkspaceFormsSearch(
+  search: string,
+): UseQueryResult<WorkspaceFormOption[], Error> {
+  return useQuery<WorkspaceFormOption[], Error>({
+    queryKey: [...WORKSPACE_FORMS_BASE_KEY, 'search', search] as const,
+    queryFn: async () => {
+      const res = await apiClient<{ forms: WorkspaceFormRow[] }>('/v1/workspace/forms', {
+        headers: search ? { 'X-Search': search } : undefined,
+      } as RequestInit);
+      return res.forms.map((f) => ({ value: f.id, label: f.title }));
+    },
+    enabled: true,
+  });
+}
