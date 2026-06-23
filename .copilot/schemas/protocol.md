@@ -101,6 +101,18 @@ test -f 07-test-results.md && grep -q "status: passed" 07-test-results.md
 **PR creation is mandatory.** Fallback order: `gh` CLI → GitHub REST API →
 record web URL in `handoff.yaml` with `workflow_status: needs-human-pr-creation`.
 
+**MANDATORY: After workflow-finish.sh completes, the Orchestrator MUST output
+the PR URL to the user as a markdown link.** Read `github_pr_url` from
+`handoff.yaml` and surface it in the final response. Example:
+
+```
+Workflow complete. Open the PR here:
+https://github.com/org/repo/pull/123
+```
+
+If `github_pr_url` is empty, report the fallback URL from the script output
+and flag this for investigation.
+
 ---
 
 ## Clean-Tree Invariant

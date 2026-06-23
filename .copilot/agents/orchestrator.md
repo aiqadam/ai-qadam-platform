@@ -176,6 +176,18 @@ Delegate entirely to `scripts/workflow-finish.sh` per the **Workflow-Finish
 Protocol** in `.copilot/schemas/protocol.md`. Do not reimplement commit/push/PR
 logic — read the protocol for invocation flags and the pre-push gate checks.
 
+**MANDATORY: After the script completes, read `github_pr_url` from
+`handoff.yaml` and output it as a markdown link to the user.**
+
+Example:
+```
+Workflow complete. Open the PR here:
+https://github.com/org/repo/pull/123
+```
+
+If `github_pr_url` is empty, report the fallback URL from the script output
+and flag this for investigation. The user MUST always receive the PR URL.
+
 ---
 
 ## What the Orchestrator Does NOT Do

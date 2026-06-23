@@ -113,6 +113,22 @@ export async function fetchPublicProfile(
 }
 
 // ---------------------------------------------------------------------------
+// /v1/forms/:slug — public form by slug (for /forms/[slug] renderer).
+// ---------------------------------------------------------------------------
+
+import type { PublicForm } from './types';
+
+export async function fetchPublicForm(req: Request, slug: string): Promise<PublicForm | null> {
+  if (!slug || slug.length === 0) return null;
+  try {
+    return await get<PublicForm>(req, `/v1/forms/${encodeURIComponent(slug)}`);
+  } catch (err) {
+    console.error(`[api-ssr] /v1/forms/${slug} failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // /v1/leaderboard — tenant-scoped points leaderboard.
 // ---------------------------------------------------------------------------
 

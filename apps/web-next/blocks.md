@@ -33,7 +33,7 @@
 | `/workspace/admin/countries/[code]/provisioning` | Admin: country provisioning | authed |
 | `/workspace/admin/cron` | Admin: cron health | authed |
 | `/workspace/admin/rbac-sync` | Admin: RBAC sync | authed |
-| `/workspace/integrations/telegram` | Telegram integration root | authed |
+| `/forms/[slug]` | Public form submission page | anon (authed if !allow_anonymous) |
 | `/workspace/integrations/telegram/segments` | Telegram audience segments | authed |
 
 ## L1 lib hooks
@@ -46,6 +46,7 @@ L1 runtime functions that blocks and pages import.
 | `useTgSegments()` | `lib/use-tg-segments.ts` | Telegram segment CRUD hooks |
 | `useCronStatus()` | `lib/use-cron-status.ts` | Cron job health status hook |
 | `useRbacSyncJobs()` | `lib/use-rbac-sync.ts` | RBAC sync jobs list + trigger hook |
+| `usePublicForm()` | `lib/use-public-form.ts` | Public form fetch + submission hooks |
 
 ## Common blocks
 
@@ -98,7 +99,7 @@ L1 runtime functions that blocks and pages import.
 
 | Block | File | Purpose |
 |---|---|---|
-| `<Hero>` | `blocks/customer/Hero.tsx` | Homepage hero with stats |
+| `<FormRenderer>` | `blocks/customer/FormRenderer.tsx` | Public form submission with 7 field types |
 | `<EventCard>` | `blocks/customer/EventCard.tsx` | Event listing card |
 | `<LeaderboardRow>` | `blocks/customer/LeaderboardRow.tsx` | Leaderboard entry |
 | `<ProfileCard>` | `blocks/customer/ProfileCard.tsx` | Public profile card |
