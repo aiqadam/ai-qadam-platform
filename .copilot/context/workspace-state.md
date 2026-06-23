@@ -36,11 +36,11 @@ _(none)_
 
 - **Current branch:** main
 - **Last sync with origin:** 2026-06-23
-- **Pending PRs:** [PR #22](https://github.com/tvolodi/aiqadam/pull/22) (FR-MIG-012)
+- **Pending PRs:** [PR #27](https://github.com/tvolodi/aiqadam/pull/27) (FR-MIG-014)
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 12)
+See `.copilot/meta/next-workflow-id` (currently: 14)
 
 ---
 
