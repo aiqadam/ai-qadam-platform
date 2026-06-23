@@ -131,7 +131,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 16 | [FR-MIG-014](FR-MIG-014.md) | /workspace/integrations/telegram root + segments | In Progress | MIG-004, MIG-006 |
 | 17 | [FR-MIG-015](FR-MIG-015.md) | /workspace/integrations/telegram/broadcasts list + composer | Shipped | MIG-004, MIG-005 |
 | 18 | [FR-MIG-016](FR-MIG-016.md) | /workspace/admin/cron + /workspace/admin/rbac-sync | Not Started | — |
-| 19 | [FR-MIG-019](FR-MIG-019.md) | /forms/[slug] public form renderer | Not Started | MIG-006 |
+| 19 | [FR-MIG-019](FR-MIG-019.md) | /forms/[slug] public form renderer | In Progress | MIG-006 |
 | 20 | [FR-MIG-020](FR-MIG-020.md) | /onboard + /welcome/[slug] new-member flow | Not Started | MIG-017 |
 | 21 | [FR-MIG-021](FR-MIG-021.md) | /checkin event-day QR check-in | Not Started | — |
 | 22 | [FR-MIG-022](FR-MIG-022.md) | /events/[id]/survey + /feedback/csat + /leads/* | Not Started | MIG-019 |

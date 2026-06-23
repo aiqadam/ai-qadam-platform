@@ -185,7 +185,10 @@ Same as `requirement-development.md` Step 8. The regression test is the primary 
 
 ### Step 12: Commit, Push, Create PR (Orchestrator, direct)
 
-Same as `requirement-development.md` Step 11, using `scripts/workflow-finish.sh`.
+Same as `requirement-development.md` Step 11. **MANDATORY:** After
+`scripts/workflow-finish.sh` completes, the Orchestrator MUST output the PR URL
+to the user as a markdown link (e.g., `https://github.com/org/repo/pull/123`).
+If `github_pr_url` is empty, report the fallback URL and flag for investigation.
 
 ---
 

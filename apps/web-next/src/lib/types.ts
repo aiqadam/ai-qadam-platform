@@ -918,3 +918,27 @@ export interface RbacSyncResult {
 }
 
 export type RbacSyncFilter = 'all' | 'pending' | 'applied' | 'failed' | 'dry_run';
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/forms/:slug (public form renderer)
+//
+// FR-MIG-019 — public form submission page. Schema shape mirrors
+// FieldDef from FormBuilder.tsx so the renderer can type-check fields.
+// ---------------------------------------------------------------------------
+
+import type { FieldDef } from '../../blocks/workspace/FormBuilder';
+
+export interface PublicFormSchema {
+  fields: FieldDef[];
+}
+
+export interface PublicForm {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  country: string;
+  allow_anonymous: boolean;
+  schema: PublicFormSchema;
+  status: 'draft' | 'published' | 'archived';
+}
