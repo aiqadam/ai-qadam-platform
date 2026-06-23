@@ -1,0 +1,40 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/forms/[id]
+// FR-MIG-013 — form builder cabinet (operator per-form editor).
+//
+// Composition only (L4): <FormBuilderCabinet> reads form via useFormDetail,
+// renders metadata + FormBuilder, persists via useUpdateForm.
+//
+// Wiring: docs/04-development/architecture/wiring-map.md → workspace_forms (detail).
+//
+// SSR — role gate reads Astro.locals.auth (Authentik OIDC session).
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { Breadcrumbs, FormBuilderCabinet, PageShell } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+
+const { id } = Astro.params as { id: string };
+---
+
+<Layout title="Edit form · AI Qadam workspace" description="Operator form builder.">
+  <PageHead slot="head" title="Edit form · AI Qadam workspace" description="Operator form builder." />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Edit form"
+      description="Build and publish your form. View responses in the responses tab."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Forms', href: '/workspace/forms' },
+          { label: 'Edit' },
+        ]}
+      />
+      <FormBuilderCabinet client:load formId={id} />
+    </PageShell>
+  </AuthGate>
+</Layout>

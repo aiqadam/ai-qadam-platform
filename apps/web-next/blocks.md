@@ -23,6 +23,8 @@
 | `/workspace/partners` | Partner profiles | authed |
 | `/workspace/partners/[slug]` | Partner detail | authed |
 | `/workspace/forms` | Form builder list | authed |
+| `/workspace/forms/[id]` | Form builder cabinet | authed |
+| `/workspace/forms/[id]/responses` | Form responses inbox | authed |
 | `/workspace/announce` | Announcement composer | authed |
 | `/workspace/approvals` | Registration approvals | authed |
 | `/workspace/admin/users` | Admin: user management | authed |
@@ -76,6 +78,8 @@ L1 runtime functions that blocks and pages import.
 | `<CountriesList>` | `blocks/workspace/CountriesList.tsx` | Country list with provisioning |
 
 | `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
+| `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |
+| `<FormResponsesCabinet>` | `blocks/workspace/FormResponsesCabinet.tsx` | Responses inbox with aggregate + CSV export |
 
 ## Customer blocks (L2)
 

@@ -21,6 +21,8 @@ export { EventKpiStrip } from './EventKpiStrip';
 export { FilterChip } from './FilterChip';
 export { EventsList } from './EventsList';
 export { Form, FormIsland } from './Form';
+export { FormBuilderCabinet } from './FormBuilderCabinet';
+export { FormResponsesCabinet } from './FormResponsesCabinet';
 export { FormsList } from './FormsList';
 export { InvitesList } from './InvitesList';
 export { KpiTile } from './KpiTile';

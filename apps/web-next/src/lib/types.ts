@@ -581,6 +581,107 @@ export interface WorkspaceFormRow {
 }
 
 // ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/forms/:id (per-form detail + responses)
+//
+// FR-MIG-013 — form builder cabinet + responses inbox. Types mirror the
+// API response shapes for the builder (GET/PATCH /v1/workspace/forms/:id)
+// and aggregate/submissions (GET /v1/workspace/forms/:id/aggregate,
+// GET /v1/workspace/forms/:id/submissions).
+// ---------------------------------------------------------------------------
+
+// Field definition — re-exported from FormBuilder for the schema.fields type.
+export type {
+  FieldDef,
+  FieldType,
+  ScaleConfig,
+  SelectOption,
+} from '../blocks/workspace/FormBuilder';
+
+// Per-form detail (GET /v1/workspace/forms/:id) — the shape consumed by
+// the form builder cabinet. schema.fields is typed via FieldDef.
+export interface FormDetail {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  country: string;
+  status: WorkspaceFormStatus;
+  allow_anonymous: boolean;
+  schema: { fields: import('../blocks/workspace/FormBuilder').FieldDef[] };
+  submission_count: number;
+  date_created: string;
+  date_updated: string | null;
+}
+
+// Aggregate response shape — per-field rollup.
+export interface TextFieldAggregate {
+  type: 'short_text' | 'long_text';
+  key: string;
+  label: string;
+  response_count: number;
+}
+export interface ScaleFieldAggregate {
+  type: 'scale';
+  key: string;
+  label: string;
+  response_count: number;
+  mean: number | null;
+  distribution: Array<{ value: number; count: number }>;
+  min: number;
+  max: number;
+}
+export interface SelectFieldAggregate {
+  type: 'select_one' | 'select_many';
+  key: string;
+  label: string;
+  response_count: number;
+  counts: Array<{ value: string; label: string; count: number }>;
+}
+export interface YesNoFieldAggregate {
+  type: 'yes_no';
+  key: string;
+  label: string;
+  response_count: number;
+  yes: number;
+  no: number;
+}
+export type FieldAggregate =
+  | TextFieldAggregate
+  | ScaleFieldAggregate
+  | SelectFieldAggregate
+  | YesNoFieldAggregate;
+
+export interface FormAggregate {
+  form_id: string;
+  form_title: string;
+  total_responses: number;
+  anonymous_count: number;
+  attributed_count: number;
+  by_event: Array<{ event_id: string | null; count: number }>;
+  fields: FieldAggregate[];
+}
+
+// Individual submission row (GET /v1/workspace/forms/:id/submissions).
+export interface FormSubmission {
+  id: string;
+  form: string;
+  event: string | null;
+  is_anonymous: boolean;
+  member: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  } | null;
+  telegram_user_id: string | null;
+  payload: Record<string, unknown>;
+  source: 'web' | 'bot' | 'email';
+  language: string | null;
+  status: 'new' | 'triaged' | 'closed';
+  date_created: string;
+}
+
+// ---------------------------------------------------------------------------
 // apps/api — /v1/workspace/countries (operator countries list)
 //
 // FR-MIG-012 — countries list cabinet. Lists all countries with status
