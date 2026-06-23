@@ -1,0 +1,44 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/admin/cron
+//
+// FR-MIG-016 — scheduled jobs health cabinet (super-admin only).
+//
+// Composition only (L4): renders <CronStatusTable> inside the super-admin
+// auth gate. Refresh is handled by the island.
+//
+// `prerender = false` per the codebase's dynamic-routes convention.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { Breadcrumbs, CronStatusTable, PageShell } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Scheduled jobs · AI Qadam workspace"
+  description="Last-fire health for in-process scheduled jobs."
+>
+  <PageHead
+    slot="head"
+    title="Scheduled jobs · AI Qadam workspace"
+    description="Last-fire health for in-process scheduled jobs."
+  />
+  <AuthGate role="aiqadam-super-admin" signInLabel="Super-admin only — sign in">
+    <PageShell
+      title="Scheduled jobs"
+      description="In-process cron ticks for the platform — last fire, duration, outcome. Metadata is read from a Redis sidecar with a 24-hour sliding TTL."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Admin' },
+          { label: 'Scheduled jobs' },
+        ]}
+      />
+      <CronStatusTable client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

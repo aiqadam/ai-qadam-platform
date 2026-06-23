@@ -1,0 +1,44 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/admin/rbac-sync
+//
+// FR-MIG-016 — RBAC sync cabinet (super-admin only).
+//
+// Composition only (L4): renders <RbacSyncList> inside the super-admin
+// auth gate. Filter chips + "Trigger sync" button live in the island.
+//
+// `prerender = false` per the codebase's dynamic-routes convention.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../../blocks/common';
+import { Breadcrumbs, PageShell, RbacSyncList } from '../../../../blocks/workspace';
+import Layout from '../../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="RBAC sync · AI Qadam workspace admin"
+  description="Review every Authentik → Directus + Plausible permission sync."
+>
+  <PageHead
+    slot="head"
+    title="RBAC sync · AI Qadam workspace admin"
+    description="Review every Authentik → Directus + Plausible permission sync."
+  />
+  <AuthGate role="aiqadam-super-admin" signInLabel="Super-admin only — sign in">
+    <PageShell
+      title="RBAC sync"
+      description="Every Authentik group change creates a job. Dry-run = diff computed, NOT written. Applied = engine updated. Retry re-runs intake."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Admin' },
+          { label: 'RBAC sync' },
+        ]}
+      />
+      <RbacSyncList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

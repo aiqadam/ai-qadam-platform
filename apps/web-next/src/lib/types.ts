@@ -852,3 +852,69 @@ export interface UpdateBroadcastBody {
   scheduled_at?: string | null;
   recurrence?: 'none' | 'weekly' | 'monthly' | null;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/internal-cron/status (super-admin cron health)
+//
+// FR-MIG-016 — scheduled jobs health cabinet. Shows tick name, schedule,
+// last fire time, duration, and outcome for all registered cron jobs.
+// Metadata is read from a Redis sidecar with a 24-hour sliding TTL.
+// ---------------------------------------------------------------------------
+
+export interface TickMetadata {
+  name: string;
+  last_started_at: string;
+  last_finished_at: string;
+  last_duration_ms: number;
+  last_outcome: 'success' | 'failed';
+  last_error: string | null;
+  last_holder: string;
+  consecutive_failures: number;
+}
+
+export interface TickHealthRow {
+  name: string;
+  label: string;
+  schedule_description: string;
+  last_fire: TickMetadata | null;
+  staleness_minutes: number | null;
+}
+
+export interface CronStatusResult {
+  ticks: TickHealthRow[];
+}
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/admin/rbac-sync/jobs (super-admin RBAC sync cabinet)
+//
+// FR-MIG-016 — RBAC sync events list with status + timestamp. Super-admin
+// can trigger a manual sync via POST /v1/admin/rbac-sync.
+// ---------------------------------------------------------------------------
+
+export type RbacSyncEngineStatus = 'pending' | 'applied' | 'failed' | 'skipped' | 'dry_run';
+
+export interface RbacSyncExpectedState {
+  directus: { policies: string[]; filter_country: string | null };
+  plausible: { sites: string[]; role: 'admin' | 'viewer' };
+}
+
+export interface RbacSyncJobRow {
+  id: string;
+  user: string | null;
+  user_email: string | null;
+  triggered_by: 'webhook' | 'poll' | 'manual_retry' | 'activate_country';
+  expected_state: RbacSyncExpectedState;
+  directus_status: RbacSyncEngineStatus;
+  directus_error: string | null;
+  plausible_status: RbacSyncEngineStatus;
+  plausible_error: string | null;
+  attempt: number;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface RbacSyncResult {
+  jobs: RbacSyncJobRow[];
+}
+
+export type RbacSyncFilter = 'all' | 'pending' | 'applied' | 'failed' | 'dry_run';

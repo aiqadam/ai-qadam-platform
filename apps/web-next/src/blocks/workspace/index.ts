@@ -34,6 +34,8 @@ export { PartnersList } from './PartnersList';
 export { SaveCohortModal } from './SaveCohortModal';
 export { SavedCohortsPanel } from './SavedCohortsPanel';
 export { CriteriaBuilder } from './CriteriaBuilder';
+export { CronStatusTable } from './CronStatusTable';
+export { RbacSyncList } from './RbacSyncList';
 export { TgSegmentsList } from './TgSegmentsList';
 export { TgBroadcastsList } from './TgBroadcastsList';
 export { TgBroadcastComposer } from './TgBroadcastComposer';

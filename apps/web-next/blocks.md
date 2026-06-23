@@ -31,6 +31,8 @@
 | `/workspace/admin/audit` | Admin: audit log | authed |
 | `/workspace/admin/countries` | Admin: country list | authed |
 | `/workspace/admin/countries/[code]/provisioning` | Admin: country provisioning | authed |
+| `/workspace/admin/cron` | Admin: cron health | authed |
+| `/workspace/admin/rbac-sync` | Admin: RBAC sync | authed |
 | `/workspace/integrations/telegram` | Telegram integration root | authed |
 | `/workspace/integrations/telegram/segments` | Telegram audience segments | authed |
 
@@ -42,6 +44,8 @@ L1 runtime functions that blocks and pages import.
 |---|---|---|
 | `signOut()` | `lib/sign-out.ts` | Explicit sign-out (clears session + IdP SLO) |
 | `useTgSegments()` | `lib/use-tg-segments.ts` | Telegram segment CRUD hooks |
+| `useCronStatus()` | `lib/use-cron-status.ts` | Cron job health status hook |
+| `useRbacSyncJobs()` | `lib/use-rbac-sync.ts` | RBAC sync jobs list + trigger hook |
 
 ## Common blocks
 
@@ -84,6 +88,8 @@ L1 runtime functions that blocks and pages import.
 | `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |
 | `<FormResponsesCabinet>` | `blocks/workspace/FormResponsesCabinet.tsx` | Responses inbox with aggregate + CSV export |
 | `<CriteriaBuilder>` | `blocks/workspace/CriteriaBuilder.tsx` | Segment criteria DSL builder (AND/OR, country, events, topics) |
+| `<CronStatusTable>` | `blocks/workspace/CronStatusTable.tsx` | Cron job health table with refresh |
+| `<RbacSyncList>` | `blocks/workspace/RbacSyncList.tsx` | RBAC sync jobs list with filter + trigger |
 | `<TgSegmentsList>` | `blocks/workspace/TgSegmentsList.tsx` | Telegram audience segments list + create/edit |
 | `<TgBroadcastsList>` | `blocks/workspace/TgBroadcastsList.tsx` | Telegram broadcasts list with status filter |
 | `<TgBroadcastComposer>` | `blocks/workspace/TgBroadcastComposer.tsx` | Telegram broadcast composer with buttons, segment picker, scheduler |
