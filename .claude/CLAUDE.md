@@ -87,6 +87,34 @@ quality-gate). Shared protocol (gate format, retry limits, finish script) is in
 commits pending artifacts, pushes, creates a GitHub PR, writes the PR URL
 back into `handoff.yaml`, and returns to `main`.
 
+### MANDATORY WORKFLOW RULES
+
+**These rules are non-negotiable. Violations require stopping and reconciling.**
+
+1. **ALWAYS create a feature/fix branch before any code changes.**
+   When the user asks to implement a feature or fix a bug:
+   - Step 0: Check clean tree, fetch origin main, checkout main, pull --rebase
+   - Read and increment `.copilot/meta/next-workflow-id`
+   - Create task directory `.copilot/tasks/active/<workflow-id>/`
+   - Create `handoff.yaml` from schema
+   - Create branch: `feature/<area>-<n>-<slug>` or `fix/ISS-<n>-<slug>`
+   - Only then write any code
+
+2. **Clean-Tree Invariant.** Every workflow ends with a synced, clean tree.
+   - Working tree MUST be clean before creating a branch (Step 0)
+   - Commit all changes before calling `workflow-finish.sh`
+   - Return to main after workflow completes
+
+3. **Use `workflow-finish.sh` for commit/push/PR.** Do not reimplement commit/push/PR
+   logic. Read `.copilot/schemas/protocol.md` for invocation flags and pre-push checks.
+
+4. **Step 0.5 Context Sync is blocking.** Before advancing past step 0, run
+   `scripts/check-workflow-state.sh --base "origin/main"`. If it fails, reconcile
+   state before proceeding.
+
+5. **Never write code directly on main.** Every change must be on a feature/fix
+   branch and go through the workflow to PR.
+
 ---
 
 ## This file is NOT auto-generated

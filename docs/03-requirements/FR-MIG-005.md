@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-005
 name: ActionBar block (contextual action row)
-status: Not Started
+status: Shipped
 module: Migration (MIG)
 phase: Rebuild M1
 ---
@@ -20,12 +20,12 @@ Engineers composing operator pages with write actions.
 5. Respects disabled/loading state per action independently.
 
 ## Acceptance criteria
-- [ ] `<ActionBar>` exists at `src/blocks/workspace/ActionBar.tsx`.
-- [ ] Actions with `confirm` show a dialog before executing.
-- [ ] `loading` prop on an action replaces its label with a spinner and disables it.
-- [ ] `sticky` keeps the bar visible when page content scrolls.
-- [ ] `blocks.md` entry added.
-- [ ] `pnpm arch:check` + `astro check` + `pnpm build` pass.
+- [x] `<ActionBar>` exists at `src/blocks/workspace/ActionBar.tsx`.
+- [x] Actions with `confirm` show a dialog before executing.
+- [x] `loading` prop on an action replaces its label with a spinner and disables it.
+- [x] `sticky` keeps the bar visible when page content scrolls.
+- [x] `blocks.md` entry added.
+- [x] `pnpm arch:check` + `astro check` + `pnpm build` pass.
 
 ## Notes
 - Blocks M2.2, M2.4, M2.8.

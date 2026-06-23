@@ -151,6 +151,8 @@ Full details in `docs/04-development/security/security.md`.
 - **Never run database migrations on production** from your session. Generate migration
   files; the user runs them.
 - **Never commit directly to `main` or `master`.** Always feature branch + PR.
+- **Never write code directly on main.** Every feature/fix MUST use the Orchestrator
+  workflow: create branch, run steps, use `workflow-finish.sh` for PR. See `.claude/CLAUDE.md`.
 - **Never disable a test to make CI green.** Fix the test or fix the code.
 - **Never use `--force` or `--legacy-peer-deps`** to bypass package version conflicts.
   Resolve them properly.
