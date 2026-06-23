@@ -1,0 +1,52 @@
+---
+// slug: onboard
+//
+// FR-MIG-020 — 3-step member onboarding form.
+//
+// AuthGate: redirects anon users to /auth/sign-in (preserving ?slug=).
+// SSR already-onboarded check: fetchOnboardingStatus() with the SSR access token.
+// Redirects already-onboarded users to /me.
+
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { OnboardingForm } from '../blocks/customer/OnboardingForm';
+import { PageHead } from '../blocks/common';
+import { fetchOnboardingStatus } from '../lib/api-ssr';
+
+const auth = Astro.locals.auth;
+const slugParam = Astro.url.searchParams.get('slug') ?? undefined;
+
+// Redirect to sign-in if anonymous.
+if (!auth) {
+  const target = slugParam ? `/onboard?slug=${encodeURIComponent(slugParam)}` : '/onboard';
+  return Astro.redirect(`/auth/sign-in?next=${encodeURIComponent(target)}`, 302);
+}
+
+// Check if already onboarded via SSR API call.
+try {
+  const onboarded = await fetchOnboardingStatus(Astro.request, auth.accessToken);
+  if (onboarded) {
+    return Astro.redirect('/me', 302);
+  }
+} catch {
+  // fetchOnboardingStatus threw: non-ok response means the session may have
+  // expired mid-render. Render the form and let the client re-auth rather
+  // than hard-redirecting to /me (which would loop for a dead token).
+}
+---
+
+<Layout title="Complete your profile · AI Qadam" description="Join the AI Qadam community.">
+  <PageHead slot="head" title="Complete your profile · AI Qadam" description="Join the AI Qadam community." />
+  <main class="mx-auto max-w-2xl px-6 py-12">
+    <div class="mb-8 text-center">
+      <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground">
+        Welcome to AI Qadam
+      </h1>
+      <p class="mt-2 text-sm text-muted-foreground">
+        Tell us a bit about yourself to set up your profile.
+      </p>
+    </div>
+    <OnboardingForm slug={slugParam} client:load />
+  </main>
+</Layout>

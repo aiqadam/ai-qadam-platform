@@ -338,3 +338,62 @@ export async function fetchEventQuestions(eventId: string): Promise<EventQuestio
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// landing_pages — per-source welcome pages (FR-MIG-020).
+//
+// Mirrors the v1 implementation in apps/web/src/lib/cms.ts. Public collection
+// — no auth needed. Returns null on miss so the page can render a 404.
+// ---------------------------------------------------------------------------
+
+export interface CmsLandingPage {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  bodyMd: string | null;
+  ctaLabel: string;
+  ctaUrl: string;
+}
+
+interface CmsLandingPageRow {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  body_md: string | null;
+  cta_label: string;
+  cta_url: string;
+}
+
+const LANDING_FIELDS = 'slug,status,title,subtitle,body_md,cta_label,cta_url';
+
+export async function fetchLandingPage(slug: string): Promise<CmsLandingPage | null> {
+  const trimmed = slug.trim().toLowerCase();
+  // Defensive — slug shape is loose in the schema (operator-managed) but
+  // we only want bare URL fragments here. Reject anything that smells like
+  // a path traversal or query string injection.
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(trimmed)) return null;
+  try {
+    const params = new URLSearchParams({
+      'filter[slug][_eq]': trimmed,
+      'filter[status][_eq]': 'published',
+      fields: LANDING_FIELDS,
+      limit: '1',
+    });
+    const body = await get<{ data: CmsLandingPageRow[] }>(
+      `/items/landing_pages?${params.toString()}`,
+    );
+    const row = body.data[0];
+    if (!row) return null;
+    return {
+      slug: row.slug,
+      title: row.title,
+      subtitle: row.subtitle,
+      bodyMd: row.body_md,
+      ctaLabel: row.cta_label,
+      ctaUrl: row.cta_url,
+    };
+  } catch (err) {
+    console.error('[cms] fetchLandingPage failed:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}

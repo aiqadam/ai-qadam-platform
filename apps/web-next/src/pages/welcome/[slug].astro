@@ -1,0 +1,64 @@
+---
+// slug: welcome/[slug]
+//
+// FR-MIG-020 — per-source welcome landing page.
+//
+// Reads a landing page from Directus landing_pages collection by slug.
+// Public page — no auth. CTA links to /onboard with the slug as a
+// query param so the onboarding form can record attribution. 404 on miss.
+
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { fetchLandingPage } from '../../lib/cms';
+import { PageHead } from '../../blocks/common';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/');
+
+// Load landing page data.
+const page = await fetchLandingPage(slug);
+if (!page) {
+  return Astro.redirect('/404');
+}
+
+// CTA: anon users go to sign-in, authed users go to /onboard directly.
+// The query param preserves attribution across the auth round-trip.
+const ctaHref = '/onboard?slug=' + encodeURIComponent(slug);
+---
+
+<Layout title={page.title} description={page.subtitle ?? undefined}>
+  <PageHead slot="head" title={page.title} description={page.subtitle ?? undefined} />
+  <main class="mx-auto max-w-2xl px-6 py-16">
+    <div class="space-y-6 text-center">
+      <h1 class="font-display text-4xl font-semibold tracking-tight text-foreground">
+        {page.title}
+      </h1>
+      {page.subtitle && (
+        <p class="text-lg text-muted-foreground">{page.subtitle}</p>
+      )}
+    </div>
+
+    {page.bodyMd && (
+      <div
+        class="prose prose-stone mx-auto mt-8 max-w-none"
+        set:html=""
+      />
+    )}
+
+    <div class="mt-10 flex flex-col items-center gap-4">
+      <a
+        href={ctaHref}
+        class="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-8 py-3 text-base font-medium hover:bg-primary/90 transition-colors"
+      >
+        {page.ctaLabel}
+      </a>
+      <p class="text-sm text-muted-foreground">
+        Already a member?
+        <a href="/me" class="underline underline-offset-2 hover:text-foreground">
+          Go to your hub
+        </a>
+      </p>
+    </div>
+  </main>
+</Layout>

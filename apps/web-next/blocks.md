@@ -104,4 +104,5 @@ L1 runtime functions that blocks and pages import.
 | `<LeaderboardRow>` | `blocks/customer/LeaderboardRow.tsx` | Leaderboard entry |
 | `<ProfileCard>` | `blocks/customer/ProfileCard.tsx` | Public profile card |
 | `<SkillTagger>` | `blocks/customer/SkillTagger.tsx` | Skill tag editor |
+| `<OnboardingForm>` | `blocks/customer/OnboardingForm.tsx` | 3-step new-member onboarding wizard (profile basics, skills+interests, consents) |
 | `<ForumThread>` | `blocks/customer/ForumThread.tsx` | Discussion thread |

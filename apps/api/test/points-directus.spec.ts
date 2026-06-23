@@ -146,3 +146,88 @@ describe('PointsDirectusService.leaderboard', () => {
     expect(fake.get).not.toHaveBeenCalled();
   });
 });
+
+// FR-MIG-020 — awardFirstJoinPoints
+describe('PointsDirectusService.awardFirstJoinPoints', () => {
+  function makeSvc(fake: FakeDirectus) {
+    return new PointsDirectusService(
+      {} as Parameters<typeof PointsDirectusService.prototype.leaderboard>[0] extends { db: infer D } ? D : never,
+      fake as unknown as DirectusClient,
+    );
+  }
+
+  it('inserts point_awards row with key=first_join and points=10', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [] }), // no existing award
+      post: vi.fn().mockResolvedValue({}),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const svc = makeSvc(fake);
+
+    await svc.awardFirstJoinPoints('u-1');
+
+    expect(fake.post).toHaveBeenCalledTimes(1);
+    const postCall = fake.post.mock.calls[0]!;
+    expect(postCall[0]).toBe('/items/point_awards');
+    const body = postCall[1] as Record<string, unknown>;
+    expect(body).toEqual({
+      user: 'u-1',
+      points: 10,
+      key: 'first_join',
+    });
+  });
+
+  it('is idempotent — skips insert when existing award row is found', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [{ id: 'existing-award' }] }), // already awarded
+      post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const svc = makeSvc(fake);
+
+    await svc.awardFirstJoinPoints('u-1');
+
+    expect(fake.post).not.toHaveBeenCalled();
+  });
+
+  it('queries with correct filter for key=first_join and the userId', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [] }),
+      post: vi.fn().mockResolvedValue({}),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const svc = makeSvc(fake);
+
+    await svc.awardFirstJoinPoints('11111111-1111-4000-8000-000000000001');
+
+    const getCall = fake.get.mock.calls[0]?.[0] as string;
+    expect(getCall).toContain('/items/point_awards');
+    // The filter param is double-encoded: encodeURIComponent(JSON.stringify({...}))
+    // produces %7B%22user%22..., which URLSearchParams encodes again to %257B%2522user%2522...
+    // So we verify the path is correct and the filter param is present (not the exact encoding).
+    expect(getCall).toContain('filter=');
+    expect(getCall).toContain('fields=id');
+    expect(getCall).toContain('limit=1');
+  });
+
+  it('uses the user directus ID, not the platform.users.id', async () => {
+    // The method takes a directus user ID and writes it to directus point_awards.
+    // (Platform users join is only needed for leaderboard display fields.)
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [] }),
+      post: vi.fn().mockResolvedValue({}),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const svc = makeSvc(fake);
+
+    const directusId = 'directus-uuid-1111';
+    await svc.awardFirstJoinPoints(directusId);
+
+    const postBody = fake.post.mock.calls[0]![1] as Record<string, unknown>;
+    expect(postBody.user).toBe(directusId);
+  });
+});

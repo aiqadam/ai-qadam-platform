@@ -1,111 +1,114 @@
-# Requirement Validation — FR-MIG-015
+# Requirement Validation — FR-MIG-020
 
 ## Raw Input
 
-**FR-MIG-015**: `/workspace/integrations/telegram/broadcasts` — list + composer + actions
-**Phase**: Rebuild M2
-**Status**: Not Started
+From `docs/03-requirements/FR-MIG-020.md`:
 
-Three Telegram broadcast pages: the list, the new-broadcast composer, and the per-broadcast detail/action view.
+```
+The Telegram acquisition funnel entry point. New members arriving from a Telegram invite link land on `/welcome/[slug]`, complete the onboarding form, and are redirected to `/onboard`.
 
-**Functional scope per the FR:**
-1. `broadcasts/index.astro` — `<DataTable>` of broadcasts with status filter (draft/scheduled/sending/sent/failed).
-2. `broadcasts/new.astro` — full composer: rich-text body, image upload, up to 8 inline buttons (text + URL pairs), segment picker via `<AsyncSelect>`, schedule-for-future datetime picker.
-3. `broadcasts/[id].astro` — read view with `<ActionBar>`: Send now (super-admin, with confirm + recipient count), Test send, Duplicate, Cancel (scheduled only).
-4. Send-now shows estimated duration warning if segment > 10k members.
-5. Status transitions shown inline: draft → scheduled → sending → sent/failed.
+Users: New members completing first-time onboarding.
 
-**Acceptance criteria:**
-- [ ] Composing a broadcast with a body + segment + scheduled time saves as `status=scheduled`.
-- [ ] "Send now" confirm dialog shows recipient count and estimated duration.
-- [ ] Failed broadcast shows retry option.
-- [ ] `pnpm arch:check` + `astro check` + `pnpm build` pass.
+Functional scope:
+1. `pages/welcome/[slug].astro` — per-source welcome page (UTM context + community intro). CTA: "Join AI Qadam". Slug maps to a UTM campaign; page content comes from Directus.
+2. `pages/onboard.astro` — multi-step onboarding form: (1) profile basics (name, location, job title), (2) skills + interests (`<SkillTagger>`), (3) consent + AUP.
+3. POST `/v1/onboard` on completion → creates member profile + awards first-join points.
+4. Redirect to `/me` on success.
+5. AuthGate on `/onboard` (must be signed in to complete).
 
-**Depends on:** FR-MIG-004 (`<AsyncSelect>`), FR-MIG-005 (`<ActionBar>`).
-**Related:** FR-CMS-004 (broadcast composer application FR — V1 shipped).
+Acceptance criteria:
+- `/welcome/[slug]` renders with correct CTA for the given slug.
+- Onboarding form collects all three steps before submitting.
+- Completing onboarding creates the member profile and redirects to `/me`.
+- Revisiting `/onboard` after completion redirects to `/me` (already onboarded).
+- `pnpm arch:check` + `astro check` + `pnpm build` pass.
+
+Notes:
+- v1 reference: `apps/web/src/pages/onboard.astro` + `welcome/[slug].astro` + `OnboardingForm.tsx`.
+- `<SkillTagger>` block already exists in web-next.
+- Related: FR-USR-001 (signup / first-time experience).
+```
 
 ---
 
 ## Analysis
 
-### Completeness Issues Found
+### 1. Completeness Issues Found
 
-**Issue 1 — Segment management gap (medium).**
-The FR calls for a "segment picker via `<AsyncSelect>`" in the composer but says nothing about creating, editing, or deleting audience segments. The V1 reference (`apps/web/src/components/workspace/TgBroadcastComposer.tsx`) uses `audience_segment` as a free-text UUID field — there is no UI for managing segments. FR-MIG-015 should either:
-- Document that segment management is out of scope (segments must be created elsewhere), or
-- Define a minimal inline segment picker that also creates segments.
-**Resolution:** Given that `AsyncSelect` already exists (`apps/web-next/src/blocks/workspace/AsyncSelect.tsx`), the composer can use it to pick an existing segment. Segment creation is assumed out of scope for this FR. This is a `needs-clarification` flag — not blocking.
+| # | Issue | Detail |
+|---|-------|--------|
+| 1 | **Missing field mapping** | "Creates member profile" — which Directus fields? The requirement lists `name`, `location`, `job_title` but the Directus `directus_users` schema has `first_name`, `last_name`, `country_code` (tenant), `job_title`. "Location" is ambiguous: city string? Country code? |
+| 2 | **Missing point configuration** | "Awards first-join points" — no point type/key, no amount specified. `apps/api/src/modules/points/points-directus.service.ts` shows a Directus-backed points system but there is no pre-existing `first_join` point award rule. Need a point definition key (e.g., `first_join`) and amount. |
+| 3 | **Missing onboarded-state storage** | "Revisiting `/onboard` after completion redirects to `/me`" — where is the "already onboarded" flag stored? Options: `directus_users.onboarded_at` (new nullable TIMESTAMPTZ column), or derive from existence of profile fields. Not defined. |
+| 4 | **Step 2 scope ambiguity** | Step 2 says "skills + interests (`<SkillTagger>`)" — `<SkillTagger>` in web-next is wired to `useMyFullProfile` hooks and adds to `member_skills`. Is the intent to use the existing component as-is (read/write skills), or is a separate interests-only step needed? Interests (`member_interests`) exist in `me-profile.service.ts` but the SkillTagger only handles skills. |
+| 5 | **Consent + AUP step incomplete** | Step 3 says "consent + AUP" — which consents from `MEMBER_CONSENT_PURPOSES` (me-profile.service.ts:28) are required? All? Just `events`? AUP acceptance needs a storage location (existing `member_consents` table handles purposes; AUP version acceptance is separate — see FR-USR-001 which stores `aup_accepted` on the invite, not on `directus_users`). |
+| 6 | **"location" field does not exist in schema** | `directus_users` has no `location` column. The closest is `country_code` (already set by tenant middleware) or `city` (not present). If location capture is required, either add a `city` column or derive from the Telegram user's Telegram profile. |
 
-**Issue 2 — Image upload mechanism (low).**
-The FR says "image upload" without specifying the upload mechanism. V1 uses Directus assets API (`image_asset` field is a UUID referencing a Directus file). The FR should clarify whether this rebuild uses the same Directus asset flow or a different upload path. **Resolution:** Assume Directus asset API (same as V1) — this is the standard asset upload pattern across the codebase. Not blocking.
+### 2. Conflicts with Existing Features
 
-**Issue 3 — "Read view" ambiguity (low).**
-The FR says `broadcasts/[id].astro` is a "read view with `<ActionBar>`". In V1, `[id].astro` is the edit composer (it mounts `TgBroadcastComposer` in `mode="edit"`). The "read view" language likely means a view that shows broadcast state + actions, not a pure read-only display. **Resolution:** Implement `[id].astro` as the edit/view page, matching V1 behavior. Confirmed by existing V1 `[id].astro` pattern.
+| # | Conflict | Detail |
+|---|----------|--------|
+| 1 | **Endpoint naming collision** | FR-MIG-020 specifies `POST /v1/onboard` but `apps/api/src/modules/admin-invites/onboarding.controller.ts` already owns `/v1/onboard/preview` and `/v1/onboard/accept`. These are **operator onboarding endpoints** (token-gated, password-setting, mailbox provisioning). FR-MIG-020's "member onboarding" is a different flow (authed via AuthGate, profile creation). The endpoint MUST be renamed, e.g., `POST /v1/members/onboard` or `POST /v1/onboard/member`. |
+| 2 | **Wrong v1 reference** | The Notes cite `apps/web/src/pages/onboard.astro` as the v1 reference. That file is the **operator onboarding** form (password + AUP for invited operators, driven by OnboardingForm.tsx). It is NOT the member onboarding flow. The `welcome/[slug].astro` file is correct (campaign landing pages). The onboard reference is wrong. |
+| 3 | **FR-USR-001 overlap** | FR-USR-001 shipped "Member signup and first-time experience" with post-signup redirect to `/me` and a profile nudge for incomplete profiles. FR-MIG-020's redirect to `/me` on completion is consistent but there is no mention of deduplication — if a member completes onboarding via FR-MIG-020 and later visits `/me`, does the nudge still fire? Unclear if the two flows should share state. |
 
-**Issue 4 — "Failed broadcast shows retry option" (low).**
-The acceptance criteria says failed broadcasts should show a retry option, but the functional scope does not define it. In V1, the retry flow is: fix the draft content, then click "Send now" again. There is no dedicated "Retry" button — the send-now action itself is the retry. **Resolution:** Interpret "retry option" as "Send now is available on failed broadcasts so the operator can re-attempt". Not blocking.
+### 3. Architectural Feasibility
 
-**Issue 5 — Status filter for list (low).**
-The functional scope says "status filter (draft/scheduled/sending/sent/failed)" but does not specify UI — a dropdown, URL params, or tabs. **Resolution:** Use URL query params (`?status=sent`) and a status dropdown filter chip, consistent with `DataTable` consumers in the workspace.
-
-### Conflicts with Existing Features
-
-**No conflicts found.** The following checks were performed:
-- `FR-CMS-004` (Telegram broadcast composer V1) — this FR is the rebuild of CMS-004 in web-next. No conflict.
-- `FR-MIG-004` (`<AsyncSelect>`) — status: Implemented in `apps/web-next/src/blocks/workspace/AsyncSelect.tsx`. Dependency is satisfied.
-- `FR-MIG-005` (`<ActionBar>`) — status: Shipped in `apps/web-next/src/blocks/workspace/ActionBar.tsx`. Dependency is satisfied.
-- `FR-MIG-013` (`/workspace/forms/[id]`) — same pattern (page + `<FormBuilder>` + `<ActionBar>`). No overlap with broadcast pages.
-- `FR-MIG-014` (`/workspace/integrations/telegram/segments`) — the segments list page. `broadcasts/new.astro` references a segment picker but does not implement segment management. No conflict.
-- `FR-MIG-019` — public form renderer. Unrelated.
-- API endpoints in `apps/api/src/modules/workspace/tg-broadcasts.controller.ts` — all 6 endpoints exist (list, detail, create, update, send-now, send-test, cancel, duplicate, analytics). No new endpoints needed.
-- API endpoints for segments (`apps/api/src/modules/workspace/tg-segments.controller.ts`) — `GET /v1/workspace/tg-segments` and `GET /v1/workspace/tg-segments/:id/preview` exist. No new segment endpoints needed.
-
-### Architectural Feasibility
-
-**Fully feasible.** The following conditions are met:
-
-- **Frontend stack:** Astro 5 + React 19 islands (web-next). All required blocks (`DataTable`, `ActionBar`, `AsyncSelect`) exist in `apps/web-next/src/blocks/workspace/`. No missing primitives.
-- **API layer:** NestJS workspace controller (`tg-broadcasts.controller.ts`) handles all CRUD + actions. No new backend endpoints required.
-- **Module boundaries:** Broadcasts live in `workspace.module`. Segments are fetched via `tg-segments.controller.ts`. No cross-module schema violations.
-- **No cross-schema queries:** All reads go through NestJS services → Directus API. No raw SQL across the `directus` schema.
-- **Single monorepo:** All changes stay within `apps/web-next` + `packages/shared-types` if needed. No cross-repo dependencies.
-- **Authentication:** Workspace pages use existing `AuthGuard` (operator role). No new auth endpoints needed.
+| Check | Result | Notes |
+|-------|--------|-------|
+| **Frontend target** | FEASIBLE | `apps/web-next` is the Astro 5 rewrite target per ADR-0038. Both pages can be created under `apps/web-next/src/pages/`. |
+| **`/welcome/[slug]`** | FEASIBLE | `fetchLandingPage` already exists in `apps/web/src/lib/cms.ts` and returns `CmsLandingPage { slug, title, subtitle, bodyMd, ctaLabel, ctaUrl }`. Needs to be imported/copied to `web-next`. The CTA URL should point to `/onboard` (or `/auth/sign-in` if not authed). |
+| **`/onboard` AuthGate** | FEASIBLE | Auth via `useAuth()` / `AuthProvider` pattern exists in `apps/web-next/src/lib/use-auth.ts`. Astro middleware in `apps/web-next/src/middleware.ts` handles SSR auth. A simple server-side redirect (check session, redirect to `/me` if already onboarded) is straightforward. |
+| **Multi-step form** | FEASIBLE | A React island component handles the 3 steps. The `OnboardingForm` in web is operator-specific but the multi-step pattern (`useState` for step + fields) can be adapted. |
+| **`POST /v1/onboard`** | BLOCKED | Endpoint naming collision (see Conflict #1). Must rename to avoid breaking the operator onboarding flow. |
+| **`<SkillTagger>` reuse** | PARTIAL | The block exists in `apps/web-next/src/blocks/customer/SkillTagger.tsx` but is wired to `useMyFullProfile` hooks for the `/me/profile` page. It cannot be dropped in standalone. A new standalone wrapper or a refactor to accept an `onSave` callback is needed. |
+| **Points award** | NEEDS WORK | `PointsDirectusService` in `apps/api/src/modules/points/points-directus.service.ts` reads/writes points via Directus `points` collection. No `award` method exists — it reads leaderboard aggregations. A new service method or job queue entry is needed to award points atomically on onboarding completion. |
+| **Directus schema** | NEEDS WORK | `directus_users` table has no `onboarded_at` column. Schema extension required. `member_consents` exists for consent tracking. |
 
 ---
 
 ## Formalized Requirement
 
-**Feature ID:** `FEAT-MIG-015`
-**Cross-refs:**
-- FR-MIG-004 (`<AsyncSelect>`) — dependency, Implemented
-- FR-MIG-005 (`<ActionBar>`) — dependency, Shipped
-- FR-CMS-004 — V1 reference, Shipped
-- FR-MIG-014 (`/workspace/integrations/telegram/segments`) — related, Not Started
+**Feature identifier:** `FEAT-MIG-020` (pre-assigned as `FR-MIG-020`)
 
 **Statement:**
-> Rebuild the Telegram broadcast operator cabinet in `apps/web-next/src/pages/workspace/integrations/telegram/broadcasts/` with three Astro pages: a broadcasts list with status filter, a new-broadcast composer with rich-text body, up to 8 inline buttons, segment picker, image upload, and future-date scheduler, and an edit/view page with Send now, Test send, Duplicate, and Cancel actions. Send-now confirmation shows recipient count and estimated Telegram delivery duration. Status transitions (draft → scheduled → sending → sent/failed) are displayed inline.
+New members arriving via Telegram invite links land on `/welcome/{slug}`, a campaign-specific landing page sourced from Directus `landing_pages`. After clicking "Join AI Qadam", they are redirected to `/onboard` where they complete a three-step onboarding form: (1) profile basics, (2) skills and interests, (3) consent and acceptable use policy. On submit, the member profile is created/updated in Directus and a first-join point award is recorded. The user is redirected to `/me`. Users who have already completed onboarding are redirected from `/onboard` to `/me`.
 
-**Assumptions (flagged `needs-clarification`):**
-1. Segment management (create/edit/delete) is out of scope; the picker only selects existing segments. Segment IDs are entered via `<AsyncSelect>` pointing to `/v1/workspace/tg-segments`.
-2. Image upload uses Directus assets API (`POST /assets` + storing returned file ID as `image_asset` UUID), consistent with the V1 pattern.
-3. The `[id].astro` page is an edit/view hybrid (same as V1 `mode="edit"`), not a read-only detail page.
-4. "Retry" on a failed broadcast means re-using the Send now action — no dedicated retry button.
-5. Status filter uses URL query params (`?status=sent`).
+**Cross-references:**
+- `FR-USR-001` — member signup flow (FR-MIG-020 complements FR-USR-001; FR-USR-001 handles auth, FR-MIG-020 handles profile completion)
+- `FR-GAM-002` — founding member badge award (separate from first-join points; clarify if both apply)
+- `apps/api/src/modules/me-profile/me-profile.service.ts` — existing profile write operations
+- `apps/api/src/modules/points/points-directus.service.ts` — existing points system
+- `apps/web/src/lib/cms.ts` — `fetchLandingPage` function (to be migrated to web-next)
+- `apps/web-next/src/blocks/customer/SkillTagger.tsx` — existing SkillTagger component (needs standalone adapter)
 
 ---
 
 ## Acceptance Criteria (draft)
 
-- **AC-1:** `GET /workspace/integrations/telegram/broadcasts` renders a `<DataTable>` of broadcast rows with columns: Title, Country, Status chip, Scheduled, Sent, Created, Actions. Status dropdown filter narrows the list.
-- **AC-2:** `GET /workspace/integrations/telegram/broadcasts/new` renders a composer with: Title input, Body textarea (Telegram-safe HTML), up to 8 inline button rows (label + URL, add/remove), `<AsyncSelect>` segment picker, datetime-local schedule picker, Recurrence select (none/weekly/monthly), Save as Draft and Save + Schedule buttons.
-- **AC-3:** Submitting the composer with "Save + Schedule" sets `status=scheduled` and `scheduled_at` in the database via `POST /v1/workspace/tg-broadcasts` or `PATCH /v1/workspace/tg-broadcasts/:id`.
-- **AC-4:** `GET /workspace/integrations/telegram/broadcasts/[id]` renders the same composer pre-populated from `GET /v1/workspace/tg-broadcasts/:id` with an `<ActionBar>` containing: Save, Test to Me, Send now (super-admin), Duplicate, Cancel (scheduled only).
-- **AC-5:** Clicking "Send now" triggers a confirmation dialog showing recipient count (from `GET /v1/workspace/tg-segments/:id/preview`) and estimated Telegram drain time. On confirm, calls `POST /v1/workspace/tg-broadcasts/:id/send-now`.
-- **AC-6:** On a failed broadcast, "Send now" is still available so the operator can re-attempt.
-- **AC-7:** Clicking "Duplicate" calls `POST /v1/workspace/tg-broadcasts/:id/duplicate`, then navigates to the new draft.
-- **AC-8:** Clicking "Cancel" (on a scheduled broadcast) calls `POST /v1/workspace/tg-broadcasts/:id/cancel` after browser confirm.
-- **AC-9:** Status chip transitions: draft (gray) → scheduled (blue) → sending (amber) → sent (green) or failed (red).
-- **AC-10:** `pnpm arch:check` + `astro check` + `pnpm build` pass without errors.
+> These are Given/When/Then statements for TestDesigner to formalize. Square brackets denote parameters that need concrete values.
+
+| # | Given | When | Then |
+|---|-------|------|------|
+| AC-1 | A visitor accesses `/welcome/telegram-uz` | the page renders with content from Directus `landing_pages` where `slug = 'telegram-uz'` and `status = 'published'` | The page shows the campaign title, subtitle, body, and a CTA button labeled "Join AI Qadam" linking to `/onboard?slug=telegram-uz` |
+| AC-2 | A visitor accesses `/welcome/nonexistent` | no matching `landing_pages` row exists | The page returns HTTP 404 |
+| AC-3 | An unauthenticated user accesses `/onboard` | they have no valid session | They are redirected to `/auth/sign-in?redirect=/onboard` |
+| AC-4 | An authenticated user who has NOT completed onboarding accesses `/onboard` | they have `onboarded_at = NULL` in `directus_users` | The page renders a 3-step form: (1) profile basics, (2) skills + interests, (3) consent + AUP |
+| AC-5 | An authenticated user who HAS completed onboarding accesses `/onboard` | they have `onboarded_at IS NOT NULL` | They are redirected to `/me` with a 302 |
+| AC-6 | A user completes step 1 with `first_name = "Ali"`, `last_name = "Rahimov"`, `job_title = "ML Engineer"` | they click Next | Step 2 renders |
+| AC-7 | A user adds skill tag "mlops" in step 2 | they submit the form | The skill `mlops` is persisted to `member_skills` for the current user |
+| AC-8 | A user submits the full onboarding form | all 3 steps are valid | `POST /v1/members/onboard` is called with all collected data, `onboarded_at` is set on the user's `directus_users` row, and [X] points are awarded under key `first_join` |
+| AC-9 | `POST /v1/members/onboard` succeeds | the API returns 204 | The frontend redirects to `/me` |
+| AC-10 | `POST /v1/members/onboard` is called twice for the same user | the second call occurs after `onboarded_at` is set | The API returns 204 (idempotent) without re-awarding points |
+| AC-11 | The codebase passes | `pnpm arch:check && astro check && pnpm build` | All three commands exit with code 0 |
+
+**Open questions (need answers before implementation):**
+
+1. What is the exact point amount and point definition key for "first-join points"? e.g., `{ key: "first_join", amount: 100 }`?
+2. What Directus fields are required for "location"? Is it a city text field, or is country_code from tenant resolution sufficient?
+3. Which consent purposes (from `MEMBER_CONSENT_PURPOSES`) must be explicitly accepted vs. default-deny?
+4. Is AUP acceptance required for member onboarding, and if so, where is the accepted AUP version stored?
+5. Should the Telegram invite slug (`telegram-uz`) be stored on the member profile for analytics?
 
 ---
 
@@ -114,22 +117,29 @@ The functional scope says "status filter (draft/scheduled/sending/sent/failed)" 
 ```
 gate: requirement-validation
 agent: requirement-analyst
-status: passed
+status: failed-retry
 workflow: wf-20260623-feat-015
-requirement: FR-MIG-015
+requirement: FR-MIG-020
 
 summary: >
-  FR-MIG-015 is architecturally feasible. All three required blocks
-  (DataTable, ActionBar, AsyncSelect) exist in apps/web-next. The
-  full NestJS API surface (6 endpoints + segments preview) is already
-  implemented. No conflicts with existing FRs. Two medium items
-  require no new implementation: segment management is assumed out of
-  scope (picker only), and image upload defaults to Directus assets API.
-  Requirement passes.
+  FR-MIG-020 has 2 conflicts and 6 completeness issues (see §Analysis).
+  The requirement passes architectural feasibility for the frontend pages
+  and auth flow, but is BLOCKED on: (1) endpoint naming collision with the
+  existing /v1/onboard operator endpoints (must rename to /v1/members/onboard),
+  (2) missing onboarded_at schema column, (3) incomplete points award mechanism,
+  (4) wrong v1 onboard reference (cited file is operator onboarding, not member).
+  Analyst produced a detailed formalized version with reasonable assumptions.
 
 needs_clarification:
-  - Segment management (create/edit) is not defined; assumed out of scope.
-  - Image upload mechanism is underspecified; assumed Directus assets API.
+  - Point amount and key for first-join award (e.g., { key: "first_join", amount: 100 })
+  - "location" field mapping to Directus schema (city column? tenant country_code?)
+  - Which MEMBER_CONSENT_PURPOSES are required on step 3
+  - AUP acceptance storage location for member onboarding
+  - Whether telegram invite slug should be stored on profile for analytics
+
+conflicts:
+  - Endpoint /v1/onboard already used by operator onboarding (apps/api/src/modules/admin-invites/onboarding.controller.ts)
+  - v1 reference onboard.astro is operator onboarding, not member onboarding
 
 confidence: high
 ```
