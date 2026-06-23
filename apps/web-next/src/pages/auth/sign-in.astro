@@ -1,0 +1,26 @@
+---
+// @generated-from gen:page
+// slug: auth/sign-in
+//
+// /auth/sign-in — public sign-in entry point.
+//
+// This page has no UI. Visiting it redirects to the API's /v1/auth/login
+// endpoint, which sets a flow cookie and redirects to Authentik's authorize
+// endpoint. The post-login callback returns to `/` or the `?next=` value.
+//
+// This mirrors v1's apps/web/src/pages/auth/sign-in.astro redirect pattern.
+// The OIDC flow itself lives server-side in the API (AuthController.login).
+//
+// SSR-only (no prerender) so the redirect executes server-side.
+
+export const prerender = false;
+
+const url = new URL(Astro.request.url);
+const rawNext = url.searchParams.get('next') ?? '/';
+// Sanitize: must start with /, must not be // (protocol-relative)
+const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+
+void safeNext; // used in redirect URL
+
+return Astro.redirect(`/api/v1/auth/login?next=${encodeURIComponent(safeNext)}`, 302);
+---

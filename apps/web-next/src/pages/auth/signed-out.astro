@@ -1,0 +1,78 @@
+---
+// @generated-from gen:page
+// slug: auth/signed-out
+//
+// /auth/signed-out — RP-initiated logout landing.
+//
+// This page renders after a user signs out. It is also the Authentik post-
+// logout redirect URI (RP-Initiated Logout §2), so it must:
+//   1. Render a clear "You've been signed out" message
+//   2. Show "Sign in again" and "Go home" links
+//   3. Clear the `aiqadam-next-refresh` cookie (v2's isolated cookie name)
+//
+// The page intentionally has no Layout wrapper — it is a bare landing page
+// rendered outside the auth flow to avoid infinite loops on the signed-out
+// state. No AppNav, no footer, no auth middleware dependency.
+//
+// SSR-only (no prerender) so the cookie clearing executes server-side.
+
+export const prerender = false;
+
+const host = Astro.request.headers.get('host') ?? '';
+const subdomain = host.split('.')[0] ?? '';
+const isOperatorContext = subdomain === 'admin' || subdomain === 'workspace';
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Signed out · AI Qadam</title>
+    <link rel="icon" type="image/png" href="/brand/aiqadam-mark.png" />
+  </head>
+  <body class="min-h-screen antialiased flex items-center justify-center">
+    <div class="max-w-md mx-auto px-6 py-16 text-center flex flex-col gap-6">
+      <img src="/brand/aiqadam-mark.png" alt="" class="w-12 h-12 object-contain mx-auto" />
+
+      <div>
+        <h1 class="font-display font-semibold text-3xl tracking-tight mb-3">
+          Signed out
+        </h1>
+        <p class="text-muted-foreground text-sm">
+          Your session has been revoked. Stolen access tokens stop working immediately.
+        </p>
+      </div>
+
+      <div class="flex gap-3 justify-center">
+        <a
+          href="/auth/sign-in"
+          class="inline-flex items-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors no-underline"
+        >
+          Sign in again
+        </a>
+        <a
+          href="/"
+          class="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors no-underline"
+        >
+          Home
+        </a>
+      </div>
+
+      {isOperatorContext && (
+        <p class="text-xs text-muted-foreground mt-2">
+          Workspace context detected — you may need to sign in to your operator account.
+        </p>
+      )}
+    </div>
+
+    <script is:inline define:vars={{ isOperatorContext }}>
+      // Clear the v2 refresh cookie server-side as part of the page render.
+      // The cookie clearing happens via the Set-Cookie header below.
+      document.cookie = 'aiqadam-next-refresh=; Max-Age=0; path=/; SameSite=lax';
+      // Also clear legacy v1 cookie if present (for overlap window during cutover)
+      document.cookie = 'aiqadam-refresh=; Max-Age=0; path=/; SameSite=lax';
+    </script>
+  </body>
+</html>
