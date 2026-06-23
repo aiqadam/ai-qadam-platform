@@ -1,0 +1,159 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260623-feat-011"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-23T08:50:00Z"
+last_updated_at: "2026-06-23T09:40:00Z"
+
+requirement_ref: "FR-MIG-018"
+requirement_text: "Implement /me hub + /me/preferences + /me/access-log + /me/referrals pages"
+github_issue_url: ""
+
+branch: "feature/MIG-018-me-hub"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 8
+current_step_name: "Execute Tests"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:00:00Z"
+    summary: "All four API endpoints exist, frontend infrastructure confirmed, 4 clarifications recorded as non-blocking assumptions"
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:05:00Z"
+    summary: "No API/DB changes. 4 Astro pages + 2 hooks + 2 blocks. 3 shared types additions. 9 E2E scenarios."
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:20:00Z"
+    summary: "4 Astro pages + 2 hooks + 2 blocks + 3 types. Typecheck/biome/build all passed."
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:25:00Z"
+    summary: "All invariants verified. AuthGate on all pages. Zero dangerouslySetInnerHTML. No security findings."
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:30:00Z"
+    summary: "Rubric score 0 (pure frontend). Unit tests only. 4 test targets identified. All 10 ACs mapped."
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-23T09:40:00Z"
+    summary: "80 tests written across 4 files. Hook tests with query key/mapping/error coverage. Component tests with pure helper + state coverage."
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/06-test-design.md"
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/01-requirement-validation.md"
+    timestamp: "2026-06-23T09:00:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/02-impact-analysis.md"
+    timestamp: "2026-06-23T09:05:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/03-code-summary.md"
+    timestamp: "2026-06-23T09:20:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/04-security-review.md"
+    timestamp: "2026-06-23T09:25:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/06-test-strategy.md"
+    timestamp: "2026-06-23T09:30:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260623-feat-011/06-test-design.md"
+    timestamp: "2026-06-23T09:40:00Z"
+
+retry_counts:
+  requirement-analyst: 0
+  db-migration-author: 0
+  code-developer: 0
+  test-strategist: 0
+  test-designer: 0
+  doc-writer: 0
+  quality-gate: 0
+  subworkflow: 0
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: false
+context_sync_commits: 0
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260623-feat-011/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260623-feat-011/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260623-feat-011/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260623-feat-011/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260623-feat-011/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260623-feat-011/06-test-design.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-MIG-018.md
+  - .copilot/tasks/active/wf-20260623-feat-011/01-requirement-validation.md
+  - .copilot/tasks/active/wf-20260623-feat-011/02-impact-analysis.md
+  - .copilot/tasks/active/wf-20260623-feat-011/03-code-summary.md
+  - .copilot/tasks/active/wf-20260623-feat-011/04-security-review.md
+  - .copilot/tasks/active/wf-20260623-feat-011/06-test-strategy.md
+  - .copilot/tasks/active/wf-20260623-feat-011/06-test-design.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260623-feat-011/NEEDS_REVIEW.md"

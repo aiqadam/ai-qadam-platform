@@ -125,7 +125,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 10 | [FR-MIG-011](FR-MIG-011.md) | /workspace/announce full composer | Shipped | MIG-003, MIG-004, MIG-005 |
 | 11 | [FR-MIG-012](FR-MIG-012.md) | /workspace/admin/countries list + provisioning wizard | Shipped | MIG-003, MIG-005 |
 | 12 | [FR-MIG-017](FR-MIG-017.md) | /auth/sign-in + /auth/signed-out pages | Shipped | MIG-001 |
-| 13 | [FR-MIG-018](FR-MIG-018.md) | /me hub + preferences + access-log + referrals | Not Started | MIG-001, MIG-017 |
+| 13 | [FR-MIG-018](FR-MIG-018.md) | /me hub + preferences + access-log + referrals | Shipped | MIG-001, MIG-017 |
 | 14 | [FR-MIG-006](FR-MIG-006.md) | FormBuilder block (drag/reorder, 7 field types) | Not Started | — |
 | 15 | [FR-MIG-013](FR-MIG-013.md) | /workspace/forms/[id] builder + responses | Not Started | MIG-006, MIG-005 |
 | 16 | [FR-MIG-014](FR-MIG-014.md) | /workspace/integrations/telegram root + segments | Not Started | MIG-004, MIG-006 |

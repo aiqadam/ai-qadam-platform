@@ -603,3 +603,40 @@ export interface CountryRow {
   public_holidays: PublicHoliday[] | null;
   default_reminder_channel: string;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/me/access-log (member-facing auth event log)
+//
+// FR-MIG-018 — returns the caller's own auth events from audit_events.
+// Fields are intentionally narrow (no payload, no actor email) — those
+// are only visible to super-admin via /v1/admin/audit/events.
+// ---------------------------------------------------------------------------
+
+export interface AccessLogEvent {
+  id: string;
+  event: string;
+  severity: AuditSeverity;
+  target_kind: string | null;
+  ts: string;
+}
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/referrals/mine + /v1/referrals/mine/stats
+//
+// FR-MIG-018 — referral codes + attribution stats for the signed-in member.
+// ReferralCodeView: single code with share URL.
+// MyReferralStats: aggregate attended-referree count + badge info.
+// ---------------------------------------------------------------------------
+
+export interface ReferralCodeView {
+  id: string;
+  code: string;
+  shareUrl: string;
+  validUntil: string | null;
+  createdAt: string;
+}
+
+export interface MyReferralStats {
+  attendedReferreesCount: number;
+  broughtAFriendBadge: { firstAwardedAt: string; count: number } | null;
+}
