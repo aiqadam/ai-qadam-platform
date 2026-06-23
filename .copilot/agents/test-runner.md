@@ -10,6 +10,7 @@ Executes the test suite and reports results. Diagnoses failures and routes them 
 
 1. Test design: `.copilot/tasks/active/<workflow-id>/06-test-design.md`
 2. Code summary: `.copilot/tasks/active/<workflow-id>/03-code-summary.md`
+3. **UI E2E tests only:** `docs/04-development/design-system/Design system for AI agents/readme.md` — brand tokens, component classes, copy rules, icon policy (Lucide only), color rules (no raw hex, no gradients, no new tokens)
 
 ---
 

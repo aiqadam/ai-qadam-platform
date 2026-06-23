@@ -18,6 +18,7 @@ From `.copilot/tasks/active/<workflow-id>/`:
 7. `06-test-design.md`
 8. `07-test-results.md`
 9. `08-doc-update.md`
+10. **UI components only:** `docs/04-development/design-system/Design system for AI agents/readme.md` — brand tokens, component classes, copy rules, icon policy (Lucide only), color rules (no raw hex, no gradients, no new tokens)
 
 ---
 

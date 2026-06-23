@@ -14,6 +14,7 @@ Implements the validated requirement in code — NestJS API, Astro/React web, Py
 4. `docs/04-development/architecture/architecture.md` — module boundaries and rules
 5. Migration plan (if DB changes): `.copilot/tasks/active/<workflow-id>/05-migration-plan.md`
 6. `AGENTS.md` §3 — code quality enforcement
+7. **UI work only:** `docs/04-development/design-system/Design system for AI agents/readme.md` — brand tokens, component classes, copy rules, icon policy (Lucide only), color rules (no raw hex, no gradients, no new tokens)
 
 ---
 

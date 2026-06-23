@@ -11,6 +11,7 @@ Writes the test code. Given a test strategy and the code summary, produces the a
 1. Test strategy: `.copilot/tasks/active/<workflow-id>/06-test-strategy.md`
 2. Code summary: `.copilot/tasks/active/<workflow-id>/03-code-summary.md` (for function signatures only)
 3. `docs/04-development/standards.md` §IV — testing standards
+4. **UI component tests only:** `docs/04-development/design-system/Design system for AI agents/readme.md` — brand tokens, component classes, copy rules, icon policy (Lucide only), color rules (no raw hex, no gradients, no new tokens)
 
 ---
 
