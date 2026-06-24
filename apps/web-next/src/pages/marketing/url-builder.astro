@@ -1,0 +1,65 @@
+---
+// FR-MIG-023 — UTM URL builder marketing tool page.
+//
+// SSR shell with <UtmUrlBuilder> React island.
+// Pure client-side URL construction with copy-to-clipboard.
+//
+// ADR-0038 §Locks #1: uses Tailwind classes only. No inline style=.
+
+import Layout from '../../layouts/Layout.astro';
+import { UtmUrlBuilder } from '../../blocks/marketing/UtmUrlBuilder';
+
+export const prerender = false;
+---
+
+<Layout
+  title="UTM URL Builder — AI Qadam"
+  description="Build UTM-tagged marketing URLs with live preview and copy-to-clipboard."
+>
+  <main class="mx-auto max-w-2xl px-6 py-16">
+    <div class="mb-10">
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Marketing tools
+      </p>
+      <h1 class="mb-3 font-display text-3xl font-semibold tracking-tight">
+        UTM URL Builder
+      </h1>
+      <p class="text-base leading-relaxed text-muted-foreground">
+        Build UTM-tagged links with live preview. Copy the result to use in
+        posts, emails, and ads. utm_source and utm_campaign accept any slug;
+        utm_medium uses the canonical list from our marketing ADR.
+      </p>
+    </div>
+
+    <div class="mb-10">
+      <UtmUrlBuilder client:load />
+    </div>
+
+    <!-- Rules summary -->
+    <div class="rounded-xl border border-border bg-card p-6">
+      <h2 class="mb-4 font-display text-lg font-semibold">UTM rules</h2>
+      <ul class="space-y-2 text-sm text-muted-foreground">
+        <li class="flex gap-2">
+          <span class="text-primary">Lowercase</span>
+          <span>— all values must be lowercase</span>
+        </li>
+        <li class="flex gap-2">
+          <span class="text-primary">Hyphenated</span>
+          <span>— use hyphens to separate words, not underscores (except utm_medium)</span>
+        </li>
+        <li class="flex gap-2">
+          <span class="text-primary">Max 64 characters</span>
+          <span>— per parameter value</span>
+        </li>
+        <li class="flex gap-2">
+          <span class="text-primary">No placeholders</span>
+          <span>— replace all {`{placeholder}`} tokens before copying</span>
+        </li>
+        <li class="flex gap-2">
+          <span class="text-primary">utm_medium</span>
+          <span>— must be one of the canonical values from the dropdown</span>
+        </li>
+      </ul>
+    </div>
+  </main>
+</Layout>

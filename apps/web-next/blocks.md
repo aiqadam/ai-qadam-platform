@@ -40,6 +40,9 @@
 | `/leads/thank-you` | Lead form submission confirmation (SSG) | anon |
 | `/leads/verified` | Lead email verified landing (SSG) | anon |
 | `/leads/verify-failed` | Lead verification failed/error (SSG) | anon |
+| `/press` | Press kit with hero, contact, leadership, logos, brand colors, fact sheet, digests, coverage | anon |
+| `/global` | Global community splash with UZ/KZ/TJ country tiles | anon |
+| `/marketing/url-builder` | UTM URL builder island shell | anon |
 | `/workspace/integrations/telegram/segments` | Telegram audience segments | authed |
 
 ## L1 lib hooks
@@ -131,3 +134,24 @@ CSAT (Customer Satisfaction) form with 1-5 rating and optional comment.
 | Block | File | Purpose |
 |---|---|---|
 | `<CheckinOperator>` | `blocks/checkin/CheckinOperator.tsx` | Event-day QR check-in with camera scanner, manual entry, offline queue, member display |
+
+## Marketing blocks (L2)
+
+| Block | File | Purpose |
+|---|---|---|
+| `<UtmUrlBuilder>` | `blocks/marketing/UtmUrlBuilder.tsx` | UTM URL builder with live preview + copy-to-clipboard |
+
+## UtmUrlBuilder (marketing)
+
+**File:** `src/blocks/marketing/UtmUrlBuilder.tsx`
+
+UTM URL builder island for marketing operators.
+
+**Props:** none (standalone)
+
+**States:** idle | has-url | copied | error
+
+**Features:**
+- 5 fields with validation
+- Live URL preview
+- Copy to clipboard

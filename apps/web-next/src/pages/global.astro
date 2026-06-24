@@ -1,0 +1,97 @@
+---
+// FR-MIG-023 — global community splash page.
+//
+// SSR page with three country tiles (UZ, KZ, TJ) with flags and event
+// counts. Each tile links to the respective country subdomain.
+//
+// ADR-0038 §Locks #1: uses Tailwind classes only. No inline style=.
+
+import Layout from '../layouts/Layout.astro';
+import { fetchEventCountForCountry } from '../lib/cms';
+
+export const prerender = false;
+
+const COUNTRIES = [
+  {
+    code: 'uz',
+    flag: 'UZ',
+    flagEmoji: '\u{1F1FA}\u{1F1FF}',
+    host: 'uz.aiqadam.org',
+    name: 'Uzbekistan',
+    description: 'AI community events in Tashkent and beyond.',
+    eventLabel: 'events run',
+  },
+  {
+    code: 'kz',
+    flag: 'KZ',
+    flagEmoji: '\u{1F1F0}\u{1F1FF}',
+    host: 'kz.aiqadam.org',
+    name: 'Kazakhstan',
+    description: 'AI community events in Almaty, Astana, and beyond.',
+    eventLabel: 'events run',
+  },
+  {
+    code: 'tj',
+    flag: 'TJ',
+    flagEmoji: '\u{1F1F9}\u{1F1EF}',
+    host: 'tj.aiqadam.org',
+    name: 'Tajikistan',
+    description: 'AI community events in Dushanbe and beyond.',
+    eventLabel: 'events run',
+  },
+] as const;
+
+const countsByCountry = await Promise.all(
+  COUNTRIES.map(async (c) => ({ code: c.code, count: await fetchEventCountForCountry(c.code) })),
+);
+const eventsCountMap = new Map(countsByCountry.map((r) => [r.code, r.count]));
+---
+
+<Layout
+  title="AI Qadam — Central Asia"
+  description="Pick your country to browse AI community events."
+>
+  <main class="mx-auto max-w-4xl px-8 py-24 text-center">
+    <div class="mb-16">
+      <h1 class="mb-4 font-display text-5xl font-semibold tracking-tight">
+        AI <span class="text-primary">Qadam</span>
+      </h1>
+      <p class="mb-2 text-lg text-muted-foreground">
+        Central Asia AI community platform
+      </p>
+      <p class="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Uzbekistan · Kazakhstan · Tajikistan
+      </p>
+    </div>
+
+    <div class="mb-12 grid gap-4 sm:grid-cols-3">
+      {COUNTRIES.map((c) => {
+        const eventsRun = eventsCountMap.get(c.code) ?? 0;
+        return (
+          <a
+            href={`https://${c.host}/`}
+            class="group flex flex-col gap-3 rounded-xl border border-border bg-card p-6 text-left no-underline text-inherit transition-colors hover:border-primary/50"
+          >
+            <div class="flex items-center gap-3">
+              <span class="text-3xl leading-none">{c.flagEmoji}</span>
+              <span class="font-display text-lg font-semibold">{c.name}</span>
+            </div>
+            <p class="flex-1 text-sm leading-relaxed text-muted-foreground">{c.description}</p>
+            <p class="font-mono text-xs text-muted-foreground">
+              {eventsRun > 0
+                ? `${eventsRun} ${c.eventLabel}`
+                : 'No events yet'}
+            </p>
+            <span class="mt-auto font-mono text-xs uppercase tracking-widest text-primary transition-transform group-hover:translate-x-1">
+              Browse →
+            </span>
+          </a>
+        );
+      })}
+    </div>
+
+    <p class="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground">
+      Select a country to see upcoming and past AI community events, connect with local engineers, and find opportunities to learn and collaborate.
+    </p>
+  </main>
+</Layout>

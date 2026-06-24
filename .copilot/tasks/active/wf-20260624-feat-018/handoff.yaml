@@ -1,0 +1,123 @@
+# Handoff file for FR-MIG-023 workflow
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260624-feat-018"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-24T10:00:00Z"
+last_updated_at: "2026-06-24T14:30:00Z"
+
+# Source
+requirement_ref: "FR-MIG-023"
+requirement_text: "/press + /global + /marketing/url-builder — static and marketing pages"
+
+github_issue_url: ""
+
+# Git State
+branch: "feature/MIG-023-static-marketing-pages"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/34"
+
+# Workflow Progress
+current_step: 10
+current_step_name: "quality-gate"
+workflow_status: "gate-passed"
+
+# Gate Results
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-24T10:30:00Z"
+    summary: "Passed with clarifications. Press page has 6 sections, global shows past-event counts, UTM uses datalist."
+    output_file: ".copilot/tasks/active/wf-20260624-feat-018/01-requirement-validation.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-24T13:42:00Z"
+    summary: "3 SSR pages + UtmUrlBuilder island + utm.ts lib + cms.ts extensions."
+    output_file: ".copilot/tasks/active/wf-20260624-feat-018/03-code-summary.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-24T14:00:00Z"
+    summary: "45 UTM tests planned."
+    output_file: ".copilot/tasks/active/wf-20260624-feat-018/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-24T14:00:00Z"
+    summary: "45 UTM tests created."
+    output_file: ".copilot/tasks/active/wf-20260624-feat-018/06-test-design.md"
+  test-results:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-24T14:15:00Z"
+    summary: "45/45 tests pass. Typecheck 0 errors. Build passed."
+    output_file: ".copilot/tasks/active/wf-20260624-feat-018/07-test-results.md"
+  doc-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-24T14:20:00Z"
+    summary: "FR-MIG-023 status → Implemented, requirements-registry → Shipped."
+    output_file: ".copilot/tasks/active/wf-20260624-feat-018/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-24T14:30:00Z"
+    summary: "All gates passed. Build verified."
+    output_file: ".copilot/tasks/active/wf-20260624-feat-018/09-quality-gate.md"
+
+# Agent Assignments
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    timestamp: "2026-06-24T10:30:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    timestamp: "2026-06-24T13:42:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    timestamp: "2026-06-24T14:00:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    timestamp: "2026-06-24T14:00:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    timestamp: "2026-06-24T14:15:00Z"
+  doc-writer:
+    status: completed
+    step: 9
+    timestamp: "2026-06-24T14:20:00Z"
+  quality-gate:
+    status: completed
+    step: 10
+    timestamp: "2026-06-24T14:30:00Z"
+
+# Context Drift Guard
+expects_registry_update: true
+context_sync_commits: 0
+
+# Artifacts
+artifacts:
+  - ".copilot/tasks/active/wf-20260624-feat-018/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260624-feat-018/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260624-feat-018/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260624-feat-018/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260624-feat-018/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260624-feat-018/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260624-feat-018/09-quality-gate.md"
+
+# NEEDS_REVIEW
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260624-feat-018/NEEDS_REVIEW.md"
