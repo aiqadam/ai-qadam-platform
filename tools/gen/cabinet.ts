@@ -51,5 +51,7 @@ const rendered = tmpl
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, rendered, 'utf8');
 
+// biome-ignore lint/suspicious/noConsoleLog: intentional CLI output
 console.log(`✓ wrote ${outFile.replace(`${REPO_ROOT}/`, '')}`);
+// biome-ignore lint/suspicious/noConsoleLog: intentional CLI output
 console.log('  Next: compose L3 workspace blocks. Run `pnpm arch:check` before committing.');

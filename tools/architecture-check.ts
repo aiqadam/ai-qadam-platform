@@ -157,11 +157,14 @@ function checkFile(file: string, violations: Violation[]): void {
     const line = lines[i] ?? '';
     const lineNo = i + 1;
 
-    // Skip comments and lines suppressed by arch-ignore on the preceding line.
+    // Skip comments and lines suppressed by arch-ignore within the preceding 5 lines.
+    // A 5-line window handles multi-attribute HTML elements where style= may be
+    // several lines below the opening tag and its preceding arch-ignore comment.
     const trimmed = line.trimStart();
-    const prevLine = (lines[i - 1] ?? '').trimStart();
     const isComment = trimmed.startsWith('//') || trimmed.startsWith('*');
-    const isSuppressed = /arch-ignore/.test(prevLine);
+    const isSuppressed = lines
+      .slice(Math.max(0, i - 5), i)
+      .some((l) => /arch-ignore/.test(l ?? ''));
 
     // Lock 1a: blocks/pages must not import lib/api-* (use L1 hooks instead).
     if (!isComment && !isSuppressed && /from\s+['"][^'"]*\/lib\/api-[^'"]*['"]/.test(line)) {
@@ -251,7 +254,10 @@ function checkFile(file: string, violations: Violation[]): void {
 
 function checkCatalogueCoherence(staged: string[], violations: Violation[]): void {
   // Lock 4: edits/adds under blocks/ require an edit to docs/04-development/architecture/blocks.md.
-  const touchedBlocks = staged.filter((f) => inWebNextBlocks(f) && SOURCE_EXT.test(f));
+  const TEST_EXT = /\.(test|spec)\.(ts|tsx|js|jsx)$/;
+  const touchedBlocks = staged.filter(
+    (f) => inWebNextBlocks(f) && SOURCE_EXT.test(f) && !TEST_EXT.test(f),
+  );
   if (touchedBlocks.length === 0) return;
   // normalize to forward-slashes so comparison matches git's output on Windows
   const catalogueRel = relative(REPO_ROOT, BLOCKS_CATALOGUE).replace(/\\/g, '/');
@@ -283,6 +289,7 @@ if (STAGED_MODE) {
 }
 
 if (violations.length === 0) {
+  // biome-ignore lint/suspicious/noConsoleLog: intentional CLI output
   console.log(
     `✓ arch:check passed (${filesToCheck.length} file(s) scanned, mode=${STAGED_MODE ? 'staged' : 'full'}).`,
   );
