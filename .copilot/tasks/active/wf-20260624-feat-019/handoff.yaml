@@ -14,7 +14,9 @@ requirement_summary: >
   (c) contact/social links. Uses <Form> (FR-MIG-003) for each section. PATCH Directus
   singleton collections. AuthGate (operator). Super-admin only.
 
-status: step-0-initialized
+status: step-11-pr-created
+
+pr_url: https://github.com/tvolodi/aiqadam/pull/35
 
 steps:
   - id: 0
@@ -69,63 +71,67 @@ steps:
 
   - id: 5
     name: Security review
-    status: in_progress
+    status: completed
     agent: SecurityReviewer
     output_file: 04-security-review.md
     started_at: "2026-06-24T01:43:10Z"
-    completed_at: null
-    retry_count: 0
-    gate: null
+    completed_at: "2026-06-24T01:55:00Z"
+    retry_count: 1
+    gate: pass
+    notes: "PASS after retry — MAJOR-1 fixed (footerLinksSchema added, .parse() before every PATCH)"
 
   - id: 6
     name: Test strategy
-    status: in_progress
+    status: completed
     agent: TestStrategist
     output_file: 06-test-strategy.md
     started_at: "2026-06-24T01:43:10Z"
-    completed_at: null
+    completed_at: "2026-06-24T02:10:00Z"
     retry_count: 0
-    gate: null
+    gate: pass
 
   - id: 7
     name: Test design
-    status: in_progress
+    status: completed
     agent: TestDesigner
     output_file: 06-test-design.md
     started_at: "2026-06-24T01:43:10Z"
-    completed_at: null
+    completed_at: "2026-06-24T02:30:00Z"
     retry_count: 0
-    gate: null
+    gate: pass
 
   - id: 8
     name: Test execution
-    status: pending
+    status: completed
     agent: TestRunner
     output_file: 07-test-results.md
-    started_at: null
-    completed_at: null
+    started_at: "2026-06-24T02:30:00Z"
+    completed_at: "2026-06-24T02:45:00Z"
     retry_count: 0
-    gate: null
+    gate: pass
+    notes: "665 tests passed (web-next); 20 new in SiteSettingsForm.test.tsx"
 
   - id: 9
     name: Quality gate
-    status: pending
+    status: completed
     agent: QualityGate
     output_file: 09-quality-gate.md
-    started_at: null
-    completed_at: null
+    started_at: "2026-06-24T02:45:00Z"
+    completed_at: "2026-06-24T03:00:00Z"
     retry_count: 0
-    gate: null
+    gate: pass
+    notes: "All 5 gates green: typecheck, lint, test, test:integration, build"
 
   - id: 11
     name: Commit and push
-    status: pending
+    status: completed
     agent: orchestrator
     output_file: null
-    started_at: null
-    completed_at: null
-    retry_count: 0
-    gate: null
+    started_at: "2026-06-24T03:35:00Z"
+    completed_at: "2026-06-24T03:40:00Z"
+    retry_count: 1
+    gate: pass
+    notes: "arch:check passed; PR created"
 
   - id: 12
     name: Archive
@@ -145,7 +151,8 @@ metadata:
   depends_on:
     - FR-MIG-003  # <Form> block
     - FR-MIG-005  # <ActionBar> block
-  files_created: 0
-  files_modified: 0
-  lines_added: 0
-  lines_removed: 0
+  files_created: 5
+  files_modified: 7
+  lines_added: 1169
+  lines_removed: 7
+  pr_url: https://github.com/tvolodi/aiqadam/pull/35
