@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-030
 name: Parity verification — E2E suite + Lighthouse (M4 steps 3–4)
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M4
 ---

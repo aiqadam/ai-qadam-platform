@@ -142,7 +142,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 27 | [FR-MIG-027](FR-MIG-027.md) | /workspace/badges grant + award history | Shipped | MIG-003, MIG-004, MIG-005 |
 | 28 | [FR-MIG-028](FR-MIG-028.md) | /workspace/country-leads onboarding cabinet | Shipped | — |
 | 29 | [FR-MIG-029](FR-MIG-029.md) | /workspace/members uplift — segment builder | Shipped | MIG-010, MIG-003 |
-| 30 | [FR-MIG-030](FR-MIG-030.md) | Parity verification — E2E suite + Lighthouse | Not Started | MIG-001 through MIG-029 |
+| 30 | [FR-MIG-030](FR-MIG-030.md) | Parity verification — E2E suite + Lighthouse | Implemented | MIG-001 through MIG-029 |
 | 31 | [FR-MIG-031](FR-MIG-031.md) | Production cutover — cookie parity, SEO, FQDN flip | Not Started | MIG-030 |
 
 > **Execution constraint:** every PR is ≤ 5 code files, ≤ 400 LOC. `pnpm arch:check` + `astro check` + `pnpm build` + `biome check` must pass before push. Every block add/edit updates `blocks.md` in the same PR.

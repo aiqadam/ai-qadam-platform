@@ -10,7 +10,11 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "report": "playwright show-report",
-    "install:browsers": "playwright install --with-deps chromium"
+    "install:browsers": "playwright install --with-deps chromium",
+    "e2e:parity": "playwright test --config playwright.parity.config.ts",
+    "e2e:parity:v1": "playwright test --config playwright.parity.config.ts --project v1-chromium",
+    "e2e:parity:v2": "playwright test --config playwright.parity.config.ts --project v2-chromium",
+    "lhci:run": "npx @lhci/cli@0.14 autorun --config lighthouserc.js"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
