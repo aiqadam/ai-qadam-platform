@@ -28,7 +28,8 @@
     "arch:check": "tsx tools/architecture-check.ts",
     "gen:page": "tsx tools/gen/page.ts",
     "gen:cabinet": "tsx tools/gen/cabinet.ts",
-    "ai:sync": "bash scripts/sync-ai-rules.sh"
+    "ai:sync": "bash scripts/sync-ai-rules.sh",
+    "e2e:parity": "pnpm --filter @aiqadam/e2e e2e:parity"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
