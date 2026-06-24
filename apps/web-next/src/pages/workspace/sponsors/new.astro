@@ -1,0 +1,40 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/sponsors/new
+// generated: 2026-06-24
+// FR-MIG-025 — /workspace/sponsors/new create form.
+// Operators create a new sponsor record with logo upload and event associations.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, PageShell, SponsorForm } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="New sponsor · AI Qadam workspace"
+  description="Create a new sponsor record."
+>
+  <PageHead
+    slot="head"
+    title="New sponsor · AI Qadam workspace"
+    description="Create a new sponsor record."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="New sponsor"
+      description="Fill in the details below to create a sponsor record."
+      width="standard"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Sponsors', href: '/workspace/sponsors' },
+          { label: 'New' },
+        ]}
+      />
+      <SponsorForm client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

@@ -28,6 +28,9 @@
 | `/workspace/announce` | Announcement composer | authed |
 | `/workspace/approvals` | Registration approvals | authed |
 | `/workspace/site-settings` | Operator: homepage hero, footer links, contact/social | authed |
+| `/workspace/sponsors` | Operator: sponsor list with tier filter | authed |
+| `/workspace/sponsors/new` | Operator: create sponsor record | authed |
+| `/workspace/sponsors/[id]` | Operator: edit sponsor record | authed |
 | `/workspace/admin/users` | Admin: user management | authed |
 | `/workspace/admin/audit` | Admin: audit log | authed |
 | `/workspace/admin/countries` | Admin: country list | authed |
@@ -58,6 +61,11 @@ L1 runtime functions that blocks and pages import.
 | `useRbacSyncJobs()` | `lib/use-rbac-sync.ts` | RBAC sync jobs list + trigger hook |
 | `usePublicForm()` | `lib/use-public-form.ts` | Public form fetch + submission hooks |
 | `useCheckin()` | `lib/use-checkin.ts` | Event-day check-in mutation hook |
+| `useSponsors()` | `lib/use-sponsors.ts` | Sponsor list query hook |
+| `useSponsorDetail()` | `lib/use-sponsors.ts` | Per-sponsor detail query hook |
+| `useCreateSponsor()` | `lib/use-sponsors.ts` | Sponsor create mutation hook |
+| `useUpdateSponsor()` | `lib/use-sponsors.ts` | Sponsor update mutation hook |
+| `useUploadLogo()` | `lib/use-sponsors.ts` | Logo file upload mutation (MinIO via /v1/admin/uploads) |
 
 ## Common blocks
 
@@ -96,6 +104,8 @@ L1 runtime functions that blocks and pages import.
 | `<InvitesList>` | `blocks/workspace/InvitesList.tsx` | Invite management |
 | `<CountriesList>` | `blocks/workspace/CountriesList.tsx` | Country list with provisioning |
 | `<SiteSettingsForm>` | `blocks/workspace/SiteSettingsForm.tsx` | Homepage singleton editor: hero + footer links + contact forms |
+| `<SponsorsList>` | `blocks/workspace/SponsorsList.tsx` | Sponsor directory DataTable with tier-chip filter + "New sponsor" link |
+| `<SponsorForm>` | `blocks/workspace/SponsorForm.tsx` | Create/edit sponsor: name, tier, website, logo upload, event multi-select |
 
 | `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
 | `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |

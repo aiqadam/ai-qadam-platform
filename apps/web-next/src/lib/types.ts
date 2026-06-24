@@ -982,3 +982,54 @@ export interface CheckinResponse {
 export interface CheckinRequest {
   eventId: string;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/workspace/sponsors (sponsor record management)
+//
+// FR-MIG-025 — operator cabinet for sponsor records. Operators create/edit
+// sponsors (name, logo, tier, website) and associate them with events.
+// No v1 equivalent — previously managed via Directus admin.
+// ---------------------------------------------------------------------------
+
+export const SPONSOR_TIERS = ['presenting', 'gold', 'silver', 'bronze', 'community'] as const;
+export type SponsorTier = (typeof SPONSOR_TIERS)[number];
+
+export interface SponsorSummary {
+  id: string;
+  name: string;
+  slug: string;
+  tier: SponsorTier;
+  website: string | null;
+  logo_url: string | null;
+  country_code: string | null;
+  event_count: number;
+}
+
+export interface SponsorEventLink {
+  event_id: string;
+  event_title: string;
+  event_starts_at: string;
+}
+
+export interface SponsorDetail extends SponsorSummary {
+  custom_message: string | null;
+  events: SponsorEventLink[];
+}
+
+export interface CreateSponsorBody {
+  name: string;
+  tier: SponsorTier;
+  website?: string | null;
+  logo_url?: string | null;
+  custom_message?: string | null;
+  event_ids?: string[];
+}
+
+export interface UpdateSponsorBody {
+  name?: string;
+  tier?: SponsorTier;
+  website?: string | null;
+  logo_url?: string | null;
+  custom_message?: string | null;
+  event_ids?: string[];
+}
