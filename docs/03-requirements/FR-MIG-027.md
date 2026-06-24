@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-027
 name: /workspace/badges — badge grant + award history
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild Phase 3
 ---

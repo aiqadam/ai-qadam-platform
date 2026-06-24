@@ -1,0 +1,41 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/badges
+// generated: 2026-06-24
+// FR-MIG-027 — /workspace/badges badge grant + award history cabinet.
+// Operators browse badge definitions, grant badges to members, and
+// view the full award audit trail with per-badge filtering and revoke.
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, PageShell } from '../../../blocks/workspace';
+import { BadgesCabinet } from '../../../blocks/workspace/BadgesCabinet';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Badges · AI Qadam workspace"
+  description="Grant badges to community members and review the award history."
+>
+  <PageHead
+    slot="head"
+    title="Badges · AI Qadam workspace"
+    description="Grant badges to community members and review the award history."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Badges"
+      description="Grant achievement badges to members and review the full award audit trail."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Badges' },
+        ]}
+      />
+      <BadgesCabinet client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

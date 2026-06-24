@@ -1,0 +1,22 @@
+workflow_instance_id: wf-20260624-feat-022
+workflow_type: requirement-development
+workflow_version: "1.0"
+created_at: "2026-06-24T22:00:00Z"
+last_updated_at: "2026-06-24T23:59:00Z"
+requirement_ref: FR-MIG-027
+requirement_text: >
+  /workspace/badges — badge grant + award history cabinet.
+  Operators grant badges to members for achievements and view the badge award audit trail.
+branch: feature/MIG-027-badges-grant-award-history
+base_branch: main
+current_step: 4
+current_step_name: develop-code
+workflow_status: completed
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/44"
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+deferrals: []
+issues_created: []
+artifacts: []
