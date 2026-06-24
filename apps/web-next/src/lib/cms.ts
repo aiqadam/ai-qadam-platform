@@ -151,18 +151,22 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
 // Site settings write path — Directus singleton PATCH.
 // ---------------------------------------------------------------------------
 
-/** PATCH data to a Directus items endpoint; throws on non-2xx response. */
-async function patch<T>(path: string, data: unknown): Promise<T> {
+/** Send data to a Directus items endpoint; throws on non-2xx response. */
+async function send<T>(method: 'POST' | 'PATCH', path: string, data: unknown): Promise<T> {
   const url = `${directusBase()}${path}`;
   const res = await fetch(url, {
-    method: 'PATCH',
+    method,
     headers: { 'Content-Type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    throw new Error(`Directus PATCH ${path} → HTTP ${res.status}`);
+    throw new Error(`Directus ${method} ${path} → HTTP ${res.status}`);
   }
   return (await res.json()) as T;
+}
+
+function patch<T>(path: string, data: unknown): Promise<T> {
+  return send<T>('PATCH', path, data);
 }
 
 /** PATCH the site_settings singleton with a partial update. */
@@ -523,6 +527,7 @@ export type TeamMemberRole =
   | 'other';
 
 export interface TeamMember {
+  id: string;
   name: string;
   title: string;
   role: TeamMemberRole;
@@ -531,6 +536,7 @@ export interface TeamMember {
 }
 
 interface CmsTeamMemberRow {
+  id: string;
   name: string;
   title: string;
   role: TeamMemberRole;
@@ -540,6 +546,7 @@ interface CmsTeamMemberRow {
 
 function normalizeTeamMember(row: CmsTeamMemberRow): TeamMember {
   return {
+    id: row.id,
     name: row.name,
     title: row.title,
     role: row.role,
@@ -557,7 +564,7 @@ export async function fetchTeamMembers(opts?: {
       'filter[active][_eq]': 'true',
       sort: 'display_order',
       limit: String(opts?.limit ?? 50),
-      fields: 'name,title,role,bio_md,display_order',
+      fields: 'id,name,title,role,bio_md,display_order',
     });
     if (opts?.pressPageOnly) {
       params.set('filter[appear_on_press_page][_eq]', 'true');
@@ -639,6 +646,70 @@ export async function fetchMarketingAssets(
     console.error('[cms] fetchMarketingAssets failed:', err instanceof Error ? err.message : err);
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Press page write path — PATCH singleton + team_members CRUD.
+// ---------------------------------------------------------------------------
+
+export interface PressPageInput {
+  heroTitle?: string;
+  companyBoilerplate?: string;
+  seoDescription?: string;
+  contactResponseSla?: string;
+  contactGuidance?: string;
+}
+
+/** PATCH the press_page singleton with a partial update. */
+export async function updatePressPage(data: PressPageInput): Promise<void> {
+  await patch('/items/press_page', {
+    hero_title: data.heroTitle,
+    company_boilerplate: data.companyBoilerplate,
+    seo_description: data.seoDescription,
+    contact_response_sla: data.contactResponseSla,
+    contact_guidance: data.contactGuidance,
+  });
+}
+
+export interface TeamMemberInput {
+  name: string;
+  title: string;
+  role: TeamMemberRole;
+  bioMd?: string | null;
+  displayOrder?: number;
+}
+
+/** POST a new team_member row; returns the created item's id. */
+export async function createTeamMember(data: TeamMemberInput): Promise<string> {
+  interface CreatedRow {
+    data: { id: string };
+  }
+  const body = await send<CreatedRow>('POST', '/items/team_members', {
+    name: data.name,
+    title: data.title,
+    role: data.role,
+    bio_md: data.bioMd ?? null,
+    display_order: data.displayOrder ?? 100,
+    active: true,
+    appear_on_press_page: true,
+  });
+  return body.data.id;
+}
+
+/** PATCH an existing team_member row by id. */
+export async function updateTeamMember(id: string, data: Partial<TeamMemberInput>): Promise<void> {
+  await patch(`/items/team_members/${encodeURIComponent(id)}`, {
+    ...(data.name !== undefined && { name: data.name }),
+    ...(data.title !== undefined && { title: data.title }),
+    ...(data.role !== undefined && { role: data.role }),
+    ...(data.bioMd !== undefined && { bio_md: data.bioMd }),
+    ...(data.displayOrder !== undefined && { display_order: data.displayOrder }),
+  });
+}
+
+/** Soft-delete a team_member by setting active=false. */
+export async function deleteTeamMember(id: string): Promise<void> {
+  await patch(`/items/team_members/${encodeURIComponent(id)}`, { active: false });
 }
 
 // ---------------------------------------------------------------------------

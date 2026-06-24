@@ -1,0 +1,55 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/press
+//
+// FR-MIG-026 — press asset manager (super-admin role).
+// Three sections: press page prose, team bios repeater, platform stats.
+// No v1 equivalent (was Directus direct).
+//
+// `prerender = false` — operator-only dynamic page.
+
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, PageShell, PressAssetManager } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+import { fetchPressPage, fetchSiteSettings, fetchTeamMembers } from '../../../lib/cms';
+
+const [pressPage, teamMembers, siteSettings] = await Promise.all([
+  fetchPressPage(),
+  fetchTeamMembers({ pressPageOnly: false }),
+  fetchSiteSettings(),
+]);
+---
+
+<Layout
+  title="Press assets · AI Qadam workspace"
+  description="Manage press page prose, team bios, and platform stats."
+>
+  <PageHead
+    slot="head"
+    title="Press assets · AI Qadam workspace"
+    description="Manage press page prose, team bios, and platform stats."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operator only — sign in">
+    <PageShell
+      title="Press assets"
+      description="Edit the press page content shown on /press."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Press assets' },
+        ]}
+      />
+      <PressAssetManager
+        client:load
+        pressPage={pressPage}
+        teamMembers={teamMembers}
+        siteSettings={siteSettings}
+      />
+    </PageShell>
+  </AuthGate>
+</Layout>
