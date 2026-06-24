@@ -13,7 +13,7 @@ github_issue_url: ""
 
 branch: "feature/MIG-031-production-cutover"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/48"
 
 current_step: 1
 current_step_name: "validate-requirement"
