@@ -31,6 +31,7 @@
 | `/workspace/sponsors` | Operator: sponsor list with tier filter | authed |
 | `/workspace/sponsors/new` | Operator: create sponsor record | authed |
 | `/workspace/sponsors/[id]` | Operator: edit sponsor record | authed |
+| `/workspace/press` | Operator: press asset manager (prose, team bios, platform stats) | authed |
 | `/workspace/admin/users` | Admin: user management | authed |
 | `/workspace/admin/audit` | Admin: audit log | authed |
 | `/workspace/admin/countries` | Admin: country list | authed |
@@ -106,6 +107,7 @@ L1 runtime functions that blocks and pages import.
 | `<SiteSettingsForm>` | `blocks/workspace/SiteSettingsForm.tsx` | Homepage singleton editor: hero + footer links + contact forms |
 | `<SponsorsList>` | `blocks/workspace/SponsorsList.tsx` | Sponsor directory DataTable with tier-chip filter + "New sponsor" link |
 | `<SponsorForm>` | `blocks/workspace/SponsorForm.tsx` | Create/edit sponsor: name, tier, website, logo upload, event multi-select |
+| `<PressAssetManager>` | `blocks/workspace/PressAssetManager.tsx` | Press asset manager: press page prose editor + team bios repeater + platform stats form |
 
 | `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
 | `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |

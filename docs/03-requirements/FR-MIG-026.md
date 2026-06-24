@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-026
 name: /workspace/press — press/marketing asset manager
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild Phase 3
 ---
