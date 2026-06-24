@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-24T17:15:00Z
+**Last updated:** 2026-06-24T18:30:00Z
 
 ---
 
@@ -30,14 +30,14 @@ _(none — wf-20260624-feat-019 archived 2026-06-24)_
 
 | ID | Severity | Summary | Status |
 |---|---|---|---|
-| (none) | | | |
+| [ISS-CI-001](../issues/ISS-CI-001.md) | blocker | Pre-existing CI failures (arch-check 25 violations, biome 20,432 errors, pnpm audit 2 high CVEs) block all future PRs to main | open — registered 2026-06-24 |
 
 ---
 
 ## Git State
 
 - **Current branch:** main
-- **Last sync with origin:** 2026-06-23
+- **Last sync with origin:** 2026-06-24 (PR #35 merged)
 - **Pending PRs:** [PR #27](https://github.com/tvolodi/aiqadam/pull/27) (FR-MIG-014)
 
 ## Next Workflow ID
