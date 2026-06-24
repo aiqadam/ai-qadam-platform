@@ -18,4 +18,4 @@ retry_limits:
   CodeDeveloper: 3
   QualityGate: 3
 
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/37"
