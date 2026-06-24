@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-021
 name: /checkin — event-day QR check-in
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M3
 ---

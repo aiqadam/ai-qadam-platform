@@ -59,6 +59,12 @@ export class RegistrationIneligibleError extends Error {}
 export class RegistrationConsentRequiredError extends Error {}
 export class CheckinNotFoundError extends Error {}
 export class CheckinIneligibleError extends Error {}
+export class WrongEventError extends Error {
+  constructor(eventTitle: string) {
+    super(`this ticket is for a different event: ${eventTitle}`);
+    this.name = 'WrongEventError';
+  }
+}
 
 @Injectable()
 export class RegistrationsDirectusService {
@@ -352,6 +358,191 @@ export class RegistrationsDirectusService {
     return {
       registration: toView({ ...patched.data, event: patched.data.event.id }),
       alreadyCheckedIn: false,
+      event: eventView,
+    };
+  }
+
+  // FR-MIG-021: check-in with event validation + member enrichment.
+  // The token is the checkin_code UUID from the registration. The eventId
+  // is provided by the operator's dropdown. If the token belongs to a
+  // different event, throws WrongEventError with the correct event title.
+  async checkinWithEvent(token: string, eventId: string): Promise<{
+    registration: RegistrationView;
+    alreadyCheckedIn: boolean;
+    member: { name: string; avatar: string | null };
+    event: { id: string; title: string; startsAt: string; endsAt: string; location: string | null };
+  }> {
+    // Fetch the registration with event + user info in a single query.
+    const params = new URLSearchParams({
+      'filter[checkin_code][_eq]': token,
+      fields: [
+        'id',
+        'event',
+        'user',
+        'status',
+        'checkin_code',
+        'checked_in_at',
+        'cancelled_at',
+        'date_created',
+        'date_updated',
+        'referred_by',
+        'event.id',
+        'event.title',
+        'event.starts_at',
+        'event.ends_at',
+        'event.location',
+        'event.country',
+      ].join(','),
+      limit: '1',
+    });
+    const found = await this.directus.get<{
+      data: Array<{
+        id: string;
+        event: {
+          id: string;
+          title: string;
+          starts_at: string;
+          ends_at: string;
+          location: string | null;
+          country: string;
+        };
+        user: string;
+        status: Status;
+        checkin_code: string;
+        checked_in_at: string | null;
+        cancelled_at: string | null;
+        date_created: string;
+        date_updated: string | null;
+        referred_by: string | null;
+      }>;
+    }>(`/items/registrations?${params.toString()}`);
+
+    const row = found.data[0];
+    if (!row) {
+      throw new CheckinNotFoundError('check-in code not recognized');
+    }
+
+    // Validate the registration belongs to the specified event.
+    if (row.event.id !== eventId) {
+      // Fetch the actual event title for the error message.
+      try {
+        const eventRes = await this.directus.get<{
+          data: { id: string; title: string };
+        }>(`/items/events/${row.event.id}?fields=id,title`);
+        throw new WrongEventError(eventRes.data.title);
+      } catch (err) {
+        if (err instanceof WrongEventError) throw err;
+        // If we can't fetch the title, throw with generic message.
+        throw new WrongEventError('another event');
+      }
+    }
+
+    if (row.status === 'cancelled') {
+      throw new CheckinIneligibleError('this registration was cancelled');
+    }
+    if (row.status === 'waitlisted') {
+      throw new CheckinIneligibleError('waitlisted — promoted users only get a check-in code');
+    }
+
+    const eventView = {
+      id: row.event.id,
+      title: row.event.title,
+      startsAt: row.event.starts_at,
+      endsAt: row.event.ends_at,
+      location: row.event.location,
+    };
+
+    // Fetch member info for display.
+    let memberInfo: { name: string; avatar: string | null } = { name: 'Member', avatar: null };
+    try {
+      const userRes = await this.directus.get<{
+        data: { first_name: string | null; last_name: string | null; avatar: string | null };
+      }>(`/items/directus_users/${row.user}?fields=first_name,last_name,avatar`);
+      const u = userRes.data;
+      const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ');
+      memberInfo = {
+        name: fullName || 'Member',
+        avatar: u.avatar ?? null,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `could not fetch member info for user=${row.user}: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+
+    if (row.status === 'attended') {
+      return {
+        registration: toView({
+          id: row.id,
+          event: row.event.id,
+          user: row.user,
+          status: row.status,
+          checkin_code: row.checkin_code,
+          checked_in_at: row.checked_in_at,
+          cancelled_at: row.cancelled_at,
+          date_created: row.date_created,
+          date_updated: row.date_updated,
+        }),
+        alreadyCheckedIn: true,
+        member: memberInfo,
+        event: eventView,
+      };
+    }
+
+    // PATCH to attended.
+    const patched = await this.directus.patch<{
+      data: {
+        id: string;
+        event: string;
+        user: string;
+        status: Status;
+        checkin_code: string;
+        checked_in_at: string | null;
+        cancelled_at: string | null;
+        date_created: string;
+        date_updated: string | null;
+      };
+    }>(`/items/registrations/${row.id}`, {
+      status: 'attended',
+      checked_in_at: new Date().toISOString(),
+    });
+
+    // Referral bonus (best-effort).
+    if (row.referred_by) {
+      await this.awardReferralBonus({
+        registrationId: row.id,
+        refereeUserId: row.user,
+        referrerUserId: row.referred_by,
+        eventCountry: row.event.country,
+      });
+    }
+
+    // Badge award (best-effort).
+    try {
+      await this.badges.onAttendanceRecorded({
+        refereeUserId: row.user,
+        eventId: row.event.id,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `badge awarder threw for user=${row.user} event=${row.event.id}: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+
+    return {
+      registration: toView({
+        id: patched.data.id,
+        event: patched.data.event,
+        user: patched.data.user,
+        status: patched.data.status,
+        checkin_code: patched.data.checkin_code,
+        checked_in_at: patched.data.checked_in_at,
+        cancelled_at: patched.data.cancelled_at,
+        date_created: patched.data.date_created,
+        date_updated: patched.data.date_updated,
+      }),
+      alreadyCheckedIn: false,
+      member: memberInfo,
       event: eventView,
     };
   }

@@ -1,0 +1,52 @@
+---
+// slug: checkin
+// FR-MIG-021 — event-day QR check-in page.
+//
+// Two modes:
+// 1. Operator mode (default): no ?code= param → shows event dropdown + QR scanner.
+// 2. Self-serve mode (?code=): auto-submits check-in for the token's event.
+//
+// Public page — open by design. The QR code is the auth mechanism.
+export const prerender = false;
+
+import { CheckinOperator } from '@/blocks/checkin';
+import { fetchActiveEvents, type CheckinActiveEvent } from '@/lib/api-ssr';
+import Layout from '@/layouts/Layout.astro';
+
+// SSR: fetch active events + extract prefilled code from query param.
+const rawEvents: CheckinActiveEvent[] = await fetchActiveEvents(Astro.request);
+
+// Map to the shape CheckinOperator expects.
+const events = rawEvents.map((e) => ({
+  id: e.id,
+  title: e.title,
+  startsAt: e.startsAt,
+  endsAt: e.endsAt,
+  location: e.location,
+}));
+
+// Self-serve mode: ?code=<token> pre-fills the token.
+const prefilledCode = Astro.url.searchParams.get('code');
+---
+
+<Layout
+  title="Check-in · AI Qadam"
+  description="Event-day check-in for AI Qadam operators and members."
+>
+  <main class="mx-auto max-w-lg px-6 py-16">
+    <div class="mb-8 text-center">
+      <h1 class="font-display text-3xl font-semibold">Event Check-in</h1>
+      <p class="mt-2 text-sm text-muted-foreground">
+        {prefilledCode
+          ? 'Checking you in — please wait…'
+          : 'Scan a QR code or enter a check-in code to begin.'}
+      </p>
+    </div>
+
+    <CheckinOperator
+      client:load
+      events={events}
+      prefilledCode={prefilledCode ?? null}
+    />
+  </main>
+</Layout>
