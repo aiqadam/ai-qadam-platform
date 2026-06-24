@@ -189,6 +189,7 @@ function SortableFieldCard({
   return (
     <div
       ref={setNodeRef}
+      // arch-ignore: no-inline-style — dnd-kit requires style prop for CSS transform during drag
       style={style}
       className={cn(
         'rounded-lg border bg-card p-4 transition-shadow',

@@ -251,6 +251,7 @@ function BroadcastForm({ broadcast, onSave, onSaveAndSchedule }: BroadcastFormPr
   }, []);
 
   const loadSegments = useCallback(async (input: string): Promise<AsyncSelectOption[]> => {
+    // arch-ignore: no-raw-fetch — async-select loader; refactor to apiClient tracked in ISS-CI-001
     const segments = await fetch('/api/v1/workspace/tg-segments').then((r) => r.json());
     const items = segments.items ?? [];
     return items
