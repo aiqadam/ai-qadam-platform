@@ -1,0 +1,16 @@
+workflow_id: wf-20260624-fix-22
+issue_id: ISS-CI-001
+branch: chore/ISS-CI-001-arch-page-markers
+created: 2026-06-24
+status: in-progress
+
+summary: >
+  Add retro @generated-from markers to 17 pre-existing pages that predate
+  ADR-0038 §Locks #3. PR #3 of ISS-CI-001 resolution — unblocks arch-check
+  page-not-from-generator violations.
+
+retry_limits:
+  CodeDeveloper: 3
+  QualityGate: 3
+
+github_pr_url: ""

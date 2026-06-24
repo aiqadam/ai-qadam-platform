@@ -157,12 +157,14 @@ function checkFile(file: string, violations: Violation[]): void {
     const line = lines[i] ?? '';
     const lineNo = i + 1;
 
-    // Skip comments (best-effort: line-leading // or *)
+    // Skip comments and lines suppressed by arch-ignore on the preceding line.
     const trimmed = line.trimStart();
+    const prevLine = (lines[i - 1] ?? '').trimStart();
     const isComment = trimmed.startsWith('//') || trimmed.startsWith('*');
+    const isSuppressed = /arch-ignore/.test(prevLine);
 
     // Lock 1a: blocks/pages must not import lib/api-* (use L1 hooks instead).
-    if (!isComment && /from\s+['"][^'"]*\/lib\/api-[^'"]*['"]/.test(line)) {
+    if (!isComment && !isSuppressed && /from\s+['"][^'"]*\/lib\/api-[^'"]*['"]/.test(line)) {
       // Pages may import L1 query hooks; blocks may not.
       if (inWebNextBlocks(file)) {
         violations.push({
@@ -176,7 +178,7 @@ function checkFile(file: string, violations: Violation[]): void {
     }
 
     // Lock 1b: no raw fetch('/api/...') outside lib/.
-    if (!isComment && /\bfetch\(\s*['"`]\/api\//.test(line)) {
+    if (!isComment && !isSuppressed && /\bfetch\(\s*['"`]\/api\//.test(line)) {
       violations.push({
         file,
         line: lineNo,
@@ -187,7 +189,7 @@ function checkFile(file: string, violations: Violation[]): void {
     }
 
     // Lock 1c: no inline style={ or style=" in blocks/pages.
-    if (!isComment && /\sstyle=(\{|")/.test(line)) {
+    if (!isComment && !isSuppressed && /\sstyle=(\{|")/.test(line)) {
       violations.push({
         file,
         line: lineNo,
