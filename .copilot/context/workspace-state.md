@@ -14,7 +14,7 @@ _(none)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
-| wf-20260625-feat-025 | requirement-development | FR-MIG-031 production cutover — cookie parity, SEO re-enable | feature/MIG-031-production-cutover | TBD | 2026-06-25 |
+| wf-20260625-feat-025 | requirement-development | FR-MIG-031 production cutover — cookie parity, SEO re-enable | feature/MIG-031-production-cutover | [PR #48](https://github.com/tvolodi/aiqadam/pull/48) | 2026-06-25 |
 | wf-20260625-feat-024 | requirement-development | FR-MIG-030 parity E2E suite + Lighthouse CI | feature/MIG-030-parity-e2e-suite | [PR #47](https://github.com/tvolodi/aiqadam/pull/47) | 2026-06-25 |
 | wf-20260625-feat-023 | requirement-development | FR-MIG-029 /workspace/members uplift — segment builder | feature/MIG-029-members-segment-builder | [PR #46](https://github.com/tvolodi/aiqadam/pull/46) | 2026-06-25 |
 | wf-20260624-feat-023 | requirement-development | FR-MIG-028 /workspace/country-leads onboarding cabinet | feature/MIG-028-country-leads-onboarding | [PR #45](https://github.com/tvolodi/aiqadam/pull/45) | 2026-06-25 |
@@ -44,7 +44,7 @@ _(none)_
 
 - **Current branch:** main
 - **Last sync with origin:** 2026-06-25
-- **Pending PRs:** [PR #27](https://github.com/tvolodi/aiqadam/pull/27) (FR-MIG-014)
+- **Pending PRs:** [PR #27](https://github.com/tvolodi/aiqadam/pull/27) (FR-MIG-014), [PR #48](https://github.com/tvolodi/aiqadam/pull/48) (FR-MIG-031)
 
 ## Next Workflow ID
 
