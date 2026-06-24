@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-024
 name: /workspace/site-settings — homepage singletons editor
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild Phase 3
 ---

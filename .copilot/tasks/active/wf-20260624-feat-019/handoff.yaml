@@ -1,0 +1,151 @@
+# handoff.yaml — FR-MIG-024: /workspace/site-settings singleton editor
+# Workflow: requirement-development
+# Workflow ID: wf-20260624-feat-019
+
+workflow_id: wf-20260624-feat-019
+workflow_type: requirement-development
+base_branch: main
+branch: feature/MIG-024-site-settings
+requirement: FR-MIG-024
+
+requirement_summary: >
+  /workspace/site-settings — homepage singleton editor. Three sections: (a) homepage
+  hero (headline, subheadline, CTA label + URL), (b) footer links (repeater: label + URL),
+  (c) contact/social links. Uses <Form> (FR-MIG-003) for each section. PATCH Directus
+  singleton collections. AuthGate (operator). Super-admin only.
+
+status: step-0-initialized
+
+steps:
+  - id: 0
+    name: Initialize
+    status: completed
+    agent: orchestrator
+    output_file: null
+    started_at: 2026-06-24T01:40:00Z
+    completed_at: 2026-06-24T01:40:30Z
+    retry_count: 0
+    gate: pass
+
+  - id: 0.5
+    name: Context sync
+    status: pending
+    agent: orchestrator
+    output_file: null
+    started_at: null
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+  - id: 1
+    name: Requirement validation
+    status: completed
+    agent: RequirementAnalyst
+    output_file: 01-requirement-validation.md
+    started_at: 2026-06-24T01:41:00Z
+    completed_at: 2026-06-24T01:41:30Z
+    retry_count: 0
+    gate: pass
+
+  - id: 2
+    name: Impact analysis
+    status: completed
+    agent: orchestrator
+    output_file: 02-impact-analysis.md
+    started_at: 2026-06-24T01:41:30Z
+    completed_at: 2026-06-24T01:41:45Z
+    retry_count: 0
+    gate: pass
+
+  - id: 4
+    name: Code implementation
+    status: completed
+    agent: CodeDeveloper
+    output_file: 03-code-summary.md
+    started_at: "2026-06-24T03:30:00Z"
+    completed_at: "2026-06-24T03:35:00Z"
+    retry_count: 0
+    gate: pass
+
+  - id: 5
+    name: Security review
+    status: in_progress
+    agent: SecurityReviewer
+    output_file: 04-security-review.md
+    started_at: "2026-06-24T01:43:10Z"
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+  - id: 6
+    name: Test strategy
+    status: in_progress
+    agent: TestStrategist
+    output_file: 06-test-strategy.md
+    started_at: "2026-06-24T01:43:10Z"
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+  - id: 7
+    name: Test design
+    status: in_progress
+    agent: TestDesigner
+    output_file: 06-test-design.md
+    started_at: "2026-06-24T01:43:10Z"
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+  - id: 8
+    name: Test execution
+    status: pending
+    agent: TestRunner
+    output_file: 07-test-results.md
+    started_at: null
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+  - id: 9
+    name: Quality gate
+    status: pending
+    agent: QualityGate
+    output_file: 09-quality-gate.md
+    started_at: null
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+  - id: 11
+    name: Commit and push
+    status: pending
+    agent: orchestrator
+    output_file: null
+    started_at: null
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+  - id: 12
+    name: Archive
+    status: pending
+    agent: orchestrator
+    output_file: null
+    started_at: null
+    completed_at: null
+    retry_count: 0
+    gate: null
+
+metadata:
+  requirement_code: FR-MIG-024
+  requirement_name: /workspace/site-settings — homepage singletons editor
+  module: MIG
+  phase: Rebuild Phase 3
+  depends_on:
+    - FR-MIG-003  # <Form> block
+    - FR-MIG-005  # <ActionBar> block
+  files_created: 0
+  files_modified: 0
+  lines_added: 0
+  lines_removed: 0

@@ -46,6 +46,10 @@ async function get<T>(path: string): Promise<T> {
 export interface SiteSettings {
   countriesServed: number;
   defaultDescription: string;
+  heroHeadline: string | null;
+  heroCtaLabel: string | null;
+  heroCtaUrl: string | null;
+  footerLinks: Array<{ label: string; url: string }> | null;
   telegramUrl: string | null;
   twitterUrl: string | null;
   linkedinUrl: string | null;
@@ -59,6 +63,10 @@ export interface SiteSettings {
 interface CmsSiteSettingsRow {
   countries_served?: number | null;
   default_description?: string | null;
+  hero_headline?: string | null;
+  hero_cta_label?: string | null;
+  hero_cta_url?: string | null;
+  footer_links?: Array<{ label: string; url: string }> | null;
   telegram_url?: string | null;
   twitter_url?: string | null;
   linkedin_url?: string | null;
@@ -72,6 +80,10 @@ interface CmsSiteSettingsRow {
 const SITE_SETTINGS_DEFAULTS: SiteSettings = {
   countriesServed: 3,
   defaultDescription: 'Multi-tenant community platform for AI engineers across Central Asia.',
+  heroHeadline: null,
+  heroCtaLabel: null,
+  heroCtaUrl: null,
+  footerLinks: null,
   telegramUrl: 'https://t.me/aiqadam',
   twitterUrl: null,
   linkedinUrl: null,
@@ -82,10 +94,21 @@ const SITE_SETTINGS_DEFAULTS: SiteSettings = {
   contactEmailSupport: null,
 };
 
-function normalizeSiteSettings(row: CmsSiteSettingsRow): SiteSettings {
+/** Normalise the flat social / contact fields — all coalesce to null when absent. */
+function socialFields(
+  row: CmsSiteSettingsRow,
+): Pick<
+  SiteSettings,
+  | 'telegramUrl'
+  | 'twitterUrl'
+  | 'linkedinUrl'
+  | 'instagramUrl'
+  | 'youtubeUrl'
+  | 'contactEmailPartners'
+  | 'contactEmailPress'
+  | 'contactEmailSupport'
+> {
   return {
-    countriesServed: row.countries_served ?? SITE_SETTINGS_DEFAULTS.countriesServed,
-    defaultDescription: row.default_description ?? SITE_SETTINGS_DEFAULTS.defaultDescription,
     telegramUrl: row.telegram_url ?? SITE_SETTINGS_DEFAULTS.telegramUrl,
     twitterUrl: row.twitter_url ?? null,
     linkedinUrl: row.linkedin_url ?? null,
@@ -94,6 +117,18 @@ function normalizeSiteSettings(row: CmsSiteSettingsRow): SiteSettings {
     contactEmailPartners: row.contact_email_partners ?? SITE_SETTINGS_DEFAULTS.contactEmailPartners,
     contactEmailPress: row.contact_email_press ?? SITE_SETTINGS_DEFAULTS.contactEmailPress,
     contactEmailSupport: row.contact_email_support ?? null,
+  };
+}
+
+function normalizeSiteSettings(row: CmsSiteSettingsRow): SiteSettings {
+  return {
+    countriesServed: row.countries_served ?? SITE_SETTINGS_DEFAULTS.countriesServed,
+    defaultDescription: row.default_description ?? SITE_SETTINGS_DEFAULTS.defaultDescription,
+    heroHeadline: row.hero_headline ?? SITE_SETTINGS_DEFAULTS.heroHeadline,
+    heroCtaLabel: row.hero_cta_label ?? SITE_SETTINGS_DEFAULTS.heroCtaLabel,
+    heroCtaUrl: row.hero_cta_url ?? SITE_SETTINGS_DEFAULTS.heroCtaUrl,
+    footerLinks: row.footer_links ?? SITE_SETTINGS_DEFAULTS.footerLinks,
+    ...socialFields(row),
   };
 }
 
@@ -110,6 +145,31 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
     console.error('[cms] fetchSiteSettings failed:', err instanceof Error ? err.message : err);
     return SITE_SETTINGS_DEFAULTS;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Site settings write path — Directus singleton PATCH.
+// ---------------------------------------------------------------------------
+
+/** PATCH data to a Directus items endpoint; throws on non-2xx response. */
+async function patch<T>(path: string, data: unknown): Promise<T> {
+  const url = `${directusBase()}${path}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error(`Directus PATCH ${path} → HTTP ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
+/** PATCH the site_settings singleton with a partial update. */
+export async function updateSiteSettings(data: Partial<SiteSettings>): Promise<void> {
+  // Directus singleton: PATCH /items/site_settings updates the singleton.
+  // No need to know the singleton's primary key — Directus resolves it.
+  await patch('/items/site_settings', data);
 }
 
 // ---------------------------------------------------------------------------
@@ -502,7 +562,9 @@ export async function fetchTeamMembers(opts?: {
     if (opts?.pressPageOnly) {
       params.set('filter[appear_on_press_page][_eq]', 'true');
     }
-    const body = await get<{ data: CmsTeamMemberRow[] }>(`/items/team_members?${params.toString()}`);
+    const body = await get<{ data: CmsTeamMemberRow[] }>(
+      `/items/team_members?${params.toString()}`,
+    );
     return body.data.map(normalizeTeamMember);
   } catch (err) {
     console.error('[cms] fetchTeamMembers failed:', err instanceof Error ? err.message : err);
