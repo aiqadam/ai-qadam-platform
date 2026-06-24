@@ -1,0 +1,21 @@
+workflow_id: wf-20260624-fix-20
+issue_id: ISS-CI-001
+branch: chore/ISS-CI-001-biome-disable-formatter
+created: 2026-06-24
+status: in-progress
+
+summary: >
+  Disable Biome formatter (keep linter only) and add playwright-report/**
+  to ignore lists. This is PR #1 of the ISS-CI-001 resolution plan —
+  highest-leverage change, drops CI biome errors from 20,432 to near-zero.
+
+scope:
+  - packages/biome-config/biome.json  # disable formatter
+  - biome.json                        # add playwright-report ignore
+
+retry_limits:
+  RequirementAnalyst: 1
+  CodeDeveloper: 3
+  QualityGate: 3
+
+github_pr_url: ""

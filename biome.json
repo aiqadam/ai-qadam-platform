@@ -19,7 +19,9 @@
       "design-system/**",
       "**/*.astro",
       "**/db/migrations/**",
-      "apps/storybook/storybook-static/**"
+      "apps/storybook/storybook-static/**",
+      "apps/e2e/playwright-report/**",
+      "apps/e2e/test-results/**"
     ]
   }
 }
