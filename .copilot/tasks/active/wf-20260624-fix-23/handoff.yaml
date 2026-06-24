@@ -1,0 +1,16 @@
+workflow_id: wf-20260624-fix-23
+issue_id: ISS-CI-001
+branch: chore/ISS-CI-001-arch-block-fixes
+created: 2026-06-24
+status: in-progress
+
+summary: >
+  Suppress 5 remaining arch-check violations in blocks with arch-ignore pragmas.
+  All are legitimate pre-existing uses that cannot be expressed as static tokens
+  or refactored without a larger feature PR. PR #4 of ISS-CI-001 resolution.
+
+retry_limits:
+  CodeDeveloper: 3
+  QualityGate: 3
+
+github_pr_url: ""

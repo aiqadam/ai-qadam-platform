@@ -109,6 +109,7 @@ function Avatar({
         width={size}
         height={size}
         className="rounded-full object-cover"
+        // arch-ignore: no-inline-style — dynamic pixel size from prop, no static token possible
         style={{ width: size, height: size }}
       />
     );
@@ -116,6 +117,7 @@ function Avatar({
   return (
     <div
       className="flex items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold"
+      // arch-ignore: no-inline-style — dynamic pixel size from prop, no static token possible
       style={{ width: size, height: size, fontSize: size * 0.35 }}
       aria-label={name}
     >

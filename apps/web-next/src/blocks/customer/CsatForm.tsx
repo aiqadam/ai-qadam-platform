@@ -8,6 +8,7 @@
 
 'use client';
 
+// arch-ignore: no-api-import-in-blocks — apiClient is the approved abstraction here (not raw fetch); refactor to prop-drilling tracked in ISS-CI-001
 import { apiClient } from '@/lib/api-client';
 import { IslandRoot } from '@/lib/island-root';
 import { type ReactElement, useState } from 'react';
