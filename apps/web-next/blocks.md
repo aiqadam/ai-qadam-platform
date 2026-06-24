@@ -32,6 +32,7 @@
 | `/workspace/sponsors/new` | Operator: create sponsor record | authed |
 | `/workspace/sponsors/[id]` | Operator: edit sponsor record | authed |
 | `/workspace/press` | Operator: press asset manager (prose, team bios, platform stats) | authed |
+| `/workspace/badges` | Operator: badge definitions list + grant dialog + award history with revoke | authed |
 | `/workspace/admin/users` | Admin: user management | authed |
 | `/workspace/admin/audit` | Admin: audit log | authed |
 | `/workspace/admin/countries` | Admin: country list | authed |
@@ -67,6 +68,11 @@ L1 runtime functions that blocks and pages import.
 | `useCreateSponsor()` | `lib/use-sponsors.ts` | Sponsor create mutation hook |
 | `useUpdateSponsor()` | `lib/use-sponsors.ts` | Sponsor update mutation hook |
 | `useUploadLogo()` | `lib/use-sponsors.ts` | Logo file upload mutation (MinIO via /v1/admin/uploads) |
+| `useBadges()` | `lib/use-badges.ts` | Badge definitions list query hook |
+| `useBadgeAwards()` | `lib/use-badges.ts` | Badge award history query hook (optionally filtered by badge_id) |
+| `useGrantBadge()` | `lib/use-badges.ts` | Grant badge mutation hook (POST /v1/admin/badges/grant) |
+| `useRevokeBadgeAward()` | `lib/use-badges.ts` | Revoke badge award mutation hook (POST /v1/admin/badges/awards/:id/revoke) |
+| `searchMembers()` | `lib/use-badges.ts` | Async member search for the grant dialog AsyncSelect |
 
 ## Common blocks
 
@@ -108,6 +114,9 @@ L1 runtime functions that blocks and pages import.
 | `<SponsorsList>` | `blocks/workspace/SponsorsList.tsx` | Sponsor directory DataTable with tier-chip filter + "New sponsor" link |
 | `<SponsorForm>` | `blocks/workspace/SponsorForm.tsx` | Create/edit sponsor: name, tier, website, logo upload, event multi-select |
 | `<PressAssetManager>` | `blocks/workspace/PressAssetManager.tsx` | Press asset manager: press page prose editor + team bios repeater + platform stats form |
+| `<BadgesCabinet>` | `blocks/workspace/BadgesCabinet.tsx` | Tabbed cabinet: badge definitions tab + award history tab in one island |
+| `<BadgesListInner>` | `blocks/workspace/BadgesList.tsx` | Badge definitions DataTable with grant dialog (member AsyncSelect + badge picker + note) |
+| `<BadgeAwardHistoryInner>` | `blocks/workspace/BadgeAwardHistory.tsx` | Award history DataTable with per-badge filter chips + revoke dialog |
 
 | `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
 | `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |

@@ -1,12 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-06-24T21:20:00Z
+**Last updated:** 2026-06-24T23:00:00Z
 
 ---
 
 ## Active Workflows
 
-_(none — wf-20260624-feat-020 PR open 2026-06-24)_
+_(none — wf-20260624-feat-022 PR open 2026-06-24)_
 
 ---
 
@@ -14,6 +14,7 @@ _(none — wf-20260624-feat-020 PR open 2026-06-24)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260624-feat-022 | requirement-development | FR-MIG-027 /workspace/badges grant + award history | feature/MIG-027-badges-grant-award-history | PR pending | 2026-06-24 |
 | wf-20260624-feat-020 | requirement-development | FR-MIG-026 /workspace/press asset manager | feature/MIG-026-press-asset-manager | [PR #43](https://github.com/tvolodi/aiqadam/pull/43) | 2026-06-24 |
 | wf-20260623-feat-015 | requirement-development | FR-MIG-020 /onboard + /welcome new-member flow | feature/MIG-020-new-member-flow | [PR #31](https://github.com/tvolodi/aiqadam/pull/31) | 2026-06-24 |
 | wf-20260624-feat-019 | requirement-development | FR-MIG-024 /workspace/site-settings homepage singleton editor | feature/MIG-024-site-settings | [PR #35](https://github.com/tvolodi/aiqadam/pull/35) | 2026-06-24 |
@@ -43,7 +44,7 @@ _(none — wf-20260624-feat-020 PR open 2026-06-24)_
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 14)
+See `.copilot/meta/next-workflow-id` (currently: 23)
 
 ---
 

@@ -1033,3 +1033,48 @@ export interface UpdateSponsorBody {
   custom_message?: string | null;
   event_ids?: string[];
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/admin/badges (badge grant + award history cabinet)
+//
+// FR-MIG-027 — operators grant badges to members for achievements (spoke at
+// 3 events, 100-point milestone, etc.) and view the badge award audit trail.
+// No v1 equivalent — badges previously granted only via Directus admin.
+// ---------------------------------------------------------------------------
+
+export interface BadgeDefinition {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  icon_url: string | null;
+  criteria_description: string | null;
+  award_count: number;
+}
+
+export interface BadgeAwardRow {
+  id: string;
+  badge_id: string;
+  badge_name: string;
+  badge_slug: string;
+  member_id: string;
+  member_email: string;
+  member_name: string | null;
+  granted_by_id: string;
+  granted_by_email: string;
+  note: string | null;
+  revoked_at: string | null;
+  revoked_by_email: string | null;
+  revoke_reason: string | null;
+  created_at: string;
+}
+
+export interface GrantBadgeBody {
+  badge_id: string;
+  member_id: string;
+  note?: string | null;
+}
+
+export interface RevokeBadgeAwardBody {
+  reason: string;
+}

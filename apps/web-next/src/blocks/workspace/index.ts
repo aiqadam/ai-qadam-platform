@@ -5,6 +5,9 @@
 // concerns like <PageHead> and <AppFooter>.
 
 export { AnnounceComposer } from './AnnounceComposer';
+export { BadgeAwardHistory, BadgeAwardHistoryInner } from './BadgeAwardHistory';
+export { BadgesCabinet } from './BadgesCabinet';
+export { BadgesList, BadgesListInner } from './BadgesList';
 export { ApprovalsList } from './ApprovalsList';
 export { ActionBar, ActionBarIsland, type Action } from './ActionBar';
 export { AsyncSelect } from './AsyncSelect';
