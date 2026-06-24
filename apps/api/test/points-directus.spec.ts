@@ -227,7 +227,7 @@ describe('PointsDirectusService.awardFirstJoinPoints', () => {
     const directusId = 'directus-uuid-1111';
     await svc.awardFirstJoinPoints(directusId);
 
-    const postBody = fake.post.mock.calls[0]![1] as Record<string, unknown>;
+    const postBody = fake.post.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(postBody.user).toBe(directusId);
   });
 });

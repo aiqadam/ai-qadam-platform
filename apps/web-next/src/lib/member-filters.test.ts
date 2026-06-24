@@ -573,14 +573,14 @@ describe('getActiveFilterChips', () => {
   it('should use correct human-readable labels for each field', () => {
     const filters: MemberFilters = { ...EMPTY_MEMBER_FILTERS, attendedMin: '5' };
     const chips = getActiveFilterChips(filters);
-    expect(chips[0]!.label).toBe('Events Attended');
+    expect(chips[0]?.label).toBe('Events Attended');
   });
 
   it('should include raw value in chip object', () => {
     const filters: MemberFilters = { ...EMPTY_MEMBER_FILTERS, employer: 'Acme Corp' };
     const chips = getActiveFilterChips(filters);
-    expect(chips[0]!.value).toBe('Acme Corp');
-    expect(chips[0]!.key).toBe('employer');
+    expect(chips[0]?.value).toBe('Acme Corp');
+    expect(chips[0]?.key).toBe('employer');
   });
 });
 

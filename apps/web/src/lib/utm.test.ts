@@ -100,22 +100,22 @@ function buildUtmUrl(input: BuildInput): BuildResult {
 
   // Validate destination
   const dest = parseDestination(input.destinationUrl);
-  if (!dest.ok) errors['destinationUrl'] = dest.error;
+  if (!dest.ok) errors.destinationUrl = dest.error;
 
   // Validate required fields
   const sourceErr = validateUtmField('source', input.source);
-  if (sourceErr) errors['source'] = sourceErr;
+  if (sourceErr) errors.source = sourceErr;
 
   const mediumErr = validateUtmField('medium', input.medium);
-  if (mediumErr) errors['medium'] = mediumErr;
+  if (mediumErr) errors.medium = mediumErr;
 
   const campaignErr = validateUtmField('campaign', input.campaign);
-  if (campaignErr) errors['campaign'] = campaignErr;
+  if (campaignErr) errors.campaign = campaignErr;
 
   // Validate optional content
   if (input.content !== undefined && input.content.length > 0) {
     const contentErr = validateUtmField('content', input.content);
-    if (contentErr) errors['content'] = contentErr;
+    if (contentErr) errors.content = contentErr;
   }
 
   if (Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors };
@@ -420,8 +420,8 @@ describe('buildUtmUrl', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.fieldErrors['destinationUrl']).toBeDefined();
-      expect(result.fieldErrors['destinationUrl']).toBe('destination URL is required');
+      expect(result.fieldErrors.destinationUrl).toBeDefined();
+      expect(result.fieldErrors.destinationUrl).toBe('destination URL is required');
     }
   });
 
@@ -434,7 +434,7 @@ describe('buildUtmUrl', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.fieldErrors['destinationUrl']).toBeDefined();
+      expect(result.fieldErrors.destinationUrl).toBeDefined();
     }
   });
 
@@ -447,8 +447,8 @@ describe('buildUtmUrl', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.fieldErrors['source']).toBeDefined();
-      expect(result.fieldErrors['source']).toBe('source must be lowercase');
+      expect(result.fieldErrors.source).toBeDefined();
+      expect(result.fieldErrors.source).toBe('source must be lowercase');
     }
   });
 
@@ -461,7 +461,7 @@ describe('buildUtmUrl', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.fieldErrors['medium']).toBeDefined();
+      expect(result.fieldErrors.medium).toBeDefined();
     }
   });
 

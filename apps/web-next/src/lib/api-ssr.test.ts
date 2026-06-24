@@ -91,7 +91,7 @@ function _makeMockReq(url = '/', headers: Record<string, string> = {}): Request 
 type MockFetch = ReturnType<typeof vi.fn<any>>;
 
 function apiBase(env?: Record<string, string | undefined>): string {
-  return env?.['INTERNAL_API_URL'] ?? DEFAULT_INTERNAL_API_URL;
+  return env?.INTERNAL_API_URL ?? DEFAULT_INTERNAL_API_URL;
 }
 
 // NOTE: Simplified version without host forwarding for testing
@@ -172,7 +172,7 @@ async function fetchUpcomingEvents(baseUrl: string, mockFetch: MockFetch): Promi
   try {
     const body = await get<{ events: ApiEvent[] }>(baseUrl, '/v1/events', mockFetch);
     return body.events;
-  } catch (err) {
+  } catch (_err) {
     return [];
   }
 }

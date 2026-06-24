@@ -3,7 +3,7 @@ import { CheckinEventsController } from '../src/modules/registrations/checkin-ev
 
 // Decodes the URL and parses the filter JSON from the `?filter=` query param.
 function parseFilter(url: string): Record<string, unknown> {
-  const u = new URL(url.startsWith('http') ? url : 'http://x' + url);
+  const u = new URL(url.startsWith('http') ? url : `http://x${url}`);
   const filterStr = decodeURIComponent(u.searchParams.get('filter') ?? '{}');
   return JSON.parse(filterStr);
 }

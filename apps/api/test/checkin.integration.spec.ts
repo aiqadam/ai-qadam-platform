@@ -81,7 +81,6 @@ const NOW = '2026-06-20T12:00:00Z';
 function regRow(overrides: Record<string, unknown> = {}) {
   return {
     id: REG_ID,
-    event: EVENT_ID,
     user: USER_ID,
     status: 'registered',
     checkin_code: TOKEN,
