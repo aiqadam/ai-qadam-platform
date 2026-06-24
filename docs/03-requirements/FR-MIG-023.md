@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-023
 name: /press + /global + /marketing/url-builder — static and marketing pages
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M3
 ---

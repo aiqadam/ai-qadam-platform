@@ -8,7 +8,9 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",
@@ -29,6 +31,7 @@
     "@aiqadam/tsconfig": "workspace:*",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }
