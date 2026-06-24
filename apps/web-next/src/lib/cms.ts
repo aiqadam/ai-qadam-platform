@@ -397,3 +397,210 @@ export async function fetchLandingPage(slug: string): Promise<CmsLandingPage | n
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// press_page (singleton) — hero, boilerplate, contact prose for /press.
+// ---------------------------------------------------------------------------
+
+export interface PressPage {
+  heroTitle: string;
+  companyBoilerplate: string;
+  seoDescription: string;
+  contactResponseSla: string;
+  contactGuidance: string;
+}
+
+interface CmsPressPageRow {
+  hero_title?: string | null;
+  company_boilerplate?: string | null;
+  seo_description?: string | null;
+  contact_response_sla?: string | null;
+  contact_guidance?: string | null;
+}
+
+const PRESS_PAGE_DEFAULTS: PressPage = {
+  heroTitle: 'AI Qadam — for journalists, partners, and event organizers',
+  companyBoilerplate:
+    'Founded by Binali Rustamov in 2026, AI Qadam is run by a distributed team of country leads with a working community across all three Central Asian republics. Below: brand assets, founder bios, a fact sheet, and how to reach us.',
+  seoDescription:
+    'AI Qadam media kit — logo, brand assets, founder + COO bios, fact sheet, and press contact for journalists, partners, and event organizers.',
+  contactResponseSla: 'Reaches Binali within one business day; faster on weekdays.',
+  contactGuidance: 'Embargo requests, interview asks, and fact-checks all welcome here.',
+};
+
+function normalizePressPage(row: CmsPressPageRow): PressPage {
+  return {
+    heroTitle: row.hero_title || PRESS_PAGE_DEFAULTS.heroTitle,
+    companyBoilerplate: row.company_boilerplate || PRESS_PAGE_DEFAULTS.companyBoilerplate,
+    seoDescription: row.seo_description || PRESS_PAGE_DEFAULTS.seoDescription,
+    contactResponseSla: row.contact_response_sla || PRESS_PAGE_DEFAULTS.contactResponseSla,
+    contactGuidance: row.contact_guidance || PRESS_PAGE_DEFAULTS.contactGuidance,
+  };
+}
+
+export async function fetchPressPage(): Promise<PressPage> {
+  try {
+    const body = await get<{ data: CmsPressPageRow | CmsPressPageRow[] }>('/items/press_page');
+    const row = Array.isArray(body.data) ? body.data[0] : body.data;
+    return row ? normalizePressPage(row) : PRESS_PAGE_DEFAULTS;
+  } catch (err) {
+    console.error('[cms] fetchPressPage failed:', err instanceof Error ? err.message : err);
+    return PRESS_PAGE_DEFAULTS;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// team_members — leadership bios for /press.
+// ---------------------------------------------------------------------------
+
+export type TeamMemberRole =
+  | 'founder'
+  | 'coo'
+  | 'country_lead'
+  | 'advisor'
+  | 'organizer'
+  | 'staff'
+  | 'other';
+
+export interface TeamMember {
+  name: string;
+  title: string;
+  role: TeamMemberRole;
+  bioMd: string | null;
+  displayOrder: number;
+}
+
+interface CmsTeamMemberRow {
+  name: string;
+  title: string;
+  role: TeamMemberRole;
+  bio_md?: string | null;
+  display_order?: number | null;
+}
+
+function normalizeTeamMember(row: CmsTeamMemberRow): TeamMember {
+  return {
+    name: row.name,
+    title: row.title,
+    role: row.role,
+    bioMd: row.bio_md ?? null,
+    displayOrder: row.display_order ?? 100,
+  };
+}
+
+export async function fetchTeamMembers(opts?: {
+  pressPageOnly?: boolean;
+  limit?: number;
+}): Promise<TeamMember[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[active][_eq]': 'true',
+      sort: 'display_order',
+      limit: String(opts?.limit ?? 50),
+      fields: 'name,title,role,bio_md,display_order',
+    });
+    if (opts?.pressPageOnly) {
+      params.set('filter[appear_on_press_page][_eq]', 'true');
+    }
+    const body = await get<{ data: CmsTeamMemberRow[] }>(`/items/team_members?${params.toString()}`);
+    return body.data.map(normalizeTeamMember);
+  } catch (err) {
+    console.error('[cms] fetchTeamMembers failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// marketing_assets — brand assets for /press (headshots, logos, fact sheets,
+// quarterly digests, press coverage). Mirrors v1 implementation.
+// ---------------------------------------------------------------------------
+
+export interface CmsMarketingAsset {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  fileUrl: string;
+  thumbnailUrl: string | null;
+  aiPrompt: string | null;
+  dateCreated: string;
+}
+
+interface CmsMarketingAssetRow {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  ai_prompt: string | null;
+  file: string;
+  thumbnail: string | null;
+  date_created: string;
+}
+
+function assetUrl(fileId: string | null): string | null {
+  if (!fileId) return null;
+  return `${directusBase()}/assets/${fileId}`;
+}
+
+export interface FetchMarketingAssetsOpts {
+  category: string | string[];
+  limit?: number;
+}
+
+export async function fetchMarketingAssets(
+  opts: FetchMarketingAssetsOpts,
+): Promise<CmsMarketingAsset[]> {
+  const categories = Array.isArray(opts.category) ? opts.category : [opts.category];
+  try {
+    const params = new URLSearchParams({
+      'filter[status][_eq]': 'approved',
+      'filter[visibility][_eq]': 'public',
+      'filter[category][_in]': categories.join(','),
+      sort: '-date_created',
+      limit: String(opts.limit ?? 8),
+      fields: 'id,title,description,category,ai_prompt,file,thumbnail,date_created',
+    });
+    const body = await get<{ data: CmsMarketingAssetRow[] }>(
+      `/items/marketing_assets?${params.toString()}`,
+    );
+    return body.data.map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      fileUrl: assetUrl(row.file) ?? '',
+      thumbnailUrl: assetUrl(row.thumbnail),
+      aiPrompt: row.ai_prompt,
+      dateCreated: row.date_created,
+    }));
+  } catch (err) {
+    console.error('[cms] fetchMarketingAssets failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// fetchEventCountForCountry — past-event count per country for /global.
+// ---------------------------------------------------------------------------
+
+export async function fetchEventCountForCountry(country: string): Promise<number> {
+  if (!/^[a-z]{2}$/.test(country)) return 0;
+  try {
+    const now = new Date().toISOString();
+    const params = new URLSearchParams({
+      'filter[country][_eq]': country,
+      'filter[status][_eq]': 'published',
+      'filter[ends_at][_lt]': now,
+      'aggregate[count]': 'id',
+    });
+    type AggRow = Array<{ count: { id: number | string } }>;
+    const body = await get<{ data: AggRow }>(`/items/events?${params.toString()}`);
+    return Number(body.data[0]?.count?.id ?? 0);
+  } catch (err) {
+    console.error(
+      `[cms] fetchEventCountForCountry(${country}) failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return 0;
+  }
+}

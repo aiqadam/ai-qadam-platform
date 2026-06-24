@@ -1,0 +1,75 @@
+# Handoff file for FR-MIG-023 workflow
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260624-feat-018"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-24T10:00:00Z"
+last_updated_at: "2026-06-24T10:00:00Z"
+
+# Source
+requirement_ref: "FR-MIG-023"
+requirement_text: "/press + /global + /marketing/url-builder — static and marketing pages"
+
+github_issue_url: ""
+
+# Git State
+branch: "feature/MIG-023-static-marketing-pages"
+base_branch: "main"
+github_pr_url: ""
+
+# Workflow Progress
+current_step: 0
+current_step_name: "setup"
+workflow_status: "running"
+
+# Gate Results
+gate_results: {}
+
+# Agent Assignments
+agent_assignments: {}
+
+# Retry State
+retry_counts: {}
+
+# Retry Limits
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# Issues
+issues_created: []
+issue_ref: ""
+
+# Deferrals
+deferrals: []
+
+# Context Drift Guard
+expects_registry_update: true
+
+# Context Sync Commits
+context_sync_commits: 0
+
+# Artifacts
+artifacts: []
+
+# Context References
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-MIG-023.md
+
+# NEEDS_REVIEW
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260624-feat-018/NEEDS_REVIEW.md"

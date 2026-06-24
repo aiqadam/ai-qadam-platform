@@ -1,0 +1,286 @@
+---
+// FR-MIG-023 — press / media kit page.
+//
+// SSR page with sections:
+//   - Hero with boilerplate (from press_page singleton)
+//   - Press contact
+//   - Leadership grid with team bios
+//   - Logo pack (from /brand/ files)
+//   - Brand colors palette
+//   - Fact sheet (from marketing_assets)
+//   - Quarterly digests (from marketing_assets)
+//   - Press coverage (from marketing_assets)
+//
+// ADR-0038 §Locks #1: uses Tailwind classes only. No inline style=.
+// ADR-0038 §Locks #1: pages import from lib/cms, not raw fetch().
+
+import Layout from '../layouts/Layout.astro';
+import {
+  fetchMarketingAssets,
+  fetchPressPage,
+  fetchTeamMembers,
+} from '../lib/cms';
+
+export const prerender = false;
+
+// Tier 1 assets: logos / favicons / brand mark stay in git at
+// apps/web-next/public/brand/. Edited only by engineers via PR.
+const logos = [
+  { file: '/brand/aiqadam-logo.png', label: 'Full logo (PNG)' },
+  { file: '/brand/aiqadam-logo-transparent.png', label: 'Full logo, transparent (PNG)' },
+  { file: '/brand/aiqadam-mark.png', label: 'Mark only (PNG)' },
+];
+
+// Tier 2 assets from Directus marketing_assets. Each call returns an
+// empty array on Directus failure / no approved assets.
+const [headshots, factSheets, quarterlyDigests, pressCoverage, pressPage, leadership] =
+  await Promise.all([
+    fetchMarketingAssets({ category: 'press-headshot', limit: 8 }),
+    fetchMarketingAssets({ category: 'fact-sheet', limit: 1 }),
+    fetchMarketingAssets({ category: 'quarterly-digest', limit: 4 }),
+    fetchMarketingAssets({ category: 'press-coverage', limit: 12 }),
+    fetchPressPage(),
+    fetchTeamMembers({ pressPageOnly: true, limit: 8 }),
+  ]);
+
+const description = pressPage.seoDescription;
+
+// Match headshots to leadership by first-token of the team_members.name.
+function findHeadshot(fullName: string): (typeof headshots)[0] | undefined {
+  const firstToken = fullName.split(/\s+/)[0]?.toLowerCase() ?? fullName.toLowerCase();
+  return headshots.find((h) => h.title.toLowerCase().startsWith(firstToken));
+}
+
+const latestFactSheet = factSheets[0];
+
+// Brand color palette — exact values from design-system/tokens.css.
+const palette = [
+  {
+    name: 'Brand teal (light)',
+    css: 'oklch(0.58 0.10 192)',
+    role: 'Primary on light surfaces',
+  },
+  {
+    name: 'Brand teal (dark)',
+    css: 'oklch(0.70 0.105 192)',
+    role: 'Primary on dark surfaces (default theme)',
+  },
+];
+---
+
+<Layout title="Press & media kit — AI Qadam" description={description}>
+  <main class="mx-auto max-w-5xl px-6 py-16">
+    <!-- Hero / boilerplate -->
+    <section class="mb-12">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Press kit
+      </p>
+      <h1 class="mb-4 font-display text-4xl font-semibold tracking-tight">
+        {pressPage.heroTitle}
+      </h1>
+      <p class="max-w-3xl text-lg leading-relaxed text-muted-foreground">
+        {pressPage.companyBoilerplate}
+      </p>
+    </section>
+
+    <!-- Press contact -->
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Press contact
+      </p>
+      <p class="mb-2 text-base">
+        Email <a href="mailto:press@aiqadam.org" class="text-primary hover:underline">press@aiqadam.org</a>.
+        {pressPage.contactResponseSla}
+      </p>
+      <p class="text-sm text-muted-foreground">
+        {pressPage.contactGuidance}
+      </p>
+    </section>
+
+    <!-- Leadership -->
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Leadership
+      </p>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {leadership.map((m) => {
+          const shot = findHeadshot(m.name);
+          return (
+            <article class="rounded-xl border border-border bg-card p-6">
+              {shot ? (
+                <a
+                  href={shot.fileUrl}
+                  download
+                  class="mb-4 block h-48 overflow-hidden rounded-lg bg-muted"
+                >
+                  <img
+                    src={shot.thumbnailUrl ?? shot.fileUrl}
+                    alt={shot.title}
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              ) : (
+                <div
+                  aria-hidden="true"
+                  class="mb-4 flex h-48 items-center justify-center rounded-lg bg-muted font-mono text-xs uppercase tracking-widest text-muted-foreground"
+                >
+                  Headshot — coming soon
+                </div>
+              )}
+              <h2 class="mb-1 font-display text-xl font-semibold">{m.name}</h2>
+              <p class="mb-3 font-mono text-xs tracking-wide text-muted-foreground">{m.title}</p>
+              {m.bioMd && (
+                <p class="text-sm leading-relaxed text-card-foreground">{m.bioMd}</p>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+
+    <!-- Logo pack -->
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Logo
+      </p>
+      <p class="mb-5 max-w-2xl text-sm text-muted-foreground">
+        Use the mark or the full logo. Don't recolor, distort, or recreate.
+        SVG variants and the press pack (zip) ship as we produce them.
+      </p>
+      <div class="grid gap-3 sm:grid-cols-3">
+        {logos.map((logo) => (
+          <a
+            href={logo.file}
+            download
+            class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 no-underline text-inherit transition-colors hover:border-primary/40"
+          >
+            <div class="flex h-28 items-center justify-center rounded-md bg-background">
+              <img src={logo.file} alt={logo.label} class="max-h-20 max-w-full" loading="lazy" />
+            </div>
+            <span class="text-sm">Download {logo.label}</span>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- Brand colors -->
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Brand colors
+      </p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        {palette.map((swatch) => (
+          <div class="flex gap-4 rounded-lg border border-border bg-card p-4">
+            <div
+              aria-hidden="true"
+              class="h-16 w-16 flex-shrink-0 rounded-lg"
+              style={`background: ${swatch.css}`}
+            />
+            <div>
+              <p class="mb-1 font-display font-semibold">{swatch.name}</p>
+              <p class="mb-1 font-mono text-xs text-muted-foreground">{swatch.css}</p>
+              <p class="text-sm text-card-foreground">{swatch.role}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Fact sheet -->
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Fact sheet
+      </p>
+      {latestFactSheet ? (
+        <div class="rounded-xl border border-border bg-card p-6">
+          <p class="mb-3 text-base">{latestFactSheet.title}</p>
+          {latestFactSheet.description && (
+            <p class="mb-4 text-sm text-muted-foreground">{latestFactSheet.description}</p>
+          )}
+          <a
+            href={latestFactSheet.fileUrl}
+            download
+            class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Download fact sheet
+          </a>
+        </div>
+      ) : (
+        <div class="rounded-xl border border-dashed border-border bg-card p-6">
+          <p class="mb-2 text-base">
+            One-page PDF — mission, history, numbers — coming with our first quarterly digest.
+          </p>
+          <p class="text-sm text-muted-foreground">
+            Need the numbers sooner? Email <a href="mailto:press@aiqadam.org" class="text-primary hover:underline">press@aiqadam.org</a>.
+          </p>
+        </div>
+      )}
+    </section>
+
+    <!-- Community reports -->
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Community reports
+      </p>
+      {quarterlyDigests.length > 0 ? (
+        <ul class="flex flex-col gap-2.5">
+          {quarterlyDigests.map((digest) => (
+            <li>
+              <a
+                href={digest.fileUrl}
+                download
+                class="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 no-underline text-inherit transition-colors hover:border-primary/40"
+              >
+                <span class="text-base">{digest.title}</span>
+                <span class="flex-shrink-0 font-mono text-xs text-muted-foreground">
+                  Download
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div class="rounded-xl border border-dashed border-border bg-card p-6">
+          <p class="mb-2 text-base">
+            Quarterly digest — numbers, milestones, member stories — lands here when issue one publishes.
+          </p>
+          <p class="text-sm text-muted-foreground">
+            Sponsors receive the digest directly; the public archive opens with the second issue.
+          </p>
+        </div>
+      )}
+    </section>
+
+    <!-- Press coverage -->
+    <section class="border-t border-border pt-8 pb-16">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        Press coverage
+      </p>
+      {pressCoverage.length > 0 ? (
+        <ul class="flex flex-col gap-2.5">
+          {pressCoverage.map((item) => (
+            <li class="rounded-lg border border-border bg-card p-4">
+              <p class="mb-1.5 text-base">
+                <a href={item.fileUrl} class="text-primary hover:underline">{item.title}</a>
+              </p>
+              {item.description && (
+                <p class="text-sm text-muted-foreground">{item.description}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div class="rounded-xl border border-dashed border-border bg-card p-6">
+          <p class="mb-2 text-base">
+            We've kept our heads down. First coverage lands when it lands — we'll link it here.
+          </p>
+          <p class="text-sm text-muted-foreground">
+            Writing about us? Email <a href="mailto:press@aiqadam.org" class="text-primary hover:underline">press@aiqadam.org</a> and we'll
+            add the link once it's live.
+          </p>
+        </div>
+      )}
+    </section>
+  </main>
+</Layout>
