@@ -1,0 +1,74 @@
+---
+// FR-MIG-022 — post-event survey page for a specific event.
+//
+// Picks up the form attached via events.post_event_survey_form and
+// renders it with an event-context header above so the respondent sees
+// which event they're giving feedback on.
+//
+// URL conventions:
+//   /events/{slug}/survey         — operator-friendly URL
+//   /events/{uuid}/survey         — uuid fallback (when slug is null)
+//
+// When no in-house form is attached → 404.
+export const prerender = false;
+
+import { FormRendererIsland } from '@/blocks/customer';
+import { PageHead } from '@/blocks/common';
+import Layout from '@/layouts/Layout.astro';
+import type { SurveyEventContext } from '@/lib/api-ssr';
+import { fetchEventSurvey, fetchSurveyEventContext } from '@/lib/api-ssr';
+
+const { id } = Astro.params as { id: string };
+
+// Form lookup is required (404 if missing); event context is
+// best-effort — we render the form even if it fails.
+const [form, eventContext] = await Promise.all([
+  fetchEventSurvey(Astro.request, id),
+  fetchSurveyEventContext(Astro.request, id).catch(() => null),
+]);
+
+if (!form) {
+  return new Response('No survey attached to this event', { status: 404 });
+}
+---
+
+<Layout
+  title={`${form.title} · AI Qadam`}
+  description={form.description ?? 'Post-event feedback — your input shapes the next one.'}
+>
+  <PageHead
+    slot="head"
+    title={`${form.title} · AI Qadam`}
+    description={form.description ?? 'Post-event feedback — your input shapes the next one.'}
+  />
+  <main class="mx-auto max-w-2xl px-6 py-16">
+    {/* Event context header */}
+    {eventContext && (
+      <div class="mb-8 rounded-lg border border-border bg-card p-5">
+        <h2 class="font-display text-lg font-semibold">{eventContext.title}</h2>
+        {eventContext.location && (
+          <p class="mt-1 text-sm text-muted-foreground">{eventContext.location}</p>
+        )}
+        {eventContext.speakers.length > 0 && (
+          <div class="mt-3">
+            <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Speakers
+            </p>
+            <ul class="mt-1 space-y-1">
+              {eventContext.speakers.map((speaker: SurveyEventContext['speakers'][number]) => (
+                <li class="text-sm">
+                  {speaker.name}
+                  {speaker.talkTitle && (
+                    <span class="ml-2 text-muted-foreground">— {speaker.talkTitle}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )}
+
+    <FormRendererIsland form={form} client:load />
+  </main>
+</Layout>

@@ -50,6 +50,14 @@ export class CsatPublicController {
     }
     throw new BadRequestException(result.reason ?? 'unknown');
   }
+
+  @Get('token')
+  async tokenStatus(@Req() req: Request): Promise<{ valid: boolean }> {
+    const token = new URL(req.url, 'http://localhost').searchParams.get('token');
+    if (!token) throw new BadRequestException('token query param required');
+    const claims = await this.csat.verifyToken(token);
+    return { valid: claims !== null };
+  }
 }
 
 @Controller('v1/workspace/events')

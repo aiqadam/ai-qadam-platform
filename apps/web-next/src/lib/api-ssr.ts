@@ -46,15 +46,9 @@ async function get<T>(req: Request, path: string): Promise<T> {
 // /v1/events — public upcoming events for the current tenant.
 // ---------------------------------------------------------------------------
 
-import type { ApiEvent } from './types';
+import type { ApiEvent, EventSurveyForm, PublicForm } from './types';
 
-// Re-exported so consumers that already use `from '../lib/api-ssr'` can
-// stay on the same import path. New consumers should `import type` from
-// './types' directly (it's the canonical home; this file is the
-// fetcher, not the type).
-export type { ApiEvent } from './types';
-
-export type { PublicForm } from './types';
+export type { PublicForm };
 
 interface EventsResponse {
   events: ApiEvent[];
@@ -144,8 +138,6 @@ export async function fetchPublicProfile(
 // /v1/forms/:slug — public form by slug (for /forms/[slug] renderer).
 // ---------------------------------------------------------------------------
 
-import type { PublicForm } from './types';
-
 export async function fetchPublicForm(req: Request, slug: string): Promise<PublicForm | null> {
   if (!slug || slug.length === 0) return null;
   try {
@@ -200,4 +192,88 @@ export async function fetchOnboardingStatus(req: Request, accessToken: string): 
   }
   const body = (await res.json()) as { onboarded: boolean };
   return body.onboarded;
+}
+
+// ---------------------------------------------------------------------------
+// /v1/feedback/csat/token — validate CSAT token without consuming.
+//
+// FR-MIG-022 — CSAT page frontmatter validates the ?t= token before
+// rendering the form. GET returns 200 + { valid: true } or 401.
+// ---------------------------------------------------------------------------
+
+export interface CsatTokenStatus {
+  valid: boolean;
+}
+
+export async function fetchCsatTokenStatus(req: Request, token: string): Promise<CsatTokenStatus> {
+  if (!token || token.length === 0) return { valid: false };
+  const host = req.headers.get('host') ?? '';
+  const headers: Array<[string, string]> = [['accept', 'application/json']];
+  if (host) headers.push(['host', host]);
+  try {
+    const res = await fetch(
+      `${apiBase()}/v1/feedback/csat/token?token=${encodeURIComponent(token)}`,
+      {
+        headers,
+      },
+    );
+    if (res.ok) {
+      const body = (await res.json()) as { valid: boolean };
+      return { valid: body.valid ?? false };
+    }
+    return { valid: false };
+  } catch {
+    return { valid: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /v1/telegram/events/:id/survey — post-event survey form attached to event.
+//
+// FR-MIG-022 — survey page fetches form schema by event id. Returns null
+// when no survey is attached (page renders 404).
+// ---------------------------------------------------------------------------
+
+export interface SurveyEventContext {
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  location: string | null;
+  speakers: Array<{ name: string | null; talkTitle: string | null }>;
+}
+
+export async function fetchSurveyEventContext(
+  req: Request,
+  eventId: string,
+): Promise<SurveyEventContext | null> {
+  if (!eventId || eventId.length === 0) return null;
+  try {
+    return await get<SurveyEventContext>(req, `/v1/telegram/events/${encodeURIComponent(eventId)}`);
+  } catch (err) {
+    console.error(
+      `[api-ssr] /v1/telegram/events/${eventId} failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
+export async function fetchEventSurvey(
+  req: Request,
+  eventId: string,
+): Promise<EventSurveyForm | null> {
+  if (!eventId || eventId.length === 0) return null;
+  try {
+    return await get<EventSurveyForm>(
+      req,
+      `/v1/telegram/events/${encodeURIComponent(eventId)}/survey`,
+    );
+  } catch (err) {
+    // 404 (no survey) + network failure: same return — page handles null.
+    console.error(
+      `[api-ssr] /v1/telegram/events/${eventId}/survey failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
 }

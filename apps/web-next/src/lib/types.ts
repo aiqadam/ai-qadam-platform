@@ -943,6 +943,18 @@ export interface PublicForm {
   status: 'draft' | 'published' | 'archived';
 }
 
+// Survey form returned by /v1/telegram/events/:id/survey — same shape
+// as PublicForm but without the status field (telegram API omits it).
+export interface EventSurveyForm {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  country: string;
+  allow_anonymous: boolean;
+  schema: PublicFormSchema;
+}
+
 // ---------------------------------------------------------------------------
 // apps/api — /v1/registrations/:token/checkin (FR-MIG-021)
 //

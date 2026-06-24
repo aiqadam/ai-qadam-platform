@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-022
 name: /events/[id]/survey + /feedback/csat + /leads/* pages
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M3
 ---
