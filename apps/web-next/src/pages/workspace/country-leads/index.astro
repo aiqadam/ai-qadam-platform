@@ -1,0 +1,37 @@
+---
+export const prerender = false;
+
+// FR-MIG-028 — /workspace/country-leads list cabinet.
+// Super-admin only. Lists all country leads (candidate / active / inactive)
+// with status chips and activation dates.
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, CountryLeadsList, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout
+  title="Country leads · AI Qadam workspace"
+  description="Manage country lead onboarding and activation."
+>
+  <PageHead
+    slot="head"
+    title="Country leads · AI Qadam workspace"
+    description="Manage country lead onboarding and activation."
+  />
+  <AuthGate role="aiqadam-super-admin" signInLabel="Super-admin only — sign in">
+    <PageShell
+      title="Country leads"
+      description="Onboard and manage country leads. Each lead must complete the 4-step activation wizard before they can operate their cabinet."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Country leads' },
+        ]}
+      />
+      <CountryLeadsList client:load />
+    </PageShell>
+  </AuthGate>
+</Layout>

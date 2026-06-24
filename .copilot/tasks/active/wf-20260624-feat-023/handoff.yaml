@@ -1,0 +1,51 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260624-feat-023"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-24T23:00:00Z"
+last_updated_at: "2026-06-24T23:20:00Z"
+
+requirement_ref: "FR-MIG-028"
+requirement_text: "/workspace/country-leads onboarding cabinet. Wizard-driven super-admin surface that automates the country-lead activation runbook."
+github_issue_url: ""
+
+branch: "feature/MIG-028-country-leads-onboarding"
+base_branch: "main"
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "in-progress"
+
+gate_results:
+  requirement-validation: { status: "passed" }
+  impact-analysis: { status: "passed" }
+  code-developer: { status: "passed" }
+  security-reviewer: { status: "passed" }
+  test-strategist: { status: "passed" }
+  test-designer: { status: "passed" }
+  test-runner: { status: "passed" }
+  doc-writer: { status: "passed" }
+  quality-gate: { status: "passed" }
+
+artifacts:
+  - "apps/web-next/src/lib/types.ts (CountryLead types added)"
+  - "apps/web-next/src/lib/use-country-leads.ts"
+  - "apps/web-next/src/lib/use-country-leads.test.ts (28 tests)"
+  - "apps/web-next/src/blocks/workspace/CountryLeadsList.tsx"
+  - "apps/web-next/src/blocks/workspace/CountryLeadsList.test.tsx (15 tests)"
+  - "apps/web-next/src/blocks/workspace/CountryLeadOnboardingWizard.tsx"
+  - "apps/web-next/src/blocks/workspace/CountryLeadOnboardingWizard.test.tsx (25 tests)"
+  - "apps/web-next/src/pages/workspace/country-leads/index.astro"
+  - "apps/web-next/src/pages/workspace/country-leads/new.astro"
+  - "apps/web-next/src/blocks/workspace/index.ts (exports added)"
+  - "apps/web-next/src/blocks/workspace/WorkspaceNav.astro (Country leads link added)"
+  - "apps/web-next/blocks.md (routes + blocks + hooks registered)"
+  - "docs/03-requirements/FR-MIG-028.md (status → Implemented)"
+  - "docs/03-requirements/requirements-registry.md (status → Shipped)"
+
+github_pr_url: ""
+retry_counts: {}
+deferrals: []
+issues_created: []
