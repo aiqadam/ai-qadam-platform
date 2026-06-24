@@ -1,0 +1,33 @@
+---
+// FR-MIG-022 — public CSAT page. Visitor lands via tokenized link in the
+// post-event email. No auth — the token (?t=) is the only credential.
+export const prerender = false;
+
+import { CsatForm } from '@/blocks/customer';
+import Layout from '@/layouts/Layout.astro';
+import { fetchCsatTokenStatus } from '@/lib/api-ssr';
+
+const token = new URL(Astro.request.url).searchParams.get('t') ?? '';
+const tokenStatus = await fetchCsatTokenStatus(Astro.request, token);
+const isValid = tokenStatus.valid;
+---
+
+<Layout
+  title="How was the event? · AI Qadam"
+  description="Quick one-question feedback so the next event lands closer to what you actually wanted."
+>
+  <main class="mx-auto max-w-xl px-6 py-24">
+    {isValid ? (
+      <CsatForm token={token} client:load />
+    ) : (
+      <div class="rounded-xl border border-border bg-card p-9">
+        <h1 class="mb-2 font-display text-2xl font-semibold">This link has expired</h1>
+        <p class="text-muted-foreground">
+          {token.length === 0
+            ? 'The link you clicked is incomplete. If you got the feedback email, open it again and tap the link directly.'
+            : 'Feedback links are valid for 30 days. This one has expired or is no longer valid.'}
+        </p>
+      </div>
+    )}
+  </main>
+</Layout>

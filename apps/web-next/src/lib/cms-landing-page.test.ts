@@ -9,7 +9,7 @@
 //
 // FR-MIG-020.
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // ─── Local re-implementation of fetchLandingPage ─────────────────────────────────
 
@@ -195,9 +195,7 @@ describe('fetchLandingPage — URL params construction', () => {
 
   it('requests the correct landing page fields', () => {
     const params = buildLandingPageParams('telegram-uz');
-    expect(params.get('fields')).toBe(
-      'slug,status,title,subtitle,body_md,cta_label,cta_url',
-    );
+    expect(params.get('fields')).toBe('slug,status,title,subtitle,body_md,cta_label,cta_url');
   });
 
   it('sets limit to 1', () => {

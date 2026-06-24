@@ -1,0 +1,25 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// FR-MIG-022 — landing page when verification link is missing, invalid, or expired.
+// /api/v1/leads/verify?token=... redirects here on failure.
+export const prerender = true;
+---
+
+<Layout title="Verification link expired · AI Qadam">
+  <main class="mx-auto max-w-2xl px-6 py-24 text-center">
+    <div class="rounded-xl border border-border bg-card p-10">
+      <h1 class="mb-3 font-display text-2xl font-semibold">That link didn't work</h1>
+      <p class="mb-6 text-muted-foreground">
+        Verification links are valid for 30 days. Either this one expired, was already used, or
+        was tampered with. Re-submit the form to get a fresh link.
+      </p>
+      <a
+        href="/"
+        class="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        Back to home →
+      </a>
+    </div>
+  </main>
+</Layout>

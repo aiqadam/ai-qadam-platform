@@ -12,7 +12,7 @@
 
 import type { FieldDef } from '@/blocks/workspace/FormBuilder';
 import { IslandRoot } from '@/lib/island-root';
-import type { PublicForm } from '@/lib/types';
+import type { EventSurveyForm, PublicForm } from '@/lib/types';
 import { submitForm } from '@/lib/use-public-form';
 import { cn } from '@/lib/utils';
 import { type ReactElement, useCallback, useState } from 'react';
@@ -21,8 +21,10 @@ import { type ReactElement, useCallback, useState } from 'react';
 
 type Phase = 'idle' | 'submitting' | 'success' | 'error';
 
+type FormWithSchema = PublicForm | EventSurveyForm;
+
 interface FormRendererProps {
-  form: PublicForm;
+  form: FormWithSchema;
   onSubmitSuccess?: () => void;
 }
 

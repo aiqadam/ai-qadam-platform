@@ -35,6 +35,11 @@
 | `/workspace/admin/rbac-sync` | Admin: RBAC sync | authed |
 | `/forms/[slug]` | Public form submission page | anon (authed if !allow_anonymous) |
 | `/checkin` | Event-day QR check-in page (operator + self-serve modes) | anon |
+| `/feedback/csat` | Public CSAT 1-5 rating + comment form (token-gated) | anon |
+| `/events/[id]/survey` | Post-event survey (SSR, fetches form attached to event) | anon |
+| `/leads/thank-you` | Lead form submission confirmation (SSG) | anon |
+| `/leads/verified` | Lead email verified landing (SSG) | anon |
+| `/leads/verify-failed` | Lead verification failed/error (SSG) | anon |
 | `/workspace/integrations/telegram/segments` | Telegram audience segments | authed |
 
 ## L1 lib hooks
@@ -108,6 +113,18 @@ L1 runtime functions that blocks and pages import.
 | `<SkillTagger>` | `blocks/customer/SkillTagger.tsx` | Skill tag editor |
 | `<OnboardingForm>` | `blocks/customer/OnboardingForm.tsx` | 3-step new-member onboarding wizard (profile basics, skills+interests, consents) |
 | `<ForumThread>` | `blocks/customer/ForumThread.tsx` | Discussion thread |
+
+## CsatForm (customer)
+
+**File:** `src/blocks/customer/CsatForm.tsx`
+
+CSAT (Customer Satisfaction) form with 1-5 rating and optional comment.
+
+**Props:**
+- `token: string` — CSAT token for submission
+- `onSuccess?: () => void` — callback on successful submission
+
+**States:** idle | submitting | success | already-submitted | error
 
 ## Check-in blocks (L3)
 

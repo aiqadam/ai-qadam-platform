@@ -1,0 +1,28 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// FR-MIG-022 — landing page after email verification succeeds.
+// /api/v1/leads/verify?token=... redirects here on success.
+export const prerender = true;
+---
+
+<Layout title="Email verified · AI Qadam">
+  <main class="mx-auto max-w-2xl px-6 py-24 text-center">
+    <div
+      class="rounded-xl border border-primary/40 bg-primary/5 p-10"
+      style="border-color: color-mix(in oklch, var(--primary) 40%, var(--border)); background-color: color-mix(in oklch, var(--primary) 8%, var(--card));"
+    >
+      <h1 class="mb-3 font-display text-2xl font-semibold">You're on the list</h1>
+      <p class="mb-6 text-muted-foreground">
+        Email confirmed. We'll send a monthly digest plus a heads-up when an event lands in your
+        city.
+      </p>
+      <a
+        href="/events"
+        class="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        See upcoming events →
+      </a>
+    </div>
+  </main>
+</Layout>

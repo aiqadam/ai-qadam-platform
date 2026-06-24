@@ -1,0 +1,27 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// FR-MIG-022 — standalone thank-you page after lead form submission.
+// Reachable by direct link or as a fallback target. The lead form itself
+// shows an inline success state without navigating, so this is mainly for
+// shareable links.
+export const prerender = true;
+---
+
+<Layout title="Check your inbox · AI Qadam">
+  <main class="mx-auto max-w-2xl px-6 py-24 text-center">
+    <div class="rounded-xl border border-border bg-card p-10">
+      <h1 class="mb-3 font-display text-2xl font-semibold">Check your inbox</h1>
+      <p class="mb-6 text-muted-foreground">
+        We just sent a confirmation link. Click it to start receiving event updates.
+        The link is valid for 30 days.
+      </p>
+      <a
+        href="/events"
+        class="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        Browse upcoming events →
+      </a>
+    </div>
+  </main>
+</Layout>

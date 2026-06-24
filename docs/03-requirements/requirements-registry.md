@@ -134,7 +134,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 19 | [FR-MIG-019](FR-MIG-019.md) | /forms/[slug] public form renderer | In Progress | MIG-006 |
 | 20 | [FR-MIG-020](FR-MIG-020.md) | /onboard + /welcome/[slug] new-member flow | Shipped | MIG-017 |
 | 21 | [FR-MIG-021](FR-MIG-021.md) | /checkin event-day QR check-in | Shipped | — |
-| 22 | [FR-MIG-022](FR-MIG-022.md) | /events/[id]/survey + /feedback/csat + /leads/* | Not Started | MIG-019 |
+| 22 | [FR-MIG-022](FR-MIG-022.md) | /events/[id]/survey + /feedback/csat + /leads/* | Shipped | MIG-019 |
 | 23 | [FR-MIG-023](FR-MIG-023.md) | /press + /global + /marketing/url-builder | Not Started | — |
 | 24 | [FR-MIG-024](FR-MIG-024.md) | /workspace/site-settings singleton editor | Not Started | MIG-003, MIG-005 |
 | 25 | [FR-MIG-025](FR-MIG-025.md) | /workspace/sponsors management | Not Started | MIG-003, MIG-004, MIG-005 |
