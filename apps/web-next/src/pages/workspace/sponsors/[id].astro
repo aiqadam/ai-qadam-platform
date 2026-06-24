@@ -1,0 +1,42 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/sponsors/[id]
+// generated: 2026-06-24
+// FR-MIG-025 — /workspace/sponsors/[id] edit form.
+// Operators edit an existing sponsor record (name, logo, tier, website, events).
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, PageShell, SponsorForm } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+
+const { id } = Astro.params as { id: string };
+---
+
+<Layout
+  title={`Edit sponsor · ${id} · AI Qadam workspace`}
+  description="Edit sponsor record."
+>
+  <PageHead
+    slot="head"
+    title={`Edit sponsor · ${id}`}
+    description="Edit sponsor record."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operators only — sign in">
+    <PageShell
+      title="Edit sponsor"
+      description="Update the sponsor details below."
+      width="standard"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Sponsors', href: '/workspace/sponsors' },
+          { label: id },
+        ]}
+      />
+      <SponsorForm client:load sponsorId={id} />
+    </PageShell>
+  </AuthGate>
+</Layout>

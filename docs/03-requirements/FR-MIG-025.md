@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-025
 name: /workspace/sponsors — sponsor row management
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild Phase 3
 ---
