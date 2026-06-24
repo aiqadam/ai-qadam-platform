@@ -1,12 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-06-24T01:35:00Z
+**Last updated:** 2026-06-24T17:15:00Z
 
 ---
 
 ## Active Workflows
 
-_(none)_
+_(none — wf-20260624-feat-019 archived 2026-06-24)_
 
 ---
 
@@ -15,6 +15,7 @@ _(none)_
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
 | wf-20260623-feat-015 | requirement-development | FR-MIG-020 /onboard + /welcome new-member flow | feature/MIG-020-new-member-flow | [PR #31](https://github.com/tvolodi/aiqadam/pull/31) | 2026-06-24 |
+| wf-20260624-feat-019 | requirement-development | FR-MIG-024 /workspace/site-settings homepage singleton editor | feature/MIG-024-site-settings | [PR #35](https://github.com/tvolodi/aiqadam/pull/35) | 2026-06-24 |
 | wf-20260623-feat-011 | requirement-development | FR-MIG-018 /me hub + preferences | feature/MIG-018-me-hub | [PR #24](https://github.com/tvolodi/aiqadam/pull/24) | 2026-06-23 |
 | wf-20260623-feat-012 | requirement-development | FR-MIG-012 Countries list | feature/MIG-012-countries-list | [PR #22](https://github.com/tvolodi/aiqadam/pull/22) | 2026-06-23 |
 | wf-20260623-feat-010 | requirement-development | FR-MIG-010 Members filter panel | feature/MIG-010-members-filter-panel | [PR #20](https://github.com/tvolodi/aiqadam/pull/20) | 2026-06-23 |
