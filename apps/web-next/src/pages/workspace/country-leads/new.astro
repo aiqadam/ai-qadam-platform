@@ -1,0 +1,56 @@
+---
+export const prerender = false;
+
+// FR-MIG-028 — /workspace/country-leads/new onboarding wizard.
+// Super-admin only. 4-step wizard: prerequisites → RBAC bind →
+// cabinet walkthrough → confirm. Requires ?leadId=<uuid> (an existing
+// candidate record). If no leadId is provided, the page shows a
+// placeholder directing the operator to the list.
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, CountryLeadOnboardingWizard, PageShell } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+
+const leadId = Astro.url.searchParams.get('leadId') ?? '';
+---
+
+<Layout
+  title="Onboard country lead · AI Qadam workspace"
+  description="4-step guided wizard to onboard a new country lead."
+>
+  <PageHead
+    slot="head"
+    title="Onboard country lead · AI Qadam workspace"
+    description="4-step guided wizard to onboard a new country lead."
+  />
+  <AuthGate role="aiqadam-super-admin" signInLabel="Super-admin only — sign in">
+    <PageShell
+      title="Onboard country lead"
+      description="Steps: (A) confirm prerequisites, (B) RBAC bind, (C) cabinet walkthrough, (D) activation."
+      width="standard"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Country leads', href: '/workspace/country-leads' },
+          { label: 'Onboard' },
+        ]}
+      />
+      {leadId ? (
+        <CountryLeadOnboardingWizard leadId={leadId} client:load />
+      ) : (
+        <div class="rounded-md border border-border bg-card p-6 space-y-2">
+          <p class="text-sm text-foreground font-medium">No candidate selected</p>
+          <p class="text-sm text-muted-foreground">
+            Go to{' '}
+            <a href="/workspace/country-leads" class="text-primary underline-offset-4 hover:underline">
+              Country leads
+            </a>{' '}
+            and click "Onboard →" on a candidate row, or append{' '}
+            <code class="font-mono text-xs">?leadId=&lt;uuid&gt;</code> to this URL.
+          </p>
+        </div>
+      )}
+    </PageShell>
+  </AuthGate>
+</Layout>

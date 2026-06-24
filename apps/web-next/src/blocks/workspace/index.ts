@@ -13,6 +13,8 @@ export { ActionBar, ActionBarIsland, type Action } from './ActionBar';
 export { AsyncSelect } from './AsyncSelect';
 export { AuditLogList } from './AuditLogList';
 export { default as Breadcrumbs } from './Breadcrumbs.astro';
+export { CountryLeadOnboardingWizard } from './CountryLeadOnboardingWizard';
+export { CountryLeadsList } from './CountryLeadsList';
 export { CountryProvisioningWizard } from './CountryProvisioningWizard';
 export { CountriesList } from './CountriesList';
 export { DashboardKpis } from './DashboardKpis';

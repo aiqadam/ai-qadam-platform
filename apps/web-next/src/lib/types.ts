@@ -1078,3 +1078,64 @@ export interface GrantBadgeBody {
 export interface RevokeBadgeAwardBody {
   reason: string;
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/admin/country-leads (super-admin country-lead onboarding)
+//
+// FR-MIG-028 — country-lead onboarding cabinet. Super-admins list candidates/
+// active/inactive leads and run a guided 4-step wizard that automates the
+// manual runbook (docs/02-business-processes/operations/country-lead-activation.md).
+// Steps: A=prerequisites confirm, B=RBAC bind (Authentik group add), C=cabinet
+// walkthrough checklist, D=confirmation + Directus activation date.
+// ---------------------------------------------------------------------------
+
+export const COUNTRY_LEAD_STATUSES = ['candidate', 'active', 'inactive'] as const;
+export type CountryLeadStatus = (typeof COUNTRY_LEAD_STATUSES)[number];
+
+export interface CountryLeadRow {
+  id: string;
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  country: string;
+  status: CountryLeadStatus;
+  activated_at: string | null;
+  deactivated_at: string | null;
+  created_at: string;
+}
+
+export interface CountryLeadsResult {
+  leads: CountryLeadRow[];
+}
+
+// Onboarding wizard step result — returned by each step endpoint.
+export const ONBOARDING_STEP_IDS = ['prerequisites', 'rbac_bind', 'walkthrough', 'confirm'] as const;
+export type OnboardingStepId = (typeof ONBOARDING_STEP_IDS)[number];
+
+export type OnboardingStepStatus = 'pending' | 'passed' | 'failed';
+
+export interface OnboardingStepResult {
+  step: OnboardingStepId;
+  status: OnboardingStepStatus;
+  error: string | null;
+  completed_at: string | null;
+}
+
+// Full onboarding state (GET /v1/admin/country-leads/:id/onboarding).
+export interface OnboardingState {
+  lead_id: string;
+  steps: Record<OnboardingStepId, OnboardingStepResult>;
+  activated_at: string | null;
+}
+
+// POST /v1/admin/country-leads/:id/onboarding/:stepId — advances one step.
+export interface AdvanceOnboardingBody {
+  /** Only required for the walkthrough step: checklist of confirmed items. */
+  walkthrough_confirmed?: boolean;
+}
+
+// Body for creating a candidate record before onboarding starts.
+export interface CreateCountryLeadBody {
+  user_id: string;
+  country: string;
+}

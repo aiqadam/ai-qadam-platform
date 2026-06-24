@@ -33,6 +33,8 @@
 | `/workspace/sponsors/[id]` | Operator: edit sponsor record | authed |
 | `/workspace/press` | Operator: press asset manager (prose, team bios, platform stats) | authed |
 | `/workspace/badges` | Operator: badge definitions list + grant dialog + award history with revoke | authed |
+| `/workspace/country-leads` | Super-admin: country lead list (candidate / active / inactive) | authed (super-admin) |
+| `/workspace/country-leads/new` | Super-admin: 4-step country lead onboarding wizard | authed (super-admin) |
 | `/workspace/admin/users` | Admin: user management | authed |
 | `/workspace/admin/audit` | Admin: audit log | authed |
 | `/workspace/admin/countries` | Admin: country list | authed |
@@ -73,6 +75,10 @@ L1 runtime functions that blocks and pages import.
 | `useGrantBadge()` | `lib/use-badges.ts` | Grant badge mutation hook (POST /v1/admin/badges/grant) |
 | `useRevokeBadgeAward()` | `lib/use-badges.ts` | Revoke badge award mutation hook (POST /v1/admin/badges/awards/:id/revoke) |
 | `searchMembers()` | `lib/use-badges.ts` | Async member search for the grant dialog AsyncSelect |
+| `useCountryLeads()` | `lib/use-country-leads.ts` | Country lead list query hook |
+| `useOnboardingState()` | `lib/use-country-leads.ts` | Per-lead onboarding state query hook (polls while steps in-flight) |
+| `useCreateCountryLead()` | `lib/use-country-leads.ts` | Create candidate record mutation hook |
+| `useAdvanceOnboardingStep()` | `lib/use-country-leads.ts` | Advance onboarding wizard step mutation hook |
 
 ## Common blocks
 
@@ -117,6 +123,8 @@ L1 runtime functions that blocks and pages import.
 | `<BadgesCabinet>` | `blocks/workspace/BadgesCabinet.tsx` | Tabbed cabinet: badge definitions tab + award history tab in one island |
 | `<BadgesListInner>` | `blocks/workspace/BadgesList.tsx` | Badge definitions DataTable with grant dialog (member AsyncSelect + badge picker + note) |
 | `<BadgeAwardHistoryInner>` | `blocks/workspace/BadgeAwardHistory.tsx` | Award history DataTable with per-badge filter chips + revoke dialog |
+| `<CountryLeadsList>` | `blocks/workspace/CountryLeadsList.tsx` | Country leads DataTable with status filter chips + "Onboard" action links |
+| `<CountryLeadOnboardingWizard>` | `blocks/workspace/CountryLeadOnboardingWizard.tsx` | 4-step onboarding wizard: prerequisites checklist → RBAC bind → walkthrough checklist → activation confirm |
 
 | `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
 | `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |
