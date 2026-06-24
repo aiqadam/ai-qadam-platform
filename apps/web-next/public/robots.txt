@@ -1,2 +1,6 @@
 User-agent: *
-Disallow: /
+Disallow: /workspace/
+Disallow: /me/
+Allow: /
+
+Sitemap: https://aiqadam.org/sitemap.xml

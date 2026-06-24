@@ -1,0 +1,77 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260625-feat-025"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-25T02:00:00Z"
+last_updated_at: "2026-06-25T02:00:00Z"
+
+requirement_ref: "FR-MIG-031"
+requirement_text: "Production cutover — cookie parity, SEO re-enable, FQDN flip (M4 steps 1-2, 5-7). Implements automatable steps: Step 1 (cookie name parity in v2 middleware), Step 2 (remove noindex, restore OG/canonical/analytics). Ops steps (3-8) are human-only."
+github_issue_url: ""
+
+branch: "feature/MIG-031-production-cutover"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/48"
+
+current_step: 1
+current_step_name: "validate-requirement"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - docs/03-requirements/FR-MIG-031.md
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/web-next/src/middleware.ts
+  - apps/web-next/src/layouts/Layout.astro
+  - apps/web-next/src/blocks/common/PageHead.astro
+  - apps/web-next/public/robots.txt
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260625-feat-025/NEEDS_REVIEW.md"

@@ -5,20 +5,42 @@
 // Layout.astro's `slot="head"` so each page emits its own title +
 // description + OG + canonical without re-doing the boilerplate.
 //
-// Build-aside mode: next.aiqadam.org is engineer-only behind Authentik
-// forward-auth; we deliberately DROP OG / Twitter / canonical here so
-// social scrapers can't index v2 before cutover. The Layout itself
-// emits robots=noindex,nofollow as a second layer of defence. At
-// cutover we'll flip both off in one PR (this block + Layout) so
-// search engines see the canonical aiqadam.org URLs cleanly.
+// Post-cutover (FR-MIG-031): OG, Twitter card, canonical link,
+// Plausible analytics, and Google Fonts preconnect are now active.
+// The `ogImage` prop allows per-page override; falls back to the
+// brand mark. All props are typed; no `any`.
 
 interface Props {
   title: string;
   description?: string | undefined;
+  ogImage?: string | undefined;
 }
 
-const { title, description } = Astro.props;
+const { title, description, ogImage = '/brand/aiqadam-mark.png' } = Astro.props;
+const canonicalUrl = Astro.url.href;
 ---
 
 <title>{title}</title>
 {description && <meta name="description" content={description} />}
+
+{/* Canonical */}
+<link rel="canonical" href={canonicalUrl} />
+
+{/* Open Graph */}
+<meta property="og:title" content={title} />
+{description && <meta property="og:description" content={description} />}
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:type" content="website" />
+<meta property="og:image" content={ogImage} />
+
+{/* Twitter Card */}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+{description && <meta name="twitter:description" content={description} />}
+
+{/* Google Fonts preconnect */}
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+{/* Plausible analytics */}
+<script is:inline defer data-domain="aiqadam.org" src="https://plausible.io/js/script.js"></script>
