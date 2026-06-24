@@ -17,7 +17,7 @@ github_issue_url: ""
 # Git State
 branch: "feature/MIG-023-static-marketing-pages"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/34"
 
 # Workflow Progress
 current_step: 0
