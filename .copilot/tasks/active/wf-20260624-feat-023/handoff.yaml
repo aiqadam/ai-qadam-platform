@@ -45,7 +45,7 @@ artifacts:
   - "docs/03-requirements/FR-MIG-028.md (status → Implemented)"
   - "docs/03-requirements/requirements-registry.md (status → Shipped)"
 
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/45"
 retry_counts: {}
 deferrals: []
 issues_created: []
