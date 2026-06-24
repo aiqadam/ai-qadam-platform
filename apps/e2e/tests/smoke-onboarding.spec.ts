@@ -63,7 +63,7 @@ test.describe('FR-MIG-020 — /welcome/[slug]', () => {
 
 test.describe('FR-MIG-020 — /onboard auth guards', () => {
   test('anon accessing /onboard redirects to sign-in', async ({ page }) => {
-    const response = await page.goto('/onboard', { waitUntil: 'domcontentloaded' });
+    const _response = await page.goto('/onboard', { waitUntil: 'domcontentloaded' });
 
     // Should redirect to /auth/sign-in preserving the redirect param
     const finalUrl = page.url();

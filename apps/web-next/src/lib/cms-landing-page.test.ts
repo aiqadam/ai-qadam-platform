@@ -32,7 +32,7 @@ interface CmsLandingPageRow {
 }
 
 // Re-implements fetchLandingPage logic locally (mirrors apps/web-next/src/lib/cms.ts)
-async function fetchLandingPage(slug: string): Promise<CmsLandingPage | null> {
+async function _fetchLandingPage(slug: string): Promise<CmsLandingPage | null> {
   const trimmed = slug.trim().toLowerCase();
   // Defensive slug shape guard — reject path traversal and malformed slugs
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(trimmed)) return null;
@@ -263,9 +263,9 @@ describe('fetchLandingPage — full simulation', () => {
     const result = await simulatedFetchLandingPage('telegram-uz', response);
 
     expect(result).not.toBeNull();
-    expect(result!.slug).toBe('telegram-uz');
-    expect(result!.title).toBe('Join AI Qadam');
-    expect(result!.ctaUrl).toBe('/onboard?slug=telegram-uz');
+    expect(result?.slug).toBe('telegram-uz');
+    expect(result?.title).toBe('Join AI Qadam');
+    expect(result?.ctaUrl).toBe('/onboard?slug=telegram-uz');
   });
 
   it('returns null for non-existent slug (empty data array)', async () => {

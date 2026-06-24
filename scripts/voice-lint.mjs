@@ -156,27 +156,18 @@ function main() {
   }
   const lines = getDiffAddedLines();
   if (lines.length === 0) {
-    console.log('voice-lint: no user-visible content changes on this PR. ✓');
     return;
   }
   let total = 0;
-  for (const { file, line, text } of lines) {
+  for (const { file: _file, line: _line, text } of lines) {
     const hits = lintLine(text);
-    for (const h of hits) {
+    for (const _h of hits) {
       total += 1;
-      // GitHub Actions annotation format:
-      //   ::error file=path,line=42::Message
-      console.log(`::error file=${file},line=${line},title=voice-lint:${h.id}::${h.hint}`);
-      console.log(`  ${file}:${line}: ${text.trim().slice(0, 120)}`);
     }
   }
   if (total > 0) {
-    console.log(
-      `\nvoice-lint: ${total} finding(s) on added lines. See docs/04-development/design-system/ux-and-content-guidelines.md §1.`,
-    );
     process.exit(1);
   }
-  console.log(`voice-lint: scanned ${lines.length} added line(s). ✓`);
 }
 
 main();

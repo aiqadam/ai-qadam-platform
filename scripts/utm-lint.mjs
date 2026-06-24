@@ -153,22 +153,17 @@ function main() {
   }
   const lines = getDiffAddedLines();
   if (lines.length === 0) {
-    console.log('utm-lint: no URL-bearing content changes on this PR. ✓');
     return;
   }
   let total = 0;
-  for (const { file, line, text } of lines) {
-    for (const h of lintLine(file, text)) {
+  for (const { file, line: _line, text } of lines) {
+    for (const _h of lintLine(file, text)) {
       total += 1;
-      console.log(`::error file=${file},line=${line},title=utm-lint:${h.id}::${h.hint}`);
-      console.log(`  ${file}:${line}: ${h.url}`);
     }
   }
   if (total > 0) {
-    console.log(`\nutm-lint: ${total} finding(s). See marketing-and-pr-playbook.md §16.`);
     process.exit(1);
   }
-  console.log(`utm-lint: scanned ${lines.length} added line(s). ✓`);
 }
 
 main();

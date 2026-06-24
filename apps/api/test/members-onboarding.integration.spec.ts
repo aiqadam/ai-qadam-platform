@@ -366,7 +366,7 @@ describe('GET /v1/me/onboarding-status', () => {
     };
 
     // Simulate the controller logic
-    const userId = USER_ID;
+    const _userId = USER_ID;
     const onboardedAt = await fakeProfile.getOnboardedAt();
     const result = { onboarded: onboardedAt !== null };
 
@@ -378,7 +378,7 @@ describe('GET /v1/me/onboarding-status', () => {
       getOnboardedAt: vi.fn<() => Promise<string | null>>().mockResolvedValue(null),
     };
 
-    const userId = USER_ID;
+    const _userId = USER_ID;
     const onboardedAt = await fakeProfile.getOnboardedAt();
     const result = { onboarded: onboardedAt !== null };
 

@@ -1,0 +1,15 @@
+workflow_id: wf-20260624-fix-21
+issue_id: ISS-CI-001
+branch: chore/ISS-CI-001-biome-autofix
+created: 2026-06-24
+status: in-progress
+
+summary: >
+  Auto-fix remaining 51 Biome lint errors in real source files.
+  PR #2 of the ISS-CI-001 resolution plan — unblocks CI biome check entirely.
+
+retry_limits:
+  CodeDeveloper: 3
+  QualityGate: 3
+
+github_pr_url: ""

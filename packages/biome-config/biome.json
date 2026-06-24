@@ -41,6 +41,19 @@
   },
   "overrides": [
     {
+      "include": ["**/*.spec.ts", "**/*.test.ts", "**/*.spec.tsx", "**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
       "include": ["apps/web-next/src/blocks/**", "apps/web-next/src/pages/**"],
       "linter": {
         "rules": {

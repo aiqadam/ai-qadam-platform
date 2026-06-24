@@ -354,7 +354,6 @@ const EVENT_MIG21 = 'cccccccc-cccc-4000-8000-000000000003';
 function regRowMIG21(overrides: Record<string, unknown> = {}) {
   return {
     id: REG,
-    event: EVENT_MIG21,
     user: DIRECTUS_USER,
     status: 'registered',
     checkin_code: TOKEN_MIG21,
