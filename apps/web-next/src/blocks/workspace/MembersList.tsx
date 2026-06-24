@@ -20,14 +20,16 @@ import {
   parseParamsToFilters,
   serializeFiltersToParams,
 } from '@/lib/member-filters';
-import type { CohortRow, MemberRow } from '@/lib/types';
+import type { CohortRow, MemberRow, SegmentType } from '@/lib/types';
 import { useMembersSearch } from '@/lib/use-members';
+import { useCreateSegment } from '@/lib/use-segments';
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from './DataTable';
 import { FilterChip } from './FilterChip';
 import { MembersFilterPanel } from './MembersFilterPanel';
 import { SaveCohortModal } from './SaveCohortModal';
 import { SavedCohortsPanel } from './SavedCohortsPanel';
+import { SavedSegmentsPanel } from './SavedSegmentsPanel';
 
 const PAGE_SIZE = 50;
 
@@ -143,17 +145,23 @@ function SearchBar({ onCommit }: SearchBarProps): ReactElement {
 
 interface ToolbarProps {
   filters: MemberFilters;
+  filterQuery: Record<string, unknown>;
   hasFilter: boolean;
   onCommitQuery: (q: string) => void;
   onApplyFilters: (next: MemberFilters) => void;
   onOpenSave: () => void;
+  onSaveSegment: (name: string, type: SegmentType) => void;
+  isSavingSegment: boolean;
 }
 function Toolbar({
   filters,
+  filterQuery,
   hasFilter,
   onCommitQuery,
   onApplyFilters,
   onOpenSave,
+  onSaveSegment,
+  isSavingSegment,
 }: ToolbarProps): ReactElement {
   const saveButtonTitle = hasFilter
     ? 'Save the current filter as a cohort'
@@ -161,7 +169,13 @@ function Toolbar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <SearchBar onCommit={onCommitQuery} />
-      <MembersFilterPanel applied={filters} onApply={onApplyFilters} />
+      <MembersFilterPanel
+        applied={filters}
+        onApply={onApplyFilters}
+        filterQuery={filterQuery}
+        onSaveSegment={onSaveSegment}
+        isSavingSegment={isSavingSegment}
+      />
       <Button
         type="button"
         variant="outline"
@@ -303,6 +317,7 @@ function MembersListInner(): ReactElement {
   const [saveOpen, setSaveOpen] = useState(false);
   const { filters, initialized, applyFilters, removeFilter, clearAllFilters, loadCohortFilters } =
     useFilterState();
+  const createSegment = useCreateSegment();
 
   const filterObj = useMemo(() => buildMemberFilter(filters), [filters]);
   const hasFilter = Object.keys(filterObj).length > 0;
@@ -328,16 +343,32 @@ function MembersListInner(): ReactElement {
     setPage(1);
   };
 
+  const loadSegment = (filterQuery: Record<string, unknown>): void => {
+    const parsed = parseDirectusToMemberFilters(filterQuery);
+    applyFilters(parsed);
+    setCommittedQuery('');
+    setPage(1);
+  };
+
+  const handleSaveSegment = (name: string, type: SegmentType): void => {
+    createSegment.mutate({ name, segment_type: type, filter_query: filterObj });
+  };
+
   return (
     <div className="space-y-4">
       <SavedCohortsPanel onLoadCohort={loadCohort} />
 
+      <SavedSegmentsPanel onLoadSegment={loadSegment} />
+
       <Toolbar
         filters={filters}
+        filterQuery={filterObj}
         hasFilter={hasFilter}
         onCommitQuery={onCommitQuery}
         onApplyFilters={applyFilters}
         onOpenSave={() => setSaveOpen(true)}
+        onSaveSegment={handleSaveSegment}
+        isSavingSegment={createSegment.isPending}
       />
 
       <FilterChipsBar

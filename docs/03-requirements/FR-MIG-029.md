@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-029
 name: /workspace/members uplift — segment builder integrated into filter panel
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild Phase 3
 ---

@@ -38,6 +38,7 @@ export { PartnerDetail } from './PartnerDetail';
 export { PartnersList } from './PartnersList';
 export { SaveCohortModal } from './SaveCohortModal';
 export { SavedCohortsPanel } from './SavedCohortsPanel';
+export { SavedSegmentsPanel } from './SavedSegmentsPanel';
 export { PressAssetManager } from './PressAssetManager';
 export { SiteSettingsForm } from './SiteSettingsForm';
 export { SponsorForm } from './SponsorForm';
