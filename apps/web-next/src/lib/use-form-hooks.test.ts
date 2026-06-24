@@ -655,8 +655,9 @@ describe('FormSubmission shape', () => {
     const sub = createMockSubmission('sub-1', {
       interests: ['tech', 'art', 'music'],
     });
-    expect(Array.isArray(sub.payload.interests)).toBe(true);
-    expect(sub.payload.interests as string[]).toHaveLength(3);
+    const interests = (sub.payload as { interests: string[] }).interests;
+    expect(Array.isArray(interests)).toBe(true);
+    expect(interests).toHaveLength(3);
   });
 
   it('should have correct source values', () => {

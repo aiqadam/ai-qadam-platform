@@ -173,10 +173,10 @@ const palette = [
       <div class="grid gap-3 sm:grid-cols-2">
         {palette.map((swatch) => (
           <div class="flex gap-4 rounded-lg border border-border bg-card p-4">
+            <!-- arch-ignore: no-inline-style — dynamic palette CSS value from CMS data, no static token possible -->
             <div
               aria-hidden="true"
               class="h-16 w-16 flex-shrink-0 rounded-lg"
-              <!-- arch-ignore: no-inline-style — dynamic palette CSS value from CMS data, no static token possible -->
               style={`background: ${swatch.css}`}
             />
             <div>

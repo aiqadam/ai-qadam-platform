@@ -54,7 +54,7 @@ export async function runMigrations(): Promise<void> {
 if (require.main === module) {
   runMigrations()
     .then(() => {
-      // eslint-disable-next-line no-console
+      // biome-ignore lint/suspicious/noConsoleLog: intentional CLI output
       console.log(`[migrate] applied migrations from ${MIGRATIONS_FOLDER}`);
     })
     .catch((err) => {

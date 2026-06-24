@@ -61,7 +61,7 @@ describe('heroSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0].path).toContain('heroHeadline');
+      expect(result.error.errors[0]?.path).toContain('heroHeadline');
     }
   });
 
@@ -74,7 +74,7 @@ describe('heroSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0].path).toContain('heroCtaUrl');
+      expect(result.error.errors[0]?.path).toContain('heroCtaUrl');
     }
   });
 });
@@ -121,7 +121,7 @@ describe('contactSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0].path).toContain('contactEmailPartners');
+      expect(result.error.errors[0]?.path).toContain('contactEmailPartners');
     }
   });
 
@@ -202,7 +202,7 @@ describe('updateSiteSettings', () => {
     vi.stubGlobal('fetch', fetchMock);
     await updateSiteSettings({ heroHeadline: 'New Headline' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const firstCall = fetchMock.mock.calls[0];
+    const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit] | undefined;
     if (!firstCall) throw new Error('Expected at least one fetch call');
     const [url, options] = firstCall;
     expect(url).toMatch(/\/items\/site_settings$/);

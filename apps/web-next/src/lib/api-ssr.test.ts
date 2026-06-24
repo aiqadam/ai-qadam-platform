@@ -90,7 +90,7 @@ function _makeMockReq(url = '/', headers: Record<string, string> = {}): Request 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockFetch = ReturnType<typeof vi.fn<any>>;
 
-function apiBase(env?: Record<string, string | undefined>): string {
+function apiBase(env?: { INTERNAL_API_URL?: string | undefined }): string {
   return env?.INTERNAL_API_URL ?? DEFAULT_INTERNAL_API_URL;
 }
 
