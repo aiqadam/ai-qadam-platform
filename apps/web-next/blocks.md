@@ -27,6 +27,7 @@
 | `/workspace/forms/[id]/responses` | Form responses inbox | authed |
 | `/workspace/announce` | Announcement composer | authed |
 | `/workspace/approvals` | Registration approvals | authed |
+| `/workspace/site-settings` | Operator: homepage hero, footer links, contact/social | authed |
 | `/workspace/admin/users` | Admin: user management | authed |
 | `/workspace/admin/audit` | Admin: audit log | authed |
 | `/workspace/admin/countries` | Admin: country list | authed |
@@ -94,6 +95,7 @@ L1 runtime functions that blocks and pages import.
 | `<AnnounceComposer>` | `blocks/workspace/AnnounceComposer.tsx` | Announcement form with cohort selection |
 | `<InvitesList>` | `blocks/workspace/InvitesList.tsx` | Invite management |
 | `<CountriesList>` | `blocks/workspace/CountriesList.tsx` | Country list with provisioning |
+| `<SiteSettingsForm>` | `blocks/workspace/SiteSettingsForm.tsx` | Homepage singleton editor: hero + footer links + contact forms |
 
 | `<FormBuilder>` | `blocks/workspace/FormBuilder.tsx` | Drag-and-drop form builder with 7 field types |
 | `<FormBuilderCabinet>` | `blocks/workspace/FormBuilderCabinet.tsx` | Per-form builder + metadata editor |

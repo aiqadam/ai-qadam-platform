@@ -33,6 +33,7 @@ export { PartnerDetail } from './PartnerDetail';
 export { PartnersList } from './PartnersList';
 export { SaveCohortModal } from './SaveCohortModal';
 export { SavedCohortsPanel } from './SavedCohortsPanel';
+export { SiteSettingsForm } from './SiteSettingsForm';
 export { CriteriaBuilder } from './CriteriaBuilder';
 export { CronStatusTable } from './CronStatusTable';
 export { RbacSyncList } from './RbacSyncList';

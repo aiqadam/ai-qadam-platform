@@ -136,7 +136,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 21 | [FR-MIG-021](FR-MIG-021.md) | /checkin event-day QR check-in | Shipped | — |
 | 22 | [FR-MIG-022](FR-MIG-022.md) | /events/[id]/survey + /feedback/csat + /leads/* | Shipped | MIG-019 |
 | 23 | [FR-MIG-023](FR-MIG-023.md) | /press + /global + /marketing/url-builder | Shipped | — |
-| 24 | [FR-MIG-024](FR-MIG-024.md) | /workspace/site-settings singleton editor | Not Started | MIG-003, MIG-005 |
+| 24 | [FR-MIG-024](FR-MIG-024.md) | /workspace/site-settings singleton editor | Implemented | MIG-003, MIG-005 |
 | 25 | [FR-MIG-025](FR-MIG-025.md) | /workspace/sponsors management | Not Started | MIG-003, MIG-004, MIG-005 |
 | 26 | [FR-MIG-026](FR-MIG-026.md) | /workspace/press asset manager | Not Started | MIG-003, MIG-005 |
 | 27 | [FR-MIG-027](FR-MIG-027.md) | /workspace/badges grant + award history | Not Started | MIG-003, MIG-004, MIG-005 |

@@ -1,0 +1,46 @@
+---
+// @generated-from gen:cabinet
+// slug: workspace/site-settings
+//
+// FR-MIG-024 — homepage singleton editor (operator role).
+// Three sections: homepage hero, footer links, contact/social.
+// Super-admin role: aiqadam-operators (same as all other workspace cabinets).
+//
+// `prerender = false` — operator-only dynamic page.
+
+export const prerender = false;
+
+import { AuthGate, PageHead } from '../../../blocks/common';
+import { Breadcrumbs, PageShell, SiteSettingsForm } from '../../../blocks/workspace';
+import Layout from '../../../layouts/Layout.astro';
+import { fetchSiteSettings } from '../../../lib/cms';
+
+const settings = await fetchSiteSettings();
+---
+
+<Layout
+  title="Site Settings · AI Qadam workspace"
+  description="Edit homepage hero, footer links, and contact/social details."
+>
+  <PageHead
+    slot="head"
+    title="Site Settings · AI Qadam workspace"
+    description="Edit homepage hero, footer links, and contact/social details."
+  />
+  <AuthGate role="aiqadam-operators" signInLabel="Operator only — sign in">
+    <PageShell
+      title="Site Settings"
+      description="Edit homepage hero, footer links, and contact/social details."
+      width="wide"
+    >
+      <Breadcrumbs
+        slot="breadcrumbs"
+        items={[
+          { label: 'Workspace', href: '/workspace' },
+          { label: 'Site Settings' },
+        ]}
+      />
+      <SiteSettingsForm client:load initial={settings} />
+    </PageShell>
+  </AuthGate>
+</Layout>
