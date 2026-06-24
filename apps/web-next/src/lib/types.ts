@@ -984,6 +984,39 @@ export interface CheckinRequest {
 }
 
 // ---------------------------------------------------------------------------
+// apps/api — /v1/admin/segments (unified audience segment store)
+//
+// FR-MIG-029 — unified segment model that covers both announcement cohorts
+// and Telegram broadcast audiences. `segment_type` drives which pickers
+// consume each segment: announce composer uses 'announcement'|'both',
+// Telegram broadcast composer uses 'telegram'|'both'.
+//
+// POST /v1/admin/segments  — create
+// GET  /v1/admin/segments  — list (optionally ?type=announcement|telegram|both)
+// DELETE /v1/admin/segments/:id — delete
+// ---------------------------------------------------------------------------
+
+export const SEGMENT_TYPES = ['announcement', 'telegram', 'both'] as const;
+export type SegmentType = (typeof SEGMENT_TYPES)[number];
+
+export interface SegmentRow {
+  id: string;
+  name: string;
+  segment_type: SegmentType;
+  filter_query: Record<string, unknown>;
+  member_count_cached: number;
+  created_by: string | null;
+  date_created: string;
+  date_updated: string | null;
+}
+
+export interface CreateSegmentPayload {
+  name: string;
+  segment_type: SegmentType;
+  filter_query: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
 // apps/api — /v1/workspace/sponsors (sponsor record management)
 //
 // FR-MIG-025 — operator cabinet for sponsor records. Operators create/edit

@@ -77,6 +77,9 @@ L1 runtime functions that blocks and pages import.
 | `searchMembers()` | `lib/use-badges.ts` | Async member search for the grant dialog AsyncSelect |
 | `useCountryLeads()` | `lib/use-country-leads.ts` | Country lead list query hook |
 | `useOnboardingState()` | `lib/use-country-leads.ts` | Per-lead onboarding state query hook (polls while steps in-flight) |
+| `useSegments()` | `lib/use-segments.ts` | Unified audience segment list query hook (optionally filtered by type) |
+| `useCreateSegment()` | `lib/use-segments.ts` | Create segment mutation hook (POST /v1/admin/segments) |
+| `useDeleteSegment()` | `lib/use-segments.ts` | Delete segment mutation hook (DELETE /v1/admin/segments/:id) |
 | `useCreateCountryLead()` | `lib/use-country-leads.ts` | Create candidate record mutation hook |
 | `useAdvanceOnboardingStep()` | `lib/use-country-leads.ts` | Advance onboarding wizard step mutation hook |
 
@@ -112,6 +115,7 @@ L1 runtime functions that blocks and pages import.
 | `<ActionBar>` | `blocks/workspace/ActionBar.tsx` | Contextual action row |
 | `<MembersList>` | `blocks/workspace/MembersList.tsx` | Member directory with filter panel |
 | `<SaveCohortModal>` | `blocks/workspace/SaveCohortModal.tsx` | Cohort save/load dialog |
+| `<SavedSegmentsPanel>` | `blocks/workspace/SavedSegmentsPanel.tsx` | Unified segment list with quick-load and delete (FR-MIG-029) |
 | `<EventEditForm>` | `blocks/workspace/EventEditForm.tsx` | Event metadata editor |
 | `<AnnounceComposer>` | `blocks/workspace/AnnounceComposer.tsx` | Announcement form with cohort selection |
 | `<InvitesList>` | `blocks/workspace/InvitesList.tsx` | Invite management |

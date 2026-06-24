@@ -1,0 +1,39 @@
+workflow_instance_id: wf-20260625-feat-023
+workflow_type: requirement-development
+workflow_version: "1.0"
+created_at: "2026-06-25T00:00:00Z"
+last_updated_at: "2026-06-25T00:00:00Z"
+requirement_ref: FR-MIG-029
+branch: feature/MIG-029-members-segment-builder
+base_branch: main
+current_step: 4
+current_step_name: develop-code
+workflow_status: in-progress
+
+retry_limits:
+  RequirementAnalyst: 1
+  ImpactAnalyzer: 1
+  DBMigrationAuthor: 2
+  CodeDeveloper: 3
+  SecurityReviewer: 2
+  TestStrategist: 2
+  TestDesigner: 3
+  TestRunner: 2
+  DocWriter: 2
+  QualityGate: 2
+
+retry_counts: {}
+
+gate_results:
+  validate-requirement:
+    status: passed
+    summary: "FR-MIG-029 is clear, depends on shipped FR-MIG-010 and FR-MIG-003, no conflicts."
+  impact-analysis:
+    status: passed
+    summary: "No DB changes needed (frontend-only, API endpoint assumed pre-existing). 5 files + blocks.md + tests."
+
+agent_assignments: {}
+artifacts: []
+deferrals: []
+issues_created: []
+github_pr_url: ""

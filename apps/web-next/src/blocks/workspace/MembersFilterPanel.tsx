@@ -1,10 +1,11 @@
 // L3 workspace block — <MembersFilterPanel>.
 //
-// Filter sheet for the Members cabinet (M2.3a) — first consumer of the
-// <Drawer> kit atom (M1.1). Holds a DRAFT copy of the 7 filter
-// primitives; Apply commits the draft to the parent (which feeds it
-// through buildMemberFilter → useMembersSearch) and closes; Reset
-// clears. Cohort save/load on top of this lands in M2.3b.
+// Filter sheet for the Members cabinet (M2.3a). Holds a DRAFT copy of
+// the 7 filter primitives; Apply commits the draft to the parent.
+//
+// FR-MIG-029 adds the "Save as segment" inline section: a toggle that
+// reveals a name input + segment type selector. On submit the panel
+// calls `onSaveSegment` which the parent wires to useCreateSegment.
 
 import {
   Button,
@@ -18,16 +19,25 @@ import {
   Input,
 } from '@/kit';
 import { type MemberFilters, SENIORITY_OPTIONS, countActiveFilters } from '@/lib/member-filters';
-import { CONSENT_PURPOSES, COUNTRY_CODES } from '@/lib/types';
+import { CONSENT_PURPOSES, COUNTRY_CODES, SEGMENT_TYPES, type SegmentType } from '@/lib/types';
 import { type ReactElement, type ReactNode, useState } from 'react';
 
 interface Props {
   applied: MemberFilters;
   onApply: (next: MemberFilters) => void;
+  filterQuery: Record<string, unknown>;
+  onSaveSegment: (name: string, type: SegmentType) => void;
+  isSavingSegment: boolean;
 }
 
 const SELECT_CLASS =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+const SEGMENT_TYPE_LABELS: Record<SegmentType, string> = {
+  announcement: 'Announcement',
+  telegram: 'Telegram',
+  both: 'Both',
+};
 
 function Field({
   label,
@@ -51,13 +61,21 @@ function Field({
   );
 }
 
-export function MembersFilterPanel({ applied, onApply }: Props): ReactElement {
+export function MembersFilterPanel({
+  applied,
+  onApply,
+  filterQuery,
+  onSaveSegment,
+  isSavingSegment,
+}: Props): ReactElement {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<MemberFilters>(applied);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [segmentName, setSegmentName] = useState('');
+  const [segmentType, setSegmentType] = useState<SegmentType>('announcement');
   const activeCount = countActiveFilters(applied);
+  const hasFilter = Object.keys(filterQuery).length > 0;
 
-  // Re-seed the draft from `applied` each time the sheet opens, so a
-  // cancelled edit doesn't leak into the next open.
   const onOpenChange = (next: boolean): void => {
     if (next) setDraft(applied);
     setOpen(next);
@@ -70,6 +88,7 @@ export function MembersFilterPanel({ applied, onApply }: Props): ReactElement {
     onApply(draft);
     setOpen(false);
   };
+
   const reset = (): void => {
     const cleared: MemberFilters = {
       country: '',
@@ -83,6 +102,20 @@ export function MembersFilterPanel({ applied, onApply }: Props): ReactElement {
     setDraft(cleared);
     onApply(cleared);
     setOpen(false);
+  };
+
+  const handleToggleSave = (): void => {
+    setSaveOpen((prev) => !prev);
+    setSegmentName('');
+    setSegmentType('announcement');
+  };
+
+  const handleSaveSegment = (): void => {
+    const name = segmentName.trim();
+    if (!name) return;
+    onSaveSegment(name, segmentType);
+    setSaveOpen(false);
+    setSegmentName('');
   };
 
   return (
@@ -183,6 +216,65 @@ export function MembersFilterPanel({ applied, onApply }: Props): ReactElement {
               ))}
             </select>
           </Field>
+
+          <div className="border-t border-border pt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <input
+                id="mf-save-toggle"
+                type="checkbox"
+                checked={saveOpen}
+                onChange={handleToggleSave}
+                disabled={!hasFilter}
+                className="h-4 w-4 rounded border border-input accent-primary"
+              />
+              <label
+                htmlFor="mf-save-toggle"
+                className="text-sm text-foreground cursor-pointer select-none"
+                title={hasFilter ? undefined : 'Apply at least one filter to save a segment'}
+              >
+                Save as segment
+              </label>
+            </div>
+
+            {saveOpen && (
+              <div className="space-y-3 pl-6">
+                <Field label="Segment name" htmlFor="mf-segment-name">
+                  <Input
+                    id="mf-segment-name"
+                    value={segmentName}
+                    onChange={(e) => setSegmentName(e.target.value)}
+                    placeholder="UZ AI engineers, senior+"
+                    maxLength={120}
+                    autoFocus
+                  />
+                </Field>
+
+                <Field label="Segment type" htmlFor="mf-segment-type">
+                  <select
+                    id="mf-segment-type"
+                    value={segmentType}
+                    onChange={(e) => setSegmentType(e.target.value as SegmentType)}
+                    className={SELECT_CLASS}
+                  >
+                    {SEGMENT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {SEGMENT_TYPE_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={segmentName.trim().length === 0 || isSavingSegment}
+                  onClick={handleSaveSegment}
+                >
+                  {isSavingSegment ? 'Saving…' : 'Save segment'}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         <DrawerFooter>

@@ -141,7 +141,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 26 | [FR-MIG-026](FR-MIG-026.md) | /workspace/press asset manager | Shipped | MIG-003, MIG-005 |
 | 27 | [FR-MIG-027](FR-MIG-027.md) | /workspace/badges grant + award history | Shipped | MIG-003, MIG-004, MIG-005 |
 | 28 | [FR-MIG-028](FR-MIG-028.md) | /workspace/country-leads onboarding cabinet | Shipped | — |
-| 29 | [FR-MIG-029](FR-MIG-029.md) | /workspace/members uplift — segment builder | Not Started | MIG-010, MIG-003 |
+| 29 | [FR-MIG-029](FR-MIG-029.md) | /workspace/members uplift — segment builder | Shipped | MIG-010, MIG-003 |
 | 30 | [FR-MIG-030](FR-MIG-030.md) | Parity verification — E2E suite + Lighthouse | Not Started | MIG-001 through MIG-029 |
 | 31 | [FR-MIG-031](FR-MIG-031.md) | Production cutover — cookie parity, SEO, FQDN flip | Not Started | MIG-030 |
 
