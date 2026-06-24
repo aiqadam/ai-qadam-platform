@@ -17,11 +17,11 @@ test.describe('S0.10 — public smoke', () => {
     await expect(page.locator('nav a[href="/events"]')).toBeVisible();
     await expect(page.locator('nav a[href="/leaderboard"]')).toBeVisible();
 
-    // Plausible tracker present (cookieless self-hosted)
-    const plausibleScript = page.locator('script[src*="analytics.aiqadam.org/js/script.js"]');
+    // Plausible tracker present (plausible.io CDN — AC-7, FR-MIG-031)
+    const plausibleScript = page.locator('script[src*="plausible.io/js/script.js"]');
     await expect(plausibleScript).toHaveAttribute('data-domain', 'aiqadam.org');
 
-    // OG + Twitter meta present (M5.1)
+    // OG + Twitter meta present (M5.1 / AC-7)
     await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
       'content',
       'AI Qadam',
@@ -31,8 +31,42 @@ test.describe('S0.10 — public smoke', () => {
       'summary_large_image',
     );
 
-    // Canonical present
+    // Canonical present with https href (AC-7)
     await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
+    const canonicalHref = await page.locator('link[rel="canonical"]').getAttribute('href');
+    expect(canonicalHref).toMatch(/^https:\/\//);
+  });
+
+  test('homepage has correct OG meta tags (AC-7, FR-MIG-031)', async ({ page }) => {
+    await page.goto('/');
+
+    // OG title and description present
+    await expect(page.locator('meta[property="og:title"]')).toHaveCount(1);
+    await expect(page.locator('meta[property="og:description"]')).toHaveCount(1);
+
+    // OG type is website
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
+
+    // OG image defaults to brand mark (AC-7)
+    const ogImage = page.locator('meta[property="og:image"]');
+    await expect(ogImage).toHaveCount(1);
+    const ogImageContent = await ogImage.getAttribute('content');
+    expect(ogImageContent).toContain('/brand/aiqadam-mark.png');
+  });
+
+  test('homepage default title is AI Qadam (AC-8, FR-MIG-031)', async ({ page }) => {
+    await page.goto('/');
+
+    // Title should be the production value, not the build-aside "AI Qadam (next)"
+    await expect(page).toHaveTitle('AI Qadam');
+  });
+
+  test('homepage has no noindex meta tag (AC-5, FR-MIG-031)', async ({ page }) => {
+    await page.goto('/');
+
+    // noindex meta must NOT be present on public pages after SEO re-enablement
+    const noindexMeta = page.locator('meta[name="robots"][content*="noindex"]');
+    await expect(noindexMeta).toHaveCount(0);
   });
 
   test('/events loads + lists events or shows empty state', async ({ page }) => {
@@ -86,16 +120,37 @@ test.describe('S0.10 — public smoke', () => {
     expect(body).toMatch(/<loc>https?:\/\/[^<]*\/<\/loc>/);
   });
 
-  test('robots.txt has Sitemap reference + disallows /me + /admin', async ({ request }) => {
+  test('robots.txt permits crawling + disallows /workspace/ and /me/ (AC-6, FR-MIG-031)', async ({
+    request,
+  }) => {
     const response = await request.get('/robots.txt');
     expect(response.status()).toBe(200);
 
     const body = await response.text();
+
+    // Boilerplate header still present
     expect(body).toContain('User-agent: *');
+
+    // Sitemap reference still present
     expect(body).toMatch(/Sitemap: https?:\/\/[^\s]+\/sitemap\.xml/);
-    expect(body).toContain('Disallow: /me');
-    expect(body).toContain('Disallow: /admin/');
-    expect(body).toContain('Disallow: /api/');
+
+    // Protected paths still disallowed
+    expect(body).toContain('Disallow: /workspace/');
+    expect(body).toContain('Disallow: /me/');
+
+    // Old disallow-all rule is GONE — crawlers are now permitted (AC-6)
+    expect(body).not.toContain('Disallow: /\n');
+
+    // Legacy /admin/ rule removed in favour of /workspace/ (AC-6)
+    expect(body).not.toContain('Disallow: /admin/');
+
+    // Explicit Allow: / present after specific Disallow rules (AC-6)
+    expect(body).toContain('Allow: /');
+
+    // Rule order: Disallow lines must appear before Allow: / in the body
+    const disallowWorkspaceIdx = body.indexOf('Disallow: /workspace/');
+    const allowSlashIdx = body.indexOf('Allow: /');
+    expect(disallowWorkspaceIdx).toBeLessThan(allowSlashIdx);
   });
 
   test('API health endpoint returns 200 with tenant context', async ({ request }) => {

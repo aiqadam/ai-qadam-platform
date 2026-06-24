@@ -2,17 +2,17 @@ import { defineMiddleware } from 'astro:middleware';
 
 // Astro middleware for apps/web-next/. Runs for every SSR request.
 //
-// Ported from apps/web/src/middleware.ts (PR #389 — Topic 1 fix) with
-// ONE difference: the refresh-cookie name is `aiqadam-next-refresh` so
-// v1 and v2 can coexist in different tabs during the build window
-// without colliding on the same single-use refresh cookie. See
-// docs/04-development/frontend/web-migration-plan.md §Cookie isolation.
+// Post-cutover (FR-MIG-031): the canonical refresh-cookie name is now
+// `aiqadam-refresh` — the same name the API (apps/api) has always
+// issued. The former build-aside name `aiqadam-next-refresh` is kept as
+// a legacy constant for a 24h overlap window so any browser tabs that
+// authenticated against next.aiqadam.org before the FQDN flip can still
+// rotate their sessions without being forced to re-login.
 //
-// At cutover (T+0), the API will start issuing the canonical
-// `aiqadam-refresh` cookie from v2 and accept `aiqadam-next-refresh`
-// for a 24h overlap so v2-during-build tabs auto-rotate to the
-// canonical cookie on first refresh. Both cookie names are accepted
-// here for that overlap window — see hasRefresh below.
+// Both cookie names are accepted in hasRefresh below for that overlap
+// window. Once the 24h overlap passes, the legacy constant can be
+// removed in a follow-up PR. See docs/04-development/frontend/
+// web-migration-plan.md §Cookie isolation.
 //
 // Responsibilities:
 //
@@ -23,12 +23,11 @@ import { defineMiddleware } from 'astro:middleware';
 //    first page load in v1.
 //
 // 2) (Not yet) admin-host redirects. v1's middleware also redirects
-//    admin.aiqadam.org → cms.aiqadam.org/admin. v2 doesn't serve
-//    admin.aiqadam.org during the build window — that traffic stays
-//    on v1 — so no admin-host branch here.
+//    admin.aiqadam.org → cms.aiqadam.org/admin. Implement here once
+//    admin traffic is fully on v2.
 
-const REFRESH_COOKIE_NEXT = 'aiqadam-next-refresh';
-const REFRESH_COOKIE_LEGACY = 'aiqadam-refresh';
+const REFRESH_COOKIE_NEXT = 'aiqadam-refresh';
+const REFRESH_COOKIE_LEGACY = 'aiqadam-next-refresh';
 const REFRESH_COOKIE_LEGACY_HOST = '__Host-aiqadam-refresh';
 const { INTERNAL_API_URL = 'http://localhost:3000' } = process.env;
 

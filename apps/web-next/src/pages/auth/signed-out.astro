@@ -8,7 +8,7 @@
 // logout redirect URI (RP-Initiated Logout §2), so it must:
 //   1. Render a clear "You've been signed out" message
 //   2. Show "Sign in again" and "Go home" links
-//   3. Clear the `aiqadam-next-refresh` cookie (v2's isolated cookie name)
+//   3. Clear the `aiqadam-refresh` cookie (canonical post-cutover name)
 //
 // The page intentionally has no Layout wrapper — it is a bare landing page
 // rendered outside the auth flow to avoid infinite loops on the signed-out
@@ -68,11 +68,10 @@ const isOperatorContext = subdomain === 'admin' || subdomain === 'workspace';
     </div>
 
     <script is:inline define:vars={{ isOperatorContext }}>
-      // Clear the v2 refresh cookie server-side as part of the page render.
-      // The cookie clearing happens via the Set-Cookie header below.
-      document.cookie = 'aiqadam-next-refresh=; Max-Age=0; path=/; SameSite=lax';
-      // Also clear legacy v1 cookie if present (for overlap window during cutover)
+      // Clear the canonical refresh cookie first (post-cutover primary).
       document.cookie = 'aiqadam-refresh=; Max-Age=0; path=/; SameSite=lax';
+      // Also clear the build-aside name for the 24h overlap window.
+      document.cookie = 'aiqadam-next-refresh=; Max-Age=0; path=/; SameSite=lax';
     </script>
   </body>
 </html>

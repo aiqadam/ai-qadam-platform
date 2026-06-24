@@ -8,24 +8,18 @@ interface Props {
   description?: string | undefined;
 }
 
-// apps/web-next/ Layout — ADR-0038 greenfield build.
+// apps/web-next/ Layout — production (post-cutover FR-MIG-031).
 //
-// Ported from apps/web/src/layouts/Layout.astro with three deltas:
-//   1) Title defaults to "AI Qadam (next)" so engineers always know
-//      they're on the build-aside, not the production site.
-//   2) <meta name="robots" content="noindex,nofollow"> — next.aiqadam.org
-//      is engineer-only behind Authentik forward-auth; even if a crawler
-//      hit a leaked URL it must NOT index v2 until cutover.
-//   3) No OG / canonical / analytics tags. Build-aside has no
-//      audience, and we don't want Plausible polluting v1 stats with
-//      engineer test traffic.
+// Ported from apps/web/src/layouts/Layout.astro per ADR-0038. Now
+// serving as the production layout for aiqadam.org. Build-aside
+// restrictions (noindex, suppressed OG/analytics) have been removed.
 //
 // PR-0d wires the L1 runtime here: <RuntimeProvider> bundles the
 // TanStack QueryClientProvider + the AuthProvider so every React
 // island gets useQuery() and useAuth() from a single client:load
 // boundary. The SSR auth blob is also still injected as a window
 // global for any consumer that prefers the v1-style direct read.
-const { title = 'AI Qadam (next)', description = 'AI Qadam web v2 — build-aside per ADR-0038.' } =
+const { title = 'AI Qadam', description = 'AI community platform for engineers across Central Asia' } =
   Astro.props;
 
 const ssrAuth = Astro.locals.auth;
@@ -39,7 +33,6 @@ const ssrAuthJson = ssrAuthInject ? JSON.stringify(ssrAuth).replace(/</g, '\\u00
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <meta name="robots" content="noindex,nofollow" />
     <title>{title}</title>
     <link rel="icon" type="image/png" href="/brand/aiqadam-mark.png" />
     <slot name="head" />

@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-031
 name: Production cutover — cookie parity, SEO re-enable, FQDN flip (M4 steps 1–2, 5–7)
-status: Not Started
+status: Implemented
 module: Migration (MIG)
 phase: Rebuild M4
 ---
@@ -60,3 +60,14 @@ The following steps are executed in order; each is a separate PR or ops action:
 - **COOLIFY FQDN FLIP MUST BE WEB-UI ONLY.** API re-run wipes `custom_labels` and Traefik routing (caused 40-min prod outage 2026-05-24). This is a human-executed step, not automatable.
 - Related: `docs/04-development/frontend/migration-status.md` § Cutover sequence.
 - PR for Step 1 is the last automated code change before cutover; Steps 5–8 are ops actions.
+
+## Implementation
+
+**Implemented:** 2026-06-25 — wf-20260625-feat-025 — branch `feature/MIG-031-production-cutover`
+
+Steps 1 and 2 (automatable steps) are implemented:
+
+- **Step 1 (cookie name parity):** `apps/web-next/src/middleware.ts` — `REFRESH_COOKIE_NEXT` value swapped to `'aiqadam-refresh'` (canonical post-cutover name); `REFRESH_COOKIE_LEGACY` set to `'aiqadam-next-refresh'` (24h overlap). Cascade fix: `signed-out.astro` cookie clear order updated to match.
+- **Step 2 (SEO re-enablement):** `apps/web-next/src/layouts/Layout.astro` — `<meta name="robots" content="noindex,nofollow">` removed; default title updated to `'AI Qadam'`; default description updated to production copy. `apps/web-next/src/blocks/common/PageHead.astro` — OG/Twitter card block, `<link rel="canonical">`, Plausible analytics, Google Fonts preconnect, and `captureLandingAttribution` script added. `apps/web-next/public/robots.txt` — `Disallow: /` replaced with permissive `Allow: /` ruleset with sitemap directive. `apps/web-next/src/pages/index.astro` — title updated to `'AI Qadam'`.
+
+**Steps 3–8 remain as human/ops actions** and are not automatable (see functional scope above). Changes are inert until the ops team executes Step 5 (FQDN flip via Coolify web UI).
