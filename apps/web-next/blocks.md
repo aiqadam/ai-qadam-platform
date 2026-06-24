@@ -34,6 +34,7 @@
 | `/workspace/admin/cron` | Admin: cron health | authed |
 | `/workspace/admin/rbac-sync` | Admin: RBAC sync | authed |
 | `/forms/[slug]` | Public form submission page | anon (authed if !allow_anonymous) |
+| `/checkin` | Event-day QR check-in page (operator + self-serve modes) | anon |
 | `/workspace/integrations/telegram/segments` | Telegram audience segments | authed |
 
 ## L1 lib hooks
@@ -47,6 +48,7 @@ L1 runtime functions that blocks and pages import.
 | `useCronStatus()` | `lib/use-cron-status.ts` | Cron job health status hook |
 | `useRbacSyncJobs()` | `lib/use-rbac-sync.ts` | RBAC sync jobs list + trigger hook |
 | `usePublicForm()` | `lib/use-public-form.ts` | Public form fetch + submission hooks |
+| `useCheckin()` | `lib/use-checkin.ts` | Event-day check-in mutation hook |
 
 ## Common blocks
 
@@ -106,3 +108,9 @@ L1 runtime functions that blocks and pages import.
 | `<SkillTagger>` | `blocks/customer/SkillTagger.tsx` | Skill tag editor |
 | `<OnboardingForm>` | `blocks/customer/OnboardingForm.tsx` | 3-step new-member onboarding wizard (profile basics, skills+interests, consents) |
 | `<ForumThread>` | `blocks/customer/ForumThread.tsx` | Discussion thread |
+
+## Check-in blocks (L3)
+
+| Block | File | Purpose |
+|---|---|---|
+| `<CheckinOperator>` | `blocks/checkin/CheckinOperator.tsx` | Event-day QR check-in with camera scanner, manual entry, offline queue, member display |

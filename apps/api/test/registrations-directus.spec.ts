@@ -8,6 +8,7 @@ import {
   RegistrationIneligibleError,
   RegistrationNotFoundError,
   RegistrationsDirectusService,
+  WrongEventError,
 } from '../src/modules/registrations/registrations-directus.service';
 
 // Pure-mock tests: this service is REST-only, so no Testcontainers Postgres
@@ -342,5 +343,212 @@ describe('checkin', () => {
     const result = await svc.checkin(CODE);
     expect(result.alreadyCheckedIn).toBe(false);
     expect(result.registration.status).toBe('attended');
+  });
+});
+
+// ─── checkinWithEvent — FR-MIG-021 ─────────────────────────────────────────
+
+const TOKEN_MIG21 = 'eeeeeeee-eeee-4000-8000-000000000005';
+const EVENT_MIG21 = 'cccccccc-cccc-4000-8000-000000000003';
+
+function regRowMIG21(overrides: Record<string, unknown> = {}) {
+  return {
+    id: REG,
+    event: EVENT_MIG21,
+    user: DIRECTUS_USER,
+    status: 'registered',
+    checkin_code: TOKEN_MIG21,
+    checked_in_at: null,
+    cancelled_at: null,
+    date_created: '2026-05-18T00:00:00Z',
+    date_updated: null,
+    referred_by: null,
+    event: {
+      id: EVENT_MIG21,
+      title: 'AI Qadam Meetup UZ',
+      starts_at: '2026-06-20T10:00:00Z',
+      ends_at: '2026-06-20T14:00:00Z',
+      location: 'Tashkent',
+      country: 'uz',
+    },
+    ...overrides,
+  };
+}
+
+describe('checkinWithEvent — FR-MIG-021', () => {
+  it('happy path: PATCHes status=attended, enriches member info, returns member + event', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [regRowMIG21()] })
+      .mockResolvedValueOnce({
+        data: { first_name: 'Bobur', last_name: 'Rahimov', avatar: 'https://cdn.example.com/bobur.jpg' },
+      });
+    fake.patch.mockResolvedValueOnce({
+      data: { ...regRowMIG21({ status: 'attended', checked_in_at: '2026-06-20T10:15:00Z' }) },
+    });
+
+    const result = await svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21);
+
+    expect(result.alreadyCheckedIn).toBe(false);
+    expect(result.member.name).toBe('Bobur Rahimov');
+    expect(result.member.avatar).toBe('https://cdn.example.com/bobur.jpg');
+    expect(result.event.title).toBe('AI Qadam Meetup UZ');
+    const patchCall = fake.patch.mock.calls[0];
+    expect(patchCall?.[0]).toBe(`/items/registrations/${REG}`);
+    expect(patchCall?.[1]).toMatchObject({ status: 'attended' });
+  });
+
+  it('already checked in: returns alreadyCheckedIn=true, skips PATCH', async () => {
+    fake.get
+      .mockResolvedValueOnce({
+        data: [regRowMIG21({ status: 'attended', checked_in_at: '2026-06-20T10:15:00Z' })],
+      })
+      .mockResolvedValueOnce({
+        data: { first_name: 'Bobur', last_name: 'Rahimov', avatar: null },
+      });
+
+    const result = await svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21);
+
+    expect(result.alreadyCheckedIn).toBe(true);
+    expect(fake.patch).not.toHaveBeenCalled();
+  });
+
+  it('throws CheckinNotFoundError when token is unknown', async () => {
+    fake.get.mockResolvedValueOnce({ data: [] });
+
+    await expect(svc.checkinWithEvent('unknown-token', EVENT_MIG21)).rejects.toBeInstanceOf(
+      CheckinNotFoundError,
+    );
+  });
+
+  it('throws WrongEventError when token belongs to a different event', async () => {
+    const OTHER_EVENT = '11111111-1111-4000-8000-000000000001';
+    fake.get
+      .mockResolvedValueOnce({
+        data: [regRowMIG21({ event: OTHER_EVENT })],
+      })
+      // Service fetches the actual event title for error message
+      .mockResolvedValueOnce({ data: { id: OTHER_EVENT, title: 'AI Qadam Meetup KZ' } });
+
+    await expect(svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21)).rejects.toBeInstanceOf(
+      WrongEventError,
+    );
+  });
+
+  it('WrongEventError message includes the correct event title', async () => {
+    const OTHER_EVENT = '11111111-1111-4000-8000-000000000001';
+    fake.get
+      .mockResolvedValueOnce({
+        data: [regRowMIG21({ event: OTHER_EVENT })],
+      })
+      .mockResolvedValueOnce({ data: { id: OTHER_EVENT, title: 'AI Qadam Meetup KZ' } });
+
+    await expect(svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21)).rejects.toThrow(
+      'this ticket is for a different event: AI Qadam Meetup KZ',
+    );
+  });
+
+  it('WrongEventError falls back to generic message when event title fetch fails', async () => {
+    const OTHER_EVENT = '11111111-1111-4000-8000-000000000001';
+    fake.get
+      .mockResolvedValueOnce({
+        data: [regRowMIG21({ event: OTHER_EVENT })],
+      })
+      .mockRejectedValueOnce(new Error('directus 503'));
+
+    await expect(svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21)).rejects.toThrow(
+      'this ticket is for a different event: another event',
+    );
+  });
+
+  it('throws CheckinIneligibleError when registration is cancelled', async () => {
+    fake.get.mockResolvedValueOnce({
+      data: [regRowMIG21({ status: 'cancelled' })],
+    });
+
+    await expect(svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21)).rejects.toBeInstanceOf(
+      CheckinIneligibleError,
+    );
+  });
+
+  it('throws CheckinIneligibleError when registration is waitlisted', async () => {
+    fake.get.mockResolvedValueOnce({
+      data: [regRowMIG21({ status: 'waitlisted' })],
+    });
+
+    await expect(svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21)).rejects.toBeInstanceOf(
+      CheckinIneligibleError,
+    );
+  });
+
+  it('member enrichment: falls back to "Member" when first_name/last_name are null', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [regRowMIG21()] })
+      .mockResolvedValueOnce({ data: { first_name: null, last_name: null, avatar: null } });
+    fake.patch.mockResolvedValueOnce({
+      data: { ...regRowMIG21({ status: 'attended' }) },
+    });
+
+    const result = await svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21);
+
+    expect(result.member.name).toBe('Member');
+    expect(result.member.avatar).toBeNull();
+  });
+
+  it('member enrichment: uses first_name only when last_name is absent', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [regRowMIG21()] })
+      .mockResolvedValueOnce({ data: { first_name: 'Bobur', last_name: null, avatar: null } });
+    fake.patch.mockResolvedValueOnce({
+      data: { ...regRowMIG21({ status: 'attended' }) },
+    });
+
+    const result = await svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21);
+
+    expect(result.member.name).toBe('Bobur');
+  });
+
+  it('member enrichment: best-effort — Directus user fetch failure does not block check-in', async () => {
+    fake.get
+      .mockResolvedValueOnce({ data: [regRowMIG21()] })
+      .mockRejectedValueOnce(new Error('directus 503'));
+    fake.patch.mockResolvedValueOnce({
+      data: { ...regRowMIG21({ status: 'attended' }) },
+    });
+
+    const result = await svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21);
+
+    expect(result.member.name).toBe('Member');
+    expect(result.member.avatar).toBeNull();
+  });
+
+  it('F-S5.3: awards referral bonus on attendance via checkinWithEvent', async () => {
+    const REFERRER = 'rrrrrrrr-rrrr-4000-8000-000000000001';
+    fake.get
+      .mockResolvedValueOnce({
+        data: [regRowMIG21({ referred_by: REFERRER })],
+      })
+      .mockResolvedValueOnce({
+        data: { first_name: 'Bobur', last_name: 'Rahimov', avatar: null },
+      })
+      .mockResolvedValueOnce({ data: [] }) // point_awards dedupe — empty
+      .mockResolvedValueOnce({ data: [] }); // member_badges dedupe — empty
+    fake.patch.mockResolvedValueOnce({
+      data: { ...regRowMIG21({ status: 'attended' }) },
+    });
+    fake.post.mockResolvedValueOnce({}); // point_awards insert
+    fake.post.mockResolvedValueOnce({}); // member_badges insert
+
+    await svc.checkinWithEvent(TOKEN_MIG21, EVENT_MIG21);
+
+    expect(fake.post).toHaveBeenCalledTimes(2);
+    const ptsPost = fake.post.mock.calls[0];
+    expect(ptsPost?.[0]).toBe('/items/point_awards');
+    expect(ptsPost?.[1]).toMatchObject({
+      user: REFERRER,
+      source: 'referral_attended',
+      source_ref: REG,
+      points: 25,
+      country: 'uz',
+    });
   });
 });

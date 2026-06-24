@@ -267,7 +267,7 @@ importers:
         version: 5.18.1(@types/node@22.19.19)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.3)(typescript@5.9.3)(yaml@2.9.0)
       geist:
         specifier: ^1.7.1
-        version: 1.7.1(next@16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
+        version: 1.7.1(next@16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
       i18next:
         specifier: ^24.0.0
         version: 24.2.3(typescript@5.9.3)
@@ -359,6 +359,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^2.11.5
         version: 2.27.2
+      '@zxing/browser':
+        specifier: ^0.1.5
+        version: 0.1.5(@zxing/library@0.21.3)
       astro:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@22.19.19)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.3)(typescript@5.9.3)(yaml@2.9.0)
@@ -3618,6 +3621,18 @@ packages:
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
 
+  '@zxing/browser@0.1.5':
+    resolution: {integrity: sha512-4Lmrn/il4+UNb87Gk8h1iWnhj39TASEHpd91CwwSJtY5u+wa0iH9qS0wNLAWbNVYXR66WmT5uiMhZ7oVTrKfxw==}
+    peerDependencies:
+      '@zxing/library': ^0.21.0
+
+  '@zxing/library@0.21.3':
+    resolution: {integrity: sha512-hZHqFe2JyH/ZxviJZosZjV+2s6EDSY0O24R+FQmlWZBZXP9IqMo7S3nb3+2LBWxodJQkSurdQGnqE7KXqrYgow==}
+    engines: {node: '>= 10.4.0'}
+
+  '@zxing/text-encoding@0.9.0':
+    resolution: {integrity: sha512-U/4aVJ2mxI0aDNI8Uq0wEhMgY+u4CNtEb0om3+y3+niDAsoTCOB33UF0sxpzqzdqXLqmvc+vZyAt4O8pPdfkwA==}
+
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
     engines: {node: '>=6.5'}
@@ -6746,6 +6761,10 @@ packages:
 
   trough@2.2.0:
     resolution: {integrity: sha512-tmMpK00BjZiUyVyvrBK7knerNgmgvcV/KLVyuma/SC+TQN167GrMRciANTz09+k3zW8L8t60jWO1GpfkZdjTaw==}
+
+  ts-custom-error@3.3.1:
+    resolution: {integrity: sha512-5OX1tzOjxWEgsr/YEUWSuPrQ00deKLh6D7OTWcvNHm12/7QPyRh8SYpyWvA4IZv8H/+GQWQEh/kwo95Q9OVW1A==}
+    engines: {node: '>=14.0.0'}
 
   ts-dedent@2.2.0:
     resolution: {integrity: sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ==}
@@ -10320,6 +10339,21 @@ snapshots:
 
   '@xtuc/long@4.2.2': {}
 
+  '@zxing/browser@0.1.5(@zxing/library@0.21.3)':
+    dependencies:
+      '@zxing/library': 0.21.3
+    optionalDependencies:
+      '@zxing/text-encoding': 0.9.0
+
+  '@zxing/library@0.21.3':
+    dependencies:
+      ts-custom-error: 3.3.1
+    optionalDependencies:
+      '@zxing/text-encoding': 0.9.0
+
+  '@zxing/text-encoding@0.9.0':
+    optional: true
+
   abort-controller@3.0.0:
     dependencies:
       event-target-shim: 5.0.1
@@ -11600,9 +11634,9 @@ snapshots:
 
   function-bind@1.1.2: {}
 
-  geist@1.7.1(next@16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)):
+  geist@1.7.1(next@16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)):
     dependencies:
-      next: 16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
   generator-function@2.0.1: {}
 
@@ -12671,7 +12705,7 @@ snapshots:
 
   neotraverse@0.6.18: {}
 
-  next@16.2.6(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+  next@16.2.6(@babel/core@7.29.0)(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       '@next/env': 16.2.6
       '@swc/helpers': 0.5.15
@@ -12680,7 +12714,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
-      styled-jsx: 5.1.6(react@19.2.6)
+      styled-jsx: 5.1.6(@babel/core@7.29.0)(react@19.2.6)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.2.6
       '@next/swc-darwin-x64': 16.2.6
@@ -13733,10 +13767,12 @@ snapshots:
     dependencies:
       '@tokenizer/token': 0.3.0
 
-  styled-jsx@5.1.6(react@19.2.6):
+  styled-jsx@5.1.6(@babel/core@7.29.0)(react@19.2.6):
     dependencies:
       client-only: 0.0.1
       react: 19.2.6
+    optionalDependencies:
+      '@babel/core': 7.29.0
 
   superagent@10.3.0:
     dependencies:
@@ -13943,6 +13979,8 @@ snapshots:
   trim-lines@3.0.1: {}
 
   trough@2.2.0: {}
+
+  ts-custom-error@3.3.1: {}
 
   ts-dedent@2.2.0: {}
 

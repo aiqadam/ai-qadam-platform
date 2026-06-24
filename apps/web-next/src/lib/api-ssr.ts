@@ -90,6 +90,32 @@ export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | n
 }
 
 // ---------------------------------------------------------------------------
+// /v1/events/checkin/active — active events for check-in operator dropdown (FR-MIG-021).
+// Returns events where startsAt <= now <= endsAt + 24h. Public endpoint.
+// ---------------------------------------------------------------------------
+
+export interface CheckinActiveEvent {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  location: string | null;
+}
+
+export async function fetchActiveEvents(req: Request): Promise<CheckinActiveEvent[]> {
+  try {
+    const body = await get<{ events: CheckinActiveEvent[] }>(req, '/v1/events/checkin/active');
+    return body.events;
+  } catch (err) {
+    console.error(
+      '[api-ssr] /v1/events/checkin/active failed:',
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // /v1/users/:handle/profile — public member profile.
 // ---------------------------------------------------------------------------
 

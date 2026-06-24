@@ -942,3 +942,31 @@ export interface PublicForm {
   schema: PublicFormSchema;
   status: 'draft' | 'published' | 'archived';
 }
+
+// ---------------------------------------------------------------------------
+// apps/api — /v1/registrations/:token/checkin (FR-MIG-021)
+//
+// Event-day QR check-in response. Returned by POST /v1/registrations/:token/checkin
+// and displayed on the operator's check-in page after a successful scan.
+// ---------------------------------------------------------------------------
+
+export interface CheckinResponse {
+  status: 'ok';
+  alreadyCheckedIn: boolean;
+  checkedInAt: string;
+  member: {
+    name: string;
+    avatar: string | null;
+  };
+  event: {
+    id: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+    location: string | null;
+  };
+}
+
+export interface CheckinRequest {
+  eventId: string;
+}
