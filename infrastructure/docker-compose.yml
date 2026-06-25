@@ -23,6 +23,8 @@
 #   minio               — S3-compatible storage     : 127.0.0.1:9100 (API), 127.0.0.1:9001 (console)
 #   authentik-server    — OIDC identity provider    : 127.0.0.1:9000 (HTTP)
 #   authentik-worker    — Authentik background jobs : (no exposed ports)
+#   twenty              — Twenty CRM                : 127.0.0.1:3010
+#   telegram-bot-api    — Local Telegram Bot API    : 127.0.0.1:8082 (HTTP), 127.0.0.1:8083 (HTTPS test)
 #
 # Directus and Listmonk follow in dedicated PRs as those features come online.
 #
@@ -160,12 +162,76 @@ services:
       redis:
         condition: service_healthy
 
+  # Twenty CRM — supporting service per ARCHITECTURE.md §"Supporting services".
+  # Connects to the shared postgres `twenty` DB and shared redis.
+  # Data access from NestJS is ONLY via Twenty's GraphQL API (never SQL join).
+  # First-run setup: visit http://localhost:3010, create workspace, then
+  # configure API key in apps/api/.env as TWENTY_API_KEY.
+  # Pinned to latest stable. Bump in a dedicated PR after reading release notes.
+  twenty:
+    image: twentycrm/twenty:latest
+    container_name: aiqadam-twenty
+    restart: unless-stopped
+    environment:
+      SERVER_URL: http://localhost:${TWENTY_HOST_PORT:-3010}
+      FRONT_BASE_URL: http://localhost:${TWENTY_HOST_PORT:-3010}
+      PG_DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/twenty
+      REDIS_URL: redis://redis:6379
+      STORAGE_TYPE: local
+      APP_SECRET: ${TWENTY_APP_SECRET:?set TWENTY_APP_SECRET in infrastructure/.env}
+      # Disable telemetry in local dev
+      TELEMETRY_ENABLED: "false"
+      TELEMETRY_ANONYMIZATION_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${TWENTY_HOST_PORT:-3010}:3000"
+    volumes:
+      - twenty-data:/app/.local-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Telegram Bot API local server — runs the official Telegram Bot API locally
+  # so the aiogram bot (apps/bot/) can be tested without hitting production
+  # Telegram servers. The bot must set TELEGRAM_API_SERVER=http://telegram-bot-api:8080
+  # and LOCAL_MODE=true in its env. Webhook deliveries go to the bot via the
+  # Docker network — no public URL needed.
+  # Credentials: get TELEGRAM_API_ID and TELEGRAM_API_HASH from https://my.telegram.org
+  # (these are app-level credentials, NOT the bot token).
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: aiqadam-telegram-bot-api
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:?set TELEGRAM_API_ID in infrastructure/.env}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:?set TELEGRAM_API_HASH in infrastructure/.env}
+      TELEGRAM_LOCAL: "1"
+    ports:
+      - "127.0.0.1:${TELEGRAM_BOT_API_HOST_PORT:-8082}:8081"
+    volumes:
+      - telegram-bot-api-data:/var/lib/telegram-bot-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   pgdata:
   redis-data:
   minio-data:
   authentik-media:
   authentik-templates:
+  twenty-data:
+  telegram-bot-api-data:
 
 networks:
   default:

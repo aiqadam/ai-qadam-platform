@@ -47,7 +47,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 3 | [FR-CMS-006](FR-CMS-006.md) | UTM URL builder | Shipped | — |
 | 4 | [FR-ADM-009](FR-ADM-009.md) | Cron health dashboard | Shipped | — |
 | 5 | [FR-CMS-001](FR-CMS-001.md) | Homepage + site CMS content | Shipped | — |
-| 6 | [FR-CRM-001](FR-CRM-001.md) | Twenty CRM deployment + SSO | Planned | — |
+| 6 | [FR-CRM-001](FR-CRM-001.md) | Twenty CRM deployment + SSO | Shipped | — |
 | 7 | [FR-ADM-005](FR-ADM-005.md) | Operator invites | Shipped | AUTH-001 |
 | 8 | [FR-USR-001](FR-USR-001.md) | Signup / first-time experience | Shipped | AUTH-001 |
 | 9 | [FR-AUTH-002](FR-AUTH-002.md) | Telegram sign-in | Planned | AUTH-001 |

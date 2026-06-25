@@ -90,3 +90,6 @@ coverage/
 # Listed for awareness if anyone ever copies one into the repo.)
 coolify.env*
 coolify-env-backup*.txt
+
+# --- Local credential files (never in repo) --------------------------------
+infrastructure/telegram.md

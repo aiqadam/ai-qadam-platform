@@ -1,7 +1,7 @@
 ---
 code: FR-CRM-001
 name: Twenty CRM deployment and SSO
-status: Planned
+status: Implemented
 module: CRM (CRM)
 phase: Roadmap Sprint 5
 ---
