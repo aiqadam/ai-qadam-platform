@@ -13,11 +13,11 @@ github_issue_url: ""
 
 branch: "feature/CRM-001-twenty-crm-deployment"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/51"
 
 current_step: 11
 current_step_name: "commit-push-pr"
-workflow_status: "running"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
