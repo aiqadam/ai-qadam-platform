@@ -26,7 +26,9 @@ The following steps are executed in order; each is a separate PR or ops action:
 - Re-add: `<link rel="canonical">`, full OG/Twitter card block, Plausible analytics script, Google Fonts preconnect, `captureLandingAttribution` script.
 
 **Step 3 — Authentik OAuth client repoint**
-- Authentik admin: update the `web-next` client redirect URIs from `next.aiqadam.org` to apex/tenant URIs.
+- Run `pnpm cutover:repoint --dry-run` to preview, then `pnpm cutover:repoint` to apply.
+- Removes all `next.aiqadam.org` redirect URIs from the Authentik OAuth2 provider; adds the apex + all active tenant production URIs.
+- Requires `AUTHENTIK_ADMIN_TOKEN` and `AUTHENTIK_OIDC_PROVIDER_NAME` in `apps/api/.env`.
 
 **Step 4 — Pre-flip snapshot**
 - Backrest snapshot taken within 1 hour of FQDN flip.
@@ -70,4 +72,6 @@ Steps 1 and 2 (automatable steps) are implemented:
 - **Step 1 (cookie name parity):** `apps/web-next/src/middleware.ts` — `REFRESH_COOKIE_NEXT` value swapped to `'aiqadam-refresh'` (canonical post-cutover name); `REFRESH_COOKIE_LEGACY` set to `'aiqadam-next-refresh'` (24h overlap). Cascade fix: `signed-out.astro` cookie clear order updated to match.
 - **Step 2 (SEO re-enablement):** `apps/web-next/src/layouts/Layout.astro` — `<meta name="robots" content="noindex,nofollow">` removed; default title updated to `'AI Qadam'`; default description updated to production copy. `apps/web-next/src/blocks/common/PageHead.astro` — OG/Twitter card block, `<link rel="canonical">`, Plausible analytics, Google Fonts preconnect, and `captureLandingAttribution` script added. `apps/web-next/public/robots.txt` — `Disallow: /` replaced with permissive `Allow: /` ruleset with sitemap directive. `apps/web-next/src/pages/index.astro` — title updated to `'AI Qadam'`.
 
-**Steps 3–8 remain as human/ops actions** and are not automatable (see functional scope above). Changes are inert until the ops team executes Step 5 (FQDN flip via Coolify web UI).
+**Step 3** is now scripted: `pnpm cutover:repoint` calls the Authentik admin API via `scripts/cutover-authentik-repoint.ts`.
+
+**Steps 4–8 remain as human/ops actions:** Backrest snapshot (Step 4), Coolify FQDN flip via web UI only (Step 5 — API writes are permanently forbidden due to 2026-05-24 incident), smoke test (Step 6), PM sign-off (Step 7), and post-standby teardown (Step 8).
