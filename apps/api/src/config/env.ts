@@ -204,6 +204,16 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
 
+  // FR-AUTH-002 — Telegram Login Widget HMAC verification key. Distinct
+  // from TELEGRAM_BOT_SERVICE_TOKEN (bearer auth for bot ↔ API calls).
+  // The HMAC key is derived as SHA256(TELEGRAM_BOT_TOKEN) — the raw token
+  // is never used directly and must never appear in logs.
+  //
+  // **Optional**: when unset, the telegram-auth endpoints (/v1/auth/telegram/*)
+  // return 503 `telegram_not_configured`. Same degraded-mode pattern as other
+  // optional integration tokens.
+  TELEGRAM_BOT_TOKEN: z.string().min(20).optional(),
+
   // F-S2.8.x Cloudflare/Resend per-operator email-routing envs
   // (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID, CLOUDFLARE_ACCOUNT_ID,
   // RESEND_ADMIN_API_KEY) were removed in F-S2.12 (2026-05-25):

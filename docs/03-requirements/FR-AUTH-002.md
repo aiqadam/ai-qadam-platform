@@ -1,7 +1,7 @@
 ---
 code: FR-AUTH-002
 name: Telegram authentication (bot deep-link + web widget)
-status: Planned
+status: Implemented
 module: Auth (AUTH)
 phase: Roadmap Sprint 6
 ---
@@ -38,3 +38,23 @@ Members (new via bot), Members (linking Telegram to existing web account).
 - Two HMAC schemes exist in Telegram's docs (Login Widget vs WebApp `initData`) — implementation must use the correct one for each entry point.
 - ADR-0015 (bot-scope) and the architectural decisions D1–D4 in `sprint-5-to-8-plan.md` govern the design.
 - See also FR-AUTH-005 (account linking) and FR-AUTH-006 (temp account upgrade).
+
+## Implementation status
+
+**API layer implemented** (wf-20260625-feat-027, branch `feature/AUTH-002-telegram-signin`):
+
+- `TelegramAuthService` — HMAC-SHA256 widget verification, Authentik user lookup/provision (with email-match fallback), recovery-link minting.
+- `POST /v1/auth/telegram/exchange` — public endpoint, rate-limited (5 req/60 s per IP), 302-redirects to Authentik recovery link.
+- `POST /v1/internal/telegram/upsert-temp-user` — `InternalAuthGuard`-protected, idempotent temp-user provisioning.
+- `AuthentikClient` extended with `getUserByTelegramId` and `createRecoveryLink` methods.
+- `TELEGRAM_BOT_TOKEN` env var added (optional; endpoints return `503` when absent).
+
+**Deferred to subsequent PRs:**
+
+| Deferred item | Future work |
+|---|---|
+| Telegram Login Widget JS snippet on `/auth/sign-in` page | Web follow-up PR (FR-BOT-001 or standalone) |
+| Bot `/start` command handler calling `upsert-temp-user` | FR-BOT-001 |
+| Country assignment prompt + `country_preference` write | FR-BOT-001 |
+| Account linking from `/me` page | FR-AUTH-005 |
+| Temp account upgrade flow | FR-AUTH-006 |

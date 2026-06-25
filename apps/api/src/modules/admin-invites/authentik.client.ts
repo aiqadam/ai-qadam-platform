@@ -216,6 +216,34 @@ export class AuthentikClient {
     });
   }
 
+  // FR-AUTH-002 — look up a user by their Telegram user ID stored in
+  // Authentik's `attributes.telegram_id`. Authentik's users list endpoint
+  // supports attribute filtering via the `attributes` query parameter
+  // (JSON string). Returns the first match or null if none exists.
+  async getUserByTelegramId(telegramId: string): Promise<AuthentikUser | null> {
+    const qs = new URLSearchParams({
+      attributes: JSON.stringify({ telegram_id: telegramId }),
+    });
+    const res = await this.request<{ results: AuthentikUser[] }>(
+      'GET',
+      `/api/v3/core/users/?${qs.toString()}`,
+    );
+    return res.results[0] ?? null;
+  }
+
+  // FR-AUTH-002 — mint a one-time Authentik recovery link for the given
+  // user PK. Authentik's recovery endpoint (POST /api/v3/core/users/{pk}/recovery/)
+  // returns `{ recovery_link: string }` — a short-TTL, one-use URL the
+  // browser visits to establish an authenticated OIDC session without
+  // a password.
+  async createRecoveryLink(userPk: number): Promise<string> {
+    const res = await this.request<{ recovery_link: string }>(
+      'POST',
+      `/api/v3/core/users/${userPk}/recovery/`,
+    );
+    return res.recovery_link;
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.base}${path.startsWith('/') ? path : `/${path}`}`;
     const init: RequestInit = {
