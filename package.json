@@ -29,7 +29,8 @@
     "gen:page": "tsx tools/gen/page.ts",
     "gen:cabinet": "tsx tools/gen/cabinet.ts",
     "ai:sync": "bash scripts/sync-ai-rules.sh",
-    "e2e:parity": "pnpm --filter @aiqadam/e2e e2e:parity"
+    "e2e:parity": "pnpm --filter @aiqadam/e2e e2e:parity",
+    "cutover:repoint": "tsx scripts/cutover-authentik-repoint.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
