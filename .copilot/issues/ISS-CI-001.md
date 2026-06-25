@@ -5,10 +5,23 @@
 | ID | ISS-CI-001 |
 | Severity | blocker |
 | Module | ci / infrastructure |
-| Status | open |
+| Status | **resolved** |
 | Reported | 2026-06-24 |
-| Workflow | _(to be spawned — `wf-20260624-fix-20`)_ |
+| Resolved | 2026-06-24 |
 | Reporter | PR #35 (FR-MIG-024) CI runs on 2026-06-24 reported the failures. |
+| Resolution PRs | [#37](https://github.com/tvolodi/aiqadam/pull/37) · [#38](https://github.com/tvolodi/aiqadam/pull/38) · [#39](https://github.com/tvolodi/aiqadam/pull/39) · [#40](https://github.com/tvolodi/aiqadam/pull/40) · [#41](https://github.com/tvolodi/aiqadam/pull/41) |
+
+## Resolution summary
+
+All three CI failures resolved on 2026-06-24 via five targeted PRs:
+
+| PR | Change | Resolved |
+|---|---|---|
+| [#37](https://github.com/tvolodi/aiqadam/pull/37) | Disable Biome formatter, ignore generated artifacts | Biome 20,432 → ~150 errors |
+| [#38](https://github.com/tvolodi/aiqadam/pull/38) | Auto-fix all remaining Biome lint errors | Biome: 0 errors |
+| [#39](https://github.com/tvolodi/aiqadam/pull/39) | Add `@generated-from` markers to 17 pages + arch-ignore pragma | arch-check violations cleared |
+| [#40](https://github.com/tvolodi/aiqadam/pull/40) | Suppress 5 pre-existing block violations + blocks catalogue | arch-check: 0 violations |
+| [#41](https://github.com/tvolodi/aiqadam/pull/41) | Bump Astro 5→7 + node adapter; clear all 7 high CVEs | `pnpm audit`: clean |
 
 ## Symptom
 
