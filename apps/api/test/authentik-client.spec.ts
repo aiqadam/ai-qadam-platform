@@ -196,3 +196,77 @@ describe('AuthentikClient — auth + error shape', () => {
     });
   });
 });
+
+// FR-AUTH-002 — new methods added for Telegram authentication.
+
+describe('AuthentikClient.getUserByTelegramId', () => {
+  it('GETs with attributes JSON filter and returns the first matching user', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        results: [
+          {
+            pk: 101,
+            username: 'tg123456789',
+            email: 'tg123456789@telegram.local',
+            name: 'Aigerim',
+            is_active: true,
+            uid: 'uid-tg101',
+            groups: [],
+            groups_obj: [],
+            attributes: { telegram_id: '123456789' },
+          },
+        ],
+      }),
+    );
+
+    const user = await client.getUserByTelegramId('123456789');
+
+    expect(user?.pk).toBe(101);
+    expect(user?.attributes).toMatchObject({ telegram_id: '123456789' });
+    const url = fetchSpy.mock.calls[0]?.[0] as string;
+    expect(url).toContain('/api/v3/core/users/');
+    expect(url).toContain('attributes=');
+    expect(decodeURIComponent(url)).toContain('"telegram_id":"123456789"');
+  });
+
+  it('returns null when no user has the given telegram_id', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { results: [] }));
+
+    const user = await client.getUserByTelegramId('999999999');
+
+    expect(user).toBeNull();
+  });
+
+  it('throws AuthentikError on a non-2xx response', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(500, { detail: 'db error' }));
+
+    await expect(client.getUserByTelegramId('123456789')).rejects.toMatchObject({
+      name: 'AuthentikError',
+      status: 500,
+    });
+  });
+});
+
+describe('AuthentikClient.createRecoveryLink', () => {
+  it('POSTs to the recovery endpoint and returns the recovery_link string', async () => {
+    const RECOVERY_URL = 'https://auth.aiqadam.org/recover/abcdef123456/';
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { recovery_link: RECOVERY_URL }));
+
+    const result = await client.createRecoveryLink(42);
+
+    expect(result).toBe(RECOVERY_URL);
+    const url = fetchSpy.mock.calls[0]?.[0] as string;
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(url).toMatch(/\/api\/v3\/core\/users\/42\/recovery\/$/);
+    expect(init.method).toBe('POST');
+  });
+
+  it('throws AuthentikError on a non-2xx response', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(404, { detail: 'Not Found' }));
+
+    await expect(client.createRecoveryLink(99)).rejects.toMatchObject({
+      name: 'AuthentikError',
+      status: 404,
+    });
+  });
+});

@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -10,9 +12,11 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import { env } from '../../config/env';
 import { track } from '../../lib/ops-events';
+import { InternalAuthGuard } from '../internal/internal-auth.guard';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { LeadsService } from '../leads/leads.service';
 import { UsersService } from '../users/users.service';
@@ -25,6 +29,12 @@ import {
   RefreshTokenReplayError,
   RefreshTokenService,
 } from './refresh-token.service';
+import {
+  TelegramAuthService,
+  telegramWidgetPayloadSchema,
+  upsertTempUserBodySchema,
+} from './telegram-auth.service';
+import type { UpsertTempUserResult } from './telegram-auth.service';
 
 // COOKIES — see docs/04-development/architecture/auth-architecture.md §"Cookies"
 //
@@ -91,6 +101,7 @@ export class AuthController {
     private readonly revocations: JtiRevocationService,
     private readonly directusBridge: DirectusUsersBridgeService,
     private readonly leads: LeadsService,
+    private readonly telegramAuth: TelegramAuthService,
   ) {}
 
   // GET /v1/auth/login?next=/somewhere — top-level browser navigation, NOT
@@ -343,6 +354,31 @@ export class AuthController {
       groups: req.user.groups ?? [],
     };
   }
+
+  // POST /v1/auth/telegram/exchange — public endpoint (no AuthGuard).
+  // Accepts Telegram Login Widget fields, verifies HMAC-SHA256, looks up
+  // or creates an Authentik user, mints a recovery link, and 302-redirects
+  // the browser through the Authentik one-time login URL.
+  //
+  // Rate-limited: 5 requests per 15 minutes per IP (security.md §Rate limiting
+  // requires 5/15 min for auth endpoints — not the looser global 60/60 s ceiling).
+  @Post('telegram/exchange')
+  @HttpCode(HttpStatus.FOUND)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  async telegramExchange(
+    @Body() body: unknown,
+    @Res({ passthrough: false }) res: Response,
+  ): Promise<void> {
+    const parsed = telegramWidgetPayloadSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const recoveryUrl = await this.telegramAuth.exchangeWidgetPayload(parsed.data);
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(HttpStatus.FOUND, recoveryUrl);
+  }
+
 }
 
 // `next` must be a same-origin relative path (begins with / but not //)
@@ -365,4 +401,33 @@ function extractBearer(req: Request): string | null {
   if (!header) return null;
   const match = /^Bearer\s+(.+)$/i.exec(header);
   return match?.[1] ?? null;
+}
+
+// ── Internal Telegram controller ─────────────────────────────────────────────
+//
+// Separate controller class so it can declare @Controller('v1/internal/telegram')
+// while living in the same file as AuthController. The AuthModule registers
+// both controllers.
+
+@Controller('v1/internal/telegram')
+@UseGuards(InternalAuthGuard)
+export class TelegramInternalController {
+  constructor(private readonly telegramAuth: TelegramAuthService) {}
+
+  // POST /v1/internal/telegram/upsert-temp-user — InternalAuthGuard protected.
+  // Called by the Telegram bot to provision a temporary Authentik user on
+  // /start before full registration. Idempotent by telegram_id.
+  @Post('upsert-temp-user')
+  @HttpCode(HttpStatus.OK)
+  async upsertTempUser(@Body() body: unknown): Promise<UpsertTempUserResult> {
+    const parsed = upsertTempUserBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.upsertTempUser(
+      parsed.data.telegramId,
+      parsed.data.firstName,
+      parsed.data.username,
+    );
+  }
 }
