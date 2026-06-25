@@ -6,7 +6,7 @@
 
 ## Active Workflows
 
-_(none)_
+_(none — web-next migration complete as of 2026-06-25)_
 
 ---
 
@@ -34,9 +34,7 @@ _(none)_
 
 ## Open Issues
 
-| ID | Severity | Summary | Status |
-|---|---|---|---|
-| [ISS-CI-001](../issues/ISS-CI-001.md) | blocker | Pre-existing CI failures (arch-check 25 violations, biome 20,432 errors, pnpm audit 2 high CVEs) block all future PRs to main | open — registered 2026-06-24 |
+_(none — ISS-CI-001 resolved 2026-06-24 via PRs #37–41)_
 
 ---
 
@@ -44,7 +42,7 @@ _(none)_
 
 - **Current branch:** main
 - **Last sync with origin:** 2026-06-25
-- **Pending PRs:** [PR #27](https://github.com/tvolodi/aiqadam/pull/27) (FR-MIG-014), [PR #48](https://github.com/tvolodi/aiqadam/pull/48) (FR-MIG-031)
+- **Pending PRs:** _(none — all PRs merged)_
 
 ## Next Workflow ID
 
@@ -53,6 +51,8 @@ See `.copilot/meta/next-workflow-id` (currently: 26)
 ---
 
 ## Notes
+
+**2026-06-25:** `apps/web` → `apps/web-next` migration COMPLETE. All 31 FR-MIG items shipped and merged. Production cutover steps executed (FR-MIG-031): cookie parity, SEO re-enabled, Authentik redirect URI repointed. Next track: Sprint 5 (Twenty CRM — FR-CRM-001/002) and FR-EVT-004 (event detail page, in progress).
 
 **2026-06-23:** FR-MIG-018 (/me hub + preferences + access-log + referrals) completed and PR created.
 - 4 Astro pages: /me hub, preferences, access-log, referrals

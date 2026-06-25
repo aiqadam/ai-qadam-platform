@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-019
 name: /forms/[slug] — public form renderer
-status: In Progress
+status: Shipped
 module: Migration (MIG)
 phase: Rebuild M3
 ---

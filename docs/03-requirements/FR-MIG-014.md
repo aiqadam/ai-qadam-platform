@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-014
 name: /workspace/integrations/telegram — root + segments builder
-status: Not Started
+status: Shipped
 module: Migration (MIG)
 phase: Rebuild M2
 ---

@@ -1,7 +1,7 @@
 ---
 code: FR-MIG-016
 name: /workspace/admin/cron + /workspace/admin/rbac-sync
-status: Not Started
+status: Shipped
 module: Migration (MIG)
 phase: Rebuild M2
 ---
