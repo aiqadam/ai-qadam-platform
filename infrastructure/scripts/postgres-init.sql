@@ -14,6 +14,7 @@ CREATE DATABASE platform;
 CREATE DATABASE directus;
 CREATE DATABASE authentik;
 CREATE DATABASE listmonk;
+CREATE DATABASE twenty;
 
 -- pgvector lives on the platform DB (used for content embeddings later).
 \c platform

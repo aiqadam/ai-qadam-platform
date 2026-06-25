@@ -1,0 +1,146 @@
+# Twenty CRM — Production Coolify stack
+#
+# Coolify service uuid : x12tbwbkpmy4ump0kgf15mrc
+# Server sub-app uuid  : ssemgpv3jvi44xj71bnrs956
+# FQDN                 : https://crm.aiqadam.org
+#
+# How to deploy:
+#   1. In Coolify → + New Resource → Docker Compose
+#   2. Paste the contents of this file (or reference it from the repo).
+#   3. Set the required service envs listed in the "Required envs" section below.
+#   4. Register FQDN via Coolify API before first deploy:
+#        PATCH /api/v1/services/x12tbwbkpmy4ump0kgf15mrc
+#          body: {"urls":[{"name":"server","url":"https://crm.aiqadam.org"}]}
+#   5. Deploy. Twenty bootstraps its own schema on first start.
+#   6. Open https://crm.aiqadam.org → complete the workspace creation wizard.
+#
+# Required envs (set at Coolify service level — never commit real values):
+#   APP_SECRET         — openssl rand -base64 32 | tr -d '\n'
+#   PG_DATABASE_USER   — postgres
+#   PG_DATABASE_PASSWORD — openssl rand -hex 24
+#   SERVER_URL         — https://crm.aiqadam.org
+#   TAG                — v0.50.0  (bump deliberately; do NOT ride "latest" in prod)
+#
+# SSO envs (required for Authentik OIDC — C5.2 already shipped 2026-05-18):
+#   ENTERPRISE_KEY     — any non-empty string; enables the createOIDCIdentityProvider
+#                        mutation. Twenty BSL 1.1 self-hosted; presence-check only.
+#   IS_MULTIWORKSPACE_ENABLED — false
+#   FRONTEND_URL       — https://crm.aiqadam.org
+#   DEFAULT_SUBDOMAIN  — app
+#
+# Full operational notes: docs/04-development/infrastructure/runbooks/coolify-app-stacks.md
+# (Twenty CRM section)
+
+services:
+
+  # ── Web server ─────────────────────────────────────────────────────────────
+  server:
+    image: twentycrm/twenty:${TAG:-v0.50.0}
+    # expose (not ports) lets Coolify/Traefik target this container automatically
+    # after the FQDN PATCH; Traefik handles TLS termination externally.
+    expose:
+      - "3000"
+    environment:
+      SERVER_URL: ${SERVER_URL}
+      FRONT_BASE_URL: ${SERVER_URL}
+      PG_DATABASE_URL: postgres://${PG_DATABASE_USER}:${PG_DATABASE_PASSWORD}@db:5432/twenty
+      REDIS_URL: redis://cache:6379
+      STORAGE_TYPE: local
+      APP_SECRET: ${APP_SECRET}
+      # SSO — Authentik OIDC (C5.2, shipped 2026-05-18)
+      ENTERPRISE_KEY: ${ENTERPRISE_KEY}
+      IS_MULTIWORKSPACE_ENABLED: ${IS_MULTIWORKSPACE_ENABLED:-false}
+      FRONTEND_URL: ${FRONTEND_URL:-${SERVER_URL}}
+      DEFAULT_SUBDOMAIN: ${DEFAULT_SUBDOMAIN:-app}
+      TELEMETRY_ENABLED: "false"
+      TELEMETRY_ANONYMIZATION_ENABLED: "false"
+    volumes:
+      - server-local-data:/app/.local-storage
+      # Gotcha #1 (Twenty v0.50.0): the entrypoint runs `touch /app/docker-data/db_status`
+      # with `set -e`. A named-volume mount masks the directory (root-owned, container
+      # user cannot write) → crashloop. tmpfs mode=1777 lets any user write.
+      # Migrations re-run on every start (~10s, idempotent) — acceptable.
+      - type: tmpfs
+        target: /app/docker-data
+        tmpfs:
+          mode: 0o1777
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+
+  # ── Background worker ──────────────────────────────────────────────────────
+  worker:
+    image: twentycrm/twenty:${TAG:-v0.50.0}
+    command: ["yarn", "worker:prod"]
+    environment:
+      PG_DATABASE_URL: postgres://${PG_DATABASE_USER}:${PG_DATABASE_PASSWORD}@db:5432/twenty
+      REDIS_URL: redis://cache:6379
+      APP_SECRET: ${APP_SECRET}
+      SERVER_URL: ${SERVER_URL}
+      ENTERPRISE_KEY: ${ENTERPRISE_KEY}
+      IS_MULTIWORKSPACE_ENABLED: ${IS_MULTIWORKSPACE_ENABLED:-false}
+      TELEMETRY_ENABLED: "false"
+      TELEMETRY_ANONYMIZATION_ENABLED: "false"
+    volumes:
+      - server-local-data:/app/.local-storage
+      - type: tmpfs
+        target: /app/docker-data
+        tmpfs:
+          mode: 0o1777
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+
+  # ── Dedicated Postgres ─────────────────────────────────────────────────────
+  # Separate from the platform Postgres (aiqadam-postgres) by design:
+  # Twenty's schema is self-managed and isolating it prevents accidental
+  # cross-schema queries from NestJS. All access from NestJS is via
+  # Twenty's GraphQL API only — never direct SQL.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${PG_DATABASE_USER}
+      POSTGRES_PASSWORD: ${PG_DATABASE_PASSWORD}
+      POSTGRES_DB: twenty
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_DATABASE_USER} -d twenty"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── Dedicated Redis ────────────────────────────────────────────────────────
+  # Separate from the platform Redis (aiqadam-redis) to isolate Bull queue
+  # keys from platform cache keys.
+  cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - cache-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  server-local-data:
+  db-data:
+  cache-data:
