@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-25 (wf-20260625-feat-026)
 
 ---
 
@@ -14,6 +14,7 @@ _(none — web-next migration complete as of 2026-06-25)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260625-feat-026 | requirement-development | FR-CRM-001 Twenty CRM deployment + SSO | feature/CRM-001-twenty-crm-deployment | [PR #51](https://github.com/tvolodi/aiqadam/pull/51) | 2026-06-25 |
 | wf-20260625-feat-025 | requirement-development | FR-MIG-031 production cutover — cookie parity, SEO re-enable | feature/MIG-031-production-cutover | [PR #48](https://github.com/tvolodi/aiqadam/pull/48) | 2026-06-25 |
 | wf-20260625-feat-024 | requirement-development | FR-MIG-030 parity E2E suite + Lighthouse CI | feature/MIG-030-parity-e2e-suite | [PR #47](https://github.com/tvolodi/aiqadam/pull/47) | 2026-06-25 |
 | wf-20260625-feat-023 | requirement-development | FR-MIG-029 /workspace/members uplift — segment builder | feature/MIG-029-members-segment-builder | [PR #46](https://github.com/tvolodi/aiqadam/pull/46) | 2026-06-25 |
@@ -42,17 +43,19 @@ _(none — ISS-CI-001 resolved 2026-06-24 via PRs #37–41)_
 
 - **Current branch:** main
 - **Last sync with origin:** 2026-06-25
-- **Pending PRs:** _(none — all PRs merged)_
+- **Pending PRs:** [PR #51](https://github.com/tvolodi/aiqadam/pull/51) — FR-CRM-001 (awaiting merge)
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 26)
+See `.copilot/meta/next-workflow-id` (currently: 27)
 
 ---
 
 ## Notes
 
-**2026-06-25:** `apps/web` → `apps/web-next` migration COMPLETE. All 31 FR-MIG items shipped and merged. Production cutover steps executed (FR-MIG-031): cookie parity, SEO re-enabled, Authentik redirect URI repointed. Next track: Sprint 5 (Twenty CRM — FR-CRM-001/002) and FR-EVT-004 (event detail page, in progress).
+**2026-06-25:** FR-CRM-001 (Twenty CRM deployment + SSO) — PR #51 open. Delivers `infrastructure/twenty/docker-compose.yml` (production Coolify compose, 4 services), local-dev compose additions, postgres-init twenty DB, env.example stubs. C5.2 (Authentik OIDC SSO) already shipped 2026-05-18. Manual smoke tests S1–S7 required post-merge before marking production-verified. Next: FR-CRM-002 (contact sync) unblocked once PR #51 merges.
+
+**2026-06-25:** `apps/web` → `apps/web-next` migration COMPLETE. All 31 FR-MIG items shipped and merged. Production cutover steps executed (FR-MIG-031): cookie parity, SEO re-enabled, Authentik redirect URI repointed.
 
 **2026-06-23:** FR-MIG-018 (/me hub + preferences + access-log + referrals) completed and PR created.
 - 4 Astro pages: /me hub, preferences, access-log, referrals
