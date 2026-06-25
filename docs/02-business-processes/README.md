@@ -39,6 +39,15 @@ How the organization and community operate day to day. Operator playbooks, marke
 - [Runbook: Operator event control panel (`/workspace/events`)](operations/operator-event-control.md)
 - ~~Runbook: Setting up Send-as for Gmail~~ — [archived](operations/archive/operator-email-send-as.md), superseded by docker-mailserver auto-provisioning (F-S2.12)
 
+## UAT scripts
+
+Machine-executable test scripts for the `uat-verification` agentic workflow.
+Run by the UATRunner agent against a live local stack; triaged by the
+BusinessAnalyst agent.
+
+- [UAT registry](uat/registry.md) — index of all scripts + last-run status
+- [UAT script template](uat/BP-UAT-template.md) — template for new scripts
+
 ## Related decisions (ADRs)
 
 ADRs live in the chronological log at [`docs/adr/`](../adr/). Those most relevant here:
