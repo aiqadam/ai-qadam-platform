@@ -13,7 +13,7 @@ github_issue_url: ""
 
 branch: "feature/WORKFLOW-002-uat-agents"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/53"
 
 current_step: 1
 current_step_name: "author-artifacts"
