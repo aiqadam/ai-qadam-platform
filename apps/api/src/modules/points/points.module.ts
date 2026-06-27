@@ -13,5 +13,6 @@ import { PointsController } from './points.controller';
   imports: [DirectusModule],
   providers: [{ provide: DB, useValue: db }, PointsDirectusService],
   controllers: [PointsController],
+  exports: [PointsDirectusService],
 })
 export class PointsModule {}
