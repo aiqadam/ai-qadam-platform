@@ -29,6 +29,7 @@
     "gen:page": "tsx tools/gen/page.ts",
     "gen:cabinet": "tsx tools/gen/cabinet.ts",
     "ai:sync": "bash scripts/sync-ai-rules.sh",
+    "uat:seed": "bash scripts/uat-seed.sh",
     "e2e:parity": "pnpm --filter @aiqadam/e2e e2e:parity",
     "cutover:repoint": "tsx scripts/cutover-authentik-repoint.ts"
   },
