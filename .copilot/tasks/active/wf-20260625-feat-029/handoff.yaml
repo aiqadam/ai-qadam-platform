@@ -1,0 +1,36 @@
+workflow_id: wf-20260625-feat-029
+type: requirement-development
+feature_ref: FR-WORKFLOW-002
+title: "UAT runnable infrastructure — seed script + Playwright config (PR 2 of 2)"
+branch: feature/WORKFLOW-002-uat-infra
+status: in-progress
+created_at: "2026-06-25"
+
+steps_completed:
+  - "Step 0: branched from main (feature/WORKFLOW-002-uat-infra)"
+  - "Step 0.5: workspace drift check passed"
+  - "Step 1: wrote scripts/uat-seed.ts (idempotent, Authentik + Directus)"
+  - "Step 2: wrote apps/e2e/playwright.uat.config.ts (localhost-only, screenshot every step)"
+  - "Step 3: updated apps/api/.env.example with TELEGRAM_BOT_TOKEN, AUTHENTIK_ADMIN_URL, AUTHENTIK_ADMIN_TOKEN, UAT_* vars"
+  - "Step 4: added pnpm uat:seed to root package.json"
+
+steps_remaining:
+  - "Step 5: update workspace-state.md + next-workflow-id"
+  - "Step 11: commit all changes, push, create PR"
+
+files_changed:
+  - scripts/uat-seed.ts
+  - apps/e2e/playwright.uat.config.ts
+  - apps/api/.env.example
+  - package.json
+  - .copilot/tasks/active/wf-20260625-feat-029/handoff.yaml
+  - .copilot/context/workspace-state.md
+  - .copilot/meta/next-workflow-id
+
+notes: |
+  PR 2 of 2 for FR-WORKFLOW-002 (BusinessAnalyst + UATRunner agent infrastructure).
+  PR 1 (wf-20260625-feat-028, PR #53) delivered agents + workflow + docs.
+  This PR delivers the runnable layer: seed script and Playwright config.
+  Seed script is idempotent — calls Authentik admin API and Directus directly,
+  no direct DB writes, safe to run multiple times.
+  UAT config targets localhost:4321, sequential workers, screenshot-on-every-step.

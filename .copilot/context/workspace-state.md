@@ -1,12 +1,14 @@
 # Workspace State
 
-**Last updated:** 2026-06-25 (wf-20260625-feat-028)
+**Last updated:** 2026-06-25 (wf-20260625-feat-029)
 
 ---
 
 ## Active Workflows
 
-_(none — web-next migration complete as of 2026-06-25)_
+| Workflow ID | Type | Feature/Issue | Branch | Status |
+|---|---|---|---|---|
+| wf-20260625-feat-029 | requirement-development | FR-WORKFLOW-002 UAT runnable infra (PR 2 of 2) | feature/WORKFLOW-002-uat-infra | in-progress |
 
 ---
 
@@ -14,7 +16,8 @@ _(none — web-next migration complete as of 2026-06-25)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
-| wf-20260625-feat-028 | requirement-development | FR-WORKFLOW-002 BusinessAnalyst + UATRunner agents + uat-verification workflow | feature/WORKFLOW-002-uat-agents | _pending_ | 2026-06-25 |
+| wf-20260625-feat-029 | requirement-development | FR-WORKFLOW-002 UAT runnable infra — seed + Playwright config | feature/WORKFLOW-002-uat-infra | [PR #54](https://github.com/tvolodi/aiqadam/pull/54) | 2026-06-25 |
+| wf-20260625-feat-028 | requirement-development | FR-WORKFLOW-002 BusinessAnalyst + UATRunner agents + uat-verification workflow | feature/WORKFLOW-002-uat-agents | [PR #53](https://github.com/tvolodi/aiqadam/pull/53) | 2026-06-25 |
 | wf-20260625-feat-027 | requirement-development | FR-AUTH-002 Telegram auth API layer | feature/AUTH-002-telegram-signin | [PR #52](https://github.com/tvolodi/aiqadam/pull/52) | 2026-06-25 |
 | wf-20260625-feat-026 | requirement-development | FR-CRM-001 Twenty CRM deployment + SSO | feature/CRM-001-twenty-crm-deployment | [PR #51](https://github.com/tvolodi/aiqadam/pull/51) | 2026-06-25 |
 | wf-20260625-feat-025 | requirement-development | FR-MIG-031 production cutover — cookie parity, SEO re-enable | feature/MIG-031-production-cutover | [PR #48](https://github.com/tvolodi/aiqadam/pull/48) | 2026-06-25 |
@@ -43,19 +46,21 @@ _(none — ISS-CI-001 resolved 2026-06-24 via PRs #37–41)_
 
 ## Git State
 
-- **Current branch:** main
+- **Current branch:** feature/WORKFLOW-002-uat-infra
 - **Last sync with origin:** 2026-06-25
-- **Pending PRs:** _pending_ — FR-WORKFLOW-002 (wf-20260625-feat-028, being created)
+- **Pending PRs:** FR-WORKFLOW-002 PR 2 (wf-20260625-feat-029)
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 29)
+See `.copilot/meta/next-workflow-id` (currently: 30)
 
 ---
 
 ## Notes
 
-**2026-06-25:** FR-WORKFLOW-002 (BusinessAnalyst + UATRunner agents) — introduces `business-analyst.md`, `uat-runner.md`, `uat-verification.md` workflow, UAT script template and registry under `docs/02-business-processes/uat/`. PR 1 of 2 (docs/agents/workflow only). PR 2 will add `scripts/uat-seed.ts` + `apps/e2e/playwright.uat.config.ts`.
+**2026-06-25:** FR-WORKFLOW-002 PR 2 (wf-20260625-feat-029) — UAT runnable infrastructure. Adds `scripts/uat-seed.ts` (idempotent, Authentik + Directus API-based seeding), `apps/e2e/playwright.uat.config.ts` (localhost-only, sequential, screenshot-every-step), `apps/api/.env.example` additions (TELEGRAM_BOT_TOKEN, AUTHENTIK_ADMIN_URL/TOKEN, UAT_*), and `pnpm uat:seed` script in root `package.json`.
+
+**2026-06-25:** FR-WORKFLOW-002 PR 1 (wf-20260625-feat-028, PR #53) — introduces `business-analyst.md`, `uat-runner.md`, `uat-verification.md` workflow, UAT script template and registry under `docs/02-business-processes/uat/`.
 
 **2026-06-25:** FR-AUTH-002 (Telegram authentication) — API layer implemented (wf-20260625-feat-027, branch `feature/AUTH-002-telegram-signin`, PR pending). Delivers `TelegramAuthService`, `POST /v1/auth/telegram/exchange`, `POST /v1/internal/telegram/upsert-temp-user`, two new `AuthentikClient` methods, and `TELEGRAM_BOT_TOKEN` env var. Web widget UI (Telegram Login Widget JS on `/auth/sign-in`) and bot `/start` handler are deferred to FR-BOT-001. Status in registry set to `In Progress` (not Shipped) because the full end-to-end feature requires the deferred UI and bot entry points.
 
