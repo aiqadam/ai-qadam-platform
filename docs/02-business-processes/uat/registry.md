@@ -7,6 +7,7 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 
 | Code | Name | Process Ref | Status | Last Run | Run Status | Open Issues |
 |---|---|---|---|---|---|---|
+| [BP-UAT-000](BP-UAT-000.md) | UAT environment setup and health check | [infrastructure/runbooks/](../../04-development/infrastructure/runbooks/) | Ready | — | — | — |
 | [BP-UAT-001](BP-UAT-001.md) | Event publication broadcast | [event-publication-broadcast.md](../operations/event-publication-broadcast.md) | Ready | — | — | — |
 | [BP-UAT-002](BP-UAT-002.md) | Operator event control panel | [operator-event-control.md](../operations/operator-event-control.md) | Ready | — | — | — |
 | [BP-UAT-003](BP-UAT-003.md) | Member self-service profile | [member-profile.md](../operations/member-profile.md) | Ready | — | — | — |
@@ -44,17 +45,22 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 
 ### Execution order recommendation
 
-Run scripts in this order to avoid seed state collisions:
+**BP-UAT-000 must pass before any other script is attempted.** It verifies the
+environment is ready. If BP-UAT-000 fails, fix the environment and re-run it —
+do not proceed to business-process scripts with a broken stack.
 
-1. **BP-UAT-009** (auth) — prerequisite for all member-facing scripts
-2. **BP-UAT-013** (signup / onboarding) — establishes accounts used downstream
-3. **BP-UAT-010** (registration) — establishes confirmed registrations for 011, 012, 014, 015
-4. **BP-UAT-014** (waitlist) — must run before BP-UAT-015 (uses same cancel endpoint)
-5. **BP-UAT-015** (cancellation) — consumes the confirmed registration from step 3
-6. **BP-UAT-011** (QR check-in) — requires a live event seed; run independently
-7. **BP-UAT-012** (points + leaderboard) — requires a check-in; may reuse BP-UAT-011's event
-8. **BP-UAT-016** (referral) — independent; needs a fresh member context
-9. Cron scripts (001, 007, 008, 017, 018) are independent of each other and can run in any order
+Once BP-UAT-000 passes, run scripts in this order:
+
+1. **BP-UAT-000** (environment setup) — **mandatory first step**
+2. **BP-UAT-009** (auth) — prerequisite for all member-facing scripts
+3. **BP-UAT-013** (signup / onboarding) — establishes accounts used downstream
+4. **BP-UAT-010** (registration) — establishes confirmed registrations for 011, 012, 014, 015
+5. **BP-UAT-014** (waitlist) — must run before BP-UAT-015 (uses same cancel endpoint)
+6. **BP-UAT-015** (cancellation) — consumes the confirmed registration from step 4
+7. **BP-UAT-011** (QR check-in) — requires a live event seed; run independently
+8. **BP-UAT-012** (points + leaderboard) — requires a check-in; may reuse BP-UAT-011's event
+9. **BP-UAT-016** (referral) — independent; needs a fresh member context
+10. Cron scripts (001, 007, 008, 017, 018) are independent of each other and can run in any order
 
 ### Scripts requiring mail catcher
 
