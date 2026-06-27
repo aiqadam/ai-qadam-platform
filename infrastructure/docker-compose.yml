@@ -198,6 +198,69 @@ services:
       retries: 5
       start_period: 60s
 
+  # Directus 11 CMS — content management for events, registrations, etc.
+  # Connects to the shared postgres `directus` DB created by postgres-init.sql.
+  # First boot runs Directus schema migrations automatically.
+  # Admin email / password / static token are set below (known values for local
+  # dev / UAT; uat-env-setup.sh writes these same values to apps/api/.env).
+  # In production, all three come from Coolify secrets.
+  # UI: http://localhost:8200   API: http://localhost:8200/items/...
+  directus:
+    image: directus/directus:11
+    container_name: aiqadam-directus
+    restart: unless-stopped
+    environment:
+      SECRET: ${DIRECTUS_SECRET:-changeme-directus-secret-at-least-32chars!!}
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: directus
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:-admin@aiqadam.test}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD:-SuperSecretPass}
+      TELEMETRY: "false"
+      EXTENSIONS_AUTO_RELOAD: "true"
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "http://localhost:3000,http://localhost:4321"
+      # Known static token so uat-env-setup.sh can write DIRECTUS_TOKEN to
+      # apps/api/.env without needing to call the admin API to generate one.
+      # Override in production with a randomly generated value in Coolify.
+      ADMIN_TOKEN: ${DIRECTUS_ADMIN_TOKEN:-uat-directus-static-admin-token-32c}
+    ports:
+      - "127.0.0.1:${DIRECTUS_HOST_PORT:-8200}:8055"
+    volumes:
+      - directus-uploads:/directus/uploads
+      - directus-extensions:/directus/extensions
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # 2026-06-27: Use 127.0.0.1 — `localhost` does not resolve inside this
+      # container's network namespace (no 127.0.0.1 entry in /etc/hosts).
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8055/server/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Mailpit — local SMTP catcher + web UI for email testing.
+  # All mail sent to 127.0.0.1:1025 is captured; no real delivery.
+  # Set SMTP_HOST=localhost SMTP_PORT=1025 in apps/api/.env to route email here.
+  # Web UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: aiqadam-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v1/messages"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # Telegram Bot API local server — runs the official Telegram Bot API locally
   # so the aiogram bot (apps/bot/) can be tested without hitting production
   # Telegram servers. The bot must set TELEGRAM_API_SERVER=http://telegram-bot-api:8080
@@ -232,6 +295,8 @@ volumes:
   authentik-templates:
   twenty-data:
   telegram-bot-api-data:
+  directus-uploads:
+  directus-extensions:
 
 networks:
   default:
