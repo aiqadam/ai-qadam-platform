@@ -1,0 +1,14 @@
+{
+  "name": "aiqadam-platform-local-provider",
+  "authorization_flow": "1d66e442-fcbb-44ad-bd79-bcf44e21f9cf",
+  "invalidation_flow": "8b9a7847-f02e-44ab-a609-0016f714d841",
+  "client_type": "confidential",
+  "redirect_uris": [
+    {"matching_mode": "strict", "url": "http://localhost:4321/api/v1/auth/callback"}
+  ],
+  "sub_mode": "hashed_user_id",
+  "include_claims_in_id_token": true,
+  "access_code_validity": "minutes=1",
+  "access_token_validity": "minutes=10",
+  "refresh_token_validity": "days=30"
+}

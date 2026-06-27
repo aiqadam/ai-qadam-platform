@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthentikModule } from '../admin-invites/authentik.module';
 import { AuthModule } from '../auth/auth.module';
 import { DirectusModule } from '../directus/directus.module';
 import { InteractionsModule } from '../interactions/interactions.module';
@@ -89,7 +90,7 @@ import { TgSegmentsService } from './tg-segments.service';
 // Directus via our API with our auth + audit layered on.
 
 @Module({
-  imports: [DirectusModule, AuthModule, InteractionsModule, TelegramModule],
+  imports: [AuthentikModule, DirectusModule, AuthModule, InteractionsModule, TelegramModule],
   providers: [
     MembersService,
     CohortsService,
