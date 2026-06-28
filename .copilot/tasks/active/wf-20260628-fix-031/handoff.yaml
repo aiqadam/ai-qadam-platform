@@ -17,13 +17,13 @@ github_issue_url: ""
 
 branch: "fix/ISS-UAT-013-2-preflight-process-identity"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/60"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
 
-current_step: 11
-current_step_name: "quality-gate"
-workflow_status: "running"
+current_step: 12
+current_step_name: "workflow-finish"
+workflow_status: "completed"
 
 # ─── Gate Results ────────────────────────────────────────────────────────────
 
