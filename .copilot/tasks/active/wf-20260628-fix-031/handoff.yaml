@@ -1,0 +1,183 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260628-fix-031"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-06-28T14:00:00Z"
+last_updated_at: "2026-06-28T15:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-UAT-013-2"
+requirement_text: "Pre-flight verified api by port ownership, not by process CommandLine — fix the pre-flight script and add a regression test that catches the same class of misidentification in future UAT runs."
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-UAT-013-2-preflight-process-identity"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 11
+current_step_name: "quality-gate"
+workflow_status: "running"
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  context-sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T14:00:00Z"
+    summary: "scripts/check-workflow-state.sh --base origin/main reported OK: no drift detected."
+    output_file: ""
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T14:00:00Z"
+    summary: "ISS-UAT-013-2 found in registry, proposed resolution is well-scoped for this issue-resolution workflow. No similar issues to de-duplicate. No deferrals."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T14:05:00Z"
+    summary: "Impact well-scoped: ~225 lines across 5 files, no API/web/bot/DB changes, bats infrastructure already established, cross-platform limitation (Windows-first; macOS/Linux TODO) explicitly flagged. Step 3 (DB migrations) skipped — no entity changes."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T13:28:48Z"
+    summary: "CodeDeveloper wrote 5 files (1 new helper, 1 new bats test, 2 doc edits, 1 code-summary). bash -n passes; 12/12 new bats tests pass; 42/42 across all bats files (no regressions). Four bash footguns caught and fixed during validation cycle."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T13:33:14Z"
+    summary: "All 11 role-defined invariants OK + 5 custom checks pass (command-injection, test-hook safety, log-injection, permissions, new-dependencies). 0 BLOCKER / 0 MAJOR / 0 MINOR / 3 INFORMATIONAL notes (all honest disclosures per AGENTS.md §9)."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T13:36:11Z"
+    summary: "Rubric score 0 (pure CLI utility); unit tests sufficient; 8/8 ACs mapped to 12 bats tests; 1 cosmetic minor (empty-CommandLine branch unreachable from real probe) below should-fix threshold."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/05-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T13:39:13Z"
+    summary: "Audit confirms 12 bats cases meet standards.md §IV: AAA pattern, no shared mutable state, behavior-named, zero skip, zero it.skip. Branch coverage >=95% of unit-testable surface. No new tests authored; existing tests green-lit."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/06-test-design.md"
+  test-runner:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T14:40:00Z"
+    summary: "12/12 new bats tests pass; 42/42 across full bats glob (no regressions). bash -n exits 0. Type check N/A (no TS surface). Biome N/A (bash + markdown). No failures, no flaky, no skip."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/07-test-results.md"
+  issue-registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T14:45:00Z"
+    summary: "ISS-UAT-013-2 status flipped to resolved in both .copilot/issues/ISS-UAT-013-2.md and .copilot/issues/registry.md. Resolution note appended with deliverable list, test evidence, security attestation, and honesty disclosures."
+    output_file: ".copilot/issues/ISS-UAT-013-2.md"
+  doc-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T14:45:00Z"
+    summary: "CodeDeveloper updated both required docs in Step 4 (.copilot/workflows/uat-verification.md and docs/02-business-processes/uat/BP-UAT-000.md). DocWriter step confirmed no other docs required updating per the role's 'What Requires Documentation Updates' table."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T15:00:00Z"
+    summary: "All 7 QualityGate checks pass or are N/A. Workflow end-to-end: 11/11 required steps complete (Step 3 skipped — no entity changes); every gate result passed; 0 retries; 0 escalations. 8/8 ACs mapped. 42/42 tests pass. 11/11 security invariants OK + 5/5 custom checks pass. Both required docs updated; ISS-UAT-013-2 resolved in registry and issue file. 4 INFORMATIONAL notes — none block the gate."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-031/09-quality-gate.md"
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  impact-analyzer: "wf-20260628-fix-031"
+  code-developer: "wf-20260628-fix-031"
+  security-reviewer: "wf-20260628-fix-031"
+  test-strategist: "wf-20260628-fix-031"
+  test-designer: "wf-20260628-fix-031"
+  test-runner: "wf-20260628-fix-031"
+  doc-writer: "wf-20260628-fix-031"
+  quality-gate: "wf-20260628-fix-031"
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+# ─── Retry Limits (from workflow definition) ─────────────────────────────────
+
+retry_limits:
+  impact-analyzer: 1
+  code-developer: 3
+  security-reviewer: 2
+  test-strategist: 2
+  test-designer: 3
+  test-runner: 2
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: "ISS-UAT-013-2"
+issue_resolution: "resolved"
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard ─────────────────────────────────────────────────────
+
+expects_registry_update: false
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts:
+  - path: "scripts/uat-preflight-check.sh"
+    kind: "new_file"
+    description: "Process-identity pre-flight helper (252 lines, Windows-primary via PowerShell)"
+  - path: "scripts/tests/uat-preflight-check.bats"
+    kind: "new_file"
+    description: "Bats regression test — 12 cases covering AC-1 through AC-8"
+  - path: ".copilot/workflows/uat-verification.md"
+    kind: "modified"
+    description: "Step 2 (Pre-Flight) — bare curl replaced with uat-preflight-check.sh invocation"
+  - path: "docs/02-business-processes/uat/BP-UAT-000.md"
+    kind: "modified"
+    description: "Appended '## Process identity check' operator-facing section"
+  - path: ".copilot/issues/ISS-UAT-013-2.md"
+    kind: "modified"
+    description: "Status flipped open -> resolved; resolution note appended"
+  - path: ".copilot/issues/registry.md"
+    kind: "modified"
+    description: "ISS-UAT-013-2 row status: open -> resolved"
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - .copilot/issues/ISS-UAT-013-2.md
+  - .copilot/issues/ISS-UAT-013-1.md
+  - .copilot/workflows/uat-verification.md
+  - .copilot/workflows/issue-resolution.md
+  - scripts/uat-env-setup.sh
+  - scripts/check-workflow-state.sh
+  - docs/04-development/architecture/architecture.md
+  - .copilot/tasks/active/wf-20260628-uat-030/02-preflight.md
+  - .copilot/tasks/active/wf-20260628-uat-030/03-uat-runner-report.md
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260628-fix-031/NEEDS_REVIEW.md"
