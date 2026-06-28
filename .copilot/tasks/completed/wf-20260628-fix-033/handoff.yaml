@@ -1,0 +1,162 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260628-fix-033"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-06-28T15:30:00Z"
+last_updated_at: "2026-06-28T21:30:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-UAT-013-1"
+requirement_text: "Port 3000 occupied by a foreign Next.js dev server; AI Qadam NestJS api fails to start with EADDRINUSE and the developer gets a generic Nest error with no actionable hint. Add a pre-startup port-availability guard that identifies the conflicting process (PID + CommandLine) and exits with a clear, actionable error message before NestFactory.create is called."
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-UAT-013-1-port-guard"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/62"
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 11
+current_step_name: "quality-gate"
+workflow_status: "running"
+
+# ─── Subworkflow Link ────────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  context-sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T15:30:00Z"
+    summary: "scripts/check-workflow-state.sh --base origin/main reported OK: no drift detected."
+    output_file: ""
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T15:30:00Z"
+    summary: "ISS-UAT-013-1 found in registry. Proposed resolution (api-side pre-startup port guard) is well-scoped. Complementary to ISS-UAT-013-2 (RESOLVED by PR #60 — UAT-side pre-flight identity check). No de-duplication needed."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-033/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T15:35:00Z"
+    summary: "Scope: ~318 LOC across 5 new files + 2 modified files. No DB / Drizzle / shared-types / frontend / bot / worker / new-dep changes. Placement critical: guard runs BEFORE runMigrations() to prevent half-applied migration sets. Step 3 (DB migrations) skipped per workflow definition."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-033/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 2
+    timestamp: "2026-06-28T21:30:00Z"
+    summary: "First pass had a critical logic bug (probe.address() heuristic returned null in both branches, so assertPortAvailable always threw PortInUseError). Retry replaced it with a portBusy boolean inside the Promise. Runtime smoke against compiled dist/lib/port-guard.js confirms case #1 (free port resolves) and case #2 (busy port throws PortInUseError with PID+command). typecheck/lint/build/biome all exit 0. Vitest blocked by pre-existing vitest 2.1.9 + vite 8.1.0 / vite-node 2.1.9 version mismatch (__vite_ssr_exportName__ ReferenceError) — affects every existing api spec, out of scope for this PR."
+    output_file: ".copilot/tasks/active/wf-20260628-fix-033/03-code-summary.md"
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260628-fix-033/02-impact-analysis.md"
+    timestamp: "2026-06-28T15:35:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260628-fix-033/03-code-summary.md"
+    timestamp: "2026-06-28T21:30:00Z"
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts:
+  code-developer: 2
+
+# ─── Retry Limits (from issue-resolution workflow definition) ────────────────
+
+retry_limits:
+  impact-analyzer: 1
+  code-developer: 3
+  security-reviewer: 2
+  test-strategist: 2
+  test-designer: 3
+  test-runner: 2
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: "ISS-UAT-013-1"
+issue_resolution: ""
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard (FEAT-WORKFLOW-001) ─────────────────────────────────
+
+expects_registry_update: false
+context_sync_commits: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts:
+  - path: "apps/api/src/lib/port-guard.ts"
+    kind: "new_file"
+    description: "Pre-startup port-availability guard (305 lines). assertPortAvailable() + PortInUseError class. Cross-platform OS probe (netstat+tasklist on Windows; lsof on Unix). Honors API_SKIP_PORT_GUARD=1/'true'."
+  - path: "apps/api/test/port-guard.spec.ts"
+    kind: "new_file"
+    description: "9 vitest cases (free port, EADDRINUSE enrichment Windows/Unix, probe timeout, API_SKIP_PORT_GUARD, invalid input, ENOENT missing-binary, ordering regression)."
+  - path: "docs/04-development/infrastructure/runbooks/ports-and-processes.md"
+    kind: "new_file"
+    description: "157-line operator runbook. Why-the-guard-exists, error-to-action mapping, PORT= reassignment, API_SKIP_PORT_GUARD foot-gun, cross-platform probe matrix."
+  - path: "apps/api/src/main.ts"
+    kind: "modified"
+    description: "+3 lines: 1 import + 2 guard lines at top of bootstrap(). Guard runs BEFORE runMigrations()."
+  - path: "docs/02-business-processes/uat/BP-UAT-000.md"
+    kind: "modified"
+    description: "+9 lines defense-in-depth cross-reference under existing 'Process identity check' section."
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - .copilot/issues/ISS-UAT-013-1.md
+  - .copilot/issues/ISS-UAT-013-2.md
+  - .copilot/workflows/issue-resolution.md
+  - .copilot/schemas/protocol.md
+  - apps/api/src/main.ts
+  - apps/api/src/config/env.ts
+  - apps/api/package.json
+  - apps/api/test/main-bootstrap.spec.ts
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/security/security.md
+  - scripts/uat-preflight-check.sh
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260628-fix-033/NEEDS_REVIEW.md"
