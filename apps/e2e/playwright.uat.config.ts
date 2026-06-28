@@ -23,8 +23,13 @@
 
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const BASE_URL = process.env.UAT_BASE_URL ?? 'http://localhost:4321';
+
+// ESM-safe __dirname equivalent (package.json has "type": "module").
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Screenshots and traces land here — one subdirectory per BP-UAT-NNN script.
 const UAT_RESULTS_DIR = path.join(__dirname, 'uat-results');

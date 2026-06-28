@@ -1,0 +1,198 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260628-uat-030"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-06-28T11:00:00Z"
+last_updated_at: "2026-06-28T13:30:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "BP-UAT-013"
+requirement_text: "Run UAT verification for BP-UAT-013 (Member signup and operator onboarding) per the uat-verification workflow. The 2-flow script covers lead capture on / and operator invite-token onboarding via /onboard?token=."
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "uat/BP-UAT-013-member-onboarding"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/59"
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 5
+current_step_name: "uat-triage-retry"
+workflow_status: "completed"
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  context-sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T11:00:00Z"
+    summary: "scripts/check-workflow-state.sh --base origin/main reported OK: no drift detected."
+    output_file: ""
+  business-analyst-script-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T11:25:00Z"
+    summary: "BP-UAT-013.md is complete against the template contract. All 6 steps + 4 negative scenarios + 7 ACs mapped. One environment finding (seed script doesn't provision operator_invites rows) and one downstream UI finding (homepage has no lead capture form) flagged as informational — they are not script validation gaps."
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/01-uat-script-validation.md"
+  uat-preflight:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T11:35:00Z"
+    summary: "Env ready. apps/web on :4321 (started via pnpm --filter web dev). apps/api claim retracted post-run: PID 5008 on :3000 turned out to be a foreign ai-dala-next Next.js dev server, not the AI Qadam NestJS api. Directus schema bootstrapped (after 3 retries for transient 503s), Authentik uat-member/uat-operator provisioned, three operator_invites rows inserted manually (valid/used/expired) to cover the seed-script gap flagged in Step 1. Corrected BusinessAnalyst's downstream concern: UAT targets apps/web (which has the form), not apps/web-next (which doesn't). The web-next gap is re-registered in Step 4."
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/02-preflight.md"
+  uat-runner:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-28T11:42:00Z"
+    summary: "Spec ran end-to-end. 9 of 11 tests FAIL. Single root cause: AI Qadam api not running on :3000 (foreign ai-dala-next dev server occupied the port). Preflight missed this (verified by port ownership, not by process CommandLine). Runner correctly classified Neg 002/003 as visually-coincidental passes (UI matches by accident; API returns 404, not 410) and Neg 004 as a vacuous pass (assertion is 'no success panel', which holds for the wrong reason). Gate: passed (run completed; BusinessAnalyst-triage decides what the failures mean)."
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/03-uat-runner-report.md"
+  uat-runner-retry:
+    status: passed
+    attempt: 2
+    timestamp: "2026-06-28T12:35:00Z"
+    summary: "Spec ran end-to-end against AI Qadam api on :3001 (env fix from attempt-1 triage applied). 8 of 11 tests PASS, 3 FAIL. All 3 failures are env/seed: (a) RESEND_API_KEY unset → Mailpit receives nothing (Steps 002/003); (b) operator_invites.email +valid suffix has no matching Authentik user → invite_missing_authentik_user (Step 006). No product bug found. ISS-UAT-013-6 spec edits (Neg 004 strengthened + Neg 002/003 API-level pinned) are EMPIRICALLY VALIDATED — all 4 negative scenarios passed under a real api. Runner gate: passed."
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/03-uat-runner-report.md"
+  business-analyst-triage:
+    status: failed-partial
+    attempt: 2
+    timestamp: "2026-06-28T13:30:00Z"
+    summary: "Final triage. 3 failures are env/seed, not product. No product bug found. ISS-UAT-013-6 spec edits empirically validated. ISS-UAT-013-7 (RESEND_API_KEY env gap) and ISS-UAT-013-8 (operator_invites.email mismatch) registered; both are user-fix-required (.env and seed scripts are off-limits to Orchestrator per AGENTS.md §6). Registry updated: BP-UAT-013 → Implemented | 2026-06-28 | partial. Retry budget exhausted (2/2 used); closing as partial. User decides: (a) fix env + re-run in fresh workflow, or (b) accept partial outcome."
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/04-uat-triage.md"
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  business-analyst:
+    step: 1
+    task: "uat-script-validation"
+    started_at: "2026-06-28T11:20:00Z"
+    finished_at: "2026-06-28T11:25:00Z"
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/01-uat-script-validation.md"
+  orchestrator:
+    step: 2
+    task: "uat-preflight"
+    started_at: "2026-06-28T11:28:00Z"
+    finished_at: "2026-06-28T11:35:00Z"
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/02-preflight.md"
+  uat-runner:
+    step: 3
+    task: "uat-execution"
+    started_at: "2026-06-28T11:36:00Z"
+    finished_at: "2026-06-28T11:42:00Z"
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/03-uat-runner-report.md"
+  business-analyst:
+    step: 4
+    task: "uat-triage"
+    started_at: "2026-06-28T11:50:00Z"
+    finished_a2: "2026-06-28T11:55:00Z"
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/04-uat-triage.md"  uat-runner:
+    step: 3
+    task: "uat-execution-retry"
+    started_at: "2026-06-28T12:20:00Z"
+    finished_at: "2026-06-28T12:35:00Z"
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/03-uat-runner-report.md"
+  business-analyst:
+    step: 5
+    task: "uat-triage-retry"
+    started_at: "2026-06-28T13:20:00Z"
+    finished_at: "2026-06-28T13:30:00Z"
+    output_file: ".copilot/tasks/active/wf-20260628-uat-030/04-uat-triage.md"
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts:
+  uat-runner: 1
+  business-analyst: 0
+subworkflow_retry_count: 0
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created:
+  - id: ISS-UAT-013-1
+    severity: blocker
+    title: "Port 3000 occupied by foreign ai-dala-next Next.js (PID 5008); AI Qadam NestJS api not running"
+    file: ".copilot/issues/ISS-UAT-013-1.md"
+  - id: ISS-UAT-013-2
+    severity: bug
+    title: "Pre-flight verified api by port ownership, not by process CommandLine"
+    file: ".copilot/issues/ISS-UAT-013-2.md"
+  - id: ISS-UAT-013-3
+    severity: bug
+    title: "apps/web-next/src/pages/index.astro renders only <Hero>; no lead capture form — blocks web-next cutover"
+    file: ".copilot/issues/ISS-UAT-013-3.md"
+  - id: ISS-UAT-013-4
+    severity: bug
+    title: "scripts/uat-seed.sh does not provision operator_invites rows"
+    file: ".copilot/issues/ISS-UAT-013-4.md"
+  - id: ISS-UAT-013-5
+    severity: minor
+  - id: ISS-UAT-013-7
+    severity: bug
+    title: "RESEND_API_KEY unset in apps/api/.env; api returns 202 for POST /v1/leads but skips email dispatch; Mailpit receives nothing → Steps 002 & 003 fail"
+    file: ".copilot/issues/ISS-UAT-013-7.md"
+  - id: ISS-UAT-013-8
+    severity: bug
+    title: "operator_invites.email = uat-operator+valid@aiqadam.test does not match seeded Authentik user uat-operator@aiqadam.test; api rejects with invite_missing_authentik_user → Step 006 fails"
+    file: ".copilot/issues/ISS-UAT-013-8.md"
+    title: "Directus returns 503 'Under pressure' during seed bootstrap; 3 retries required"
+    file: ".copilot/issues/ISS-UAT-013-5.md"
+  - id: ISS-UAT-013-6
+    severity: enhancement
+    title: "Neg 004 assertion is vacuous + Neg 002/003 rely on coincidental UI match"
+    file: ".copilot/issues/ISS-UAT-013-6.md"
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Retry Limits ───────────────────────────────────────────────────────────
+
+retry_limits:
+  business-analyst: 1
+  uat-runner: 2
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard ─────────────────────────────────────────────────────
+
+expects_registry_update: true
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts: []
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-013.md
+  - docs/02-business-processes/uat/registry.md
+  - docs/02-business-processes/uat/BP-UAT-template.md
+  - apps/e2e/playwright.uat.config.ts
+  - apps/web-next/src/pages/index.astro
+  - apps/web-next/src/pages/onboard.astro
+  - apps/web-next/src/pages/leads/verified.astro
+  - apps/web-next/src/pages/leads/verify-failed.astro
+  - apps/web-next/src/blocks/customer/OnboardingForm.tsx
+  - apps/web-next/src/blocks/customer/Hero.astro
+  - apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260628-uat-030/NEEDS_REVIEW.md"
