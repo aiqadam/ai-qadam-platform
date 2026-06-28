@@ -17,13 +17,13 @@ github_issue_url: ""
 
 branch: "uat/BP-UAT-013-member-onboarding"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/59"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
 
 current_step: 5
 current_step_name: "uat-triage-retry"
-workflow_status: "running"
+workflow_status: "completed"
 
 # ─── Gate Results ────────────────────────────────────────────────────────────
 
