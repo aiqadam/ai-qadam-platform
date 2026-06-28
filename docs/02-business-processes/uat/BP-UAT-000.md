@@ -323,3 +323,30 @@ application collections (events, registrations, etc.) are not present until
 404 on `/items/countries` as passing — the schema bootstrap is a separate
 one-time step covered by the Directus bootstrap runbook and not part of the
 UAT pre-flight.
+
+## Process identity check
+
+Pre-flight verifies each expected service by **process identity**, not just
+by port ownership. A bare `curl http://localhost:<port>/health` accepts any
+service answering on that port — including a sibling project's dev server
+that may squat on the same port (see [ISS-UAT-013-2](../../issues/ISS-UAT-013-2.md)
+for the original incident). Use
+`bash scripts/uat-preflight-check.sh <service> <port> <expected-substring>`
+to confirm the PID listening on the port has a CommandLine matching the
+expected service. Example:
+
+```bash
+bash scripts/uat-preflight-check.sh api :3000 "@aiqadam/api"
+bash scripts/uat-preflight-check.sh web :4321 "@astrojs/node"
+```
+
+On a mismatch, the helper exits non-zero with the foreign PID and its
+CommandLine so the operator can identify and stop the conflicting process
+without guessing.
+
+**Coverage:** Windows (primary; PowerShell + `Get-CimInstance`).
+macOS / Linux have a TODO marker; track separately if cross-platform
+support is needed. The helper is wired into
+[`.copilot/workflows/uat-verification.md` Step 2](../../workflows/uat-verification.md),
+and the regression test lives at
+`scripts/tests/uat-preflight-check.bats`.

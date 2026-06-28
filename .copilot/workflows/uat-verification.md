@@ -83,6 +83,14 @@ Step 0.5 for detail.
 
 ### Step 2: Pre-Flight (Orchestrator, direct)
 
+Pre-flight MUST verify both **port reachability** (curl) AND **process
+identity** (the helper script) — see [ISS-UAT-013-2](../issues/ISS-UAT-013-2.md).
+A bare `curl` is insufficient: a foreign service squatting on `:3000` (e.g.
+a sibling project's dev server) would make the proxy land on the wrong
+backend without any visible error. Use `scripts/uat-preflight-check.sh` to
+confirm the PID listening on the port has a CommandLine matching the
+expected service.
+
 Orchestrator runs these checks directly — no subagent:
 
 ```bash
@@ -92,9 +100,13 @@ docker compose -f infrastructure/docker-compose.yml ps \
 # Any unhealthy service: start it and wait up to 60s for healthy status.
 # If still unhealthy: register env issue, failed-escalate.
 
-# 2. App reachability
-curl -sf http://localhost:4321 > /dev/null   # web
-curl -sf http://localhost:3000/health > /dev/null  # api
+# 2. App reachability AND process identity (per ISS-UAT-013-2)
+# Bare `curl` is insufficient: a foreign service squatting on :3000 would
+# make the proxy land on the wrong backend (see BP-UAT-013 attempt 1).
+# Use the process-identity helper to verify the PID listening on the port
+# is actually the expected service.
+bash scripts/uat-preflight-check.sh web  :4321 "@astrojs/node"
+bash scripts/uat-preflight-check.sh api  :3000 "@aiqadam/api"
 
 # 3. Seed (if UAT script declares seed_required: true)
 pnpm uat:seed
@@ -103,7 +115,9 @@ pnpm uat:seed
 
 **Gate:**
 - All checks pass → Step 3
-- Any check fails → register env issue in `.copilot/issues/`, `failed-escalate`
+- Any check fails → register env issue in `.copilot/issues/`, `failed-escalate`.
+  On a process-identity mismatch, the message includes the foreign PID and
+  CommandLine so the operator can stop the conflicting process.
 
 ---
 
