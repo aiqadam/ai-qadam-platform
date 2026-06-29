@@ -1,0 +1,153 @@
+schema_version: "1.0"
+
+workflow_instance_id: wf-20260629-fix-038
+workflow_type: issue-resolution
+workflow_version: "1.0"
+
+created_at: "2026-06-29T17:30:00Z"
+last_updated_at: "2026-06-29T20:58:00Z"
+
+requirement_ref: ISS-UAT-013-6
+requirement_text: >-
+  Strengthen BP-UAT-013 negative-scenario assertions in
+  apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts:
+    Defect A: Neg 004 (plus-addressing) has a vacuous assertion — passes
+    whether the email is rejected or the api is down. Must verify the
+    validation-error message AND that no success panel renders, plus a
+    Mailpit inbox check.
+    Defect B: Neg 002 / Neg 003 rely on a UI assertion
+    (GonePanel "this link can't be used") that renders identically
+    for any non-OK response — including a 404 from a misconfigured
+    proxy. Must keep the API-level 410 assertion as a HARD requirement
+    and add a comment block documenting why it must not be removed.
+  Also add negative-scenario guidance to the UAT template
+  (docs/02-business-processes/uat/BP-UAT-template.md).
+github_issue_url: ""
+
+branch: fix/ISS-UAT-013-6-uat-test-design
+base_branch: main
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/70"
+
+current_step: 12
+current_step_name: commit-push-pr
+workflow_status: running
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step-1-issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T17:45:00Z"
+    summary: No duplicate issues; preview plan recorded.
+    artifact: "01-issue-lookup.md"
+  step-2-impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T18:00:00Z"
+    summary: Spec changes already on disk from Retry-2; only AC-3 doc-template work is residual.
+    artifact: "02-impact-analysis.md"
+  step-4-develop-fix:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T18:30:00Z"
+    summary: +29 lines to BP-UAT-template.md under ## Negative Scenarios. Mailpit-empty edit deferred (fetch-hang risk).
+    artifact: "03-code-summary.md"
+  step-5-security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T18:35:00Z"
+    summary: 0 MAJOR/MINOR findings. 3 INFO findings (doc-hygiene, anti-vacuous-UI grep follow-up, cross-workflow spec-tag convention).
+    artifact: "04-security-review.md"
+  step-6-test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T18:45:00Z"
+    summary: Doc-regression BATS, 5 grep assertions. Rubric 0/6 (doc-only change).
+    artifact: "06-test-strategy.md"
+  step-7-test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T18:50:00Z"
+    summary: scripts/tests/bp-uat-template-rule.bats written (51 lines, 5 @test blocks).
+    artifact: "06-test-design.md"
+  step-8-test-runner:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T19:05:00Z"
+    summary: New suite 5/5 pass. Stash-and-revert proof: 5/5 fail without rule. Sibling uat-seed.bats 7/7 green.
+    artifact: "07-test-results.md"
+  step-9-atomic-flip:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T19:10:00Z"
+    summary: ISS-UAT-013-6.md header row + Resolution section + registry.md row all flipped to resolved in same working tree. Will commit together in Step 12.
+    artifact: "08-atomic-flip.md"
+  step-11-quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-29T20:58:00Z"
+    summary: 11/11 criteria PASS, 0 FAIL, 5 expected INFO nits (workspace-state, Retry-2 wrong-path hygiene, counter=39, merged-placeholder, biome not re-run). Authorizes commit/push/PR.
+    artifact: "09-quality-gate.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ISS-UAT-013-6
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - "01-issue-lookup.md"
+  - "02-impact-analysis.md"
+  - "03-code-summary.md"
+  - "04-security-review.md"
+  - "06-test-strategy.md"
+  - "06-test-design.md"
+  - "07-test-results.md"
+  - "08-atomic-flip.md"
+  - "09-quality-gate.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts
+  - apps/web/src/components/OnboardingForm.tsx
+  - docs/02-business-processes/uat/BP-UAT-template.md
+  - docs/02-business-processes/uat/BP-UAT-013.md
+  - .copilot/issues/ISS-UAT-013-6.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ISS-UAT-013-6
+  artifact_file: ".copilot/tasks/active/wf-20260629-fix-038/NEEDS_REVIEW.md"

@@ -5,10 +5,13 @@
 | ID | ISS-UAT-013-6 |
 | Severity | enhancement |
 | Module | uat / test-design |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-06-28 |
+| Resolved | 2026-06-29 |
 | Reporter | UATRunner (wf-20260628-uat-030 / 03-uat-runner-report.md) — Honest disclosures #2 and #3 |
-| Workflow | wf-20260628-uat-030 |
+| Workflow | wf-20260629-fix-038 |
+| PR | [#70](https://github.com/tvolodi/aiqadam/pull/70) |
+| Merged | _pending PR merge_ |
 
 ## Symptom
 
@@ -112,3 +115,38 @@ Add to `docs/02-business-processes/uat/BP-UAT-template.md` under "Negative scena
 - `apps/web-next/src/blocks/customer/OnboardingForm.tsx` — `GonePanel` fallback behavior
 - `docs/02-business-processes/uat/BP-UAT-013.md` — current spec text for Neg 002 / 003 / 004
 - `docs/03-requirements/FR-USR-001.md` — plus-addressing rule (Notes)
+
+## Resolution
+
+Closed by workflow `wf-20260629-fix-038` on 2026-06-29.
+
+**Spec edits (AC-1, AC-2) — already on disk from Retry-2 on 2026-06-28**:
+Neg 002 / Neg 003 already had API-level `expect(apiRes.status()).toBe(410)` assertions
+plus a comment block documenting why they must not be removed (BP-UAT-013-signup.spec.ts:364-412).
+Neg 004 already had the strengthened error-text regex match (BP-UAT-013-signup.spec.ts:425-481).
+
+**Doc change shipped by this workflow (AC-3)**:
+Added a new subsection `### Negative-scenario assertion rule (mandatory)` under
+`## Negative Scenarios` in `docs/02-business-processes/uat/BP-UAT-template.md`. The rule
+mandates:
+- (a) Negative scenarios must assert the API contract, not just the UI.
+- (b) Vacuous UI assertions are forbidden.
+- (c) Includes a fenced TypeScript snippet demonstrating `page.request.get` +
+      `apiRes.status()` alongside the UI assertion.
+
+**Regression test shipped by this workflow (AC-3 verification)**:
+New file `scripts/tests/bp-uat-template-rule.bats` (51 lines, 5 `@test` blocks).
+Run output:
+- With rule present: 5/5 pass.
+- With rule reverted (stash-and-revert proof): 5/5 fail — confirms every assertion is non-vacuous.
+- Sibling `scripts/tests/uat-seed.bats`: 7/7 green (no collateral regression).
+
+**AC-4 status**: deferred by the issue author to a follow-up workflow. Out of scope here.
+
+Honesty note: most of the spec-file changes proposed in this issue were already on disk
+from Retry-2 on 2026-06-28; this workflow's residual work was the doc template + bats
+regression test (AC-3 only). The handoff context_refs originally pointed at
+`apps/web-next/src/blocks/customer/OnboardingForm.tsx`, which is the wrong file — the
+actual `<GonePanel>` fallback lives in `apps/web/src/components/OnboardingForm.tsx`
+(the legacy Astro web app). The fix landed in the template instead, which is the
+correct durable artifact for the AC-3 contract.

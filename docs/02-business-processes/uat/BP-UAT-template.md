@@ -90,6 +90,35 @@ Each negative scenario gets its own Playwright `test` block. Screenshots go to
 
 <!-- Add more negative scenarios following the same pattern -->
 
+### Negative-scenario assertion rule (mandatory)
+
+**Negative scenarios must assert the API contract, not just the UI.**
+When the user-facing component falls back to a generic error panel on
+**any** non-OK response (as `OnboardingForm` does with `<GonePanel>`),
+a UI-only assertion can be visually satisfied by a misconfigured proxy
+returning 404. Without an API-level assertion, the test silently passes
+against the wrong service.
+
+Always include, alongside any UI assertion for a negative scenario:
+
+```typescript
+// API-level disambiguation — the UI alone cannot distinguish a real
+// rejection from a coincidental 404. Do NOT remove.
+const apiRes = await page.request.get('<expected-call>');
+expect(apiRes.status(), '<why this status is the contract>').toBe(<expected>);
+```
+
+UI assertions are still useful for human-readable failure messages and
+screenshot evidence — but the API assertion is the source of truth.
+
+Additionally, **vacuous UI assertions are forbidden.** A test that only
+checks "no success panel" passes whether the action was rejected or
+the system was down. Always assert what *should* be visible (an error
+message, a redirect, a 4xx response body) — never rely on the absence
+of a success state as the sole evidence of rejection.
+
+---
+
 ## Notes
 
 Any caveats, timing sensitivities, known flakiness, or things BusinessAnalyst
