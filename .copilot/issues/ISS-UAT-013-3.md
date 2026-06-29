@@ -5,11 +5,12 @@
 | ID | ISS-UAT-013-3 |
 | Severity | bug |
 | Module | web-next / customer |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-06-23 (downstream concern first raised in Step 1, BusinessAnalyst script validation) |
 | Re-registered | 2026-06-28 (BP-UAT-013 triage — see Workflow) |
+| Resolved | 2026-06-29 |
 | Reporter | BusinessAnalyst (wf-20260628-uat-030) |
-| Workflow | wf-20260628-uat-030 |
+| Workflow | wf-20260629-fix-035 |
 
 ## Symptom
 
@@ -76,3 +77,14 @@ Until this lands, the apps/web → apps/web-next cutover must NOT mark the homep
 - `docs/03-requirements/FR-USR-001.md` — source requirement (AC-1 lead capture)
 - `.copilot/tasks/active/wf-20260628-uat-030/01-uat-script-validation.md` — first flagged
 - `.copilot/tasks/active/wf-20260628-uat-030/02-preflight.md` — re-flagged
+
+---
+
+## Resolution
+
+- **Workflow:** wf-20260629-fix-035
+- **PR:** https://github.com/tvolodi/aiqadam/pull/67
+- **Root cause:** Phase 1.1 of the web-next migration intentionally scoped out `LeadCaptureForm` to keep the PR under the 400-LOC cap; the component did not exist in `apps/web-next/src/blocks/customer/`.
+- **Fix:** Created `apps/web-next/src/blocks/customer/LeadCaptureForm.tsx` by porting from the legacy `apps/web/src/components/LeadCaptureForm.tsx`. All inline `style={}` props replaced with Tailwind utility classes to satisfy the parity E2E suite (`inlineStyleCount === 0`). `var(--destructive, #c00)` fallback removed. Added export to barrel `index.ts`. Wired `<LeadCaptureForm client:load />` into `index.astro` below `<Hero>`.
+- **Regression test:** `[REGRESSION] ISS-UAT-013-3 — LeadCaptureForm.tsx exists and exports the named function` in `apps/web-next/src/blocks/customer/LeadCaptureForm.test.ts`. Would have failed (ENOENT) before the fix; passes now.
+- **Merged:** `<pending>` — back-filled after merge.

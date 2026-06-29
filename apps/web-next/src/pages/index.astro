@@ -11,7 +11,7 @@
 //
 // Wiring: docs/04-development/architecture/wiring-map.md → site_settings.
 import { PageHead } from '../blocks/common';
-import { Hero } from '../blocks/customer';
+import { Hero, LeadCaptureForm } from '../blocks/customer';
 import Layout from '../layouts/Layout.astro';
 import { fetchSiteSettings } from '../lib/cms';
 
@@ -35,5 +35,8 @@ const stats = [
       secondaryHref={settings.telegramUrl ?? undefined}
       secondaryLabel={settings.telegramUrl ? 'Join on Telegram' : undefined}
     />
+    <section class="container mx-auto px-4 py-12">
+      <LeadCaptureForm client:load />
+    </section>
   </main>
 </Layout>
