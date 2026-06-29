@@ -133,6 +133,55 @@ Quality Gate (`[ahead N]` is a failure, not a warning).
 
 ---
 
+## Status-Consistency Check (FEAT-WORKFLOW-003)
+
+Every workflow that flips a status field MUST flip **both** artifacts atomically,
+and both flips MUST ride the same PR as the substantive change. This prevents
+the failure mode where a workflow "finishes" with one file updated and the other
+left stale.
+
+### Required atomic pairs
+
+| Workflow type | File A (header/frontmatter) | File B (table row) | Terminal status |
+|---|---|---|---|
+| `issue-resolution` | `.copilot/issues/ISS-<n>.md` (Status field) | `.copilot/issues/registry.md` (Status column) | `resolved` |
+| `requirement-development` | `docs/03-requirements/FR-<CODE>.md` (status frontmatter) | `docs/03-requirements/requirements-registry.md` (Status column) | `Implemented` / `Shipped` |
+
+### Atomicity rule
+
+The two edits in a pair MUST be staged in the same `git add` and committed
+together on the feature branch. They are part of the same PR as the code,
+so when the PR merges the status flip lands on `main` simultaneously with
+the code. **No separate post-merge status commit is permitted** (preserves
+AGENTS.md §6). The only permitted direct-to-main commit is the task-dir
+archive move in Step 11.5/12.5.
+
+### QualityGate enforcement
+
+The QualityGate MUST verify, before `passed`:
+
+1. Both files in the pair appear in `git diff origin/<base>...HEAD` — at
+   least one line changed in each.
+2. The two status values agree (both `resolved`, or both terminal-FR-status).
+3. For `issue-resolution`: the ISS row in `registry.md` matching
+   `handoff.yaml.issue_ref` was modified.
+4. For `requirement-development`: the FR row in `requirements-registry.md`
+   matching `handoff.yaml.requirement_ref` was modified.
+
+If any of these fail and `handoff.yaml.expects_registry_update` is `true`,
+it is a gate failure with `retry_target: 09-doc-update` (or equivalent
+DocWriter step) and message:
+`"Status-consistency check failed: <specific mismatch>"`.
+
+### Post-merge verification (Step 11.5 / 12.5)
+
+After the PR merges and local `main` is updated, the Orchestrator MUST
+re-verify the status pair on `main` (not just on the feature branch). If
+the values disagree on `main`, set `workflow_status: needs-review` and
+stop — do not attempt in-place fixes on `main`.
+
+---
+
 ## Rules Are in AGENTS.md — Do Not Restate
 
 Agent files reference AGENTS.md sections by number rather than copying rules:

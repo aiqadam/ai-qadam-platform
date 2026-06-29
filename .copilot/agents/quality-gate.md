@@ -81,6 +81,63 @@ amendment sub-step in `scripts/workflow-finish.sh` (Step F.5) is the
 mechanism that performs the registry update when the workflow emits a
 `context_update:` fenced YAML block in `08-doc-update.md`.
 
+### 8. Status-Consistency Check (FEAT-WORKFLOW-003)
+
+This check verifies that the workflow's status flip was applied **atomically
+to both files in the pair** and that the **values agree**. It catches the
+failure mode where Step 9 / Step 11 updates one file but leaves the other
+stale (the wf-20260628-fix-033 bug).
+
+**Inputs:** `handoff.yaml.workflow_type`, `handoff.yaml.issue_ref` or
+`requirement_ref`, `handoff.yaml.expects_registry_update`.
+
+**Skip condition:** if `expects_registry_update` is `false` or missing,
+skip this check entirely (opt-out for documentation-only follow-ups and
+subworkflows).
+
+**Determine the pair from `workflow_type`:**
+
+| Workflow type | File A | File B | Field A | Field B | Terminal value |
+|---|---|---|---|---|---|
+| `issue-resolution` | `.copilot/issues/ISS-<n>.md` | `.copilot/issues/registry.md` | header `Status` row | table `Status` column | `resolved` |
+| `requirement-development` | `docs/03-requirements/FR-<CODE>.md` | `docs/03-requirements/requirements-registry.md` | frontmatter `status` | table `Status` column | `Implemented` / `Shipped` |
+
+**Sub-checks (all must pass):**
+
+8a. **Both files in the pair appear in the PR diff.** Run:
+    ```bash
+    git diff --name-only "origin/${base_branch:-main}...HEAD" -- <file-A> <file-B>
+    ```
+    Both file paths MUST appear. Missing either → failure.
+
+8b. **Status values agree and equal the terminal value.**
+    - For `issue-resolution`:
+      - File A: `grep -E '^\| Status \| resolved \|' ISS-<n>.md` MUST match.
+      - File B: the row matching `ISS-<n>` in `registry.md` MUST have
+        `resolved` in the Status column.
+    - For `requirement-development`:
+      - File A: `grep -E '^status: (Implemented|Shipped)' FR-<CODE>.md`
+        MUST match.
+      - File B: the row matching `FR-<CODE>` in `requirements-registry.md`
+        MUST have `Shipped` (or `Implemented`) in the Status column.
+
+8c. **Atomicity.** Both edits SHOULD be in the same commit on the feature
+    branch. Verify by running `git log --oneline origin/<base>..HEAD --
+    <file-A> <file-B>` and checking the most recent commit touching each
+    file is the same SHA. If they differ, this is a warning (not a hard
+    failure) — the values still agree, so the workflow can proceed, but
+    note the non-atomicity in `09-quality-gate.md` for future hygiene.
+
+**Failure handling:**
+
+If 8a or 8b fails and `expects_registry_update` is `true`: **GATE FAILURE**
+with `retry_target: 09-doc-update` (or the workflow's equivalent DocWriter
+step) and message:
+`"Status-consistency check failed: <which sub-check, which file, expected vs actual>"`
+
+This check is **additive** to checks 1–7. The post-merge verification in
+Step 11.5 / 12.5 re-runs sub-check 8b against `main` after the merge lands.
+
 ### 7. Branch and Commit Readiness
 - **CLEAN TREE INVARIANT (mandatory):** Run `git status -sb` and verify output shows `[up to date with 'origin/<branch>']`. A state of `[ahead N]`, `[behind N]`, or diverged is a **GATE FAILURE**.
 - **FORMATTER CLEANLINESS (mandatory):** Run `pnpm biome check .` and verify no output. Any dirty file is a GATE FAILURE even if the tree is otherwise clean. This guards against formatter drift that only surfaces after commit.
@@ -101,6 +158,7 @@ Required sections:
 - `## Security Check` — applicable invariants PASS; no open BLOCKER findings
 - `## Branch and Commit Readiness` — `git status --porcelain` empty; `git status -sb` shows `[up to date with origin/<branch>]`; `pnpm biome check` clean; `handoff.yaml.github_pr_url` non-empty
 - `## Documentation Check` — required docs updated; feature marked ✅ implemented
+- `## Status-Consistency Check` (FEAT-WORKFLOW-003) — both files in pair present in diff; status values agree; terminal value correct; atomicity noted
 - `## Final Assessment` — one paragraph
 - `## Gate Result` — per `.copilot/schemas/protocol.md` format
 

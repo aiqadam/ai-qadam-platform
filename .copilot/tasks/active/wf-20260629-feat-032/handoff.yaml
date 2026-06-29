@@ -1,0 +1,72 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260629-feat-032"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-29T00:30:00Z"
+last_updated_at: "2026-06-29T00:30:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "FEAT-WORKFLOW-003"
+requirement_text: |
+  Make issue-status flip a first-class, atomic, autonomous part of the
+  issue-resolution workflow. Currently Step 9 'Update Issue Registry' is
+  underspecified: it does not say which status value to set, does not
+  require both ISS-<n>.md and registry.md to change atomically, and has no
+  post-merge verification. Result: wf-20260628-fix-033 'resolved' ISS-UAT-013-1
+  in summary prose but left both files reading `open`, and the workflow
+  'finished' without the issue actually being marked resolved anywhere
+  authoritative.
+
+  This feature hardens the protocol so that:
+  1. Step 9 atomically sets status `resolved` in BOTH ISS-<n>.md and
+     registry.md, on the feature branch, as part of the same PR as the fix.
+  2. The default workflow behavior is fully autonomous: after QualityGate
+     passes and CI is green, the Orchestrator auto-merges the PR via
+     `gh pr merge --squash --auto`, then updates local main, then verifies
+     the status flip landed.
+  3. Human review is opt-in: if the user explicitly says they will review,
+     the workflow pauses at PR-open and resumes when the user merges.
+  4. QualityGate gains a new check: ISS file status == registry status,
+     both must equal the expected terminal value, both must be present in
+     the PR diff.
+
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "feature/WORKFLOW-003-resolution-status-flip"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 4
+current_step_name: "develop-code"
+workflow_status: "running"
+
+# ─── Retry Limits ───────────────────────────────────────────────────────────
+
+retry_limits:
+  requirement_analyst: 1
+  db_migration_author: 2
+  code_developer: 3
+  test_strategist: 2
+  test_designer: 3
+  doc_writer: 2
+  subworkflow: 3
+
+retry_counts: {}
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts:
+  - "01-requirement-validation.md"
+  - "02-impact-analysis.md"
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+expects_registry_update: true

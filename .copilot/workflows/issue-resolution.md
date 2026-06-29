@@ -158,13 +158,58 @@ Same as `requirement-development.md` Step 8. The regression test is the primary 
 
 ---
 
-### Step 9: Update Issue Registry
+### Step 9: Update Issue Registry (atomic status flip)
 
 **Agent:** Orchestrator (direct)
 
-1. Update `ISS-<n>.md`: add resolution section (date, workflow-id, fix description, test that proves it), set status `resolved`
-2. Update `registry.md`: mark issue resolved with date
-3. Update `handoff.yaml` with `issue_resolution: resolved`
+This step performs an **atomic** status flip in BOTH registry artifacts.
+Both edits MUST land in the same commit on the feature branch. Leaving one
+file unchanged is a Step 9 failure — do not advance.
+
+**Edit 1 — `.copilot/issues/ISS-<n>.md`:**
+
+- In the header field table, set `Status` to `resolved`.
+- Set `Resolved` to today's ISO date (e.g. `2026-06-29`).
+- Set `Workflow` to the current workflow id (e.g. `wf-20260629-fix-034`).
+- Append a `## Resolution` section with:
+  - **Workflow:** `<wf-id>`
+  - **PR:** `https://github.com/<org>/<repo>/pull/<N>` — placeholder `<pending>`
+    is acceptable here if the PR number is not yet known; Step 12 back-fills
+    it after `gh pr create`.
+  - **Root cause:** one sentence.
+  - **Fix:** one paragraph.
+  - **Regression test:** name of the test that would have failed before the
+    fix and passes after (required by Step 6).
+  - **Merged:** `<pending>` — Step 12.5 back-fills the actual merge SHA.
+
+**Edit 2 — `.copilot/issues/registry.md`:**
+
+- In the issue's table row, set the `Status` column to `resolved`.
+- Update the `Workflow` column to the current workflow id.
+- Update the `Date` column to today's ISO date.
+
+**Edit 3 — `handoff.yaml`:**
+
+- Set `issue_resolution: resolved`.
+
+**Atomicity rule:** Edits 1 and 2 MUST be staged in the same `git add` and
+committed together. They are part of the same PR as the code fix, so when
+the PR merges the status flip lands on `main` simultaneously with the code.
+No separate post-merge commit is permitted (preserves AGENTS.md §6).
+
+**Pre-merge honesty note:** Between Step 9 and Step 12.5, the branch carries
+`resolved` but `main` still shows `open`. This is acceptable because the
+branch is throwaway until the PR merges. If the PR is closed-unmerged, the
+status flip is discarded along with the branch — `main`'s state stays honest.
+
+**Output file:** `09-registry-update.md` — record the exact diffs applied to
+both files, for the QualityGate status-consistency check.
+
+**Gate:**
+- `passed` → Step 10. Both files modified, both show `resolved`, atomic
+  commit recorded.
+- `failed-retry` → one file was not modified, or statuses disagree. Re-do
+  both edits, re-commit atomically. Max 2 retries.
 
 ---
 
@@ -185,16 +230,104 @@ Same as `requirement-development.md` Step 8. The regression test is the primary 
 
 ### Step 12: Commit, Push, Create PR (Orchestrator, direct)
 
-Same as `requirement-development.md` Step 11. **MANDATORY:** After
-`scripts/workflow-finish.sh` completes, the Orchestrator MUST output the PR URL
-to the user as a markdown link (e.g., `https://github.com/org/repo/pull/123`).
-If `github_pr_url` is empty, report the fallback URL and flag for investigation.
+Same as `requirement-development.md` Step 11, with two additions:
+
+1. **Back-fill PR URL.** After `gh pr create` returns the PR URL, rewrite
+   the `PR:` placeholder in `ISS-<n>.md`'s `## Resolution` section to the
+   actual URL, amend the workflow-artifacts commit (or follow-up commit),
+   and force-push-with-lease if amending.
+
+2. **Default: autonomous merge.** Unless the user explicitly opted in to
+   human review (see "Merge mode" below), immediately proceed to Step 12.5
+   after the PR is open and CI is green.
+
+**Merge mode (determined at workflow start, recorded in `handoff.yaml.merge_mode`):**
+
+- `auto` (default) — Orchestrator runs Step 12.5 autonomously.
+- `manual` — set when the user says, in any wording, that they will review
+  the merge themselves. Orchestrator stops after Step 12, prints the PR URL,
+  and waits. When the user merges (detected by polling `gh pr view --json
+  state` until `state == MERGED`, or by the user saying "merged"), resume
+  at Step 12.5.
+
+If unsure which mode applies, the Orchestrator MUST ask the user once at
+workflow start: "Auto-merge this PR when CI passes, or will you review it
+yourself?" The answer is binding for the whole workflow.
+
+**MANDATORY:** After Step 12, the Orchestrator MUST output the PR URL to the
+user as a markdown link. If `github_pr_url` is empty, report the fallback
+URL and flag for investigation.
 
 ---
 
-### Step 13: Archive Task (Orchestrator, direct)
+### Step 12.5: Merge, Pull, Verify (Orchestrator, direct)
 
-Same as `requirement-development.md` Step 12.
+**Pre-condition:** Step 12 completed; PR exists; CI is green; merge mode
+is `auto` OR the user has merged manually.
+
+**Actions:**
+
+1. **Merge the PR** (only if `merge_mode == auto`):
+   ```bash
+   gh pr merge <PR-N> --squash --auto --delete-branch
+   ```
+   `--auto` waits for all required checks to pass, then merges. If the repo
+   has no required checks, this is immediate. If `--auto` is rejected
+   (e.g., branch protection requires review the agent can't satisfy),
+   fall back to `gh pr merge --squash --delete-branch` (immediate). If that
+   also fails, set `workflow_status: needs-review`, record the failure
+   reason in `handoff.yaml.needs_review.reason`, and stop.
+
+   Poll `gh pr view <PR-N> --json state` until `state == MERGED` (max 5 min,
+   15 s interval). On timeout: `needs-review`.
+
+2. **Update local main:**
+   ```bash
+   git checkout main
+   git pull --rebase origin main
+   ```
+
+3. **Back-fill merge SHA in `ISS-<n>.md`:** rewrite the `Merged:` placeholder
+   to the squash-commit SHA on main. Commit on main:
+   `docs(issues): back-fill merge SHA for ISS-<n>`.
+
+   **§6 note:** This is a metadata-only documentation back-fill on `main`
+   after the substantive PR has already merged. It is permitted because the
+   substantive change arrived via PR; this commit only records history that
+   already happened. If the user prefers strict no-direct-main, this step
+   can be deferred to the next workflow's PR — but then `ISS-<n>.md` carries
+   a `<pending>` SHA indefinitely.
+
+4. **Verify the status flip landed on main:**
+   - `grep -q 'Status | resolved' .copilot/issues/ISS-<n>.md`
+   - `grep -q '| resolved |' .copilot/issues/registry.md` (in the correct row)
+   - `git status --porcelain` is empty (clean tree)
+   - `git status -sb` shows `[up to date with 'origin/main']`
+
+   If ANY check fails: set `workflow_status: needs-review`, record the
+   specific failure in `handoff.yaml.needs_review.reason`, stop. Do not
+   attempt to "fix" main's state — surface the discrepancy to the user.
+
+5. **Move task dir `active/` → `completed/`:**
+   ```bash
+   git mv .copilot/tasks/active/<wf-id> .copilot/tasks/completed/<wf-id>
+   git commit -m "chore(workflow): archive <wf-id> (ISS-<n> resolved)"
+   git push origin main
+   ```
+
+   This is the one direct-to-main commit permitted by this protocol, and
+   only for the archive move. Reason: the archive is a workflow-bookkeeping
+   operation that cannot ride the just-merged PR (the PR is already merged).
+   Strict-no-direct-main projects can skip this step and treat `active/`
+   vs `completed/` as advisory.
+
+**Gate:**
+- `passed` → workflow complete. Clean-tree invariant restored. Issue is
+  genuinely `resolved` on `main`.
+- `failed-retry` → verification mismatch (e.g., status not flipped on main).
+  Re-pull, re-check. Max 2 retries.
+- `needs-review` → merge failed, verification failed after retries, or
+  auto-merge was rejected. Surface to user.
 
 ---
 

@@ -188,6 +188,42 @@ https://github.com/org/repo/pull/123
 If `github_pr_url` is empty, report the fallback URL from the script output
 and flag this for investigation. The user MUST always receive the PR URL.
 
+### Autonomous Merge + Post-Merge Verify (FEAT-WORKFLOW-003)
+
+After the PR is open and CI is green, the Orchestrator's default behavior is
+to merge autonomously and verify the status flip landed on main. See
+`requirement-development.md` Step 11.5 / `issue-resolution.md` Step 12.5 for
+the full procedure.
+
+**Merge mode (`handoff.yaml.merge_mode`):**
+
+- `auto` (default) — the Orchestrator runs `gh pr merge --squash --auto` and
+  proceeds through the verify step without asking. This is the project
+  default per FEAT-WORKFLOW-003.
+- `manual` — set ONLY when the user explicitly says, in any wording, that
+  they will review the merge themselves ("I'll review", "let me check",
+  "don't auto-merge", etc.). In this mode the Orchestrator stops after the
+  PR is open, prints the URL, and waits. It resumes when the user merges
+  (detected by polling `gh pr view --json state` until `MERGED`, or by the
+  user saying "merged" / "go ahead").
+
+**If unsure which mode applies**, the Orchestrator MUST ask the user once
+at workflow start: "Auto-merge this PR when CI passes, or will you review
+it yourself?" The answer is binding for the whole workflow and is recorded
+in `handoff.yaml.merge_mode`.
+
+**Post-merge verification is mandatory.** After merge + `git pull --rebase
+origin main`, the Orchestrator MUST verify that the status flip is visible
+on main:
+- For `issue-resolution`: both `ISS-<n>.md` and `issues/registry.md` show
+  `resolved` for the target issue.
+- For `requirement-development`: both `FR-<CODE>.md` frontmatter and
+  `requirements-registry.md` Status column show terminal status.
+
+If verification fails after 2 retries: set `workflow_status: needs-review`,
+record the specific failure in `handoff.yaml.needs_review.reason`, and stop.
+Do not attempt to "fix" main's state — surface the discrepancy to the user.
+
 ---
 
 ## What the Orchestrator Does NOT Do

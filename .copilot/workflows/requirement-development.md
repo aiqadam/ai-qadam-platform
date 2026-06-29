@@ -34,10 +34,10 @@ The workflow uses two parallel numbering schemes. **Step numbers** drive flow;
 | 6 | TestStrategist | `06-test-strategy.md` | |
 | 7 | TestDesigner | `06-test-design.md` | shares prefix `06` with strategist |
 | 8 | TestRunner | `07-test-results.md` | |
-| 9 | DocWriter | `08-doc-update.md` | |
-| 10 | QualityGate | `09-quality-gate.md` | |
+| 9 | DocWriter | `08-doc-update.md` | atomic FR status flip (FEAT-WORKFLOW-003) |
+| 10 | QualityGate | `09-quality-gate.md` | includes status-consistency check (FEAT-WORKFLOW-003) |
 | 11 | Orchestrator | — | commit/push/PR via `scripts/workflow-finish.sh` |
-| 12 | Orchestrator | — | archive task dir |
+| 11.5 | Orchestrator (direct) | — | merge + verify + archive (FEAT-WORKFLOW-003) |
 
 ---
 
@@ -253,7 +253,7 @@ prefixes (01–09) follow the existing numbering and are unaffected.
 
 ---
 
-### Step 9: Update Documentation
+### Step 9: Update Documentation (atomic FR status flip)
 
 **Agent:** DocWriter
 **Inputs:**
@@ -263,14 +263,30 @@ prefixes (01–09) follow the existing numbering and are unaffected.
 - Relevant current documentation files
 
 **Required updates (do not skip):**
-1. Update `docs/03-requirements/FR-<CODE>.md` — change `status` frontmatter from current value to `Implemented`
-2. Update `docs/03-requirements/requirements-registry.md` — change the Status column for that FR in the implementation order table from current value to `Shipped`
+
+1. **Atomic FR status flip.** Both edits below MUST land in the same commit
+   on the feature branch. Leaving one unchanged is a Step 9 failure.
+   - Update `docs/03-requirements/FR-<CODE>.md` — change `status` frontmatter
+     from current value to `Implemented`.
+   - Update `docs/03-requirements/requirements-registry.md` — change the
+     Status column for that FR in the implementation order table from
+     current value to `Shipped`.
+2. Other doc updates per DocWriter's standard table (architecture, ADRs,
+   runbooks, etc.) as needed.
+
+**Atomicity rule:** The two FR-status edits MUST be staged in the same
+`git add` and committed together. They are part of the same PR as the code,
+so when the PR merges the status flip lands on `main` simultaneously with
+the code. No separate post-merge status commit is permitted (preserves
+AGENTS.md §6).
 
 **Output file:** `08-doc-update.md`
 
 **Gate:**
-- `passed` → Step 10
-- `failed-retry` → retry Step 9 (max 2 retries)
+- `passed` → Step 10. Both FR files modified, both show terminal status,
+  atomic commit recorded.
+- `failed-retry` → one file was not modified, or statuses disagree. Re-do
+  both edits, re-commit atomically. Max 2 retries.
 
 ---
 
@@ -305,23 +321,75 @@ https://github.com/org/repo/pull/123
 If `github_pr_url` is empty after the script runs, report the fallback URL
 from the script output and flag this for investigation.
 
-**Gate:** Push succeeds, PR is created, `handoff.yaml.github_pr_url` is non-empty, local branch is `main` → workflow complete.
+**Default: autonomous merge.** Unless the user explicitly opted in to human
+review (recorded in `handoff.yaml.merge_mode: manual`), immediately proceed
+to Step 11.5 after the PR is open and CI is green. See Step 11.5 for the
+merge-mode decision rule.
+
+**MANDATORY:** Output the PR URL to the user as a markdown link.
 
 ---
 
-### Step 12: Archive Task (Orchestrator, direct)
+### Step 11.5: Merge, Pull, Verify (Orchestrator, direct)
 
-**Pre-archive invariant check (Clean-Tree Invariant — see `protocol.md`):**
-```bash
-git status -sb   # MUST show main with clean tree.
-                 # Task directories (.copilot/tasks/) are excluded by .gitignore.
-mv .copilot/tasks/active/<workflow-id> .copilot/tasks/completed/<workflow-id>
-git status -sb   # MUST show: ## main...origin/main [up to date]
-```
+**Pre-condition:** Step 11 completed; PR exists; CI green; merge mode is
+`auto` (default) OR the user has merged manually.
 
-**Gate:** Directory moved, local `git status` is clean → workflow complete.
+**Merge mode (determined at workflow start, recorded in `handoff.yaml.merge_mode`):**
 
----
+- `auto` (default) — Orchestrator merges autonomously.
+- `manual` — set when the user says, in any wording, that they will review
+  the merge themselves. Orchestrator stops after Step 11, prints the PR URL,
+  and waits. Resume at Step 11.5 when the user merges (detected by polling
+  `gh pr view --json state` until `MERGED`, or when the user says "merged").
+
+If unsure which mode applies, the Orchestrator MUST ask once at workflow
+start: "Auto-merge this PR when CI passes, or will you review it yourself?"
+
+**Actions:**
+
+1. **Merge the PR** (only if `merge_mode == auto`):
+   ```bash
+   gh pr merge <PR-N> --squash --auto --delete-branch
+   ```
+   `--auto` waits for required checks then merges. Fallback if `--auto`
+   rejected: `gh pr merge --squash --delete-branch` (immediate). If both
+   fail: `workflow_status: needs-review`, record reason, stop.
+
+   Poll `gh pr view <PR-N> --json state` until `MERGED` (max 5 min,
+   15 s interval). On timeout: `needs-review`.
+
+2. **Update local main:**
+   ```bash
+   git checkout main
+   git pull --rebase origin main
+   ```
+
+3. **Verify the FR status flip landed on main:**
+   - `grep -q '^status: Implemented' docs/03-requirements/FR-<CODE>.md`
+   - `grep -q '| Shipped |' docs/03-requirements/requirements-registry.md`
+     (in the correct row)
+   - `git status --porcelain` is empty
+   - `git status -sb` shows `[up to date with 'origin/main']`
+
+   If ANY check fails: `workflow_status: needs-review`, record specific
+   failure, stop. Do not "fix" main's state — surface the discrepancy.
+
+4. **Move task dir `active/` → `completed/`:**
+   ```bash
+   git mv .copilot/tasks/active/<wf-id> .copilot/tasks/completed/<wf-id>
+   git commit -m "chore(workflow): archive <wf-id> (FR-<CODE> shipped)"
+   git push origin main
+   ```
+
+   Permitted direct-to-main commit, archive-move only. Strict-no-direct-main
+   projects may skip this step and treat `active/` vs `completed/` as advisory.
+
+**Gate:**
+- `passed` → workflow complete. Clean-tree invariant restored. FR is
+  genuinely `Shipped` on `main`.
+- `failed-retry` → verification mismatch. Re-pull, re-check. Max 2 retries.
+- `needs-review` → merge failed, verification failed, or auto-merge rejected.
 
 ## Failure Recovery
 
