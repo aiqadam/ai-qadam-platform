@@ -8,7 +8,7 @@
 | Status | resolved |
 | Resolved | 2026-06-29 |
 | Workflow | wf-20260629-fix-037 |
-| Merged | <pending> |
+| Merged | [PR #69](https://github.com/tvolodi/aiqadam/pull/69) (squash: `f5ab88f`) |
 | Reported | 2026-06-28 |
 | Reporter | Orchestrator pre-flight (wf-20260628-uat-030 / 02-preflight.md) |
 | Workflow | wf-20260628-uat-030 |

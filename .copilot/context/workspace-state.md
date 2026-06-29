@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-29 (wf-20260629-fix-036 MERGED, PR #68)
+**Last updated:** 2026-06-29 (wf-20260629-fix-037 MERGED, PR #69)
 
 ---
 
@@ -14,6 +14,7 @@ _(none — see Completed Workflows below)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260629-fix-037 | issue-resolution | ISS-UAT-013-5 Directus 503 bounded-exponential-back-off retry | fix/ISS-UAT-013-5-directus-retry | [PR #69](https://github.com/tvolodi/aiqadam/pull/69) | 2026-06-29 |
 | wf-20260629-fix-036 | issue-resolution | ISS-UAT-013-4 seed operator_invites fix | fix/ISS-UAT-013-4-seed-operator-invites | [PR #68](https://github.com/tvolodi/aiqadam/pull/68) | 2026-06-29 |
 | wf-20260629-fix-035 | issue-resolution | ISS-UAT-013-3 LeadCaptureForm on homepage | fix/ISS-UAT-013-3-lead-capture-web-next | [PR #67](https://github.com/tvolodi/aiqadam/pull/67) | 2026-06-29 |
 | wf-20260629-fix-034 | issue-resolution | ISS-UAT-013-7 SMTP/Mailpit email transport | fix/ISS-UAT-013-7-smtp-mailpit | [PR #66](https://github.com/tvolodi/aiqadam/pull/66) | 2026-06-29 |
@@ -30,7 +31,7 @@ _(none — see Completed Workflows below)_
 
 ## Open Issues
 
-_(ISS-UAT-013-5, ISS-UAT-013-6, ISS-UAT-013-8 remain open — see registry.md)_
+_(ISS-UAT-013-6, ISS-UAT-013-8 remain open — see registry.md; ISS-UAT-013-5 resolved via PR #69)_
 
 ---
 
