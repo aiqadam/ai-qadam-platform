@@ -1,14 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-06-29 (wf-20260629-fix-036)
+**Last updated:** 2026-06-29 (wf-20260629-fix-036 MERGED, PR #68)
 
 ---
 
 ## Active Workflows
 
-| Workflow ID | Type | Feature/Issue | Branch | Status |
-|---|---|---|---|---|
-| wf-20260629-fix-036 | issue-resolution | ISS-UAT-013-4 seed operator_invites fix | fix/ISS-UAT-013-4-seed-operator-invites | in-progress |
+_(none — see Completed Workflows below)_
 
 ---
 
@@ -16,6 +14,7 @@
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260629-fix-036 | issue-resolution | ISS-UAT-013-4 seed operator_invites fix | fix/ISS-UAT-013-4-seed-operator-invites | [PR #68](https://github.com/tvolodi/aiqadam/pull/68) | 2026-06-29 |
 | wf-20260629-fix-035 | issue-resolution | ISS-UAT-013-3 LeadCaptureForm on homepage | fix/ISS-UAT-013-3-lead-capture-web-next | [PR #67](https://github.com/tvolodi/aiqadam/pull/67) | 2026-06-29 |
 | wf-20260629-fix-034 | issue-resolution | ISS-UAT-013-7 SMTP/Mailpit email transport | fix/ISS-UAT-013-7-smtp-mailpit | [PR #66](https://github.com/tvolodi/aiqadam/pull/66) | 2026-06-29 |
 | wf-20260629-fix-033 | issue-resolution | ISS-UAT-013-1 port guard + api startup | fix/ISS-UAT-013-1-port-guard | [PR #65](https://github.com/tvolodi/aiqadam/pull/65) | 2026-06-29 |
@@ -37,9 +36,9 @@ _(ISS-UAT-013-5, ISS-UAT-013-6, ISS-UAT-013-8 remain open — see registry.md)_
 
 ## Git State
 
-- **Current branch:** fix/ISS-UAT-013-4-seed-operator-invites
+- **Current branch:** main
 - **Last sync with origin:** 2026-06-29
-- **Pending PRs:** wf-20260629-fix-036 (this workflow)
+- **Pending PRs:** none
 
 ## Next Workflow ID
 
