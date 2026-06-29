@@ -85,4 +85,4 @@ The `uat-env-setup.sh` script already writes `.env.uat` — extend it to also re
 - **Root cause:** `uat-seed.sh` predated BP-UAT-013 and had no `ensure_operator_invite()` function or step to insert rows into the `operator_invites` Directus collection.
 - **Fix:** Added `sha256_hex()` and `date_offset()` portable helpers plus `ensure_operator_invite()` function to `scripts/uat-seed.sh`. The function computes `token_hash` (SHA-256) and `token_prefix`, checks for existing rows by `token_hash` (idempotency), and POSTs a new row if absent. Added step `[4/4]` with three call sites. Added `UAT_SEED_DIRECTUS_MOCK=1` guards to all four steps for test mode. Extended `scripts/uat-env-setup.sh` step 8 to write `UAT_ONBOARD_TOKEN`, `UAT_ONBOARD_USED_TOKEN`, and `UAT_ONBOARD_EXPIRED_TOKEN` to `apps/e2e/.env.uat`.
 - **Regression test:** `scripts/tests/uat-seed.bats` — "AC-1: mock mode exits 0 and provisions all 3 operator_invite tokens" (`[ "$count" -eq 3 ]`) — would fail on the pre-fix codebase (count=0) and passes after the fix (count=3).
-- **Merged:** <pending>
+- **Merged:** 93e123838b672fd6aa01da59747a98070dd153d3

@@ -13,7 +13,7 @@ github_issue_url: ""
 
 branch: "fix/ISS-UAT-013-4-seed-operator-invites"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: https://github.com/tvolodi/aiqadam/pull/68
 
 current_step: 9
 current_step_name: "registry-update"

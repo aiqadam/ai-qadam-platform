@@ -68,4 +68,4 @@ loop on the user. Instead:
 - **Files touched:** `.claude/CLAUDE.md`, `.github/copilot-instructions.md`,
   `.copilot/issues/registry.md`, `.copilot/issues/ISS-WF-GIT-AUTH-1.md`.
 - **Permanent fix:** SSH key in ssh-agent, remote URL switched to SSH.
-- **Merged:** <pending>
+- **Merged:** 93e123838b672fd6aa01da59747a98070dd153d3
