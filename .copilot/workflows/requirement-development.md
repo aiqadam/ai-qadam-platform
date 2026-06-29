@@ -241,6 +241,17 @@ prefixes (01–09) follow the existing numbering and are unaffected.
 3. `pnpm test` — all unit tests
 4. `INTEGRATION_TEST=1 pnpm test:integration` — integration tests with Testcontainers. **MANDATORY before commit.** If Docker unavailable: register issue, `failed-escalate`.
 
+**MANDATORY infrastructure pre-flight (AGENTS.md §6.1):** Before
+classifying any AC as "deferred," the Orchestrator (terminal access)
+MUST capture `docker ps` output showing the missing services, run
+`docker compose -f infrastructure/docker-compose.yml up -d
+<missing-services>`, and pre-flight-curl each required endpoint.
+Only after that sequence is documented in `07-test-results.md` may
+the Orchestrator record a deferral — and only when a follow-up
+workflow is queued with a named ID in the issue's Resolution section.
+**"The stack is incomplete" is NOT a valid reason to skip the test.**
+See `.copilot/agents/orchestrator.md §Infrastructure Pre-Flight`.
+
 **Output file:** `07-test-results.md`
 
 **Gate:**

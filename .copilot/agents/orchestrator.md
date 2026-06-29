@@ -24,8 +24,67 @@ The Orchestrator is the only agent that invokes other agents. No specialized age
 - **Clean-Tree Invariant** — every workflow ends with a synced, clean tree.
 - **Counter semantics** — retry counters increment on the failing step, not the retry target.
 - **Workflow-Finish Protocol** — all commit/push/PR operations go through `scripts/workflow-finish.sh`.
+- **Production-Readiness Invariant** (AGENTS.md §6.1) — every AC must be
+  verified by a real run before the workflow closes. If live infrastructure
+  is required and missing, the Orchestrator brings it up itself
+  (`docker compose up -d <missing-services>` + pre-flight curl); it does
+  NOT defer to a follow-up workflow unless that workflow is queued with a
+  named ID before close. See `AGENTS.md §6.1` and `infra-pre-flight`
+  below.
 
 Read `protocol.md` before routing gates or finishing a workflow. Do not restate those rules here.
+
+---
+
+## Infrastructure Pre-Flight (MANDATORY before declaring a test "deferred")
+
+The Orchestrator is the only agent with terminal access. When a workflow's
+ACs require live infrastructure (Docker stack, Mailpit, Authentik, API
+containers, e2e runner, etc.) and that infrastructure is incomplete, the
+Orchestrator's job is to **make the test possible, then run it** — not to
+mark the AC as "deferred."
+
+**Pre-flight procedure (executed at Step 0.5 or before any test-runner step):**
+
+```bash
+# 1. Inspect what is running
+docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" \
+  | Select-String "aiqadam"
+
+# 2. Cross-reference with the workflow's required services
+# (parse from handoff.yaml.required_services or infer from the issue's ACs)
+
+# 3. If anything required is missing:
+docker compose -f infrastructure/docker-compose.yml up -d <missing-services>
+
+# 4. Pre-flight curl against each required service
+curl -fsS http://localhost:3001/health
+curl -fsS http://localhost:5433       # postgres
+curl -fsS http://localhost:8200/server/ping  # directus
+# etc.
+
+# 5. Only after ALL pre-flight checks return 200 (or expected non-error),
+#    may the live test be marked "ready-to-run" or "verified."
+```
+
+**If pre-flight fails (port conflict, image pull error, env var missing):**
+fix the root cause, do not defer. Repeat until success or until a
+hard-blocker is identified (which then becomes a blocker issue in
+`.copilot/issues/`, not a "deferral").
+
+**Legitimate deferrals** (rare) are limited to:
+
+- Project-level out-of-scope (e.g. production UAT against a live domain
+  is handled by a separate human-facing runbook, not by the agentic
+  workflow).
+- Hard infrastructure blockers that cannot be fixed in the workflow
+  window (e.g. a cloud-region outage). These require a named follow-up
+  workflow queued **before** close, with the queue position recorded in
+  the issue's Resolution section.
+
+**The QualityGate agent enforces this** — its decision file MUST list
+every AC with `verified` or `deferred-with-followup-workflow-ID-and-
+queue-position`. Unmarked ACs are a FAIL.
 
 ---
 

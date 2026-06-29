@@ -144,6 +144,52 @@ Step 11.5 / 12.5 re-runs sub-check 8b against `main` after the merge lands.
 - Verify `handoff.yaml.branch` matches `git rev-parse --abbrev-ref HEAD`.
 - **`github_pr_url` must be non-empty** for `workflow_status: completed`. No PR = gate failure.
 
+### 7.5 Production-Readiness / AC Verification (AGENTS.md §6.1) — HARD GATE
+
+This is a **blocking check**, not advisory. Every AC listed in the issue's
+"Acceptance criteria" (or derived equivalent for `feature/<area>-*`
+workflows) MUST be marked in this section as one of:
+
+- **`verified`** — confirmed by an actual run (test, curl, manual click,
+  etc.) captured in `07-test-results.md` or equivalent. Cite the command
+  output.
+- **`deferred-with-followup-workflow-ID-and-queue-position`** — only
+  acceptable when ALL of the following are true:
+  1. The follow-up workflow ID is named in the PR description's "Risks"
+     section **AND** in the issue file's Resolution section's "Honesty
+     disclosures" subsection.
+  2. The follow-up workflow's task directory exists at
+     `.copilot/tasks/active/<follow-up-id>/` (i.e. it is **queued**,
+     not just named) **OR** a TODO entry exists in
+     `.copilot/context/workspace-state.md` "Open Issues" with the
+     follow-up ID, queue position, and concrete verification commands.
+  3. The deferral is **bounded** — it documents what concrete
+     verification the follow-up will perform (commands, expected
+     output).
+
+**Any AC marked `deferred` without a queued follow-up ID is a GATE FAILURE.**
+**Any AC that is unmarked (neither `verified` nor `deferred-with-...`)
+is a GATE FAILURE.**
+
+Additionally, verify the **Infrastructure-Pre-Flight Invariant:**
+
+- If the AC requires live infrastructure (Docker stack, services), and
+  `07-test-results.md` records a "deferred" status for that AC, verify
+  in the working tree that the Orchestrator ran the pre-flight:
+  - `docker ps` output captured BEFORE the deferral was recorded, showing
+    missing containers.
+  - `docker compose up -d <missing-services>` invocation captured.
+  - Pre-flight curl against each required service captured.
+- **If the Orchestrator recorded a deferral WITHOUT first running the
+  pre-flight and showing the missing infrastructure**, the gate fails —
+  the deferral is invalid.
+
+**Exception (rare, project-level out-of-scope only):** when the
+infrastructure requirement is documented as out-of-scope at the project
+level (e.g. production UAT against aiqadam.com is handled by a separate
+human-facing runbook, not by the agentic workflow). In that case the
+issue file MUST cite the runbook or ADR; otherwise the gate fails.
+
 ---
 
 ## Output File

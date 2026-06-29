@@ -155,11 +155,86 @@ Full details in `docs/04-development/security/security.md`.
 - **Never run database migrations on production** from your session. Generate migration
   files; the user runs them.
 - **Never commit directly to `main` or `master`.** Always feature branch + PR.
+- **Never write code directly on main.** Every feature/fix MUST use the Orchestrator
+  workflow: create branch, run steps, use `workflow-finish.sh` for PR. See `.claude/CLAUDE.md`.
 - **Never disable a test to make CI green.** Fix the test or fix the code.
 - **Never use `--force` or `--legacy-peer-deps`** to bypass package version conflicts.
   Resolve them properly.
 - **Never write code that you wouldn't want to debug at 3am.**
 - **Never use deprecated APIs** without a comment explaining why and a TODO with date.
+
+---
+
+## 6.1 Production-readiness and infrastructure obligations (added 2026-06-29)
+
+**Any implementation that lands on `main` MUST be production-ready. There are no
+acceptable excuses for "ready except for X."**
+
+These rules close three loopholes that previous workflows exploited:
+
+1. **No "deferred tests."** Every acceptance criterion (AC) listed in the issue
+   MUST be verified end-to-end in the same workflow that closes it. "Deferred to
+   follow-up workflow `wf-XXX`" is only acceptable when:
+   - The follow-up workflow ID is named in the PR description **and**
+   - The follow-up workflow is queued before this workflow closes
+     (i.e. a `wf-20260630-uat-031-rerun-bp-uat-013` exists in
+     `.copilot/tasks/active/` or in a registered queue) **and**
+   - The deferral is **honestly bounded** — not an excuse to ship unverified code.
+   A standalone "deferral to nowhere" is a FAIL at the QualityGate.
+
+2. **Test infrastructure MUST be prepared, not assumed.** If a workflow's
+   acceptance criteria require live infrastructure (Docker stack, Mailpit,
+   Authentik, API containers, e2e runner, etc.) and the infrastructure is
+   missing — **the agent with terminal access (Orchestrator) MUST bring it up**
+   before marking the test as deferred. Specifically:
+   - If `docker ps` shows missing containers, the agent must run
+     `docker compose up -d <missing-services>` (or the repo's equivalent
+     `infrastructure/docker-compose.yml` command) and a pre-flight curl.
+   - The pre-flight curl must confirm each required service is reachable
+     (e.g. `curl -fsS http://localhost:3001/health` returns 200).
+   - Only after pre-flight succeeds may the live test be run.
+   - If the pre-flight fails (port conflict, image pull error, env var
+     missing), the agent MUST fix it before proceeding — not defer.
+   - "The stack is incomplete" is NOT a valid reason to skip the test. The
+     Orchestrator's job is to make the test possible, then run it.
+   - The only legitimate deferral is when the infrastructure requirement is
+     documented as **out-of-scope at the project level** (e.g. "production
+     UAT against aiqadam.com is out of scope for this repo" — then a
+     separate human-facing runbook handles it).
+
+3. **Workflows end with proof, not promises.** The QualityGate decision file
+   (`09-quality-gate.md`) MUST list every AC from the issue and mark each
+   as `verified` or `deferred-with-followup-workflow-ID-and-queue-position`.
+   Unmarked ACs are a QualityGate FAIL.
+
+### Concrete checklist before declaring a workflow done
+
+- [ ] Every AC verified by an actual test run, OR a follow-up workflow ID is
+      named in the PR description **and** queued.
+- [ ] If the test required live infra, that infra was brought up by the
+      Orchestrator before the test, and a pre-flight curl confirms reachability.
+- [ ] No "the stack isn't ready" or "will re-run in wf-XXX" with no queued
+      wf-XXX exists.
+- [ ] `09-quality-gate.md` lists every AC and marks it verified-or-deferred-
+      with-queue-ref.
+
+### Honesty disclosure required when deferral is unavoidable
+
+Even when a deferral is legitimate (project-level out-of-scope), the
+Resolution section of the issue file MUST include a "Honesty disclosures"
+bullet that:
+
+- Names the follow-up workflow ID **and** its queue position
+  (e.g. "queued as wf-20260630-uat-031, position 1 in `wf-20260630-uat-031-rerun-bp-uat-013/`").
+- States the concrete verification the follow-up will perform
+  (commands to run, expected output).
+- Confirms the current workflow is NOT marking the issue `resolved` based on
+  deferred verification alone — the issue flips to `resolved` only after the
+  follow-up workflow's verification step runs.
+
+If a workflow ends with the issue still showing `Status: resolved` while any
+AC has unverified deferral without a queued follow-up, that is a workflow
+violation and must be reported.
 
 ---
 
@@ -246,7 +321,73 @@ Scopes follow the module structure in
 
 ---
 
-## 11. Final priorities, in order
+## 11. Design system
+
+The approved AI Qadam design system lives in:
+
+```
+docs/04-development/design-system/Design system for AI agents/readme.md
+```
+
+**Read that file first** before building or editing any UI surface. It is the
+canonical reference for brand, tokens, components, and copy rules. The SKILL.md
+in the same directory is the Claude-facing skill entry point.
+
+### CSS entry points (already wired into `apps/web`)
+
+| File | What it contains |
+|---|---|
+| `design-system/tokens.css` | OKLCH color tokens (light + dark), fonts, radii, shadows |
+| `design-system/components.css` | CSS class library: `.btn`, `.badge`, `.card`, `.avatar`, `.input`, … |
+| `design-system/portal.css` | Domain compositions: event cards, hero, scanner, leaderboard, … |
+
+`apps/web/src/styles/globals.css` imports all three — do not add a fourth layer;
+extend `portal.css` instead.
+
+### Non-negotiables for UI code
+
+These are in addition to the main Ten Non-Negotiables above:
+
+1. **Never raw hex.** Every color must be `var(--token-name)`. The one allowed
+   exception is inside `<img>`-referenced SVG files where CSS variables don't
+   reach. Fallbacks like `var(--destructive, #c00)` are **not** acceptable in
+   new code — the token is always defined.
+
+2. **No gradients.** The palette is solid-only. `linear-gradient`,
+   `radial-gradient`, and CSS `gradient()` are forbidden in component styles.
+
+3. **Lucide icons only.** `import { X } from 'lucide-react'`. No PrimeIcons
+   (`pi pi-*`), Heroicons, Phosphor, or any other library. Stroke only —
+   `stroke="currentColor"`, never an explicit fill color. Sizes: 16px in
+   buttons, 20px in nav, 24px in cards, 48px in empty states.
+
+4. **Three font families, via token.** `var(--font-display)` (Geist) for
+   headings, `var(--font-sans)` (Inter) for body, `var(--font-mono)`
+   (JetBrains Mono) for tags/times/status labels. Never hardcode a font name
+   in a component.
+
+5. **No emoji in product copy.** The only exceptions are country flags in
+   the leaderboard/country switcher and the 🔥 streak badge. `✓`, `✅`, `❌`
+   in UI text are violations — use a Lucide `Check` or `X` icon instead.
+
+6. **Copy casing rules.** Sentence case for buttons and menu items. Title Case
+   for page titles. `UPPERCASE MONO` (`.badge.mono` class) for status labels
+   (`UPCOMING`, `LIVE`, `PAST`, `ONLINE`).
+
+7. **No new color tokens.** The palette is intentionally closed. If a new
+   semantic state is needed, raise it with the user first — do not invent a
+   one-off hex or add a CSS variable outside the token files.
+
+### Brand teal rule
+
+`var(--primary)` / `#3CA29E` / `oklch(0.58 0.10 192)` is the **only** color
+with brand identity meaning. It is used for: primary buttons, focus rings,
+active/selected states, link accents. Do not use it as generic decoration, and
+do not use `var(--accent)` as a proxy for success green — use `var(--success)`.
+
+---
+
+## 12. Final priorities, in order
 
 When in conflict, this is the order:
 

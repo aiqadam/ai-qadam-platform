@@ -161,6 +161,79 @@ Full details in `docs/04-development/security/security.md`.
 
 ---
 
+## 6.1 Production-readiness and infrastructure obligations (added 2026-06-29)
+
+**Any implementation that lands on `main` MUST be production-ready. There are no
+acceptable excuses for "ready except for X."**
+
+These rules close three loopholes that previous workflows exploited:
+
+1. **No "deferred tests."** Every acceptance criterion (AC) listed in the issue
+   MUST be verified end-to-end in the same workflow that closes it. "Deferred to
+   follow-up workflow `wf-XXX`" is only acceptable when:
+   - The follow-up workflow ID is named in the PR description **and**
+   - The follow-up workflow is queued before this workflow closes
+     (i.e. a `wf-20260630-uat-031-rerun-bp-uat-013` exists in
+     `.copilot/tasks/active/` or in a registered queue) **and**
+   - The deferral is **honestly bounded** — not an excuse to ship unverified code.
+   A standalone "deferral to nowhere" is a FAIL at the QualityGate.
+
+2. **Test infrastructure MUST be prepared, not assumed.** If a workflow's
+   acceptance criteria require live infrastructure (Docker stack, Mailpit,
+   Authentik, API containers, e2e runner, etc.) and the infrastructure is
+   missing — **the agent with terminal access (Orchestrator) MUST bring it up**
+   before marking the test as deferred. Specifically:
+   - If `docker ps` shows missing containers, the agent must run
+     `docker compose up -d <missing-services>` (or the repo's equivalent
+     `infrastructure/docker-compose.yml` command) and a pre-flight curl.
+   - The pre-flight curl must confirm each required service is reachable
+     (e.g. `curl -fsS http://localhost:3001/health` returns 200).
+   - Only after pre-flight succeeds may the live test be run.
+   - If the pre-flight fails (port conflict, image pull error, env var
+     missing), the agent MUST fix it before proceeding — not defer.
+   - "The stack is incomplete" is NOT a valid reason to skip the test. The
+     Orchestrator's job is to make the test possible, then run it.
+   - The only legitimate deferral is when the infrastructure requirement is
+     documented as **out-of-scope at the project level** (e.g. "production
+     UAT against aiqadam.com is out of scope for this repo" — then a
+     separate human-facing runbook handles it).
+
+3. **Workflows end with proof, not promises.** The QualityGate decision file
+   (`09-quality-gate.md`) MUST list every AC from the issue and mark each
+   as `verified` or `deferred-with-followup-workflow-ID-and-queue-position`.
+   Unmarked ACs are a QualityGate FAIL.
+
+### Concrete checklist before declaring a workflow done
+
+- [ ] Every AC verified by an actual test run, OR a follow-up workflow ID is
+      named in the PR description **and** queued.
+- [ ] If the test required live infra, that infra was brought up by the
+      Orchestrator before the test, and a pre-flight curl confirms reachability.
+- [ ] No "the stack isn't ready" or "will re-run in wf-XXX" with no queued
+      wf-XXX exists.
+- [ ] `09-quality-gate.md` lists every AC and marks it verified-or-deferred-
+      with-queue-ref.
+
+### Honesty disclosure required when deferral is unavoidable
+
+Even when a deferral is legitimate (project-level out-of-scope), the
+Resolution section of the issue file MUST include a "Honesty disclosures"
+bullet that:
+
+- Names the follow-up workflow ID **and** its queue position
+  (e.g. "queued as wf-20260630-uat-031, position 1 in `wf-20260630-uat-031-rerun-bp-uat-013/`").
+- States the concrete verification the follow-up will perform
+  (commands to run, expected output).
+- Confirms the current workflow is NOT marking the issue `resolved` based on
+  deferred verification alone — the issue flips to `resolved` only after the
+  follow-up workflow's verification step runs.
+
+If a workflow ends with the issue still showing `Status: resolved` while any
+AC has unverified deferral without a queued follow-up, that is a workflow
+violation and must be reported.
+
+---
+
 ## 7. When you're uncertain
 
 If you don't know something — **say so**. Do not guess.

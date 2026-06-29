@@ -156,6 +156,17 @@ Same as `requirement-development.md` Step 5.
 
 Same as `requirement-development.md` Step 8. The regression test is the primary success indicator. All existing tests must also pass (no regressions introduced).
 
+**MANDATORY pre-flight when tests need live infrastructure:** Before
+running live tests, the Orchestrator (which has terminal access) MUST
+verify the required infrastructure is up. If `docker ps` shows missing
+services, the Orchestrator MUST bring them up
+(`docker compose -f infrastructure/docker-compose.yml up -d
+<missing-services>`) and pre-flight-curl each one BEFORE classifying the
+test as "deferred." A "the stack is incomplete" deferral without a
+pre-flight capture in `07-test-results.md` is a workflow violation.
+See `AGENTS.md §6.1` and `.copilot/agents/orchestrator.md §Infrastructure
+Pre-Flight` for the full procedure.
+
 ---
 
 ### Step 9: Update Issue Registry (atomic status flip)

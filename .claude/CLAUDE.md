@@ -152,6 +152,15 @@ back into `handoff.yaml`, and returns to `main`.
 5. **Never write code directly on main.** Every change must be on a feature/fix
    branch and go through the workflow to PR.
 
+6. **Production-readiness and infra obligations (AGENTS.md §6.1) are
+   blocking.** When a workflow's ACs require live infrastructure and the
+   stack is incomplete, the Orchestrator (which has terminal access) MUST
+   bring it up — `docker compose up -d <missing-services>` followed by a
+   pre-flight `curl -fsS` against each required service — before
+   classifying any test as "deferred." The only acceptable deferral is
+   one with a named, queued follow-up workflow ID written into the issue's
+   Resolution section. See `AGENTS.md` §6.1 for the full rule.
+
 ---
 
 ## This file is NOT auto-generated
