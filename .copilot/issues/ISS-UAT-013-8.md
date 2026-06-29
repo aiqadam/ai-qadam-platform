@@ -250,6 +250,26 @@ Live run output preserved at `.copilot/tasks/active/wf-20260629-fix-039/07-test-
   Neg 005 correctly asserts 200 at GET preview + 409 at POST accept.
 - The new bats tests are non-vacuous: stash-and-revert proof in
   `07-test-results.md` shows 3/8 fail without the seed fix.
+- **AC-2 (live Step 006 re-run) is NOT just deferred — the local
+  Docker stack lacks the containers needed to run it.** Verified on
+  2026-06-29 via `docker ps -a --format ... | Select-String aiqadam`:
+  only `aiqadam-postgres`, `aiqadam-redis`, `aiqadam-directus`,
+  `aiqadam-mailpit`, `aiqadam-twenty`, `aiqadam-minio`,
+  `aiqadam-authentik-server`, `aiqadam-authentik-worker`,
+  `aiqadam-telegram-bot-api` are running. **Missing: `aiqadam-api`,
+  `aiqadam-web-next`** (and `aiqadam-e2e` for the Playwright runner).
+  Step 006 needs the api on `:3001` and the web-next portal on the
+  nginx-upstream port. The follow-up UATRunner workflow must therefore
+  start those services before attempting the live re-run — it is not
+  a "rerun the spec" task, it is a "spin up api + web-next + run seed +
+  then rerun the spec" task. This is a stronger statement than the
+  "AC-2 deferred" framing in `06-test-strategy.md`; the strategy
+  assumed the stack would be there and only deferred the act of
+  running it. Reality: the stack is incomplete. The follow-up
+  workflow's first step must be `docker compose up -d api web-next e2e`
+  (or the equivalent in this repo's `infrastructure/docker-compose.yml`)
+  and a pre-flight curl against `http://localhost:3001/health` and
+  the web-next index page before invoking Playwright.
 
 ### Workflow artifact paths
 
