@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-29 (wf-20260629-fix-038 MERGED, PR #70)
+**Last updated:** 2026-06-29 (wf-20260629-fix-039 MERGED, PR #71)
 
 ---
 
@@ -14,6 +14,7 @@ _(none — see Completed Workflows below)_
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260629-fix-039 | issue-resolution | ISS-UAT-013-8 operator_invites.email alignment with seeded Authentik user + Neg 005 | fix/ISS-UAT-013-8-invite-email-match | [PR #71](https://github.com/tvolodi/aiqadam/pull/71) | 2026-06-29 |
 | wf-20260629-fix-038 | issue-resolution | ISS-UAT-013-6 Negative-scenario assertion rule + bats regression test | fix/ISS-UAT-013-6-uat-test-design | [PR #70](https://github.com/tvolodi/aiqadam/pull/70) | 2026-06-29 |
 | wf-20260629-fix-037 | issue-resolution | ISS-UAT-013-5 Directus 503 bounded-exponential-back-off retry | fix/ISS-UAT-013-5-directus-retry | [PR #69](https://github.com/tvolodi/aiqadam/pull/69) | 2026-06-29 |
 | wf-20260629-fix-036 | issue-resolution | ISS-UAT-013-4 seed operator_invites fix | fix/ISS-UAT-013-4-seed-operator-invites | [PR #68](https://github.com/tvolodi/aiqadam/pull/68) | 2026-06-29 |
@@ -32,7 +33,7 @@ _(none — see Completed Workflows below)_
 
 ## Open Issues
 
-_(ISS-UAT-013-8 remains open — see registry.md; ISS-UAT-013-6 resolved via PR #70)_
+_(none — all UAT-013-* issues resolved; AC-2 of ISS-UAT-013-8 deferred to follow-up UATRunner workflow `wf-20260630-uat-031-rerun-bp-uat-013`)_
 
 ---
 
