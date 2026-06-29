@@ -15,6 +15,9 @@
 #        uat-operator@aiqadam.test → aiqadam-super-admin (full operator cab)
 #      These credentials are referenced in apps/e2e/.env.uat
 #      (UAT_MEMBER_EMAIL / UAT_OPERATOR_EMAIL) written by uat-env-setup.sh.
+#   4. Inserts three operator_invites rows into Directus (one valid+unused,
+#      one consumed, one expired) so BP-UAT-013 steps 005/006 and
+#      Neg 002/003 can run against the real /v1/onboard/preview API. Idempotent.
 #
 # Prerequisites (all done by scripts/uat-env-setup.sh):
 #   - Docker stack up (Authentik :9000, Directus :8200)
@@ -25,8 +28,9 @@
 #   pnpm uat:seed
 #
 # Environment guards:
-#   FORCE_REGEN=1 — re-create test users even if they already exist
-#                   (resets their password + group membership)
+#   FORCE_REGEN=1              — re-create test users even if they already exist
+#                                (resets their password + group membership)
+#   UAT_SEED_DIRECTUS_MOCK=1   — skip ALL external calls (test mode for bats)
 #
 # Why a bash script, not TypeScript: the fixtures live in Directus
 # (CMS) and Authentik (IdP) — both administered via REST + shell. There
@@ -40,6 +44,7 @@ INFRA_DIR="$REPO_ROOT/infrastructure"
 API_DIR="$REPO_ROOT/apps/api"
 
 FORCE_REGEN="${FORCE_REGEN:-0}"
+UAT_SEED_DIRECTUS_MOCK="${UAT_SEED_DIRECTUS_MOCK:-0}"
 
 # ── Colour helpers (same palette as uat-env-setup.sh) ─────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -212,6 +217,106 @@ ensure_test_user() {
   fi
 }
 
+# ── Portable SHA-256 hex hash ────────────────────────────────────────────────
+# sha256sum is Linux-only; macOS ships shasum. Both produce the same hex output.
+sha256_hex() {
+  if command -v sha256sum &>/dev/null; then
+    printf '%s' "$1" | sha256sum | awk '{print $1}'
+  else
+    printf '%s' "$1" | shasum -a 256 | awk '{print $1}'
+  fi
+}
+
+# ── Portable UTC timestamp with offset from now ───────────────────────────────
+# Usage: date_offset <spec> <unit>
+#   spec: "+7" or "-1" (sign + number)
+#   unit: days | hours
+# GNU date (Linux) uses -d; BSD date (macOS) uses -v.
+date_offset() {
+  local spec="$1" unit="$2"
+  local result
+  result=$(date -u -d "${spec} ${unit}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || true)
+  if [[ -n "$result" ]]; then
+    printf '%s' "$result"
+    return
+  fi
+  # BSD date (macOS): spec "+7" → -v+7d, "-2" → -v-2H
+  local n="${spec:1}"    # strip sign
+  local sign="${spec:0:1}"
+  local flag
+  case "$unit" in
+    days)  flag="${sign}${n}d" ;;
+    hours) flag="${sign}${n}H" ;;
+    *)     fail "date_offset: unknown unit '${unit}'" ;;
+  esac
+  date -u -v"${flag}" '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+# ── Idempotently insert one operator_invite row into Directus ─────────────────
+# Args: <email> <status> <expires_at_iso> <consumed_at_iso_or_empty> <token_plain>
+# UAT_SEED_DIRECTUS_MOCK=1 — skip all curl calls (used by bats tests).
+ensure_operator_invite() {
+  local email="$1" status="$2" expires_at="$3" consumed_at="$4" token_plain="$5"
+  local token_hash token_prefix
+  token_hash=$(sha256_hex "$token_plain")
+  token_prefix="${token_plain:0:8}"
+
+  if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+    ok "operator_invite ${token_prefix} (mock)"
+    return
+  fi
+
+  # Idempotency guard: check if a row with this token_hash already exists.
+  # token_prefix (first 8 chars) collides when multiple tokens share the same
+  # prefix \u2014 use the full SHA-256 hash as the unique idempotency key.
+  local existing
+  existing=$(curl -sf \
+    -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+    "${DIRECTUS_URL}/items/operator_invites?filter[token_hash][_eq]=${token_hash}&limit=1" \
+    2>/dev/null | jq -r '.data[0].id // empty' 2>/dev/null || true)
+
+  if [[ -n "$existing" ]]; then
+    ok "operator_invite ${token_prefix} (exists, id=${existing})"
+    return
+  fi
+
+  # Build JSON body — consumed_at is a nullable timestamp; omit when empty
+  # to avoid Directus rejecting an empty-string timestamp field.
+  local body
+  if [[ -n "$consumed_at" ]]; then
+    body=$(jq -nc \
+      --arg e   "$email"       \
+      --arg st  "$status"      \
+      --arg exp "$expires_at"  \
+      --arg cat "$consumed_at" \
+      --arg th  "$token_hash"  \
+      --arg tp  "$token_prefix" \
+      '{email:$e,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:[]}')
+  else
+    body=$(jq -nc \
+      --arg e   "$email"       \
+      --arg st  "$status"      \
+      --arg exp "$expires_at"  \
+      --arg th  "$token_hash"  \
+      --arg tp  "$token_prefix" \
+      '{email:$e,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:[]}')
+  fi
+
+  local resp code
+  resp=$(curl -s \
+    -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -X POST -w "\n%{http_code}" \
+    "${DIRECTUS_URL}/items/operator_invites" \
+    -d "$body" 2>/dev/null)
+  code="${resp##*$'\n'}"
+
+  if [[ "$code" != "200" && "$code" != "201" ]]; then
+    fail "ensure_operator_invite ${token_prefix}: HTTP ${code} — ${resp%$'\n'*}"
+  fi
+  ok "operator_invite ${token_prefix} (created, status=${status})"
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
@@ -238,45 +343,77 @@ OPERATOR_EMAIL="${UAT_OPERATOR_EMAIL:-uat-operator@aiqadam.test}"
 OPERATOR_PASSWORD="${UAT_OPERATOR_PASSWORD:-UatOperator1!}"
 
 # ── STEP 1 — Reachability ─────────────────────────────────────────────────────
-echo "[1/3] Verifying stack reachability…"
-if ! curl -sf "${DIRECTUS_URL}/server/ping" -H "Authorization: Bearer ${DIRECTUS_TOKEN}" >/dev/null 2>&1; then
-  fail "Directus unreachable at ${DIRECTUS_URL}. Start the stack: bash scripts/uat-env-setup.sh"
+echo "[1/4] Verifying stack reachability…"
+if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+  ok "Directus reachable (mock)"
+  ok "Authentik reachable (mock)"
+else
+  if ! curl -sf "${DIRECTUS_URL}/server/ping" -H "Authorization: Bearer ${DIRECTUS_TOKEN}" >/dev/null 2>&1; then
+    fail "Directus unreachable at ${DIRECTUS_URL}. Start the stack: bash scripts/uat-env-setup.sh"
+  fi
+  ok "Directus reachable"
+  if ! curl -sf "${AK_URL}/if/admin/" >/dev/null 2>&1; then
+    fail "Authentik unreachable at ${AK_URL}. Start the stack: bash scripts/uat-env-setup.sh"
+  fi
+  ok "Authentik reachable"
 fi
-ok "Directus reachable"
-if ! curl -sf "${AK_URL}/if/admin/" >/dev/null 2>&1; then
-  fail "Authentik unreachable at ${AK_URL}. Start the stack: bash scripts/uat-env-setup.sh"
-fi
-ok "Authentik reachable"
 
 # ── STEP 2 — Directus schema + fixtures (delegates to bootstrap.sh) ──────────
 echo ""
-echo "[2/3] Running Directus bootstrap (collections + RBAC policies + demo data)…"
-if [[ ! -f "$INFRA_DIR/directus/bootstrap.sh" ]]; then
-  fail "infrastructure/directus/bootstrap.sh not found"
+echo "[2/4] Running Directus bootstrap (collections + RBAC policies + demo data)…"
+if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+  ok "Directus bootstrap complete (mock)"
+else
+  if [[ ! -f "$INFRA_DIR/directus/bootstrap.sh" ]]; then
+    fail "infrastructure/directus/bootstrap.sh not found"
+  fi
+  # bootstrap.sh is idempotent (documented at its head) — safe to call every run.
+  DIRECTUS_URL="$DIRECTUS_URL" DIRECTUS_TOKEN="$DIRECTUS_TOKEN" \
+    bash "$INFRA_DIR/directus/bootstrap.sh"
+  ok "Directus bootstrap complete"
 fi
-# bootstrap.sh is idempotent (documented at its head) — safe to call every run.
-DIRECTUS_URL="$DIRECTUS_URL" DIRECTUS_TOKEN="$DIRECTUS_TOKEN" \
-  bash "$INFRA_DIR/directus/bootstrap.sh"
-ok "Directus bootstrap complete"
 
 # ── STEP 3 — Authentik test users ─────────────────────────────────────────────
 echo ""
-echo "[3/3] Creating Authentik test users…"
-AK_TOKEN=$(get_ak_admin_token "$AK_URL" "$AK_CONTAINER")
-[[ -n "$AK_TOKEN" ]] || fail "Failed to obtain Authentik admin token"
+echo "[3/4] Creating Authentik test users…"
+if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+  ok "user uat-member (mock)"
+  ok "user uat-operator (mock)"
+else
+  AK_TOKEN=$(get_ak_admin_token "$AK_URL" "$AK_CONTAINER")
+  [[ -n "$AK_TOKEN" ]] || fail "Failed to obtain Authentik admin token"
 
-# Group membership per ADR-0021 §2 (canonical role names).
-# Member: standard community member.
-# Operator: super-admin cab so BP-UAT-001..018 can drive operator flows.
-ensure_test_user \
-  "$AK_URL" "$AK_TOKEN" \
-  "uat-member" "$MEMBER_EMAIL" "UAT Member" \
-  "$MEMBER_PASSWORD" "aiqadam-member"
+  # Group membership per ADR-0021 §2 (canonical role names).
+  # Member: standard community member.
+  # Operator: super-admin cab so BP-UAT-001..018 can drive operator flows.
+  ensure_test_user \
+    "$AK_URL" "$AK_TOKEN" \
+    "uat-member" "$MEMBER_EMAIL" "UAT Member" \
+    "$MEMBER_PASSWORD" "aiqadam-member"
 
-ensure_test_user \
-  "$AK_URL" "$AK_TOKEN" \
-  "uat-operator" "$OPERATOR_EMAIL" "UAT Operator" \
-  "$OPERATOR_PASSWORD" "aiqadam-super-admin"
+  ensure_test_user \
+    "$AK_URL" "$AK_TOKEN" \
+    "uat-operator" "$OPERATOR_EMAIL" "UAT Operator" \
+    "$OPERATOR_PASSWORD" "aiqadam-super-admin"
+fi
+
+# ── STEP 4 — operator_invites rows ──────────────────────────────────────────
+# Three rows for BP-UAT-013 (ISS-UAT-013-4): valid+unused, consumed, expired.
+# Tokens are static test-fixture constants — never used in production.
+echo ""
+echo "[4/4] Provisioning operator_invites rows…"
+_now_plus_7d=$(date_offset "+7" days)
+_now_minus_2h=$(date_offset "-2" hours)
+_now_minus_1d=$(date_offset "-1" days)
+
+ensure_operator_invite \
+  "uat-operator+valid@aiqadam.test" "pending" "$_now_plus_7d" "" "uat-onboard-token"
+
+ensure_operator_invite \
+  "uat-operator+used@aiqadam.test" "consumed" "$_now_plus_7d" "$_now_minus_2h" "uat-onboard-used-token"
+
+ensure_operator_invite \
+  "uat-operator+expired@aiqadam.test" "pending" "$_now_minus_1d" "" "uat-onboard-expired-token"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
@@ -285,5 +422,10 @@ echo ""
 echo "  Test credentials (also in apps/e2e/.env.uat):"
 echo "    member:   ${MEMBER_EMAIL} / ${MEMBER_PASSWORD}"
 echo "    operator: ${OPERATOR_EMAIL} / ${OPERATOR_PASSWORD}"
+echo ""
+echo "  operator_invites tokens (also in apps/e2e/.env.uat):"
+echo "    valid:    uat-onboard-token"
+echo "    used:     uat-onboard-used-token"
+echo "    expired:  uat-onboard-expired-token"
 echo ""
 echo "  Next: cd apps/e2e && pnpm playwright test --config playwright.uat.config.ts"

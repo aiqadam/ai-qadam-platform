@@ -45,6 +45,43 @@ apply on top of `AGENTS.md` Section 6:
   explicit confirmation.
 - **Prefer `pnpm`** over `npm` or `yarn` for all package operations in this repo.
 
+## Git credentials (RESOLVED 2026-06-29 via Quest: ISS-UAT-013-4 workflow)
+
+### Symptom
+`workflow-finish.sh` (and any `git push`) repeatedly prompted for `Username` and
+`Password for 'https://tvolodi@github.com'`. Tiring — every workflow blocked on
+interactive input that the agent cannot provide.
+
+### Root cause
+The repo's `origin` was HTTPS (`https://github.com/tvolodi/aiqadam.git`) with no
+`credential.helper` configured, so Git had no way to cache the PAT.
+
+### Permanent fix (already applied on viktor's machine)
+
+1. Generated ed25519 SSH key (no passphrase):
+   `ssh-keygen -t ed25519 -f %USERPROFILE%\.ssh\id_ed25519 -N "" -C viktor@tvolodi.local`
+2. Wrote `%USERPROFILE%\.ssh\config` with `Host github.com` → IdentityFile
+   `id_ed25519`, `IdentitiesOnly yes`, `AddKeysToAgent yes`.
+3. Added the key to GitHub Settings → SSH and GPG keys (or via `gh ssh-key add`
+   after `gh auth refresh -s admin:public_key`).
+4. `git remote set-url origin git@github.com:tvolodi/aiqadam.git` (this repo only).
+5. `git config --global --unset credential.helper` so HTTPS doesn't compete with SSH.
+6. `ssh-add $env:USERPROFILE\.ssh\id_ed25519` so ssh-agent holds the key.
+
+### Verification
+`ssh -T git@github.com` prints `Hi tvolodi! You've successfully authenticated...`
+and `git push` succeeds with no prompt.
+
+### Future agents — what to do if you ever see this prompt again
+**Do NOT loop asking the user for the PAT.** Instead:
+
+1. Check `git config --global credential.helper` — if empty, configure SSH (steps
+   1–6 above) OR run `git config --global credential.helper manager` (caches the
+   PAT in Windows Credential Manager after the user types it once).
+2. Check `git remote get-url origin` — if `https://`, propose switching to
+   `git@github.com:<org>/<repo>.git` if an SSH key is present.
+3. Document your fix in this section under a new heading (date + symptom).
+
 ---
 
 ## How to handle conflicts with user requests

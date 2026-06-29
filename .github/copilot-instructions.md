@@ -202,6 +202,24 @@ Before adding ANY new dependency:
 
 ---
 
+## Git credentials — never block on PAT prompts
+
+This repo's `origin` is `git@github.com:tvolodi/aiqadam.git` (SSH, ed25519 key
+with no passphrase, identity loaded in `ssh-agent`). `git push` and
+`gh pr create` run without interactive input.
+
+**If Git ever prompts for `Username`/`Password for https://github.com/...`:** do
+NOT ask the user for a PAT. Instead:
+
+1. Run `git config --global credential.helper manager` (caches the PAT in
+   Windows Credential Manager after a single user-typed entry).
+2. If the remote is HTTPS, run
+   `git remote set-url origin git@github.com:<org>/<repo>.git`.
+3. If neither works, see `.claude/CLAUDE.md` §"Git credentials" for the full
+   SSH-key migration procedure.
+
+---
+
 ## 10. Commit and PR conventions
 
 ### Commit messages — Conventional Commits format
