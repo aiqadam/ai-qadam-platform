@@ -1,0 +1,111 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260629-fix-037"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-06-29T17:00:00Z"
+last_updated_at: "2026-06-29T17:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-UAT-013-5"
+requirement_text: >-
+  Directus returns 503 "Under pressure" during seed bootstrap; 3 retries
+  with back-off required. Wrap infrastructure/directus/bootstrap.sh with
+  retry helper; add config knob in infrastructure/directus/.env.
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-UAT-013-5-directus-retry"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 1
+current_step_name: "issue-lookup"
+workflow_status: "running"
+
+# ─── Merge mode (FEAT-WORKFLOW-003) ──────────────────────────────────────────
+# Default: auto. User has not opted into manual review for this workflow.
+merge_mode: "auto"
+
+# ─── Subworkflow Link ─────────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results: {}
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments: {}
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+# ─── Retry Limits ────────────────────────────────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: "ISS-UAT-013-5"
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard (FEAT-WORKFLOW-001) ─────────────────────────────────
+
+expects_registry_update: true
+context_sync_commits: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts: []
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - .copilot/issues/ISS-UAT-013-5.md
+  - infrastructure/directus/bootstrap.sh
+  - scripts/uat-seed.sh
+  - infrastructure/directus/.env
+  - scripts/tests/
+  - .copilot/issues/registry.md
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260629-fix-037/NEEDS_REVIEW.md"

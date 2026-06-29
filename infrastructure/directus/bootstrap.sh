@@ -32,6 +32,26 @@
 # After this lands, run infrastructure/directus/migrate-from-platform.sh
 # to copy data from the existing platform.events / .registrations /
 # .point_awards tables into Directus.
+#
+# ── Retry policy (ISS-UAT-013-5) ──────────────────────────────────────────
+# Directus 2024.x returns HTTP 503 "Service 'api' is unavailable. Under
+# pressure" when the api receives more concurrent mutations than its
+# worker pool can drain on a fresh container. On a fresh UAT seed this
+# manifests as a tight-loop 503 storm on collection/relation/perm POSTs.
+#
+# Mitigations baked in below:
+#   - All mutating calls (POST / PATCH / DELETE) go through
+#     `directus_request_with_retry` which absorbs 503/429 with bounded
+#     exponential back-off (4 → 8 → 16 → 32 → 64, capped at 60s).
+#   - All existence-check GETs stay bare (wrapping them would add load
+#     when Directus is already pressured).
+#   - 401/403/4xx non-429 fail-fast (auth + validation errors are not
+#     transient; retrying multiplies log noise without changing outcome).
+#
+# Tunables live in infrastructure/.env.example as DIRECTUS_RETRY_MAX
+# (default 5) and DIRECTUS_RETRY_BASE_DELAY (default 4). UAT bats suite
+# sets UAT_SEED_DIRECTUS_MOCK=1 so the helper short-circuits without
+# network I/O.
 
 set -euo pipefail
 
@@ -41,9 +61,19 @@ set -euo pipefail
 H_AUTH="Authorization: Bearer ${DIRECTUS_TOKEN}"
 H_JSON="content-type: application/json"
 
+# Resolve repo root (bootstrap.sh is at infrastructure/directus/; the
+# helper lives at scripts/tests/directus-retry-helper.bash). We compute
+# REPO_ROOT from BASH_SOURCE[0] so the script is location-independent.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/tests/directus-retry-helper.bash
+source "${REPO_ROOT}/scripts/tests/directus-retry-helper.bash"
+
 # ──────────── helpers ───────────────────────────────────────────────────
 
 # Skip if HTTP 200 GET succeeds (already exists), else POST the body.
+# The GET stays bare (no retry): under pressure an extra GET adds load
+# and the existence check is best-effort anyway. The POST goes through
+# `directus_request_with_retry` to absorb Directus 503/429 storms.
 ensure() {
   local kind="$1"      # human label
   local check_url="$2" # GET to test existence
@@ -55,13 +85,13 @@ ensure() {
     echo "  ✓ ${kind} (exists)"
     return 0
   fi
-  code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${create_url}" --data "${body}")
-  if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+  if directus_request_with_retry POST "${create_url}" \
+       -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
     echo "  + ${kind} (created)"
   else
+    code=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
     echo "  ✗ ${kind} HTTP ${code}"
-    head -c 200 /tmp/directus-resp
+    head -c 200 /tmp/directus-retry-resp
     echo
     return 1
   fi
@@ -72,7 +102,8 @@ ensure() {
 # column (Directus runs the corresponding ALTER TABLE ... DROP COLUMN
 # under the hood). 404 = already gone = success. Used to retire fields
 # that the schema no longer needs (e.g. F-S2.8.x email-routing cleanup
-# in F-S2.12).
+# in F-S2.12). The DELETE goes through `directus_request_with_retry` to
+# absorb 503/429 storms; the existence-check GET stays bare.
 drop_field() {
   local collection="$1"
   local field="$2"
@@ -84,14 +115,15 @@ drop_field() {
     echo "  ✓ ${kind} (already absent)"
     return 0
   fi
-  local del_code
-  del_code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" -H "${H_AUTH}" \
-    -X DELETE "${DIRECTUS_URL}/fields/${collection}/${field}")
-  if [ "${del_code}" = "200" ] || [ "${del_code}" = "204" ]; then
+  if directus_request_with_retry DELETE \
+       "${DIRECTUS_URL}/fields/${collection}/${field}" \
+       -H "${H_AUTH}"; then
     echo "  - ${kind} (dropped)"
   else
+    local del_code
+    del_code=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
     echo "  ✗ ${kind} drop HTTP ${del_code}"
-    head -c 200 /tmp/directus-resp
+    head -c 200 /tmp/directus-retry-resp
     echo
     return 1
   fi
@@ -270,16 +302,25 @@ ensure "field countries.provisioning_state" \
   }'
 
 # Backfill the existing three countries with country-appropriate defaults.
-# PATCH is idempotent; re-running bootstrap is safe.
+# PATCH is idempotent; re-running bootstrap is safe. Routed through
+# `directus_request_with_retry` to absorb Directus 503/429 storms on
+# fresh containers (ISS-UAT-013-5).
 set_country_profile() {
   local code="$1" locale="$2" currency="$3" channel="$4" holidays="$5"
-  curl -fsS -X PATCH \
-    -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
-    -H "Content-Type: application/json" \
-    "${DIRECTUS_URL}/items/countries/${code}" \
-    -d "$(jq -nc --arg l "$locale" --arg c "$currency" --arg ch "$channel" --argjson h "$holidays" \
-      '{default_locale:$l,currency_code:$c,default_reminder_channel:$ch,public_holidays:$h}')" \
-    > /dev/null && echo "[F-S4.5] backfilled ${code}"
+  if directus_request_with_retry PATCH \
+       "${DIRECTUS_URL}/items/countries/${code}" \
+       -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+       -H "Content-Type: application/json" \
+       -d "$(jq -nc --arg l "$locale" --arg c "$currency" --arg ch "$channel" --argjson h "$holidays" \
+         '{default_locale:$l,currency_code:$c,default_reminder_channel:$ch,public_holidays:$h}')" \
+     > /dev/null 2>&1; then
+    echo "[F-S4.5] backfilled ${code}"
+  else
+    local last
+    last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+    echo "  ✗ set_country_profile ${code} HTTP ${last}" >&2
+    return 1
+  fi
 }
 
 # Public holidays are a subset (major civic + cultural); country lead
@@ -1221,6 +1262,9 @@ ensure "policy ${POLICY_DEMO_TENANT}" \
 # directus_permissions rows have auto-increment integer IDs, so the
 # ensure() helper (GET-by-id) doesn't fit. Identify the row by the
 # (policy, collection, action) triple via the items API filter syntax.
+# The POST goes through `directus_request_with_retry` to absorb
+# Directus 503/429 storms (ISS-UAT-013-5); the existence-check GET
+# stays bare.
 ensure_perm() {
   local kind="$1" collection="$2" action="$3" filter="$4"
   local count
@@ -1235,14 +1279,15 @@ ensure_perm() {
   body=$(jq -nc --arg pol "$POLICY_DEMO_TENANT" --arg col "$collection" \
                 --arg act "$action" --argjson f "$filter" \
     '{policy:$pol, collection:$col, action:$act, permissions:$f, fields:["*"]}')
-  local code
-  code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-    -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-  if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+  if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+       -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
     echo "  + ${kind} (created)"
   else
-    echo "  ✗ ${kind} HTTP ${code}"
-    head -c 300 /tmp/directus-resp; echo
+    local last
+    last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+    echo "  ✗ ${kind} HTTP ${last}"
+    head -c 300 /tmp/directus-retry-resp
+    echo
     return 1
   fi
 }
@@ -3765,13 +3810,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"event_materials", action:"read", permissions:{}, fields:["*"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm event_materials/read (public, created)"
     else
-      echo "  ✗ perm event_materials/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm event_materials/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
@@ -3834,13 +3880,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"event_photos", action:"read", permissions:{}, fields:["*"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm event_photos/read (public, created)"
     else
-      echo "  ✗ perm event_photos/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm event_photos/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
@@ -3918,13 +3965,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"event_questions", action:"read", permissions:{"status":{"_eq":"published"}}, fields:["id","event","user","parent_question","question_text","is_pinned","is_answered","date_created"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm event_questions/read (public, created — status=published, restricted fields)"
     else
-      echo "  ✗ perm event_questions/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm event_questions/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
@@ -3998,13 +4046,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"event_sponsors", action:"read", permissions:{}, fields:["*"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm event_sponsors/read (public, created)"
     else
-      echo "  ✗ perm event_sponsors/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm event_sponsors/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
   # And the restricted sponsors read (status=active only, public-safe fields)
@@ -4016,13 +4065,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"sponsors", action:"read", permissions:{"status":{"_eq":"active"}}, fields:["id","name","slug","country","status","logo","website","description"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm sponsors/read (public, created — restricted fields, status=active)"
     else
-      echo "  ✗ perm sponsors/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm sponsors/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
@@ -4588,13 +4638,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"site_settings", action:"read", permissions:{}, fields:["*"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm site_settings/read (public, created)"
     else
-      echo "  ✗ perm site_settings/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm site_settings/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
@@ -4673,13 +4724,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"press_page", action:"read", permissions:{}, fields:["*"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm press_page/read (public, created)"
     else
-      echo "  ✗ perm press_page/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm press_page/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
@@ -4788,13 +4840,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"badge_definitions", action:"read", permissions:{active:{_eq:true}}, fields:["*"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm badge_definitions/read (public, created)"
     else
-      echo "  ✗ perm badge_definitions/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm badge_definitions/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
@@ -4888,13 +4941,14 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   else
     body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
       '{policy:$pol, collection:"team_members", action:"read", permissions:{active:{_eq:true}}, fields:["*"]}')
-    code=$(curl -s -o /tmp/directus-resp -w "%{http_code}" \
-      -H "${H_AUTH}" -H "${H_JSON}" -X POST "${DIRECTUS_URL}/permissions" --data "${body}")
-    if [ "${code}" = "200" ] || [ "${code}" = "204" ]; then
+    if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+         -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
       echo "  + perm team_members/read (public, created)"
     else
-      echo "  ✗ perm team_members/read HTTP ${code}"
-      head -c 300 /tmp/directus-resp; echo
+      local last
+      last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ perm team_members/read HTTP ${last}"
+      head -c 300 /tmp/directus-retry-resp; echo
     fi
   fi
 else
