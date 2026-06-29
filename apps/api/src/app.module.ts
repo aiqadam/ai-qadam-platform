@@ -8,6 +8,7 @@ import { AdminInvitesModule } from './modules/admin-invites/admin-invites.module
 import { AuthModule } from './modules/auth/auth.module';
 import { CountriesModule } from './modules/countries/countries.module';
 import { CountryProvisioningModule } from './modules/country-provisioning/country-provisioning.module';
+import { EmailModule } from './modules/email/email.module';
 import { EulaModule } from './modules/eula/eula.module';
 import { EventQuestionsModule } from './modules/event-questions/event-questions.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
@@ -38,6 +39,7 @@ const RATE_LIMIT_MAX = 60;
     TenantsModule,
     UsersModule,
     AuthModule,
+    EmailModule,
     EulaModule,
     RegistrationsModule,
     PointsModule,

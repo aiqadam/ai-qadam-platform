@@ -44,6 +44,10 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
   RESEND_API_KEY: z.string().optional(),
+  // SMTP transport for dev/UAT — set SMTP_HOST=localhost to route email via Mailpit (port 1025).
+  // Takes priority over RESEND_API_KEY when both are configured.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
   EMAIL_FROM: z.string().default('AI Qadam <admin@aiqadam.org>'),
 
   // aiqadam#344 — recipient for the bot's user-feedback inbox. Single

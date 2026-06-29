@@ -5,10 +5,12 @@
 | ID | ISS-UAT-013-7 |
 | Severity | bug (env-gap, blocks mailpit-dependent UAT steps) |
 | Module | uat / environment |
-| Status | open |
+| Status | **resolved** |
 | Reported | 2026-06-28 |
+| Resolved | 2026-06-29 |
 | Reporter | BusinessAnalyst (wf-20260628-uat-030 / 04-uat-triage.md, attempt 2) |
-| Workflow | wf-20260628-uat-030 |
+| Resolver | Orchestrator (wf-20260629-fix-034) |
+| Workflow | wf-20260628-uat-030 (reported) → wf-20260629-fix-034 (resolved) |
 
 ## Symptom
 

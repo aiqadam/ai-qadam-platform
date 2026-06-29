@@ -12,7 +12,7 @@
 | [ISS-UAT-013-4](ISS-UAT-013-4.md) | bug | uat/seed | `scripts/uat-seed.sh` does not provision `operator_invites` rows (mitigated inline by Orchestrator) | open | wf-20260628-uat-030 | 2026-06-28 |
 | [ISS-UAT-013-5](ISS-UAT-013-5.md) | minor | uat/seed | Directus returns 503 "Under pressure" during seed bootstrap; 3 retries with back-off required | open | wf-20260628-uat-030 | 2026-06-28 |
 | [ISS-UAT-013-6](ISS-UAT-013-6.md) | enhancement | uat/test-design | Neg 004 assertion is vacuous + Neg 002/003 rely on coincidental UI match (`<OnboardingForm>` `GonePanel` renders on any non-OK response) — **spec edits empirically validated in attempt 2** | open | wf-20260628-uat-030 | 2026-06-28 |
-| [ISS-UAT-013-7](ISS-UAT-013-7.md) | bug | uat/environment | `RESEND_API_KEY` unset in `apps/api/.env`; api returns 202 for `POST /v1/leads` but skips email dispatch; Mailpit receives nothing → Steps 002 & 003 fail | open | wf-20260628-uat-030 | 2026-06-28 |
+| [ISS-UAT-013-7](ISS-UAT-013-7.md) | bug | uat/environment | `RESEND_API_KEY` unset in `apps/api/.env`; api returns 202 for `POST /v1/leads` but skips email dispatch; Mailpit receives nothing → Steps 002 & 003 fail | resolved | wf-20260629-fix-034 | 2026-06-29 |
 | [ISS-UAT-013-8](ISS-UAT-013-8.md) | bug | uat/seed | `operator_invites.email = uat-operator+valid@aiqadam.test` does not match seeded Authentik user `uat-operator@aiqadam.test`; api rejects with `invite_missing_authentik_user` → Step 006 fails | open | wf-20260628-uat-030 | 2026-06-28 |
 
 ---
