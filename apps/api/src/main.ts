@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { env } from './config/env';
 import { runMigrations } from './db/migrate';
+import { assertPortAvailable } from './lib/port-guard';
 
 // Why migrations run here, not in Coolify's pre_deployment_command:
 //
@@ -28,6 +29,8 @@ import { runMigrations } from './db/migrate';
 // against a possibly-broken container.
 
 async function bootstrap(): Promise<void> {
+  await assertPortAvailable(env.PORT);
+  Logger.log(`port-guard OK (port ${env.PORT})`, 'Bootstrap');
   await runMigrations();
   Logger.log('migrations applied', 'Bootstrap');
   const app = await NestFactory.create(AppModule, {

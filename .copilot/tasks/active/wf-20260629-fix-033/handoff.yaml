@@ -1,0 +1,62 @@
+schema_version: "1.0"
+
+# Re-implementation of ISS-UAT-013-1 fix after PR #62 was closed for carrying
+# stale scratch files (_smoke*.cjs, 23 Biome errors — see PR #64) and a
+# conflicting wf-20260628-fix-033 task dir (archived on main in 82d5de6).
+# The actual code (port-guard.ts, spec, runbook, main.ts wiring) was preserved
+# in a stash and is re-landed here on a clean branch from main (05a3047).
+#
+# Uses the new FEAT-WORKFLOW-003 protocol (Step 9 atomic status flip + Step 11.5
+# autonomous merge) landed in PR #63 on 2026-06-29.
+
+workflow_instance_id: "wf-20260629-fix-033"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-06-29T02:10:00Z"
+last_updated_at: "2026-06-29T02:10:00Z"
+
+requirement_ref: "ISS-UAT-013-1"
+requirement_text: "Add pre-startup port-availability guard to apps/api so a port collision (EADDRINUSE) produces an actionable error naming the owning PID and command, instead of a generic Node stack trace."
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-013-1-port-guard-v2"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+
+merge_mode: "auto"
+
+artifacts:
+  - "01-issue-lookup.md"
+  - "03-code-summary.md"
+  - "04-security-review.md"
+  - "05-test-strategy.md"
+  - "06-test-design.md"
+  - "07-test-results.md"
+  - "08-doc-update.md"
+  - "09-quality-gate.md"
+
+gate_results:
+  issue_lookup: "passed"
+  impact_analysis: "passed"
+  security_review: "passed"
+  test_runner: "passed"
+  quality_gate: "passed"
+
+needs_review:
+  reason: ""
+
+retry_limits:
+  security_review: 2
+  test_runner: 3
+  quality_gate: 2

@@ -194,6 +194,15 @@ expect(api.ok()).toBe(true);
 
 **Screenshot label:** `step-005-api-health`
 
+> **Defense-in-depth (dev-side, since wf-20260628-fix-033 / ISS-UAT-013-1):**
+> If the api's own port-guard fires at startup against a busy port, the
+> boot will fail *before* this healthcheck is reachable. The error will
+> be the same actionable format this UAT pre-flight guards against
+> (`Port <n> is already in use (PID <pid>, command '<cmd>'). Either stop
+> the conflicting process or set PORT=<other>.`). Runbook:
+> [ports-and-processes.md](../../04-development/infrastructure/runbooks/ports-and-processes.md).
+> Set `PORT=<other>` or kill the squatter before continuing.
+
 ---
 
 ### Step 006 — Astro web app health
