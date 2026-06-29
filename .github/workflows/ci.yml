@@ -1,5 +1,16 @@
 name: ci
 
+# IMPORTANT (override recorded 2026-06-29):
+# Per explicit user direction, CI is ADVISORY ONLY for this repository.
+# Both jobs carry `continue-on-error: true`, so a failing check does NOT
+# block PR merge and does NOT fail the workflow run. CI still runs on
+# every push/PR so failures are visible in the Actions tab, but they are
+# no longer a merge gate. Storybook specifically is also excluded from
+# the main `pnpm build` step below (dev-only surface — design.aiqadam.org).
+#
+# Overrides AGENTS.md §1.10 ("Zero warnings policy") and the implicit
+# "CI must be green to merge" convention. Revisit when CI is stable.
+
 on:
   pull_request:
     branches: [main]
@@ -14,6 +25,9 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # CI is advisory (see note above). Failures surface in Actions tab
+    # but do not block merges.
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +51,13 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Build everything EXCEPT @aiqadam/storybook. Storybook is a
+      # dev-only discovery surface (design.aiqadam.org) whose build has a
+      # pre-existing rolldown JSX-parse failure unrelated to release health.
+      # It has its own dedicated job below (also advisory) so the failure
+      # is still visible, but it no longer breaks the main build step.
       - name: Build
-        run: pnpm build
+        run: pnpm exec turbo run build --filter=!@aiqadam/storybook
 
       - name: Test
         run: pnpm test
@@ -46,6 +65,8 @@ jobs:
   architecture-check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Advisory (see note above).
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -65,3 +86,31 @@ jobs:
 
       - name: Architecture check (ADR-0038)
         run: pnpm arch:check
+
+  # Storybook is built in its own advisory job so its pre-existing
+  # rolldown JSX-parse failure (apps/web-next/src/kit/*.tsx) is surfaced
+  # in CI without blocking anything. TODO(viktor, 2026-06-29): root-cause
+  # the rolldown parse errors and re-fold this into the main build.
+  storybook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Storybook
+        run: pnpm --filter @aiqadam/storybook build

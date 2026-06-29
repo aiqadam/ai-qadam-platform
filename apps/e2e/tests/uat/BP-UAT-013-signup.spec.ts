@@ -322,9 +322,7 @@ test.describe('BP-UAT-013 — happy path', () => {
       const errorBanner = page.locator('p[style*="color"]').filter({ hasText: /\w+_\w+|\d{3}/ }).first();
       const errorText = (await errorBanner.textContent().catch(() => '')) ?? '';
       throw new Error(
-        `mailbox-ready heading not visible. Last visible error/code: "${errorText}". ` +
-          `Common cause: operator_invites.email does not match an Authentik user ` +
-          `(the api's /v1/onboard/accept requires the Authentik user to exist).`,
+        `mailbox-ready heading not visible. Last visible error/code: "${errorText}". Common cause: operator_invites.email does not match an Authentik user (the api's /v1/onboard/accept requires the Authentik user to exist).`,
       );
     }
   });
@@ -333,7 +331,7 @@ test.describe('BP-UAT-013 — happy path', () => {
 // ─────────────────── BP-UAT-013 negative scenarios ───────────────────
 
 test.describe('BP-UAT-013 — negative scenarios', () => {
-  test('Neg 001 — Honeypot field filled discards submission silently', async ({ page, request }) => {
+  test('Neg 001 — Honeypot field filled discards submission silently', async ({ page }) => {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await hideDevToolbar(page);
     const emailInput = page.locator('form input[type="email"]');

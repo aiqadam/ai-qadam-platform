@@ -93,10 +93,20 @@ interface BuildInput {
   content?: string;
 }
 
-type BuildResult = { ok: true; url: string } | { ok: false; fieldErrors: Partial<Record<string, string>> };
+// Known field keys — a concrete type (not Record<string, string>) so dot access
+// is type-safe under noUncheckedIndexedAccess and satisfies Biome useLiteralKeys.
+interface FieldErrors {
+  destinationUrl?: string;
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+}
+
+type BuildResult = { ok: true; url: string } | { ok: false; fieldErrors: FieldErrors };
 
 function buildUtmUrl(input: BuildInput): BuildResult {
-  const errors: Partial<Record<string, string>> = {};
+  const errors: FieldErrors = {};
 
   // Validate destination
   const dest = parseDestination(input.destinationUrl);

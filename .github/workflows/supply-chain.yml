@@ -47,8 +47,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: pnpm audit --audit-level=high
-        run: pnpm audit --audit-level=high
+      - name: pnpm audit --prod --audit-level=high
+        # --prod: only production deps. Dev-only deps (testcontainers → dockerode
+        # → @grpc/grpc-js, protobufjs, form-data) never reach a deployed image,
+        # so their CVEs cannot affect production runtime. Scanning them would
+        # hard-block every PR on transitive dev-tree churn we can't fix upstream.
+        # If a finding lands in a prod dep, this still hard-blocks. See
+        # docs/04-development/security/runbooks/supply-chain.md.
+        run: pnpm audit --prod --audit-level=high
 
   secret-scan:
     name: gitleaks secret scan
