@@ -40,22 +40,43 @@ teardown() {
   unset UAT_SEED_DIRECTUS_MOCK
 }
 
-@test "AC-1: mock mode exits 0 and provisions all 3 operator_invite tokens" {
+@test "AC-1: mock mode exits 0 and provisions all 4 operator_invite tokens" {
   run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
   [ "$status" -eq 0 ]
-  # Each ensure_operator_invite call prints a line containing 'operator_invite' and '(mock)'.
-  # There should be exactly 3 such lines (one per fixture row).
+  # Each ensure_operator_invite call prints a line containing 'operator_invite' and '(mock'.
+  # The mock line format is `operator_invite <token_prefix> (mock, email=<email>)` —
+  # matched here in ERE with a literal '(' via \(. There should be exactly 4
+  # such lines (one per fixture row: valid + used + expired + no-user,
+  # ISS-UAT-013-4 + ISS-UAT-013-8).
   local count
-  count=$(echo "$output" | grep -c 'operator_invite .*(mock)' || true)
-  [ "$count" -eq 3 ]
+  count=$(echo "$output" | grep -cE 'operator_invite .*\(mock' || true)
+  [ "$count" -eq 4 ]
 }
 
-@test "AC-1: mock mode summary lists all three token names" {
+@test "AC-1: mock mode summary lists all four token names" {
   run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
   [ "$status" -eq 0 ]
   [[ "$output" == *"uat-onboard-token"* ]]
   [[ "$output" == *"uat-onboard-used-token"* ]]
   [[ "$output" == *"uat-onboard-expired-token"* ]]
+  [[ "$output" == *"uat-onboard-no-user-token"* ]]
+}
+
+@test "AC-1: three happy rows share the bare operator email; the no-user row is plus-addressed" {
+  # Strengthens AC-1 from "4 rows exist" to "4 rows exist with the right
+  # email per row". The seed's mock-mode prints
+  #   "operator_invite <token_prefix> (mock, email=<email>)"
+  # so we can grep the per-row distribution from the output (hermetic;
+  # no Directus / no Authentik / no DB). The literal '+' in the
+  # plus-addressed email is matched via a character class `[+]` to stay
+  # portable across ERE implementations.
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
+  [ "$status" -eq 0 ]
+  local bare plus
+  bare=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator@aiqadam\.test\)' || true)
+  plus=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator[+]no-user@aiqadam\.test\)' || true)
+  [ "$bare" -eq 3 ]
+  [ "$plus" -eq 1 ]
 }
 
 @test "AC-2: uat-seed.sh has a DIRECTUS_TOKEN guard that emits a FATAL message" {

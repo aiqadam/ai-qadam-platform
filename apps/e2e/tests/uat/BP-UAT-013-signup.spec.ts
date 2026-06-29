@@ -54,13 +54,16 @@
  *    a `[email skipped: RESEND_API_KEY not set]` log warning. Mailpit
  *    never receives them. Steps 002/003/004 will fail at the mailpit
  *    boundary for that env reason — not a product bug.
- *  - The valid operator_invites row's email is `uat-operator+valid@aiqadam.test`,
- *    but the Authentik test user provisioned by `uat-seed.sh` is
- *    `uat-operator@aiqadam.test` (no `+valid` suffix). The api's
- *    `/v1/onboard/accept` endpoint requires the Authentik user to exist
- *    for the invite's email — so Step 006 will fail with the api-side
- *    error code `invite_missing_authentik_user`. This is an env/seed gap,
- *    not a product bug, and is captured honestly in the runner report.
+ *  - Resolved in wf-20260629-fix-039: the three operator_invites rows used
+ *    to carry `+valid`/`+used`/`+expired` plus-addressing suffixes, but
+ *    they all point to the seeded Authentik user `uat-operator@aiqadam.test`
+ *    (no suffix). After wf-20260629-fix-039, the seed inserts all three
+ *    rows with email = `uat-operator@aiqadam.test` and distinguishes them
+ *    only by token + `display_name` ("UAT Operator (valid/used/expired)").
+ *    A fourth row (`uat-onboard-no-user-token`) intentionally points to a
+ *    non-existent user (`uat-operator+no-user@aiqadam.test`) so the api's
+ *    `invite_missing_authentik_user` (409) error path remains exercised.
+ *    Step 006 is therefore expected to succeed, and Neg 005 covers the 409.
  */
 
 import { test, expect, type Page, type Request } from '@playwright/test';
@@ -81,6 +84,8 @@ const ONBOARD_TOKEN = process.env.UAT_ONBOARD_TOKEN ?? 'uat-onboard-token';
 const ONBOARD_USED_TOKEN = process.env.UAT_ONBOARD_USED_TOKEN ?? 'uat-onboard-used-token';
 const ONBOARD_EXPIRED_TOKEN =
   process.env.UAT_ONBOARD_EXPIRED_TOKEN ?? 'uat-onboard-expired-token';
+const ONBOARD_NO_USER_TOKEN =
+  process.env.UAT_ONBOARD_NO_USER_TOKEN ?? 'uat-onboard-no-user-token';
 
 const SHOTS_DIR = path.resolve(__dirname, '..', '..', 'uat-results', 'BP-UAT-013');
 
@@ -463,6 +468,87 @@ test.describe('BP-UAT-013 — negative scenarios', () => {
     expect(errorText.toLowerCase()).toMatch(
       /plus.?addressed|plus-addressing|not allowed|invalid email|400/,
     );
+  });
+
+  // Neg 005 — wf-20260629-fix-039: a freshly-seeded operator_invites row
+  // whose email has no matching Authentik user must surface the api's
+  // `invite_missing_authentik_user` (409 ConflictException) end-to-end.
+  //
+  // Flow: GET /v1/onboard/preview returns 200 OK with the invite (the api
+  // does NOT validate authentik_user_id at preview time — see
+  // admin-invites.service.ts:previewInvite). The form enters the
+  // `auth_ready` phase and renders the welcome heading + password form.
+  // The Authentik lookup failure only surfaces at POST /v1/onboard/accept
+  // in `consumeInvite()` (line 358), which throws
+  // ConflictException('invite_missing_authentik_user'). The form renders
+  // the inline `<code>{message}</code>` element under the password input,
+  // NOT the GonePanel (GonePanel is for 410 only).
+  //
+  // Per the wf-20260629-fix-038 test-design rule, BOTH the API-level
+  // assertion (the POST returns 409 with a structured error code) AND
+  // a non-vacuous UI assertion are required.
+  test('Neg 005 — Invite email without matching Authentik user returns 409 invite_missing_authentik_user', async ({
+    page,
+  }) => {
+    await page.goto(
+      `${BASE_URL}/onboard?token=${encodeURIComponent(ONBOARD_NO_USER_TOKEN)}`,
+      { waitUntil: 'domcontentloaded' },
+    );
+    await hideDevToolbar(page);
+
+    // ── Preview API: must return 200 with the invite details. The api's
+    // `previewInvite` deliberately does NOT check authentik_user_id, so
+    // the no-user row renders the form just like any other pending row.
+    const previewRes = await page.request.get(
+      `${API_URL}/v1/onboard/preview?token=${encodeURIComponent(ONBOARD_NO_USER_TOKEN)}`,
+    );
+    expect(previewRes.status(), 'preview API for no-user token should return 200').toBe(200);
+    const previewBody = (await previewRes.json()) as {
+      email?: string;
+      display_name?: string | null;
+    };
+    expect(previewBody.email).toBe('uat-operator+no-user@aiqadam.test');
+    expect(previewBody.display_name).toBe('UAT Operator (no-user)');
+
+    // ── UI: form is in `auth_ready` phase. The welcome heading shows
+    // `display_name` because the seed now sets it (per the Orchestrator-
+    // verified scope in 02-impact-analysis.md).
+    const welcome = page.getByText(/welcome,/i);
+    await expect(welcome).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/UAT Operator \(no-user\)/i)).toBeVisible();
+
+    await page.locator('input[type="password"]').fill(ONBOARD_PASSWORD);
+    await page.getByRole('checkbox', { name: /accept/i }).check();
+
+    // ── Submit API + UI in lockstep: capture the POST that the click
+    // triggers, then assert both the API contract and the resulting UI
+    // state. The api returns 409 + `invite_missing_authentik_user` because
+    // the seeded row has no matching Authentik user; the form transitions
+    // to the `auth_error` phase and renders the inline <code> element.
+    const acceptPromise = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/v1/onboard/accept') && res.request().method() === 'POST',
+      { timeout: 30_000 },
+    );
+    await page.getByRole('button', { name: /continue|set password and accept/i }).click();
+    const acceptRes = await acceptPromise;
+    expect(acceptRes.status(), 'accept API for no-user token should return 409').toBe(409);
+    const acceptBody = (await acceptRes.json().catch(() => ({}))) as { message?: string };
+    expect(acceptBody.message, 'api should expose invite_missing_authentik_user').toBe(
+      'invite_missing_authentik_user',
+    );
+
+    // ── UI: form transitions to `auth_error` phase with the inline
+    // `<code>{message}</code>` element. The mailbox-ready heading must
+    // NOT be visible. The GonePanel must NOT be visible (GonePanel is
+    // for 410; 409 keeps the form mounted).
+    await shot(page, 'neg-005-no-authentik-user-409');
+    const mailboxReady = page.getByText(/your ai qadam mailbox is ready/i);
+    await expect(mailboxReady).toHaveCount(0);
+    const gonePanel = page.getByText(/this link can.?t be used/i);
+    await expect(gonePanel).toHaveCount(0);
+    const errorCode = page.getByText(/invite_missing_authentik_user/i);
+    await expect(errorCode).toBeVisible({ timeout: 10_000 });
   });
 });
 

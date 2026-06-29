@@ -36,12 +36,20 @@ Source: [FR-USR-001](../../03-requirements/FR-USR-001.md).
 
 ## Seed Fixtures Required
 
-| Fixture | Description |
-|---|---|
-| `uat-onboard-token` | A valid, unused operator invite token. Exposed as `UAT_ONBOARD_TOKEN` in `.env.test`. |
-| `uat-onboard-used-token` | An operator invite token that has already been accepted (`used_at` is set). Exposed as `UAT_ONBOARD_USED_TOKEN`. |
-| `uat-onboard-expired-token` | An operator invite token with `expires_at` in the past. Exposed as `UAT_ONBOARD_EXPIRED_TOKEN`. |
-| Mail catcher | Local mail-catcher (e.g., Mailpit at `http://localhost:8025`) is running to capture outbound emails. |
+The `uat-seed.sh` script seeds four `operator_invites` rows for BP-UAT-013.
+All three happy-path rows (valid, used, expired) share the same Authentik
+user email so the api can resolve them at accept-time. The fourth row
+deliberately uses an email with no matching Authentik user to exercise
+the api's `invite_missing_authentik_user` error path. Tokens are static
+public test fixtures — never used in production.
+
+| Fixture | Email | `display_name` | Description |
+|---|---|---|---|
+| `uat-onboard-token` | `uat-operator@aiqadam.test` | `UAT Operator (valid)` | A valid, unused operator invite token. Exposed as `UAT_ONBOARD_TOKEN` in `.env.test`. |
+| `uat-onboard-used-token` | `uat-operator@aiqadam.test` | `UAT Operator (used)` | An operator invite token that has already been accepted (`used_at` is set). Exposed as `UAT_ONBOARD_USED_TOKEN`. |
+| `uat-onboard-expired-token` | `uat-operator@aiqadam.test` | `UAT Operator (expired)` | An operator invite token with `expires_at` in the past. Exposed as `UAT_ONBOARD_EXPIRED_TOKEN`. |
+| `uat-onboard-no-user-token` | `uat-operator+no-user@aiqadam.test` | `UAT Operator (no-user)` | An operator invite row whose email has no matching Authentik user; exercises the api's `invite_missing_authentik_user` (409) error path. Exposed as `UAT_ONBOARD_NO_USER_TOKEN`. |
+| Mail catcher | — | — | Local mail-catcher (e.g., Mailpit at `http://localhost:8025`) is running to capture outbound emails. |
 
 ## Steps
 
@@ -109,7 +117,7 @@ Source: [FR-USR-001](../../03-requirements/FR-USR-001.md).
 
 **Action:** Navigate to `http://localhost:4321/onboard?token=<UAT_ONBOARD_TOKEN>`.
 
-**Expected UI state:** Onboarding page loads. Invite details are visible (invitee email, invited-by name, role). A form to set password and accept AUP is present. A **Set password and accept** button (or equivalent) is visible.
+**Expected UI state:** Onboarding page loads. Invite details are visible (invitee email, invited-by name, role). A form to set password and accept AUP is present. A **Set password and accept** button (or equivalent) is visible. All three invite rows point to the seeded `uat-operator@aiqadam.test` Authentik user; rows are distinguished by token + `display_name` ("UAT Operator (valid/used/expired)").
 
 **Screenshot label:** `step-005-onboard-page`
 
@@ -119,7 +127,7 @@ Source: [FR-USR-001](../../03-requirements/FR-USR-001.md).
 
 **AC ref:** AC-5
 
-**Precondition:** Step 005 completed.
+**Precondition:** Step 005 completed. The api will find the matching Authentik user (`uat-operator@aiqadam.test`) for the invite row — Step 006 should now succeed end-to-end.
 
 **Action:** Fill **Password** with `UAT_ONBOARD_PASSWORD` (a valid password meeting Authentik's policy). Check the AUP acceptance checkbox. Click **Set password and accept**.
 
@@ -184,6 +192,20 @@ Source: [FR-USR-001](../../03-requirements/FR-USR-001.md).
 **Expected rejection:** Form shows a validation error rejecting the plus-addressed email. No row is created. No email sent.
 
 **Screenshot label:** `neg-004-plus-addressing-rejected`
+
+---
+
+### Negative 005 — Invite email without matching Authentik user returns 409
+
+**AC ref:** AC-5
+
+**Precondition:** `UAT_ONBOARD_NO_USER_TOKEN` is set. The seeded `uat-onboard-no-user-token` row has email `uat-operator+no-user@aiqadam.test`, which intentionally has no matching Authentik user.
+
+**Action:** Navigate to `http://localhost:4321/onboard?token=<UAT_ONBOARD_NO_USER_TOKEN>`. The page should still load (preview succeeds) and render the welcome form. Fill the password, accept the AUP, and click **Set password and accept**.
+
+**Expected rejection:** The api's `POST /v1/onboard/accept` returns **HTTP 409 Conflict** with a structured error body containing `message: "invite_missing_authentik_user"` (see `apps/api/src/modules/admin-invites/admin-invites.service.ts`, `consumeInvite()`). The form stays mounted in the `auth_error` phase and renders an inline `<code>invite_missing_authentik_user</code>` indicator under the password input. The GonePanel ("This link can't be used") must NOT render — that is reserved for 410. The "✓ Your AI Qadam mailbox is ready" terminal panel must NOT render. No mailbox is provisioned.
+
+**Screenshot label:** `neg-005-no-authentik-user-409`
 
 ---
 

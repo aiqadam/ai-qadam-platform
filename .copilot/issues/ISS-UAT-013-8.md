@@ -5,10 +5,14 @@
 | ID | ISS-UAT-013-8 |
 | Severity | bug (seed-gap, blocks Step 006 only) |
 | Module | uat / seed |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-06-28 |
+| Resolved | 2026-06-29 |
 | Reporter | BusinessAnalyst (wf-20260628-uat-030 / 04-uat-triage.md, attempt 2) |
-| Workflow | wf-20260628-uat-030 |
+| Workflow | wf-20260628-uat-030 → wf-20260629-fix-039 |
+| Resolved by | wf-20260629-fix-039 (PR #71) |
+| Merged | _pending auto-merge_ |
+| PR | https://github.com/tvolodi/aiqadam/pull/71 |
 
 ## Symptom
 
@@ -154,3 +158,105 @@ ensure_operator_invite "uat-operator@aiqadam.test"  "pending"  "$(date -u -d '-1
 - `.copilot/tasks/active/wf-20260628-uat-030/03-uat-runner-report.md` §5.2.2
 - `.copilot/tasks/active/wf-20260628-uat-030/02-preflight.md` — manual three-row insert
 - ISS-UAT-013-4 — sibling seed-layer issue (rows don't exist; this is rows exist but email mismatch)
+
+## Resolution (wf-20260629-fix-039, 2026-06-29)
+
+### Approach taken
+
+Implemented option (b) from the proposed resolution: drop the
+`+valid/+used/+expired` plus-addressing suffix from all three happy-path
+`operator_invites.email` rows; they now all carry the bare
+`uat-operator@aiqadam.test` (the seeded Authentik operator). Added a
+**fourth** row (`uat-onboard-no-user-token`) with email
+`uat-operator+no-user@aiqadam.test` so the api's
+`invite_missing_authentik_user` error path remains exercised in UAT
+(AC-4 of the proposed resolution).
+
+### Scope expanded during Step 2 — `display_name` plumbing
+
+The Orchestrator's impact analysis flagged that the existing
+`getByText(/UAT Operator \(valid\)/i)` assertion at
+`apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts:282` would break after the
+email fix because `OnboardingForm.tsx:192` renders
+`preview.display_name ?? preview.email.split('@')[0]`. The seed script
+never set `display_name`, so after the email fix the persona label would
+become `Welcome, uat-operator.` instead of `Welcome, UAT Operator (valid).`.
+
+Fix: `ensure_operator_invite` now takes a 6th `display_name` argument.
+The four call sites pass `"UAT Operator (valid)"`,
+`"UAT Operator (used)"`, `"UAT Operator (expired)"`, and `"UAT Operator
+(no-user)"` respectively. The Directus `operator_invites.display_name`
+column already existed (used by `OnboardingForm.tsx:192`) and was the
+correct field to populate. Persona distinction is preserved; the spec
+assertion at L282 continues to pass.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `scripts/uat-seed.sh` | `ensure_operator_invite` extended to take a 6th `display_name` arg; four call sites written (three happy + one no-user). |
+| `scripts/uat-env-setup.sh` | `.env.uat` heredoc gains `UAT_ONBOARD_NO_USER_TOKEN=uat-onboard-no-user-token`. |
+| `scripts/tests/uat-seed.bats` | AC-1 mock-count `3` → `4`; summary-name assertion now includes `uat-onboard-no-user-token`; **optional** AC-1 email-distribution `@test` added (asserts 3 bare + 1 plus-addressed). |
+| `apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts` | New Neg 005 test (`ONBOARD_NO_USER_TOKEN`); honesty-notes header rewritten; persona-label assertion unchanged. |
+| `docs/02-business-processes/uat/BP-UAT-013.md` | Seed Fixtures table rewritten with Email + display_name columns; Step 005/006 prose updated; new Negative 005 subsection added. |
+
+**Total: 5 files modified. Net +59 lines.** Within the small-PR rule
+(400 lines / 5 files).
+
+### Apps/api code unchanged (correct behaviour)
+
+The api's `invite_missing_authentik_user` throw at
+`apps/api/src/modules/admin-invites/admin-invites.service.ts:358` is
+**correct production behaviour** and was not touched. This was confirmed
+by SecurityReviewer's read-only review (`04-security-review.md`,
+INV-1 through INV-11 all pass; 0 MAJOR/MINOR).
+
+### Test results
+
+`scripts/tests/uat-seed.bats` now reports **8/8 pass** with the fix
+versus **3/8 fail** with the seed reverted (proves the three new AC-1
+assertions are non-vacuous). Sibling regression
+`scripts/tests/bp-uat-template-rule.bats` (from wf-20260629-fix-038)
+still reports **5/5 pass**. `pnpm arch:check` reports **249 files pass**.
+
+Live run output preserved at `.copilot/tasks/active/wf-20260629-fix-039/07-test-results.md`.
+
+### Risks documented in PR description
+
+1. **Stale-row risk:** pre-existing `+valid/+used/+expired` rows in an
+   already-seeded Directus environment will still throw
+   `invite_missing_authentik_user`. Mitigation: before re-running
+   `pnpm uat:seed`, execute
+   `DELETE FROM operator_invites WHERE token_prefix LIKE 'uat-onboard%'`.
+   Idempotency is keyed on `token_hash` (full SHA-256), not
+   `token_prefix`, so fresh rows with the same `token_prefix` would
+   not collide but would coexist.
+2. **AC-2 deferred to follow-up UATRunner workflow.** This workflow
+   verified the seed-layer correctness and the bats regression; it
+   did NOT re-run the live BP-UAT-013 Step 006 end-to-end because that
+   requires a live Docker stack + re-seed migration step. The
+   follow-up UATRunner will execute the live re-run and back-fill
+   the outcome here.
+
+### Honesty disclosures
+
+- The Orchestrator initially proposed the fix without `display_name`
+  plumbing; ImpactAnalyzer flagged the persona-label regression
+  during Step 2 (see `02-impact-analysis.md` Items Flagged section),
+  and the fix was expanded in scope.
+- The original task prompt suggested asserting 409 at
+  `GET /v1/onboard/preview`. The actual api code shows `previewInvite`
+  does NOT check `authentik_user_id`; only `consumeInvite` does.
+  Neg 005 correctly asserts 200 at GET preview + 409 at POST accept.
+- The new bats tests are non-vacuous: stash-and-revert proof in
+  `07-test-results.md` shows 3/8 fail without the seed fix.
+
+### Workflow artifact paths
+
+- [01-issue-lookup.md](../tasks/active/wf-20260629-fix-039/01-issue-lookup.md)
+- [02-impact-analysis.md](../tasks/active/wf-20260629-fix-039/02-impact-analysis.md)
+- [03-code-summary.md](../tasks/active/wf-20260629-fix-039/03-code-summary.md)
+- [04-security-review.md](../tasks/active/wf-20260629-fix-039/04-security-review.md)
+- [06-test-strategy.md](../tasks/active/wf-20260629-fix-039/06-test-strategy.md)
+- [06-test-design.md](../tasks/active/wf-20260629-fix-039/06-test-design.md)
+- [07-test-results.md](../tasks/active/wf-20260629-fix-039/07-test-results.md)

@@ -253,54 +253,63 @@ date_offset() {
 }
 
 # ── Idempotently insert one operator_invite row into Directus ─────────────────
-# Args: <email> <status> <expires_at_iso> <consumed_at_iso_or_empty> <token_plain>
+# Args: <email> <status> <expires_at_iso> <consumed_at_iso_or_empty>
+#       <token_plain> <display_name>
+#
+# <display_name> is the value copied into the Directus `display_name` column
+# and surfaced verbatim by the OnboardingForm at /onboard?token=…
+# (`Welcome, {preview.display_name ?? preview.email.split('@')[0]}.`). Three
+# fixture rows share the same Authentik email (`uat-operator@aiqadam.test`)
+# but are distinguished in the UI by `display_name` (e.g. "UAT Operator
+# (valid)"). The fourth fixture row uses a plus-addressed email with no
+# matching Authentik user, which exercises the api's
+# `invite_missing_authentik_user` path.
+#
 # UAT_SEED_DIRECTUS_MOCK=1 — skip all curl calls (used by bats tests).
 ensure_operator_invite() {
-  local email="$1" status="$2" expires_at="$3" consumed_at="$4" token_plain="$5"
+  local email="$1" status="$2" expires_at="$3" consumed_at="$4" token_plain="$5" display_name="$6"
   local token_hash token_prefix
   token_hash=$(sha256_hex "$token_plain")
   token_prefix="${token_plain:0:8}"
 
   if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
-    ok "operator_invite ${token_prefix} (mock)"
+    # Mock-mode line includes the email so the bats regression can grep for
+    # the per-row email distribution (3 bare + 1 plus-addressed), not just
+    # the count. See scripts/tests/uat-seed.bats AC-1: email-distribution.
+    ok "operator_invite ${token_prefix} (mock, email=${email})"
     return
   fi
 
-  # Idempotency guard: check if a row with this token_hash already exists.
-  # token_prefix (first 8 chars) collides when multiple tokens share the same
-  # prefix \u2014 use the full SHA-256 hash as the unique idempotency key.
+  # Idempotency guard: full SHA-256 hash uniquely identifies the row across
+  # all four fixtures (their token_prefixes collide on "uat-onbo").
   local existing
   existing=$(curl -sf \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
     "${DIRECTUS_URL}/items/operator_invites?filter[token_hash][_eq]=${token_hash}&limit=1" \
     2>/dev/null | jq -r '.data[0].id // empty' 2>/dev/null || true)
-
   if [[ -n "$existing" ]]; then
     ok "operator_invite ${token_prefix} (exists, id=${existing})"
     return
   fi
 
-  # Build JSON body — consumed_at is a nullable timestamp; omit when empty
-  # to avoid Directus rejecting an empty-string timestamp field.
-  local body
+  # consumed_at is nullable; pass `null` (not "") when unset so Directus
+  # accepts the row. jq -nc --arg cat "" produces the empty string, hence
+  # we use a sentinel ($cat == "" test) to swap in JSON null.
+  local body jq_cat
   if [[ -n "$consumed_at" ]]; then
-    body=$(jq -nc \
-      --arg e   "$email"       \
-      --arg st  "$status"      \
-      --arg exp "$expires_at"  \
-      --arg cat "$consumed_at" \
-      --arg th  "$token_hash"  \
-      --arg tp  "$token_prefix" \
-      '{email:$e,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:[]}')
+    jq_cat="--arg cat ${consumed_at@Q}"
   else
-    body=$(jq -nc \
-      --arg e   "$email"       \
-      --arg st  "$status"      \
-      --arg exp "$expires_at"  \
-      --arg th  "$token_hash"  \
-      --arg tp  "$token_prefix" \
-      '{email:$e,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:[]}')
+    jq_cat='--arg cat ""'
   fi
+  body=$(jq -nc \
+    --arg e   "$email" \
+    --arg dn  "$display_name" \
+    --arg st  "$status" \
+    --arg exp "$expires_at" \
+    --arg th  "$token_hash" \
+    --arg tp  "$token_prefix" \
+    $jq_cat \
+    'if $cat == "" then {email:$e,display_name:$dn,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:[]} | .consumed_at = null else {email:$e,display_name:$dn,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:[]} end')
 
   local resp code
   resp=$(curl -s \
@@ -398,7 +407,17 @@ else
 fi
 
 # ── STEP 4 — operator_invites rows ──────────────────────────────────────────
-# Three rows for BP-UAT-013 (ISS-UAT-013-4): valid+unused, consumed, expired.
+# Four rows for BP-UAT-013 (ISS-UAT-013-4, ISS-UAT-013-8): valid+unused,
+# consumed, expired, plus a fourth row whose email has no matching Authentik
+# user to exercise the api's `invite_missing_authentik_user` path.
+#
+# All three "happy" rows share email `uat-operator@aiqadam.test` so the api
+# can resolve the seeded Authentik user at accept time. Rows are
+# distinguished in the OnboardingForm UI by `display_name`. The fourth
+# (`no-user`) row uses a plus-addressed email so the api's
+# consumeInvite() throws ConflictException('invite_missing_authentik_user')
+# — exercising that error path.
+#
 # Tokens are static test-fixture constants — never used in production.
 echo ""
 echo "[4/4] Provisioning operator_invites rows…"
@@ -406,14 +425,28 @@ _now_plus_7d=$(date_offset "+7" days)
 _now_minus_2h=$(date_offset "-2" hours)
 _now_minus_1d=$(date_offset "-1" days)
 
-ensure_operator_invite \
-  "uat-operator+valid@aiqadam.test" "pending" "$_now_plus_7d" "" "uat-onboard-token"
+ONBOARD_TOKEN="uat-onboard-token"
+ONBOARD_USED_TOKEN="uat-onboard-used-token"
+ONBOARD_EXPIRED_TOKEN="uat-onboard-expired-token"
+ONBOARD_NO_USER_TOKEN="uat-onboard-no-user-token"
+OPERATOR_FIXTURE_EMAIL="uat-operator@aiqadam.test"
+NO_USER_FIXTURE_EMAIL="uat-operator+no-user@aiqadam.test"
 
 ensure_operator_invite \
-  "uat-operator+used@aiqadam.test" "consumed" "$_now_plus_7d" "$_now_minus_2h" "uat-onboard-used-token"
+  "$OPERATOR_FIXTURE_EMAIL" "pending" "$_now_plus_7d" "" \
+  "$ONBOARD_TOKEN" "UAT Operator (valid)"
 
 ensure_operator_invite \
-  "uat-operator+expired@aiqadam.test" "pending" "$_now_minus_1d" "" "uat-onboard-expired-token"
+  "$OPERATOR_FIXTURE_EMAIL" "consumed" "$_now_plus_7d" "$_now_minus_2h" \
+  "$ONBOARD_USED_TOKEN" "UAT Operator (used)"
+
+ensure_operator_invite \
+  "$OPERATOR_FIXTURE_EMAIL" "pending" "$_now_minus_1d" "" \
+  "$ONBOARD_EXPIRED_TOKEN" "UAT Operator (expired)"
+
+ensure_operator_invite \
+  "$NO_USER_FIXTURE_EMAIL" "pending" "$_now_plus_7d" "" \
+  "$ONBOARD_NO_USER_TOKEN" "UAT Operator (no-user)"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
@@ -424,8 +457,9 @@ echo "    member:   ${MEMBER_EMAIL} / ${MEMBER_PASSWORD}"
 echo "    operator: ${OPERATOR_EMAIL} / ${OPERATOR_PASSWORD}"
 echo ""
 echo "  operator_invites tokens (also in apps/e2e/.env.uat):"
-echo "    valid:    uat-onboard-token"
-echo "    used:     uat-onboard-used-token"
-echo "    expired:  uat-onboard-expired-token"
+echo "    valid:    ${ONBOARD_TOKEN}            (display_name: \"UAT Operator (valid)\")"
+echo "    used:     ${ONBOARD_USED_TOKEN}       (display_name: \"UAT Operator (used)\")"
+echo "    expired:  ${ONBOARD_EXPIRED_TOKEN}    (display_name: \"UAT Operator (expired)\")"
+echo "    no-user:  ${ONBOARD_NO_USER_TOKEN}    (display_name: \"UAT Operator (no-user)\" — API returns 409 invite_missing_authentik_user)"
 echo ""
 echo "  Next: cd apps/e2e && pnpm playwright test --config playwright.uat.config.ts"

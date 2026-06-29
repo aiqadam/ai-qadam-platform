@@ -468,10 +468,11 @@ UAT_MEMBER_PASSWORD=UatMember1!
 UAT_OPERATOR_EMAIL=uat-operator@aiqadam.test
 UAT_OPERATOR_PASSWORD=UatOperator1!
 
-# Operator invite tokens — provisioned by pnpm uat:seed (ISS-UAT-013-4)
+# Operator invite tokens — provisioned by pnpm uat:seed (ISS-UAT-013-4, ISS-UAT-013-8)
 UAT_ONBOARD_TOKEN=uat-onboard-token
 UAT_ONBOARD_USED_TOKEN=uat-onboard-used-token
 UAT_ONBOARD_EXPIRED_TOKEN=uat-onboard-expired-token
+UAT_ONBOARD_NO_USER_TOKEN=uat-onboard-no-user-token
 "
 
 ok "apps/e2e/.env.uat ready"
