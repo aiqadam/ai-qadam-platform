@@ -1,12 +1,14 @@
 # Workspace State
 
-**Last updated:** 2026-06-29 (wf-20260629-fix-039 MERGED, PR #71)
+**Last updated:** 2026-06-30 (wf-20260630-fix-043 open, PR #75)
 
 ---
 
 ## Active Workflows
 
-_(none — see Completed Workflows below)_
+| Workflow ID | Type | Issue | Branch | PR | Date |
+|---|---|---|---|---|---|
+| wf-20260630-fix-043 | issue-resolution | ISS-UAT-013-9 email_verified guard | fix/ISS-UAT-013-9-lead-verified-guard | [PR #75](https://github.com/tvolodi/aiqadam/pull/75) | 2026-06-30 |
 
 ---
 

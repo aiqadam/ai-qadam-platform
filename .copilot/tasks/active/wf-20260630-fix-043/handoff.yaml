@@ -1,0 +1,85 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260630-fix-043"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-06-30T00:00:00Z"
+last_updated_at: "2026-06-30T00:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-UAT-013-9"
+requirement_text: "Re-submit of verified email triggers second verification email. Add early-return guard in leads.service.ts when email_verified=true."
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-UAT-013-9-lead-verified-guard"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/75"
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "running"
+
+# ─── Subworkflow Link ────────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ─────────────────────────────────────────────────────────────
+
+gate_results: {}
+
+# ─── Agent Assignments ────────────────────────────────────────────────────────
+
+agent_assignments: {}
+
+# ─── Retry State ──────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+# ─── Retry Limits ─────────────────────────────────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ───────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: "ISS-UAT-013-9"
+
+# ─── Deferrals ────────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard ──────────────────────────────────────────────────────
+
+expects_registry_update: true
+context_sync_commits: 0
+
+# ─── Artifacts ────────────────────────────────────────────────────────────────
+
+artifacts: []

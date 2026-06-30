@@ -31,7 +31,7 @@ export interface CreateLeadInput {
 }
 
 export interface CreateLeadResult {
-  status: 'created' | 'already_member' | 'reverification_sent';
+  status: 'created' | 'already_member' | 'reverification_sent' | 'already_verified';
   userId: string;
 }
 
@@ -62,6 +62,13 @@ export class LeadsService {
         `lead create skipped — email already a member (state=${existing.state}) user=${existing.id}`,
       );
       return { status: 'already_member', userId: existing.id };
+    }
+
+    // Guard: address already verified — patching would reset email_verified to false
+    // and dispatchVerifyEmail would send a duplicate. Return early to prevent both.
+    if (existing?.email_verified) {
+      this.logger.log(`lead create skipped — email already verified user=${existing.id}`);
+      return { status: 'already_verified', userId: existing.id };
     }
 
     const userId = existing

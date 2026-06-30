@@ -111,6 +111,21 @@ describe('LeadsService.create — existing email', () => {
     expect(dispatcher.dispatch).not.toHaveBeenCalled();
   });
 
+  // Regression guard for ISS-UAT-013-9: a second submit on a verified address must not
+  // reset email_verified or send a duplicate verification email.
+  it('skips email and patch when lead is already verified', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: [{ id: 'u-verified', email: 'verified@example.com', state: 'lead', email_verified: true }],
+    });
+
+    const result = await svc.create({ email: 'verified@example.com' });
+
+    expect(result.status).toBe('already_verified');
+    expect(result.userId).toBe('u-verified');
+    expect(dx.patch).not.toHaveBeenCalled();
+    expect(dispatcher.dispatch).not.toHaveBeenCalled();
+  });
+
   it('rejects empty email', async () => {
     await expect(svc.create({ email: '   ' })).rejects.toThrow();
   });
