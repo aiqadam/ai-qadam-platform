@@ -14,6 +14,9 @@
 | [ISS-UAT-013-6](ISS-UAT-013-6.md) | enhancement | uat/test-design | Neg 004 assertion is vacuous + Neg 002/003 rely on coincidental UI match (`<OnboardingForm>` `GonePanel` renders on any non-OK response) — **spec edits empirically validated in attempt 2** | resolved | wf-20260629-fix-038 | 2026-06-29 |
 | [ISS-UAT-013-7](ISS-UAT-013-7.md) | bug | uat/environment | `RESEND_API_KEY` unset in `apps/api/.env`; api returns 202 for `POST /v1/leads` but skips email dispatch; Mailpit receives nothing → Steps 002 & 003 fail | resolved | wf-20260629-fix-034 | 2026-06-29 |
 | [ISS-UAT-013-8](ISS-UAT-013-8.md) | bug | uat/seed | `operator_invites.email = uat-operator+valid@aiqadam.test` does not match seeded Authentik user `uat-operator@aiqadam.test`; api rejects with `invite_missing_authentik_user` → Step 006 fails | resolved | wf-20260629-fix-039 | 2026-06-29 |
+| [ISS-UAT-013-9](ISS-UAT-013-9.md) | bug | api/leads | Re-submit of verified email (`email_verified=true`) triggers second verification email — idempotency guard incomplete → Step 004 fails | open | wf-20260630-uat-042 | 2026-06-30 |
+| [ISS-UAT-013-10](ISS-UAT-013-10.md) | minor | uat/test-design | Step 005 spec asserts `aiqadam-staff` role visible but seed has `role_groups: []` — spec/seed misalignment → Step 005 fails | open | wf-20260630-uat-042 | 2026-06-30 |
+| [ISS-UAT-SEED-001](ISS-UAT-SEED-001.md) | bug | uat/seed | `uat-seed.sh` step 4 fails: Directus readonly field validation rejects `consumed_at: null`; CRLF in env file corrupts token; `authentik_user_id` not set; `AUTHENTIK_ADMIN_TOKEN` undocumented | open | wf-20260630-uat-042 | 2026-06-30 |
 | [ISS-WF-GIT-AUTH-1](ISS-WF-GIT-AUTH-1.md) | minor | workflow/git | `git push` prompted for Username/PAT on every workflow because HTTPS remote had no credential helper; resolved by SSH-key migration (ed25519) + remote URL switch; documented in `.claude/CLAUDE.md` | resolved | wf-20260629-fix-036 | 2026-06-29 |
 
 ---
