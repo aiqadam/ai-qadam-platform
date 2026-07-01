@@ -1,0 +1,95 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260701-uat-045-mailpit-resend"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-01T21:00:00Z"
+last_updated_at: "2026-07-01T21:00:00Z"
+
+requirement_ref: "ISS-UAT-013-7"
+requirement_text: >-
+  RESEND_API_KEY is unset in apps/api/.env. POST /v1/leads returns 202 but
+  the api's EmailService logs `[email skipped: RESEND_API_KEY not set]`
+  and Mailpit never receives the verify email. BP-UAT-013 Steps 002/003
+  fail at the mailpit boundary for that reason — not a product bug, but
+  also not addressed by wf-20260701-fix-044 (whose AC-5 partial-resolved
+  status depends on this workflow's verification).
+
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-013-7-mailpit-resend-key"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize (git + counter sync + pre-flight)"
+workflow_status: "queued"
+
+# This workflow is the canonical follow-up named in
+# .copilot/issues/ISS-LEAD-DISC-001.md Resolution section and in
+# AGENTS.md §6.1. Queue position: 1 (no other follow-up workflows
+# ahead of it as of 2026-07-01).
+queue_position: 1
+
+parent_link:
+  parent_workflow_id: "wf-20260701-fix-044"
+  parent_branch: "fix/ISS-LEAD-DISC-001-lead-form-discoverability"
+  parent_paused_at_step: 8
+  parent_paused_at_gate: "test_run"
+
+issue_ref: "ISS-UAT-013-7"
+
+retry_limits:
+  issue_lookup: 1
+  impact_analysis: 2
+  db_migration: 2
+  implement: 3
+  security_review: 2
+  test_strategy: 2
+  test_design: 2
+  test_run: 3
+  docs: 2
+  quality_gate: 2
+
+retry_counts: {}
+
+gate_results: {}
+
+agent_assignments: {}
+
+artifacts: []
+
+deferrals: []
+
+issues_created:
+  - "ISS-UAT-013-7"
+
+needs_review: {}
+
+subworkflow_history:
+  - workflow_id: "wf-20260701-fix-044"
+    parent_branch: "fix/ISS-LEAD-DISC-001-lead-form-discoverability"
+    spawned_for: "AC-5 Steps 002/003 must verify in main before flipping ISS-LEAD-DISC-001 fully resolved"
+
+notes: >-
+  This follow-up was registered proactively by the Orchestrator running
+  wf-20260701-fix-044, per AGENTS.md §6.1 ("any implementation that
+  lands on main MUST be production-ready"). Without this workflow,
+  ISS-LEAD-DISC-001's AC-5 carries an unverified deferral.
+
+  Expected verification at QualityGate: BP-UAT-013 Steps 002 + 003
+  pass against apps/api with RESEND_API_KEY set (or whichever SMTP
+  transport is chosen). Mailpit must capture the verify email; clicking
+  the verify link must land on /leads/verified.
+
+  Concrete verification commands (planned, not run yet):
+    1. docker ps --filter "name=aiqadam-mailpit" --format "{{.Status}}"
+       (must show healthy)
+    2. curl -fsS http://localhost:8025/api/v1/messages (must respond)
+    3. Set RESEND_API_KEY in apps/api/.env (or DSN to local Mailpit at
+       smtp://mailpit:1025) and restart the api container
+    4. Re-run apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts Steps 002/003
+       with playwright.uat.config.ts; expect both to PASS
+
+  This follow-up may be merged independently of wf-20260701-fix-044.

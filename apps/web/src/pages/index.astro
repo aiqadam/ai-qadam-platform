@@ -82,6 +82,12 @@ const partnersMailto = siteSettings.contactEmailPartners
       </p>
     </section>
 
+    <section id="newsletter" style="padding: 20px 48px 24px; border-top: 1px solid var(--border); scroll-margin-top: 72px;">
+      <div style="max-width: 540px;">
+        <LeadCaptureForm client:load />
+      </div>
+    </section>
+
     <HomeHero event={hero} locale={locale} />
     <UpcomingEventsGrid events={grid} locale={locale} />
 
@@ -179,12 +185,6 @@ const partnersMailto = siteSettings.contactEmailPartners
         </ul>
       </section>
     )}
-
-    <section style="padding: 48px; border-top: 1px solid var(--border);">
-      <div style="max-width: 540px; margin: 0 auto;">
-        <LeadCaptureForm client:load />
-      </div>
-    </section>
 
     <section style="padding: 48px; border-top: 1px solid var(--border);">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">

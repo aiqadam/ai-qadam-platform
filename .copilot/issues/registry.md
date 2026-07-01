@@ -18,6 +18,7 @@
 | [ISS-UAT-013-10](ISS-UAT-013-10.md) | minor | uat/test-design | Step 005 spec asserts `aiqadam-staff` role visible but seed has `role_groups: []` — spec/seed misalignment → Step 005 fails | open | wf-20260630-uat-042 | 2026-06-30 |
 | [ISS-UAT-SEED-001](ISS-UAT-SEED-001.md) | bug | uat/seed | `uat-seed.sh` step 4 fails: Directus readonly field validation rejects `consumed_at: null`; CRLF in env file corrupts token; `authentik_user_id` not set; `AUTHENTIK_ADMIN_TOKEN` undocumented | open | wf-20260630-uat-042 | 2026-06-30 |
 | [ISS-WF-GIT-AUTH-1](ISS-WF-GIT-AUTH-1.md) | minor | workflow/git | `git push` prompted for Username/PAT on every workflow because HTTPS remote had no credential helper; resolved by SSH-key migration (ed25519) + remote URL switch; documented in `.claude/CLAUDE.md` | resolved | wf-20260629-fix-036 | 2026-06-29 |
+| [ISS-LEAD-DISC-001](ISS-LEAD-DISC-001.md) | minor | web/discoverability | `apps/web/src/pages/index.astro` mounts `<LeadCaptureForm />` at 94 % of the body (offset 103 217 / 109 416 B); form works (POST /v1/leads → 202) but is unreachable above the fold on a 1440×900 viewport | resolved (AC-5 deferred to `wf-20260701-uat-045-mailpit-resend`) | wf-20260701-fix-044 | 2026-07-01 |
 
 ---
 
