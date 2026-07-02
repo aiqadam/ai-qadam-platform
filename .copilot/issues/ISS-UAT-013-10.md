@@ -40,8 +40,8 @@ or remove if displaying role groups is out of scope for Step 005.
 ## Acceptance criteria
 
 - [x] Seed updated to include `aiqadam-staff` in valid invite's role_groups OR spec updated to match empty state (wf-20260702-fix-049, scripts/uat-seed.sh)
-- [ ] Step 005 in BP-UAT-013 passes on re-run (deferred to follow-up live UATRunner run — see Resolution)
-- [ ] Step 006 (onboarding accept) remains passing (deferred to follow-up live UATRunner run — see Resolution)
+- [x] Step 005 in BP-UAT-013 passes on re-run (verified 2026-07-02 in wf-20260702-uat-059, PR #85)
+- [x] Step 006 (onboarding accept) remains passing (verified 2026-07-02 in wf-20260702-uat-059, PR #85)
 
 ## Resolution
 
@@ -51,7 +51,8 @@ or remove if displaying role groups is out of scope for Step 005.
 - **Fix:** Added an optional 7th positional parameter `role_groups` (JSON array string, default `'[]'`) to `ensure_operator_invite()`. Updated the jq body to use `--argjson rg "$role_groups"` and `role_groups:$rg`. The valid-invite call now passes `'["aiqadam-staff"]'`; the other three rows pass `'[]'`. Mock-mode output line extended to print `role_groups=<json>` so the regression test is hermetic.
 - **Regression test:** New AC-5 in `scripts/tests/uat-seed.bats` asserts exactly one mock-mode line carries `role_groups=["aiqadam-staff"]` (valid-invite) and exactly three carry `role_groups=[]` (used, expired, no-user). 9 / 9 bats tests pass. arch-check (full repo, 249 files) clean.
 - **Merged:** `7b04c4c` (squash-merge of #76 into main on 2026-07-02)
+- **Live re-run verification (2026-07-02):** BP-UAT-013 Steps 005 and 006 passed end-to-end against the live local stack in wf-20260702-uat-059 (PR #85 squash 1f075c6 on main). Step 005 verified `OnboardingForm` renders "you are being added as a member of: aiqadam-staff" (the seeded `role_groups=["aiqadam-staff"]` propagates correctly). Step 006 verified full onboarding completion (password set, accept clicked, mailbox-ready heading visible, 302 redirect to `/me`). All 3 acceptance criteria now verified.
 - **Honesty disclosures:**
-  - The fix code is not novel under this workflow id. It was first authored on 2026-06-30 by the abandoned `wf-20260630-fix-044` workflow, which opened PR #76 but never reached Step 12.5. This workflow re-applies the same code change via `git reset --hard origin/main` + rebase so the audit trail under the new counter is coherent while the actual fix is preserved.
-  - Live BP-UAT-013 Steps 005 / 006 re-run (the gold-standard end-to-end verification of this fix) is **deferred**. It requires the full local stack (apps/api + apps/web + mailpit + Directus + Authentik + Postgres) and a UATRunner run. The follow-up workflow is `wf-20260702-uat-XXX` (id to be assigned by the next UATRunner workflow that runs BP-UAT-013 end-to-end after this PR merges). AC-2 and AC-3 of this issue flip to `verified` only after that follow-up workflow's Playwright run reports `Step 005 PASS` and `Step 006 PASS`. Until then, the issue is `resolved` (the seed is fixed) but those two specific verification steps remain `deferred-with-followup-workflow-ID-and-queue-position` per AGENTS.md §6.1.
+  - The fix code is not novel under this workflow id. It was first authored on 2026-06-30 by the abandoned `wf-20260630-fix-044` workflow, which opened PR #76 but never reached Step 12.5. This workflow re-applied the same code change via `git reset --hard origin/main` + rebase so the audit trail under the new counter is coherent while the actual fix is preserved.
+  - All originally-deferred acceptance criteria (Step 005 / Step 006 re-run) have now been verified by the live UATRunner run in wf-20260702-uat-059 (2026-07-02). No outstanding deferrals remain for this issue.
   - Git remote is HTTPS (`https://github.com/tvolodi/aiqadam.git`). This is a regression vs ISS-WF-GIT-AUTH-1 (which documented an SSH-key migration). Pushing this PR may prompt for credentials. If a prompt appears, refer to `.claude/CLAUDE.md` §Git credentials.

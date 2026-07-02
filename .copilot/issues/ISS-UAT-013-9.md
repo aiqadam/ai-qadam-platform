@@ -45,8 +45,8 @@ This must be before the email dispatch call.
 ## Acceptance criteria
 
 - [x] Unit test: `submitLead` with `email_verified=true` lead → returns without sending email
-- [ ] Integration test: `POST /v1/leads` on verified address → 202, Mailpit count unchanged (AC-3 live verification — see Resolution)
-- [ ] Step 004 in BP-UAT-013 passes on re-run (AC-3 live verification — see Resolution)
+- [x] Integration test: `POST /v1/leads` on verified address → 202, Mailpit count unchanged (AC-3 live verification — see Resolution)
+- [x] Step 004 in BP-UAT-013 passes on re-run (AC-3 live verification — see Resolution)
 
 ## Resolution
 
@@ -55,19 +55,10 @@ This must be before the email dispatch call.
 - **Root cause:** `LeadsService.create()` had no guard for `email_verified = true` — after the `already_member` check (which only catches `state !== 'lead'`), execution fell into `patchLead()` (which resets `email_verified = false`) and `dispatchVerifyEmail()` (which sends a duplicate email).
 - **Fix:** Added a 4-line early-return guard in `apps/api/src/modules/leads/leads.service.ts` between the `already_member` block and the `patchLead/dispatchVerifyEmail` calls. Also extended the `CreateLeadResult.status` union to include `'already_verified'`. One regression test added to `apps/api/test/leads-service.spec.ts`.
 - **Regression test:** `'skips email and patch when lead is already verified'` in `apps/api/test/leads-service.spec.ts` — asserts `status = 'already_verified'`, `dx.patch` not called, `dispatcher.dispatch` not called.
-- **Merged:** `<pending>`
+- **Merged:** PR #75 (squash 6f2b1aa on main, 2026-06-30)
+- **Live re-run verification (2026-07-02):** BP-UAT-013 Step 004 passed end-to-end against the live local stack. After Step 003 verified `uat-lead-new@example.com` (Mailpit count = 1), re-submitting the same address did NOT trigger a second email — Mailpit count remained 1. Workflow: wf-20260702-uat-059, PR #85 (squash 1f075c6 on main). All 3 acceptance criteria now verified.
 
 ### Honesty disclosures
 
-**AC-3 live integration test** (BP-UAT-013 Step 004 re-run via Playwright / Mailpit count = 1 after re-submit):
-
-This verification requires running the full UAT stack (NestJS api + web-next + Mailpit). Local unit tests are blocked by a Node.js v24 / vite-node v2.1.9 incompatibility (`__vite_ssr_exportName__` error — pre-existing on `main`). CI on Node.js v22 will verify the unit test.
-
-The live integration AC-3 will be verified in the next BP-UAT-013 full re-run workflow after this PR merges. The issue is being marked `resolved` because:
-1. The code fix is correct and type-safe (tsc --noEmit: PASS)
-2. The regression unit test passes semantically (correct assertions)
-3. Local unit test failure is a Node.js version environment issue, not a code bug
-4. CI will verify the unit test before merge
-
-This issue will flip to fully-verified when the next BP-UAT-013 re-run confirms Step 004.
+**AC-3 live integration test** (BP-UAT-013 Step 004 re-run via Playwright / Mailpit count = 1 after re-submit) — VERIFIED 2026-07-02 in wf-20260702-uat-059. No outstanding deferrals. The original deferral note (Node.js v24 / vite-node v2.1.9 local test runner incompatibility) is now superseded by the live end-to-end verification.
 
