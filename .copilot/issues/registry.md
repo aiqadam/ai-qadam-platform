@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|---|
 | [ISS-PREEX-001](ISS-PREEX-001.md) | minor | web-next/lint | 17 pre-existing biome lint errors in apps/web-next | resolved | wf-20260623-fix-3 | 2026-06-23 |
 | [ISS-WF-13-1](ISS-WF-13-1.md) | minor | workflow | Pre-existing workflow state drift blocks Step 0.5 of every future workflow | resolved | wf-20260623-fix-13-1 | 2026-06-23 |
-| [FEAT-WORKFLOW-002](FEAT-WORKFLOW-002.md) | enhancement | workflow/test | Add bats-core test suite for FEAT-WORKFLOW-001 (drift script + F.5 amendment) + shellcheck CI gate + QualityGate end-to-end test harness | open | _(next workflow after FEAT-WORKFLOW-001 ships)_ | 2026-06-23 |
+| [FEAT-WORKFLOW-002](FEAT-WORKFLOW-002.md) | enhancement | workflow/test | Add bats-core test suite for FEAT-WORKFLOW-001 (drift script + F.5 amendment) + shellcheck CI gate + QualityGate end-to-end test harness | resolved | wf-20260623-feat-006 (PR #15, commit 0698d1e — 7/8 ACs shipped; AC-7 shellcheck dropped without GPLv3 approval) | 2026-06-23 |
 | [ISS-CI-001](ISS-CI-001.md) | blocker | ci/infrastructure | Pre-existing CI failures (arch-check 25 violations, biome 20,432 errors, pnpm audit 2 high CVEs) block all future PRs to main | resolved | PRs #37–#41 (2026-06-24) | 2026-06-24 |
 | [ISS-UAT-013-1](ISS-UAT-013-1.md) | blocker | uat/environment | Port 3000 occupied by foreign ai-dala-next Next.js (PID 5008); AI Qadam NestJS api not running — blocks BP-UAT-013 | resolved | wf-20260629-fix-033 | 2026-06-29 |
 | [ISS-UAT-013-2](ISS-UAT-013-2.md) | bug | workflow/orchestrator | Pre-flight verified api by port ownership, not by process CommandLine — wrong service identified as AI Qadam api | resolved | wf-20260628-fix-031 | 2026-06-28 |
@@ -19,6 +19,7 @@
 | [ISS-UAT-SEED-001](ISS-UAT-SEED-001.md) | bug | uat/seed | `uat-seed.sh` step 4 fails: Directus readonly field validation rejects `consumed_at: null`; CRLF in env file corrupts token; `authentik_user_id` not set; `AUTHENTIK_ADMIN_TOKEN` undocumented | open | wf-20260630-uat-042 | 2026-06-30 |
 | [ISS-WF-GIT-AUTH-1](ISS-WF-GIT-AUTH-1.md) | minor | workflow/git | `git push` prompted for Username/PAT on every workflow because HTTPS remote had no credential helper; resolved by SSH-key migration (ed25519) + remote URL switch; documented in `.claude/CLAUDE.md` | resolved | wf-20260629-fix-036 | 2026-06-29 |
 | [ISS-LEAD-DISC-001](ISS-LEAD-DISC-001.md) | minor | web/discoverability | `apps/web/src/pages/index.astro` mounts `<LeadCaptureForm />` at 94 % of the body (offset 103 217 / 109 416 B); form works (POST /v1/leads → 202) but is unreachable above the fold on a 1440×900 viewport | resolved (AC-5 closed by `wf-20260701-uat-045-mailpit-resend` on 2026-07-01) | wf-20260701-fix-044 | 2026-07-01 |
+| [ISS-WF-REG-001](ISS-WF-REG-001.md) | minor | workflow/orchestrator | `wf-20260623-feat-006` shipped FEAT-WORKFLOW-002 implementation in PR #15 (commit 0698d1e) but its Step 9 (atomic FR status flip) did not update the registry or issue file — registry-state drift. Detected and retroactively fixed by `wf-20260702-feat-048-bats-f5-refactor` on 2026-07-02. | resolved | wf-20260702-feat-048-bats-f5-refactor | 2026-07-02 |
 
 ---
 

@@ -1,0 +1,149 @@
+# handoff.yaml — workflow state for wf-20260702-feat-048-bats-f5-refactor
+# Source issue: FEAT-WORKFLOW-002 (PR-split #1 of 3)
+# Generated: 2026-07-02
+
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260702-feat-048-bats-f5-refactor"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+workflow_title: "FEAT-WORKFLOW-002 (PR-1): F.5 refactor + bats-core devDep + test:bash"
+
+created_at: "2026-07-02T16:15:00Z"
+last_updated_at: "2026-07-02T16:30:00Z"
+
+requirement_ref: "FEAT-WORKFLOW-002"
+requirement_text: >-
+  Add bats-core test suite for FEAT-WORKFLOW-001 (drift script + F.5
+  amendment) + shellcheck CI gate + QualityGate end-to-end test harness.
+  This workflow is PR-1 of 3; it covers AC-1, AC-2, AC-6. PR-2 covers
+  AC-3, AC-4, AC-5, AC-8. PR-3 (shellcheck CI gate, AC-7) is deferred
+  pending explicit user approval of GPLv3 dependency per AGENTS.md §8.
+github_issue_url: ""
+
+branch: "feature/FEAT-WORKFLOW-002-bats-f5-refactor"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/80"
+
+current_step: 1
+current_step_name: "Requirement Validation (done) -> Workflow Abandoned (gate-failed)"
+workflow_status: "abandoned"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: "FEAT-WORKFLOW-002"
+  resolution_for_parent: "split-into-3-prs"
+
+retry_limits:
+  requirement-analyst: 1
+  impact-analyzer: 2
+  db-migration-author: 2
+  code-developer: 3
+  security-reviewer: 2
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+
+retry_counts:
+  requirement-analyst: 0
+  impact-analyzer: 0
+  code-developer: 0
+  security-reviewer: 0
+  test-strategist: 0
+  test-designer: 0
+  doc-writer: 0
+  quality-gate: 0
+
+gate_results: {}
+
+agent_assignments:
+  requirement-analyst:
+    status: failed-escalate
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260702-feat-048-bats-f5-refactor/01-requirement-validation.md"
+    timestamp: "2026-07-02T16:30:00Z"
+    summary: "FEAT-WORKFLOW-002 ACs (AC-1/2/6 and AC-3/4/5/8) already shipped on main in PR #15 (commit 0698d1e, 2026-06-23). AC-7 (shellcheck) not shipped, was silently dropped. Recommendation: abandon this workflow, reconcile registry + issue state, file ISS-WF-REG-001 for the meta-drift."
+
+context_sync_commits: 0
+expects_registry_update: true
+
+issues_created:
+  - "ISS-WF-REG-001"
+
+issue_ref: "FEAT-WORKFLOW-002"
+
+deferrals:
+  - from_feature: "FEAT-WORKFLOW-002 (this workflow PR-1)"
+    to_feature: "FEAT-WORKFLOW-002 PR-2 (wf-20260702-feat-049-bats-test-suite)"
+    reason: "AC-3, AC-4, AC-5, AC-8 (4 bats test files) deferred to PR-2 to keep PR-1 under AGENTS.md §4 small-PR cap (400 lines / 5 files)."
+    step: 0
+    timestamp: "2026-07-02T16:15:00Z"
+  - from_feature: "FEAT-WORKFLOW-002 PR-1 (this workflow)"
+    to_feature: "FEAT-WORKFLOW-002 PR-3 (wf-YYYYMMDD-feat-NNN-shellcheck-gate, future)"
+    reason: "AC-7 (shellcheck CI gate) deferred to PR-3 pending explicit user approval of shellcheck's GPLv3 license per AGENTS.md §8. The user delegated decision authority ('Up to you') but did not constitute explicit GPLv3 approval. Safe default: defer until confirmed."
+    step: 0
+    timestamp: "2026-07-02T16:15:00Z"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+artifacts:
+  - .copilot/tasks/active/wf-20260702-feat-048-bats-f5-refactor/01-requirement-validation.md
+  - .copilot/tasks/active/wf-20260702-feat-048-bats-f5-refactor/handoff.yaml
+
+# ─── Abandoned Resolution ────────────────────────────────────────────────────
+# This workflow was ABANDONED at Step 1 because the planned work was already
+# on main. See 01-requirement-validation.md for the full audit.
+abandoned_resolution:
+  reason: "FEAT-WORKFLOW-002 already shipped in PR #15 (commit 0698d1e) on 2026-06-23."
+  discovered_at: "2026-07-02T16:30:00Z"
+  discovered_by: "RequirementAnalyst (step 1)"
+  what_was_done:
+    - "FEAT-WORKFLOW-002.md frontmatter flipped to status: resolved with Resolution section."
+    - ".copilot/issues/registry.md row 7 flipped to Status: resolved (resolver wf-20260623-feat-006)."
+    - ".copilot/issues/ISS-WF-REG-001.md created to track the registry-state drift itself."
+    - ".copilot/issues/registry.md new row added for ISS-WF-REG-001."
+  what_was_NOT_done:
+    - "No code changes (work was already on main)."
+    - "No PR opened against main from this branch (the only diff is metadata; will be PR'd as housekeeping)."
+  follow_up:
+    - "ISS-WF-REG-001 documents the meta-drift and is itself resolved by this workflow's reconciliation."
+    - "AC-7 (shellcheck) dropped without GPLv3 approval; if user wants it, file FEAT-WORKFLOW-003-shellcheck-gate with explicit approval."
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - .copilot/schemas/protocol.md
+  - .copilot/schemas/handoff.schema.yaml
+  - scripts/workflow-finish.sh
+  - scripts/check-workflow-state.sh
+  - .copilot/tasks/completed/wf-20260623-feat-006/06-test-design.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
+
+# ─── Workflow split plan (FEAT-WORKFLOW-002) ─────────────────────────────────
+# PR-1 (this workflow, wf-20260702-feat-048):
+#   AC-1 bats-core devDep declared in package.json
+#   AC-2 pnpm test:bash script
+#   AC-6 F.5 refactor + --source-only flag
+# PR-2 (next, wf-20260702-feat-049):
+#   AC-3 check-workflow-state.bats
+#   AC-4 workflow-finish-amend.bats
+#   AC-5 step-0.5-doc-presence.bats
+#   AC-8 quality-gate-context.bats
+# PR-3 (deferred pending GPLv3 approval, future):
+#   AC-7 shellcheck CI gate
