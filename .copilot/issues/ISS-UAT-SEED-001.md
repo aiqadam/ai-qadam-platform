@@ -93,8 +93,7 @@ be repaired.
   bats tests covering all 4 ACs. Verified pre-fix state: 9/11 fail
   with diagnostic messages naming the failing pattern (no
   `consumed_at=`, missing `authentik_user_id=`, etc.).
-- **Merged:** `<pending>` — Step 12.5 back-fills the squash-commit SHA
-  on `main` after merge.
+- **Merged:** squash commit `0669a66` on `main` (PR #83).
 - **AC-4 already satisfied:** `apps/api/.env.example` already
   documented `AUTHENTIK_ADMIN_URL` and `AUTHENTIK_ADMIN_TOKEN` at
   the time the issue was filed. The issue's "Proposed resolution"
