@@ -12,6 +12,7 @@ interface HealthResponse {
 interface EmailHealthResponse {
   configured: boolean;
   provider: 'resend' | 'smtp' | 'none';
+  mode: 'production' | 'uat' | 'disabled';
 }
 
 @Controller('health')
@@ -29,8 +30,16 @@ export class HealthController {
   }
 
   @Get('email')
+  // Unauthenticated platform probe — exposes transport-mode info (provider
+  // and the production | uat | disabled tri-state) by design, on the same
+  // disclosure surface as GET /health. Do not move this endpoint behind
+  // auth without first reviewing that disclosure contract.
   emailHealth(): EmailHealthResponse {
     const provider = this.emailService.getProvider();
-    return { configured: provider !== 'none', provider };
+    return {
+      configured: provider !== 'none',
+      provider,
+      mode: this.emailService.getMode(),
+    };
   }
 }

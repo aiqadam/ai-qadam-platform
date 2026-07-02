@@ -250,6 +250,11 @@ wait_for_url "Authentik"  "http://localhost:9000/if/admin/" 240
 wait_for_url "Directus"   "http://localhost:8200/server/health" 120
 wait_for_url "Mailpit"    "http://localhost:8025/api/v1/messages" 60
 
+# ISS-UAT-013-7 — verify the API has an active email transport (mode != "disabled")
+# before declaring the UAT stack ready. Fails fast with a precise message naming
+# provider + mode instead of letting BP-UAT-013 time out 60s polling Mailpit.
+API_BASE_URL="http://localhost:3001" bash "$REPO_ROOT/scripts/uat-preflight-email.sh"
+
 ok "All services healthy"
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,144 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\tvolo\\dev\\ai-dala\\aiqadam\\apps\\e2e\\playwright.uat.config.ts",
+    "rootDir": "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/e2e/tests/uat",
+    "forbidOnly": true,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "uat-desktop-chrome",
+        "name": "uat-desktop-chrome",
+        "testDir": "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/e2e/tests/uat",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "html",
+        {
+          "open": "never",
+          "outputFolder": "C:\\Users\\tvolo\\dev\\ai-dala\\aiqadam\\apps\\e2e\\uat-results\\html-report"
+        }
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "C:\\Users\\tvolo\\dev\\ai-dala\\aiqadam\\apps\\e2e\\uat-results\\results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.60.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "BP-UAT-013-signup.spec.ts",
+      "file": "BP-UAT-013-signup.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "BP-UAT-013 — happy path",
+          "file": "BP-UAT-013-signup.spec.ts",
+          "line": 181,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Step 001 — Submit lead capture form on homepage",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "uat-desktop-chrome",
+                  "projectName": "uat-desktop-chrome",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1995,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "text": "[Step 001] non-fatal browser console errors:\n[0] console.error: Access to font at 'https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwcGFU.woff2' from origin 'http://localhost:4321' has been blocked by CORS policy: Request header field x-aiqadam-uat is not allowed by Access-Control-Allow-Headers in preflight response.\n[1] console.error: Failed to load resource: net::ERR_FAILED\n[2] console.error: Access to font at 'https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2' from origin 'http://localhost:4321' has been blocked by CORS policy: Request header field x-aiqadam-uat is not allowed by Access-Control-Allow-Headers in preflight response.\n[3] console.error: Failed to load resource: net::ERR_FAILED\n[4] console.error: Access to font at 'https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxTcwhsk.woff2' from origin 'http://localhost:4321' has been blocked by CORS policy: Request header field x-aiqadam-uat is not allowed by Access-Control-Allow-Headers in preflight response.\n[5] console.error: Failed to load resource: net::ERR_FAILED\n[6] console.error: Access to font at 'https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2' from origin 'http://localhost:4321' has been blocked by CORS policy: Request header field x-aiqadam-uat is not allowed by Access-Control-Allow-Headers in preflight response.\n[7] console.error: Failed to load resource: net::ERR_FAILED\n"
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-07-01T17:42:53.440Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\tvolo\\dev\\ai-dala\\aiqadam\\apps\\e2e\\test-results\\BP-UAT-013-signup-BP-UAT-0-410a5-ad-capture-form-on-homepage-uat-desktop-chrome\\test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\tvolo\\dev\\ai-dala\\aiqadam\\apps\\e2e\\test-results\\BP-UAT-013-signup-BP-UAT-0-410a5-ad-capture-form-on-homepage-uat-desktop-chrome\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddcee3bcb960c716f1d4-f210b12c737e0ae78ebf",
+              "file": "BP-UAT-013-signup.spec.ts",
+              "line": 188,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-01T17:42:52.897Z",
+    "duration": 2846.099,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

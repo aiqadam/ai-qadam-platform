@@ -47,6 +47,22 @@ export class EmailService {
     return 'none';
   }
 
+  /**
+   * Returns the email-sending mode — used by /health/email and the UAT
+   * pre-flight. Three states:
+   *   - 'disabled'   → SEND_EMAILS=false (no transport used, by design).
+   *   - 'production' → SEND_EMAILS=true + NODE_ENV=production.
+   *   - 'uat'        → SEND_EMAILS=true + NODE_ENV in {development, test}.
+   *
+   * Pure read of env.* — no constructor side effects, idempotent across
+   * repeated calls on the same instance.
+   */
+  getMode(): 'production' | 'uat' | 'disabled' {
+    if (!env.SEND_EMAILS) return 'disabled';
+    if (env.NODE_ENV === 'production') return 'production';
+    return 'uat';
+  }
+
   async send(message: EmailMessage): Promise<void> {
     if (!env.SEND_EMAILS) {
       this.logger.debug(
