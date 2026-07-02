@@ -99,8 +99,7 @@ gh run view 28590058393 --job <audit-job-id> --log \
   (AC-4) `package.json` declares `^9.x`, (AC-5) `pnpm typecheck` passes.
   Verified pre-fix state: 4/5 fail with diagnostic messages naming the
   failing version and the CVE IDs.
-- **Merged:** `<pending>` — Step 12.5 back-fills the squash-commit SHA
-  on `main` after merge.
+- **Merged:** squash commit `21485c0` on `main` (PR #82, 2026-07-02).
 - **Out of scope (deferred):** Storybook rolldown build error.
   Re-classified during Step 1 as advisory (job already carries
   `continue-on-error: true` in `.github/workflows/ci.yml`); NOT a
