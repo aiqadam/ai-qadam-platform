@@ -51,22 +51,25 @@ per AGENTS.md §6.1.
 | Security review (this workflow's SecurityReviewer-equivalent) | ✅ passed — no new attack surface, no auth/RBAC change, no secrets |
 | Docs (Step 10) | ✅ passed — no new docs required |
 | Registry + issue-file atomic status flip (Step 9) | ✅ both files updated to `resolved` / `wf-20260702-fix-049` / `2026-07-02`; will land on main when PR #76 merges |
-| Branch state | ✅ branch `fix/ISS-UAT-013-10-seed-role-groups` rebased onto current `origin/main`; 2 commits ahead; clean tree |
-| PR state | ✅ PR #76 OPEN on github.com/tvolodi/aiqadam/pull/76 (will be force-pushed with this workflow's commits) |
-| CI on PR #76 | ⚠ 3 checks failing pre-existing repo-wide (`ci`, `pnpm audit`, `storybook`) — unrelated to this seed-script change. Same baseline as other recently-merged PRs (#78, #79). Merge acceptable with documented CI caveat in PR description. |
+| Branch state | ✅ branch `fix/ISS-UAT-013-10-seed-role-groups` rebased onto current `origin/main`; 1 commit ahead at squash-merge; clean tree |
+| PR state | ✅ PR #76 SQUASH-MERGED to main as commit `7b04c4c` on 2026-07-02 (branch + remote branch auto-deleted) |
+| CI on PR #76 | ⚠ 3 checks failing pre-existing repo-wide (`ci`, `pnpm audit`, `storybook`) — unrelated to this seed-script change. Same baseline as other recently-merged PRs (#78, #79). Merge proceeded with documented CI caveat in PR description. |
 
 ## Verdict
 
-**PASS.** The workflow is complete and ready to commit + push + merge.
+**PASS.** The workflow is complete and merged to main.
 
-The QualityGate authorises `scripts/workflow-finish.sh` to:
-
-1. Commit any pending workflow artifacts (none pending — all in tree).
-2. Force-push the branch to update PR #76's head.
-3. Merge PR #76 to `main` (merge_mode = `auto`).
-4. Back-fill the `Merged:` field in the issue's Resolution section
-   with the actual merge SHA.
-5. Pull `main` and verify the registry shows `ISS-UAT-013-10 | ... | resolved`.
+`scripts/workflow-finish.sh` was executed (Step 12) and PR #76 was
+squash-merged to `main` as commit `7b04c4c` on 2026-07-02. The issue
+file's `Merged:` field was back-filled and the counter was bumped to 50
+in a follow-up local commit `0016656`. The counter bump and `Merged:`
+back-fill are **local-only** as of this QualityGate write — the push of
+commit `0016656` to `origin/main` is blocked on the HTTPS remote's
+credential prompt (a regression from the documented SSH migration per
+`.claude/CLAUDE.md` §Git credentials). The substantive work
+(`7b04c4c`) is on `origin/main` and verified: registry row 18 reads
+`resolved | wf-20260702-fix-049 | 2026-07-02` and the issue header
+reads `Status: resolved`.
 
 ## Honesty disclosures
 
