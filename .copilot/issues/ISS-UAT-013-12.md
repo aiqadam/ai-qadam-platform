@@ -151,7 +151,7 @@ test references them (verify with `grep -rn setReactInputValue apps/e2e/tests/`)
 ## Resolution
 
 - **Workflow:** wf-20260703-fix-060
-- **PR:** <pending>  (Step 12 back-fills the URL after `gh pr create`.)
+- **PR:** https://github.com/tvolodi/aiqadam/pull/86
 - **Root cause:** The Neg 004 test used `setReactInputValue(...)` followed by
   `form.requestSubmit()`. The helper dispatches a synchronous native `input`
   event, but React 18 schedules the corresponding `setState` for `form.email`
@@ -182,4 +182,4 @@ test references them (verify with `grep -rn setReactInputValue apps/e2e/tests/`)
 - **Verification:** Run live against the local stack.
   - `pnpm --filter @aiqadam/e2e exec playwright test --config apps/e2e/playwright.uat.config.ts --grep "Neg 004"` → **1 passed (11.1s)**.
   - `pnpm --filter @aiqadam/e2e exec playwright test --config apps/e2e/playwright.uat.config.ts --grep "BP-UAT-013"` → 8/12 passed. The 4 failures (Steps 002, 003, 005, 006) are pre-existing env-constraints (RESEND_API_KEY empty → no Mailpit dispatch; seed is stale → no fresh operator_invites row) and are exactly the same failures the prior wf-20260702-uat-059 reported. Neg 004 PASSES in both the isolation run and the full re-run. See `07-test-results.md` for the full breakdown and the honesty disclosures on AC-3 wording.
-- **Merged:** <pending>  (Step 12.5 back-fills the actual merge SHA.)
+- **Merged:** 2026-07-02 — squash commit `54772a89` via PR #86 (`gh pr merge 86 --squash --auto --delete-branch`)
