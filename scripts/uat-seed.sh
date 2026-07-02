@@ -266,17 +266,26 @@ date_offset() {
 # `invite_missing_authentik_user` path.
 #
 # UAT_SEED_DIRECTUS_MOCK=1 — skip all curl calls (used by bats tests).
+#
+# role_groups is a JSON array string passed as the 7th positional arg
+# (default '[]'). ISS-UAT-013-10: the valid-invite row passes
+# '["aiqadam-staff"]' so the BP-UAT-013 Step 005 spec assertion
+# `getByText(/aiqadam-staff/i)` can find the role label rendered by
+# apps/web/src/components/OnboardingForm.tsx at line ~194
+# (`preview.role_groups.join(', ')`).
 ensure_operator_invite() {
   local email="$1" status="$2" expires_at="$3" consumed_at="$4" token_plain="$5" display_name="$6"
+  local role_groups="${7:-[]}"
   local token_hash token_prefix
   token_hash=$(sha256_hex "$token_plain")
   token_prefix="${token_plain:0:8}"
 
   if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
-    # Mock-mode line includes the email so the bats regression can grep for
-    # the per-row email distribution (3 bare + 1 plus-addressed), not just
-    # the count. See scripts/tests/uat-seed.bats AC-1: email-distribution.
-    ok "operator_invite ${token_prefix} (mock, email=${email})"
+    # Mock-mode line includes the email + role_groups so the bats regression
+    # can grep for both the per-row email distribution (3 bare + 1
+    # plus-addressed) AND the role_groups content (valid=aiqadam-staff,
+    # others='[]'). See scripts/tests/uat-seed.bats AC-1 + AC-5.
+    ok "operator_invite ${token_prefix} (mock, email=${email}, role_groups=${role_groups})"
     return
   fi
 
@@ -308,8 +317,9 @@ ensure_operator_invite() {
     --arg exp "$expires_at" \
     --arg th  "$token_hash" \
     --arg tp  "$token_prefix" \
+    --argjson rg "$role_groups" \
     $jq_cat \
-    'if $cat == "" then {email:$e,display_name:$dn,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:[]} | .consumed_at = null else {email:$e,display_name:$dn,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:[]} end')
+    'if $cat == "" then {email:$e,display_name:$dn,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:$rg} | .consumed_at = null else {email:$e,display_name:$dn,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:$rg} end')
 
   local resp code
   resp=$(curl -s \
@@ -432,21 +442,32 @@ ONBOARD_NO_USER_TOKEN="uat-onboard-no-user-token"
 OPERATOR_FIXTURE_EMAIL="uat-operator@aiqadam.test"
 NO_USER_FIXTURE_EMAIL="uat-operator+no-user@aiqadam.test"
 
+# ISS-UAT-013-10: valid invite must include 'aiqadam-staff' so the
+# BP-UAT-013 Step 005 spec assertion `getByText(/aiqadam-staff/i)` can
+# find the role label rendered by apps/web/src/components/OnboardingForm.tsx
+# at line ~194 (`preview.role_groups.join(', ')`). The other three rows
+# intentionally keep role_groups=[] because:
+#   - used + expired: spec asserts GonePanel, not role label; empty groups
+#     keep these rows realistic for their error paths.
+#   - no-user: spec asserts the api returns 409 invite_missing_authentik_user;
+#     role_groups is irrelevant to that error path. Keeping [] avoids
+#     accidentally exercising the role-to-Authentik group mapping for a
+#     user that intentionally does not exist.
 ensure_operator_invite \
   "$OPERATOR_FIXTURE_EMAIL" "pending" "$_now_plus_7d" "" \
-  "$ONBOARD_TOKEN" "UAT Operator (valid)"
+  "$ONBOARD_TOKEN" "UAT Operator (valid)" '["aiqadam-staff"]'
 
 ensure_operator_invite \
   "$OPERATOR_FIXTURE_EMAIL" "consumed" "$_now_plus_7d" "$_now_minus_2h" \
-  "$ONBOARD_USED_TOKEN" "UAT Operator (used)"
+  "$ONBOARD_USED_TOKEN" "UAT Operator (used)" '[]'
 
 ensure_operator_invite \
   "$OPERATOR_FIXTURE_EMAIL" "pending" "$_now_minus_1d" "" \
-  "$ONBOARD_EXPIRED_TOKEN" "UAT Operator (expired)"
+  "$ONBOARD_EXPIRED_TOKEN" "UAT Operator (expired)" '[]'
 
 ensure_operator_invite \
   "$NO_USER_FIXTURE_EMAIL" "pending" "$_now_plus_7d" "" \
-  "$ONBOARD_NO_USER_TOKEN" "UAT Operator (no-user)"
+  "$ONBOARD_NO_USER_TOKEN" "UAT Operator (no-user)" '[]'
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""

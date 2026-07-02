@@ -65,7 +65,7 @@ teardown() {
 @test "AC-1: three happy rows share the bare operator email; the no-user row is plus-addressed" {
   # Strengthens AC-1 from "4 rows exist" to "4 rows exist with the right
   # email per row". The seed's mock-mode prints
-  #   "operator_invite <token_prefix> (mock, email=<email>)"
+  #   "operator_invite <token_prefix> (mock, email=<email>, role_groups=<json>)"
   # so we can grep the per-row distribution from the output (hermetic;
   # no Directus / no Authentik / no DB). The literal '+' in the
   # plus-addressed email is matched via a character class `[+]` to stay
@@ -73,10 +73,34 @@ teardown() {
   run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
   [ "$status" -eq 0 ]
   local bare plus
-  bare=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator@aiqadam\.test\)' || true)
-  plus=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator[+]no-user@aiqadam\.test\)' || true)
+  bare=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator@aiqadam\.test' || true)
+  plus=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator[+]no-user@aiqadam\.test' || true)
   [ "$bare" -eq 3 ]
   [ "$plus" -eq 1 ]
+}
+
+@test "AC-5: valid-invite row carries role_groups=['aiqadam-staff']; other three rows carry []" {
+  # ISS-UAT-013-10 regression: the BP-UAT-013 Step 005 spec asserts
+  # `getByText(/aiqadam-staff/i)` is visible on the onboarding page.
+  # That text is rendered by apps/web/src/components/OnboardingForm.tsx at
+  # line ~194 from `preview.role_groups.join(', ')`. If the seed leaves
+  # role_groups empty for the valid-invite row, Step 005 fails.
+  #
+  # This test pins the per-row role_groups content via the mock-mode
+  # output line:
+  #   "operator_invite <token_prefix> (mock, email=<email>, role_groups=<json>)"
+  #
+  # Expected distribution:
+  #   - uat-onbo (the "uat-onboard-token" prefix) → role_groups=['aiqadam-staff']
+  #   - all 3 other rows → role_groups=[]
+  # Total role_groups=[] lines: 3; total role_groups=['aiqadam-staff'] lines: 1.
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
+  [ "$status" -eq 0 ]
+  local valid empty
+  valid=$(echo "$output" | grep -cE 'operator_invite .*\(mock, .*role_groups=\["aiqadam-staff"\]' || true)
+  empty=$(echo "$output" | grep -cE 'operator_invite .*\(mock, .*role_groups=\[\]' || true)
+  [ "$valid" -eq 1 ]
+  [ "$empty" -eq 3 ]
 }
 
 @test "AC-2: uat-seed.sh has a DIRECTUS_TOKEN guard that emits a FATAL message" {
