@@ -27,14 +27,21 @@
  *  - Step 005/006 use `getByRole('checkbox', { name: /accept/i })`
  *    instead of `input[type="checkbox"]` to disambiguate from Astro's
  *    dev-toolbar checkboxes.
- *  - Neg 004 uses `dispatchEvent(new Event('submit'))` via `page.evaluate`
- *    to fire the form's onSubmit handler reliably. Clicking the button
- *    alone proved unreliable in earlier runs even with dev toolbar
- *    hidden and `force: true` — the form's React-controlled state and
- *    the input's HTML5 form-validation timing together can suppress
- *    the click's submission path. Dispatching the submit event
- *    bypasses this and exercises the same onSubmit handler that a
- *    real user click would.
+ *  - Neg 004 (ISS-UAT-013-12): the previous interaction sequence
+ *    `setReactInputValue(...)` + `form.requestSubmit()` raced React 18's
+ *    batched setState — the helper dispatched a native input event
+ *    synchronously, but by the time requestSubmit() fired, React had
+ *    not yet committed form.email, so the submit button stayed
+ *    [disabled] and the React onSubmit handler never ran. The form
+ *    sat in `idle` and the matcher timed out at 10 s. The robust fix
+ *    is Playwright's high-level `emailInput.fill()` (awaits value
+ *    commit) + `submit.click()` (awaits button enable) — the same
+ *    pattern Step 001 already uses. See the long comment block
+ *    directly above the Neg 004 test body for the full root-cause
+ *    analysis. The `setReactInputValue` helper is INTENTIONALLY KEPT
+ *    because Neg 001 still uses it for the hidden honeypot field
+ *    (`<input name="company" style="left:-9999px; opacity:0">`),
+ *    which `.fill()` refuses to target.
  *
  * Honesty notes carried over (AGENTS.md §9):
  *  - .env.uat does NOT define UAT_ONBOARD_TOKEN / UAT_ONBOARD_USED_TOKEN /
@@ -427,36 +434,56 @@ test.describe('BP-UAT-013 — negative scenarios', () => {
   // The api returns 400 BadRequest. The form's submitLead() throws
   // `Error('POST /api/v1/leads → 400')` and the React form surfaces
   // that as the inline error message.
+  //
+  // Retry-3 (ISS-UAT-013-12): the previous implementation used
+  // setReactInputValue(...) + form.requestSubmit() to fire the submit
+  // event. The helper dispatches a synchronous native `input` event, but
+  // React 18 schedules the corresponding setState asynchronously. By the
+  // time form.requestSubmit() runs on the very next line, React has not
+  // yet committed `form.email = LEAD_PLUS` to the React state, so:
+  //   1. the submit button is still [disabled] (because
+  //      form.email.trim().length === 0 in React state); and
+  //   2. the form's HTML5 native submit is suppressed by that disabled
+  //      button; and
+  //   3. the React onSubmit handler is never invoked.
+  // The form sits in `idle` forever, the matcher times out at 10 s, and
+  // Neg 004 fails vacuously — it would silently pass on a regression
+  // that removed the api's plus-addressing zod refinement.
+  //
+  // The robust fix is to use Playwright's high-level `emailInput.fill()`
+  // (awaits React's value commit) and `submit.click()` (awaits the
+  // button's enabled state) — the exact pattern that Step 001 already
+  // uses successfully. Even explicit `await page.waitForTimeout(...)`
+  // before `requestSubmit()` is not enough: React's commit timing is
+  // not deterministic, only conditional awaits are.
+  //
+  // The setReactInputValue helper above is INTENTIONALLY KEPT: Neg 001
+  // still uses it for the hidden honeypot field (`<input name="company"
+  // style="left:-9999px; opacity:0">`), which Playwright's `.fill()`
+  // refuses to target because the element is off-screen.
   test('Neg 004 — Plus-addressing in email is rejected', async ({ page }) => {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await hideDevToolbar(page);
     const emailInput = page.locator('form input[type="email"]');
     await expect(emailInput).toBeVisible({ timeout: 15_000 });
 
-    await setReactInputValue(page, 'form input[type="email"]', LEAD_PLUS);
+    await emailInput.fill(LEAD_PLUS);
+    const submit = page.getByRole('button', { name: /send me a confirmation/i });
+    await expect(submit).toBeEnabled();
+    await submit.click();
 
-    // Dispatch a native submit event on the form. This bypasses any
-    // timing/visibility issues with the button click and exercises the
-    // same React onSubmit handler that a real user would trigger by
-    // pressing Enter inside the email field.
-    await page.evaluate(() => {
-      const form = document.querySelector('form');
-      if (!form) throw new Error('no form found');
-      form.requestSubmit();
-    });
+    // The form must NOT show the success panel — plus-addressing is
+    // rejected at the api boundary, so submitLead() throws and the
+    // form transitions to the `error` phase instead.
+    await expect(page.getByText(/check your inbox/i)).toHaveCount(0, { timeout: 5_000 });
 
-    await new Promise((r) => setTimeout(r, 3_000));
-    await shot(page, 'neg-004-plus-addressing-rejected');
-
-    const successVisible = await page
-      .getByText(/check your inbox/i)
-      .isVisible()
-      .catch(() => false);
-    expect(successVisible, 'plus-addressed email must NOT show success panel').toBe(false);
-
-    // Match either the api's structured BadRequest body OR the form's
-    // fallback "POST /api/v1/leads → 400" status text. Both are valid
-    // non-vacuous evidence that the validation rejected the input.
+    // The error <p> must surface either the api's structured fieldError
+    // text ("Plus-addressed emails (name+tag@…) are not allowed.") OR
+    // the form's fallback "POST /api/v1/leads → 400" status text — both
+    // are valid non-vacuous evidence that the validation rejected the
+    // input. The first form of the assertion guards against the api
+    // silently accepting the input; the second guards against the
+    // fallback text being truncated in a future refactor.
     const errorBanner = page
       .locator('p')
       .filter({
@@ -468,6 +495,14 @@ test.describe('BP-UAT-013 — negative scenarios', () => {
     expect(errorText.toLowerCase()).toMatch(
       /plus.?addressed|plus-addressing|not allowed|invalid email|400/,
     );
+
+    await shot(page, 'neg-004-plus-addressing-rejected');
+
+    // Mailpit must NOT receive a message for the plus-addressed
+    // recipient — the api rejected the input before dispatching email.
+    await new Promise((r) => setTimeout(r, 4_000));
+    const mails = await mailpitSearch(LEAD_PLUS);
+    expect(mails, 'no verify email should be sent for plus-addressed submissions').toEqual([]);
   });
 
   // Neg 005 — wf-20260629-fix-039: a freshly-seeded operator_invites row

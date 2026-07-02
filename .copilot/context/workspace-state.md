@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-06-30 (wf-20260630-fix-043 open, PR #75)
+**Last updated:** 2026-07-03 (wf-20260703-fix-060, PR pending)
 
 ---
 
@@ -9,6 +9,7 @@
 | Workflow ID | Type | Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
 | wf-20260630-fix-043 | issue-resolution | ISS-UAT-013-9 email_verified guard | fix/ISS-UAT-013-9-lead-verified-guard | [PR #75](https://github.com/tvolodi/aiqadam/pull/75) | 2026-06-30 |
+| wf-20260703-fix-060 | issue-resolution | ISS-UAT-013-12 Neg 004 spec React-18 state-commit race (setReactInputValue + form.requestSubmit) | fix/ISS-UAT-013-12-neg-004-react-race | <pending> | 2026-07-03 |
 
 ---
 
@@ -35,7 +36,7 @@
 
 ## Open Issues
 
-_(none — all UAT-013-* issues resolved; AC-2 of ISS-UAT-013-8 deferred to follow-up UATRunner workflow `wf-20260630-uat-031-rerun-bp-uat-013`)_
+_(none — all UAT-013-* issues resolved as of 2026-07-03, including ISS-UAT-013-12 via wf-20260703-fix-060)_
 
 ---
 

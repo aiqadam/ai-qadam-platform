@@ -1,0 +1,76 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260702-feat-056"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-02T00:00:00Z"
+last_updated_at: "2026-07-02T00:00:00Z"
+
+requirement_ref: "FR-UAT-VISUAL-001"
+requirement_text: "Introduce enforced visual analysis into the uat-verification workflow: a VisualReviewer agent that reads every screenshot, a mechanical enforcement script, and a three-layer visual testing strategy (pixel-diff baselines, computed-style design-system linting, LLM vision review)."
+github_issue_url: ""
+
+branch: "feature/uat-visual-056-visual-review"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 1
+current_step_name: "author-artifacts"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+deferrals: []
+
+expects_registry_update: false
+context_sync_commits: 0
+artifacts:
+  - .copilot/agents/visual-reviewer.md
+  - .copilot/workflows/uat-verification.md
+  - .copilot/agents/business-analyst.md
+  - .copilot/agents/uat-runner.md
+  - scripts/uat-visual-check.sh
+  - docs/04-development/testing/visual-testing.md
+
+context_refs:
+  - .copilot/agents/
+  - .copilot/workflows/uat-verification.md
+  - docs/04-development/design-system/Design system for AI agents/readme.md
+  - docs/04-development/testing/
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260702-feat-056/NEEDS_REVIEW.md"

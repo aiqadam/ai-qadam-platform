@@ -5,9 +5,11 @@
 | ID | ISS-UAT-013-12 |
 | Severity | minor |
 | Module | uat/test-design |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-02 |
 | Reporter | BusinessAnalyst (wf-20260702-uat-059 / 03-uat-triage.md) |
+| Resolved | 2026-07-03 |
+| Workflow | wf-20260703-fix-060 |
 | Related | [ISS-UAT-013-6](ISS-UAT-013-6.md) (Neg 004 was originally strengthened by that issue; this issue is the residual race that escaped that fix) |
 | AC ref | AC-1 (BP-UAT-013) — Neg 004 |
 
@@ -148,4 +150,36 @@ test references them (verify with `grep -rn setReactInputValue apps/e2e/tests/`)
 
 ## Resolution
 
-_Pending._
+- **Workflow:** wf-20260703-fix-060
+- **PR:** <pending>  (Step 12 back-fills the URL after `gh pr create`.)
+- **Root cause:** The Neg 004 test used `setReactInputValue(...)` followed by
+  `form.requestSubmit()`. The helper dispatches a synchronous native `input`
+  event, but React 18 schedules the corresponding `setState` for `form.email`
+  asynchronously. By the time `form.requestSubmit()` ran on the very next
+  line, React had not yet committed `form.email = LEAD_PLUS` to the React
+  state, so the submit button stayed `[disabled]` (because
+  `form.email.trim().length === 0` in React state) and the React `onSubmit`
+  handler was never invoked. The form sat in `idle` forever; the matcher
+  timed out at 10 s; the test failed vacuously.
+- **Fix:** Rewrote the Neg 004 test body in
+  `apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts` to use
+  `emailInput.fill(LEAD_PLUS) + await expect(submit).toBeEnabled() + await
+  submit.click()` — the same proven pattern that Step 001 already uses
+  successfully. Added a 24-line comment block at the top of Neg 004
+  documenting the React-18 state-commit race and the reason for not using
+  `setReactInputValue` (which is INTENTIONALLY KEPT for Neg 001's hidden
+  honeypot field — `<input name="company" style="left:-9999px; opacity:0">`
+  — which Playwright's `.fill()` refuses to target). Also added two
+  defensive assertions (success-panel `toHaveCount(0)`; Mailpit
+  dispatch-absence) to make Neg 004 strictly more rigorous than before.
+- **Regression test:** The rewritten Neg 004 itself. If a future refactor
+  reintroduces the `setReactInputValue + form.requestSubmit` pattern (or
+  any non-conditional timer-based wait), Neg 004 will fail again because
+  the form will sit in `idle` and the matcher will time out. If a future
+  code change accidentally removes the api's `emailField()` plus-addressing
+  zod refinement, Neg 004 will fail with a clean assertion error (the form
+  would transition to `success` instead of `error`).
+- **Verification:** Run live against the local stack.
+  - `pnpm --filter @aiqadam/e2e exec playwright test --config apps/e2e/playwright.uat.config.ts --grep "Neg 004"` → **1 passed (11.1s)**.
+  - `pnpm --filter @aiqadam/e2e exec playwright test --config apps/e2e/playwright.uat.config.ts --grep "BP-UAT-013"` → 8/12 passed. The 4 failures (Steps 002, 003, 005, 006) are pre-existing env-constraints (RESEND_API_KEY empty → no Mailpit dispatch; seed is stale → no fresh operator_invites row) and are exactly the same failures the prior wf-20260702-uat-059 reported. Neg 004 PASSES in both the isolation run and the full re-run. See `07-test-results.md` for the full breakdown and the honesty disclosures on AC-3 wording.
+- **Merged:** <pending>  (Step 12.5 back-fills the actual merge SHA.)
