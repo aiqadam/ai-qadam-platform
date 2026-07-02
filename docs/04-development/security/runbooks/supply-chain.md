@@ -14,7 +14,7 @@
 
 Only **fixed** vulnerabilities are blocked (`ignore-unfixed: true`). Unfixed advisories surface in informational reports but do not block merge — they require a human decision (back out the dep, mitigate at app level, accept residual risk in writing).
 
-## Known existing high-severity advisories (snapshot 2026-05-20)
+## Known existing high-severity advisories (snapshot 2026-07-02)
 
 The first PR that activates this gate exposes 3 high-severity advisories that already exist on `main`. They are not regressions from this PR; they are pre-existing debt. Dependabot's first run will open bump PRs for each — merge those before relying on a green `supply-chain` check.
 
@@ -25,6 +25,15 @@ The first PR that activates this gate exposes 3 high-severity advisories that al
 | [GHSA-gpj5-g38j-94v9](https://github.com/advisories/GHSA-gpj5-g38j-94v9) | drizzle-orm < 0.45.2 | apps/api → drizzle-orm@0.36.4 | upgrade drizzle-orm direct dep |
 
 Owning agent: Agent-API (per [`docs/05-other/agent-prompts.md`](../../../05-other/agent-prompts.md) §1 row 4 — `apps/api/*` scope). Triage path documented below.
+
+### Resolved advisories since the 2026-05-20 snapshot
+
+| Advisory | Package | Path | Resolved by | Workflow |
+|---|---|---|---|---|
+| [GHSA-rcmh-qjqh-p98v](https://github.com/advisories/GHSA-rcmh-qjqh-p98v) | nodemailer < 7.0.11 (addressparser DoS) | apps/api → nodemailer@6.10.1 | bumped to nodemailer@9.0.3 | wf-20260702-fix-052 (ISS-CI-002) |
+| [GHSA-p6gq-j5cr-w38f](https://github.com/advisories/GHSA-p6gq-j5cr-w38f) | nodemailer < 9.0.1 (raw-message SSRF) | apps/api → nodemailer@6.10.1 | bumped to nodemailer@9.0.3 | wf-20260702-fix-052 (ISS-CI-002) |
+
+**Lesson recorded in `wf-20260702-fix-052/01-issue-lookup.md`:** the issue file's initial guess that `nodemailer@7.0.11` patched both CVEs was wrong — only the addressparser DoS is patched in 7.x; the raw-message SSRF requires `>=9.0.1`. When triaging a `pnpm audit` finding, **always read the `Patched versions` row from the GitHub Security Advisory itself** rather than relying on secondary sources (including the issue file that filed the audit red). The regression test `scripts/tests/audit-nodemailer-version.bats` (added in the same PR as the fix) guards against a future re-bump below `9.0.1`.
 
 ## Responding to a red `pnpm audit` job on a PR
 
