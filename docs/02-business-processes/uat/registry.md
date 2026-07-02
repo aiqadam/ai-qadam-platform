@@ -20,7 +20,7 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 | [BP-UAT-010](BP-UAT-010.md) | Event registration flow | [FR-REG-001](../../03-requirements/FR-REG-001.md) | Ready | — | — | — |
 | [BP-UAT-011](BP-UAT-011.md) | QR check-in | [FR-REG-004](../../03-requirements/FR-REG-004.md) | Ready | — | — | — |
 | [BP-UAT-012](BP-UAT-012.md) | Points engine and leaderboard | [FR-GAM-001](../../03-requirements/FR-GAM-001.md) | Ready | — | — | — |
-| [BP-UAT-013](BP-UAT-013.md) | Member signup and operator onboarding | [FR-USR-001](../../03-requirements/FR-USR-001.md) | Implemented | 2026-06-30 | partial | [ISS-UAT-013-9](../../../.copilot/issues/ISS-UAT-013-9.md), [ISS-UAT-013-10](../../../.copilot/issues/ISS-UAT-013-10.md) |
+| [BP-UAT-013](BP-UAT-013.md) | Member signup and operator onboarding | [FR-USR-001](../../03-requirements/FR-USR-001.md) | Implemented | 2026-07-02 | partial | [ISS-UAT-013-9](../../../.copilot/issues/ISS-UAT-013-9.md), [ISS-UAT-013-10](../../../.copilot/issues/ISS-UAT-013-10.md), [ISS-UAT-013-12](../../../.copilot/issues/ISS-UAT-013-12.md), [ISS-UAT-013-13](../../../.copilot/issues/ISS-UAT-013-13.md) |
 | [BP-UAT-014](BP-UAT-014.md) | Waitlist management | [FR-REG-002](../../03-requirements/FR-REG-002.md) | Ready | — | — | — |
 | [BP-UAT-015](BP-UAT-015.md) | Registration cancellation | [FR-REG-003](../../03-requirements/FR-REG-003.md) | Ready | — | — | — |
 | [BP-UAT-016](BP-UAT-016.md) | Member referral programme | [member-referrals.md](../operations/member-referrals.md) | Ready | — | — | — |

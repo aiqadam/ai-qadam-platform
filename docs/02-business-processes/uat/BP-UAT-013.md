@@ -5,7 +5,7 @@ status: Ready
 process_ref: "docs/03-requirements/FR-USR-001.md"
 environment: "http://localhost:4321"
 seed_required: true
-last_run: ""
+last_run: "2026-07-02"
 ---
 
 # BP-UAT-013 — Member Signup and Operator Onboarding

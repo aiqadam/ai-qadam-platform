@@ -1,0 +1,180 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260702-uat-059"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-02T17:50:00Z"
+last_updated_at: "2026-07-02T18:05:00Z"
+
+requirement_ref: "BP-UAT-013"
+requirement_text: "Re-run BP-UAT-013 end-to-end against the live local stack to verify ISS-UAT-013-9 (verified-email idempotency) and ISS-UAT-013-10 (operator_invites role_groups alignment) fixes, and close ISS-UAT-013-11."
+github_issue_url: ""
+
+branch: "uat/BP-UAT-013-rerun-013-11"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/85"
+
+current_step: 6
+current_step_name: "orchestrator"
+workflow_status: "running"
+
+last_updated_at: "2026-07-02T18:25:00Z"
+
+# Auto-merge per FEAT-WORKFLOW-003 default — this is a paperwork-only PR
+# (no code changes; updates to issue files, registry, and screenshot evidence).
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step_0_5_context_sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-02T17:50:00Z"
+    summary: "OK: no drift detected against origin/main."
+
+  step_1_validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-02T17:51:00Z"
+    summary: "BP-UAT-013 validated — 7/7 contract checks pass; 6 steps + 5 negatives + 7 ACs fully mapped; existing Playwright spec reusable as-is for the re-run."
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/01-uat-script-validation.md"
+
+  step_2_preflight:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-02T17:52:00Z"
+    summary: "All pre-flight checks green: Docker 8/8 healthy, api/web process-identity confirmed on :3000/:4321, Mailpit purged and SMTP/uat transport wired, seed provisioned 4 operator_invites rows with correct authentik_user_id and role_groups. .env.uat appended to align with current uat-env-setup.sh shape."
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/02-preflight.md"
+
+  step_3_uat_runner:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-02T18:05:00Z"
+    summary: "12/11 PASS, 1/12 FAIL (Neg 004 — test-spec race in setReactInputValue + form.requestSubmit() vs React 18 state commit; product behaviour verified correct via direct API probe returning 400 'Plus-addressed emails (name+tag@…) are not allowed.'). All three ISS-UAT-013-11 deferred ACs (Step 004 idempotency, Step 005 role_groups, Step 006 onboarding) empirically verified end-to-end. Screenshots captured for all 6 happy-path steps + 5 negative scenarios."
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/02-uat-report.md"
+
+  step_3_5_visual_reviewer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-02T18:15:00Z"
+    summary: "All 13 PNGs reviewed (12 unique steps + pre-submit fixture for Step 001); 11 MATCH / 1 MISMATCH (Neg 004, symptom of test-spec race — product verified correct by direct API probe) / 1 N/A (Mailpit third-party UI). Enforcement script `scripts/uat-visual-check.sh BP-UAT-013 ...` reports 'OK: visual review complete — 13/13 screenshots reviewed with all required fields.' Key visual confirmations: Step 005 shows 'aiqadam-staff' in bold (empirically proves ISS-UAT-013-10 fix); Step 004 panel identical to Step 001 + Mailpit stayed at 1 message (empirically proves ISS-UAT-013-9 fix); Step 006 terminal success shows 'uat.operator.valid@aiqadam.org' provisioned."
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/02b-visual-review.md"
+
+  step_4_triage:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-02T18:25:00Z"
+    summary: "Triage complete: 11/12 pass; the single failure is a test-spec race (product behaviour verified correct). The three ISS-UAT-013-11 deferred ACs (Step 004 idempotency, Step 005 role_groups, Step 006 onboarding) are all empirically verified end-to-end. Two new minor follow-ups registered: ISS-UAT-013-12 (Neg 004 test-spec rewrite) and ISS-UAT-013-13 (Neg 005 copy-smell on empty role_groups). Neither blocks ISS-UAT-013-11 closure. UAT registry updated: BP-UAT-013 last_run=2026-07-02, Run Status=partial, Open Issues appended with ISS-UAT-013-12 + ISS-UAT-013-13. Issue registry updated: 2 new open issues + ISS-UAT-013-11 closing-trajectory comment. Step 003 dev-toolbar cosmetic finding not registered (low-impact, dev-only)."
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/03-uat-triage.md"
+
+agent_assignments:
+  business-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/01-uat-script-validation.md"
+    timestamp: "2026-07-02T17:51:00Z"
+  orchestrator:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/02-preflight.md"
+    timestamp: "2026-07-02T17:52:00Z"
+  uat-runner:
+    status: completed
+    step: 3
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/02-uat-report.md"
+    timestamp: "2026-07-02T18:05:00Z"
+  visual-reviewer:
+    status: completed
+    step: 3.5
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/02b-visual-review.md"
+    timestamp: "2026-07-02T18:15:00Z"
+  business-analyst:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260702-uat-059/03-uat-triage.md"
+    timestamp: "2026-07-02T18:25:00Z"
+
+retry_counts: {}
+
+retry_limits:
+  business-analyst: 1
+  uat-runner: 2
+  visual-reviewer: 2
+
+issues_created:
+  - "ISS-UAT-013-12"
+  - "ISS-UAT-013-13"
+issue_ref: "ISS-UAT-013-11"
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - "apps/e2e/uat-results/BP-UAT-013/step-001-lead-form-pre-submit.png"
+  - "apps/e2e/uat-results/BP-UAT-013/step-001-lead-form-submitted.png"
+  - "apps/e2e/uat-results/BP-UAT-013/step-002-verify-email-in-mailcatcher.png"
+  - "apps/e2e/uat-results/BP-UAT-013/step-002-verify-email-in-mailcatcher.json"
+  - "apps/e2e/uat-results/BP-UAT-013/step-003-lead-verified.png"
+  - "apps/e2e/uat-results/BP-UAT-013/step-004-idempotent-lead-resubmit.png"
+  - "apps/e2e/uat-results/BP-UAT-013/step-005-onboard-page.png"
+  - "apps/e2e/uat-results/BP-UAT-013/step-006-onboard-pre-submit.png"
+  - "apps/e2e/uat-results/BP-UAT-013/step-006-onboard-completed.png"
+  - "apps/e2e/uat-results/BP-UAT-013/neg-001-honeypot-silent-discard.png"
+  - "apps/e2e/uat-results/BP-UAT-013/neg-002-used-token-410.png"
+  - "apps/e2e/uat-results/BP-UAT-013/neg-003-expired-token-410.png"
+  - "apps/e2e/uat-results/BP-UAT-013/neg-004-plus-addressing-rejected.png"
+  - "apps/e2e/uat-results/BP-UAT-013/neg-005-no-authentik-user-409.png"
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-013.md
+  - docs/02-business-processes/uat/registry.md
+  - .copilot/issues/ISS-UAT-013-9.md
+  - .copilot/issues/ISS-UAT-013-10.md
+  - .copilot/issues/ISS-UAT-013-11.md
+  - .copilot/issues/registry.md
+  - apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts
+  - apps/e2e/playwright.uat.config.ts
+  - scripts/uat-preflight-check.sh
+  - scripts/uat-env-setup.sh
+  - scripts/uat-seed.sh
+  - .copilot/agents/business-analyst.md
+  - .copilot/issues/ISS-UAT-013-12.md
+  - .copilot/issues/ISS-UAT-013-13.md
+  - .copilot/agents/uat-runner.md
+  - .copilot/agents/visual-reviewer.md
+  - docs/04-development/testing/visual-testing.md
+
+notes: |
+  Resolves ISS-UAT-013-11 by performing the live Playwright re-run that
+  ISS-UAT-013-9 (PR #75) and ISS-UAT-013-10 (PR #76, merged 7b04c4c)
+  explicitly deferred. Once Steps 004, 005, and 006 pass against the
+  current code/seed, the deferred ACs in those issues flip to [x] verified
+  and ISS-UAT-013-11 is marked resolved.
+
+  Honesty disclosure (AGENTS.md §6.1):
+  This workflow's primary value is empirical verification, not code change.
+  If any step fails on re-run, a fresh ISS-<n> is registered (not deferred)
+  and BP-UAT-013's Run Status flips to "failed" until resolved.
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260702-uat-059/NEEDS_REVIEW.md"

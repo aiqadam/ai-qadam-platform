@@ -1,4 +1,4 @@
 {
   "subject": "Confirm your AI Qadam updates",
-  "snippet": "Hi,\r\n\r\nTap the link below to confirm you'd like updates about AI Qadam events. We send around two emails per month, max — no spam.\r\n\r\nhttps://aiqadam.org/api/v1/leads/verify?token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI4ZWMxZmM2Mi1jYmUzLTQ5ZGUtYjgyNy0wYmZiMmFiZjE1ODUiLCJlbWFpbCI6InVhdC1sZWFkLW5ld0BleGFtcGxlLmNvbSIsImlhdCI6MTc4Mjc5MDA2NiwiZXhwIjoxNzg1MzgyMDY2LCJpc3MiOiJhaXFhZGFtLWFwaS1sZWFkLXZlcmlmeSIsImF1ZCI6ImFpcWFkYW0tbGVhZHMifQ.y9lFYfHva2y-6oguVIIhWT21Qm9WyEGMpZ9JRKSaWQU\r\n\r\n— AI Qadam\r\n\r\nIf you didn't sign up, ignore this email."
+  "snippet": "Hi,\r\n\r\nTap the link below to confirm you'd like updates about AI Qadam events. We send around two emails per month, max — no spam.\r\n\r\nhttps://aiqadam.org/api/v1/leads/verify?token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0NTA2MDE5ZC1jMzE2LTRhYTEtOGUwMC00YTBjZGMyYWE0ZTQiLCJlbWFpbCI6InVhdC1sZWFkLW5ld0BleGFtcGxlLmNvbSIsImlhdCI6MTc4MzAxNTE1MSwiZXhwIjoxNzg1NjA3MTUxLCJpc3MiOiJhaXFhZGFtLWFwaS1sZWFkLXZlcmlmeSIsImF1ZCI6ImFpcWFkYW0tbGVhZHMifQ.PsomI_ONzKMRrIkvGpw8bZwpvjLI4R1hKu_6yRB5L8c\r\n\r\n— AI Qadam\r\n\r\nIf you didn't sign up, ignore this email."
 }
