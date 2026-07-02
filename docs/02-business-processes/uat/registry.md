@@ -16,7 +16,7 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 | [BP-UAT-006](BP-UAT-006.md) | Event CSAT — capture and operator surface | [event-csat.md](../operations/event-csat.md) | Ready | — | — | — |
 | [BP-UAT-007](BP-UAT-007.md) | Pre-event reminder cron | [event-pre-event-reminders.md](../operations/event-pre-event-reminders.md) | Ready | — | — | — |
 | [BP-UAT-008](BP-UAT-008.md) | Speaker pipeline and post-event cron | [event-speaker-pipeline.md](../operations/event-speaker-pipeline.md) | Ready | — | — | — |
-| [BP-UAT-009](BP-UAT-009.md) | Auth sign-in and sign-out | [FR-AUTH-001](../../03-requirements/FR-AUTH-001.md) | Ready | — | — | — |
+| [BP-UAT-009](BP-UAT-009.md) | Auth sign-in and sign-out | [FR-AUTH-001](../../03-requirements/FR-AUTH-001.md) | Implemented | 2026-07-02 | partial | [ISS-UAT-009-1](../../../.copilot/issues/ISS-UAT-009-1.md), [ISS-UAT-009-2](../../../.copilot/issues/ISS-UAT-009-2.md), [ISS-UAT-009-3](../../../.copilot/issues/ISS-UAT-009-3.md), [ISS-UAT-009-4](../../../.copilot/issues/ISS-UAT-009-4.md) |
 | [BP-UAT-010](BP-UAT-010.md) | Event registration flow | [FR-REG-001](../../03-requirements/FR-REG-001.md) | Ready | — | — | — |
 | [BP-UAT-011](BP-UAT-011.md) | QR check-in | [FR-REG-004](../../03-requirements/FR-REG-004.md) | Ready | — | — | — |
 | [BP-UAT-012](BP-UAT-012.md) | Points engine and leaderboard | [FR-GAM-001](../../03-requirements/FR-GAM-001.md) | Ready | — | — | — |

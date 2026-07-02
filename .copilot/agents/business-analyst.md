@@ -22,6 +22,8 @@ application. It works exclusively with process documents and issue files.
    `docs/02-business-processes/uat/BP-UAT-template.md`
 4. UATRunner report (for the read-and-triage step):
    `.copilot/tasks/active/<workflow-id>/02-uat-report.md`
+5. VisualReviewer report (for the read-and-triage step):
+   `.copilot/tasks/active/<workflow-id>/02b-visual-review.md`
 
 ---
 
@@ -48,12 +50,21 @@ script must be corrected before UATRunner is invoked.
 
 ---
 
-## Step 3 — Triage UATRunner Report
+## Step 3 — Triage UATRunner Report + Visual Review
 
-**Input:** `.copilot/tasks/active/<workflow-id>/02-uat-report.md`
+**Inputs:**
+- `.copilot/tasks/active/<workflow-id>/02-uat-report.md`
+- `.copilot/tasks/active/<workflow-id>/02b-visual-review.md`
+
+Triage refuses to start (`failed-escalate`) if `02b-visual-review.md` is
+missing — a run without visual review is an incomplete run.
 
 1. Read the overall verdict (`passed` / `failed` / `partial`).
-2. For each failed step, classify the failure:
+1a. Read every `MISMATCH`, `PARTIAL`, and `design_system: FAIL` finding in
+   the visual review. These are triaged with the same weight as DOM failures:
+   a step whose DOM assertion passed but whose screenshot shows a visual
+   defect still produces a **UI bug** issue.
+2. For each failed step **and each visual finding**, classify the failure:
    - **UI bug** — expected element/text not present, layout broken
    - **Data bug** — wrong value displayed, stale/missing record
    - **Flow bug** — wrong redirect, missing page, broken nav

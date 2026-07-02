@@ -30,7 +30,8 @@ corrupt real data.
 | 1 | BusinessAnalyst | `01-uat-script-validation.md` | validate UAT script completeness |
 | 2 | Orchestrator (direct) | — | pre-flight: stack health + seed |
 | 3 | UATRunner | `02-uat-report.md` | execute UAT script, capture screenshots |
-| 4 | BusinessAnalyst | `03-uat-triage.md` | triage report, register issues |
+| 3.5 | VisualReviewer | `02b-visual-review.md` | **open every screenshot**, verify vs expected state + design system |
+| 4 | BusinessAnalyst | `03-uat-triage.md` | triage report **and visual review**, register issues |
 | 5 | Orchestrator | — | update registry, commit, push, PR |
 
 ---
@@ -137,10 +138,46 @@ pnpm uat:seed
 
 ---
 
+### Step 3.5: Visual Review (VisualReviewer)
+
+Agent definition: `.copilot/agents/visual-reviewer.md`. Strategy rationale:
+`docs/04-development/testing/visual-testing.md`.
+
+**Inputs:**
+- `docs/02-business-processes/uat/<BP-UAT-NNN>.md` (expected_ui_state per step)
+- `02-uat-report.md` (step → screenshot mapping)
+- `apps/e2e/uat-results/<BP-UAT-NNN>/*.png` — **each PNG must be opened with
+  the Read tool**; the runtime renders images natively
+- `docs/04-development/design-system/Design system for AI agents/readme.md`
+
+**Output file:** `02b-visual-review.md` — one proof-of-look entry per PNG.
+
+**Mechanical enforcement (Orchestrator runs after the agent returns):**
+
+```bash
+bash scripts/uat-visual-check.sh <BP-UAT-NNN> \
+  .copilot/tasks/active/<workflow-id>/02b-visual-review.md
+```
+
+Non-zero exit overrides the agent's self-reported gate to `failed-retry` —
+an agent cannot pass this step by claiming inability to view images or by
+reviewing a subset of screenshots.
+
+**Gate:**
+- `passed` (all screenshots reviewed; findings recorded) → Step 4
+- `failed-retry` (unreadable screenshot → re-run Step 3 capture; incomplete
+  review → redo review) — max 2
+- `failed-escalate` (screenshot dir missing/empty) → register issue, NEEDS_REVIEW
+
+---
+
 ### Step 4: Triage Report (BusinessAnalyst)
 
 **Inputs:**
 - `02-uat-report.md`
+- `02b-visual-review.md` — visual findings are triaged with the same
+  weight as DOM-assertion failures; a step can PASS its DOM assertion and
+  still produce a UI-bug issue from a visual MISMATCH or design-system FAIL
 - `docs/02-business-processes/uat/registry.md`
 - `.copilot/issues/registry.md` (to get next ISS number)
 
@@ -164,7 +201,7 @@ Update `docs/02-business-processes/uat/registry.md`:
 ### Step 5: Commit, Push, Create PR (Orchestrator, direct)
 
 Stage and commit:
-- All task artifacts (`01-uat-script-validation.md`, `02-uat-report.md`, `03-uat-triage.md`, `handoff.yaml`)
+- All task artifacts (`01-uat-script-validation.md`, `02-uat-report.md`, `02b-visual-review.md`, `03-uat-triage.md`, `handoff.yaml`)
 - Updated `docs/02-business-processes/uat/registry.md`
 - Updated `.copilot/issues/registry.md` + any new `ISS-<n>.md` files
 - Screenshot directory `apps/e2e/uat-results/<BP-UAT-NNN>/`
@@ -176,6 +213,9 @@ in `.copilot/schemas/protocol.md`.
 **Pre-push gate checks:**
 ```bash
 test -f 03-uat-triage.md && grep -q "status: passed" 03-uat-triage.md
+# Visual review must exist and be complete — re-run the mechanical check:
+bash scripts/uat-visual-check.sh <BP-UAT-NNN> \
+  .copilot/tasks/active/<workflow-id>/02b-visual-review.md
 ```
 (Security review and test results gates do not apply to UAT verification —
 this workflow has no code changes.)
@@ -199,7 +239,10 @@ If workflow was interrupted:
 ## Scope Constraints
 
 - **Never target production.** `environment` in the UAT script must be `localhost`.
-- **Screenshots are evidence, not decorations.** Every step must have one.
+- **Screenshots are evidence, not decorations.** Every step must have one,
+  and every screenshot must be *opened and reviewed* by VisualReviewer
+  (Step 3.5). A workflow that captures screenshots nobody looks at has not
+  performed visual verification. Enforced by `scripts/uat-visual-check.sh`.
 - **Negative tests are mandatory.** A UAT script with no negative scenarios
   fails Step 1 validation.
 - **Issues registered here feed the standard `issue-resolution` workflow.**

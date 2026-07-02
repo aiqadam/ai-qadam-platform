@@ -115,8 +115,13 @@ and invoke specialized subagents.
 Agent definitions live in `.copilot/agents/` (one file per agent: orchestrator,
 requirement-analyst, impact-analyzer, db-migration-author, code-developer,
 security-reviewer, test-strategist, test-designer, test-runner, doc-writer,
-quality-gate). Shared protocol (gate format, retry limits, finish script) is in
-`.copilot/schemas/protocol.md`.
+quality-gate, business-analyst, uat-runner, visual-reviewer). Shared protocol
+(gate format, retry limits, finish script) is in `.copilot/schemas/protocol.md`.
+
+**Agents CAN read images.** The Read tool renders PNG/JPG files natively.
+Any agent (especially visual-reviewer in uat-verification Step 3.5) that
+claims it cannot view screenshots is violating protocol — see
+`docs/04-development/testing/visual-testing.md`.
 
 ### Workflow finish script
 

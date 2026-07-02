@@ -58,6 +58,14 @@ Create a Playwright spec file for the UAT script at:
   even if an earlier one fails — this gives BusinessAnalyst a full picture
   of the run rather than stopping at the first failure
 - The final `expect` in each test must be a hard assertion on the exit state
+- Screenshots must be **viewport screenshots** (never `fullPage: true`) so
+  they stay within the image-size limits of VisualReviewer's Read tool
+- After each step's screenshot, run the design-system assertion fixture
+  (`expect.soft` semantics): `await assertDesignSystem(page)` from
+  `apps/e2e/support/assert-design-system.ts` — deterministic token/style
+  checks; see `docs/04-development/testing/visual-testing.md` (Layer 1).
+  If the fixture does not exist yet, note that in the report; do NOT skip
+  the screenshot.
 
 ### Screenshot naming
 

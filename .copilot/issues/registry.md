@@ -25,6 +25,10 @@
 | [ISS-UAT-COV-001](ISS-UAT-COV-001.md) | enhancement | uat/coverage | 18 of 19 BP-UAT scripts have no Playwright spec and have never been run; 85 Shipped requirements have no BP-UAT coverage; smoke-test suite not cross-referenced to BP-UAT registry | open | — | 2026-07-02 |
 | [ISS-UAT-COV-002](ISS-UAT-COV-002.md) | enhancement | uat/coverage | Operator approvals queue (trust/safety surface) has no BP-UAT script; only shallow smoke-test contract coverage exists | open | — | 2026-07-02 |
 | [ISS-WF-REG-002](ISS-WF-REG-002.md) | minor | workflow/registry | `workspace-state.md` and `BP-UAT-013.md` frontmatter stale vs. actual repo state; registry's Open Issues column for BP-UAT-013 not updated when linked issues resolved | open | — | 2026-07-02 |
+| [ISS-UAT-009-1](ISS-UAT-009-1.md) | bug | api/auth (logout flow) | Sign-out lands on Authentik's RP-Initiated Logout confirmation interstitial instead of auto-redirecting to `/auth/signed-out`, despite a valid `id_token_hint` — likely Authentik provider/flow config, not app code | open | — | 2026-07-02 |
+| [ISS-UAT-009-2](ISS-UAT-009-2.md) | minor | web/auth-gating (uat/test-design) | `/me` renders an in-page AnonView CTA (HTTP 200) for anon visitors while `/workspace` hard-redirects; BP-UAT-009 Step 005 spec asserted the wrong mechanism for `/me` — spec update + inconsistency flagged for product follow-up | open | — | 2026-07-02 |
+| [ISS-UAT-009-3](ISS-UAT-009-3.md) | minor | web/leaderboard (UI) | Leaderboard self-row renders "UAT MemberYou" with no space/separator between display name and "You" self-indicator (visual-only, design-system FAIL) | open | — | 2026-07-02 |
+| [ISS-UAT-009-4](ISS-UAT-009-4.md) | minor | web/me (AnonView layout) | `/me` AnonView page leaves a large unbalanced empty region (~55% of viewport) below the sign-in CTA card (visual-only) | open | — | 2026-07-02 |
 
 ---
 
