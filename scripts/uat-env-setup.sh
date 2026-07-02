@@ -70,10 +70,15 @@ gen_hex_32()    { openssl rand -hex 32; }
 gen_hex_64()    { openssl rand -hex 64; }
 
 # ── Read a value from an existing .env file (returns empty if not found) ───────
+# Strips both surrounding double-quotes AND trailing CR (Windows-edited .env
+# files can have CRLF line endings; the bare CR corrupts bearer tokens when
+# the value is interpolated into curl headers — Directus returns FORBIDDEN
+# because the bearer doesn't match). tr -d '\r' is the standard fix used
+# by all our env-reading helpers (ISS-UAT-SEED-001 AC-3).
 env_get() {
   local file="$1" key="$2"
   [[ -f "$file" ]] || { echo ""; return; }
-  grep -E "^${key}=" "$file" 2>/dev/null | head -1 | sed 's/^[^=]*=//' | tr -d '"' || true
+  grep -E "^${key}=" "$file" 2>/dev/null | head -1 | sed 's/^[^=]*=//' | tr -d '"\r' || true
 }
 
 # ── Replace or append a key=value in an env file ──────────────────────────────

@@ -54,10 +54,15 @@ info() { echo -e "  → $*"; }
 fail() { echo -e "${RED}  ✗ FATAL:${NC} $*" >&2; exit 1; }
 
 # ── Read a value from an existing .env file (empty if not found) ──────────────
+# Strips both surrounding double-quotes AND trailing CR (Windows-edited .env
+# files can have CRLF line endings; the bare CR corrupts bearer tokens when
+# the value is interpolated into curl headers — Directus returns FORBIDDEN
+# because the bearer doesn't match). tr -d '\r' is the standard fix used
+# by all our env-reading helpers (ISS-UAT-SEED-001 AC-3).
 env_get() {
   local file="$1" key="$2"
   [[ -f "$file" ]] || { echo ""; return; }
-  grep -E "^${key}=" "$file" 2>/dev/null | head -1 | sed 's/^[^=]*=//' | tr -d '"' || true
+  grep -E "^${key}=" "$file" 2>/dev/null | head -1 | sed 's/^[^=]*=//' | tr -d '"\r' || true
 }
 
 # ── Dependency checks ──────────────────────────────────────────────────────────
@@ -133,6 +138,20 @@ user_pk_by_username() {
   local encoded
   encoded=$(printf '%s' "$username" | jq -sRr @uri)
   ak_get "${ak_url}/api/v3/core/users/?username=${encoded}" "$token" \
+    | jq -r '.results[0].pk // empty' 2>/dev/null || true
+}
+
+# ── Look up Authentik user pk by email (empty if not found) ───────────────────
+# Used by ensure_operator_invite to populate operator_invites.authentik_user_id
+# so apps/api/src/modules/admin-invites/admin-invites.service.ts:357 can resolve
+# the invite at consume time. Without this, the api throws
+# ConflictException('invite_missing_authentik_user') and the BP-UAT-013 Step 006
+# form submit fails. ISS-UAT-SEED-001 AC-2.
+user_pk_by_email() {
+  local ak_url="$1" token="$2" email="$3"
+  local encoded
+  encoded=$(printf '%s' "$email" | jq -sRr @uri)
+  ak_get "${ak_url}/api/v3/core/users/?email=${encoded}" "$token" \
     | jq -r '.results[0].pk // empty' 2>/dev/null || true
 }
 
@@ -254,7 +273,7 @@ date_offset() {
 
 # ── Idempotently insert one operator_invite row into Directus ─────────────────
 # Args: <email> <status> <expires_at_iso> <consumed_at_iso_or_empty>
-#       <token_plain> <display_name>
+#       <token_plain> <display_name> [role_groups_json='[]']
 #
 # <display_name> is the value copied into the Directus `display_name` column
 # and surfaced verbatim by the OnboardingForm at /onboard?token=…
@@ -273,6 +292,17 @@ date_offset() {
 # `getByText(/aiqadam-staff/i)` can find the role label rendered by
 # apps/web/src/components/OnboardingForm.tsx at line ~194
 # (`preview.role_groups.join(', ')`).
+#
+# ISS-UAT-SEED-001 (AC-1 + AC-2):
+#   - consumed_at is a Directus readonly field. We OMIT the key from the POST
+#     payload entirely when the value is empty (passing null still triggers
+#     VALUE_TOO_LONG — see Directus 11 readonly behaviour). The consumed
+#     branch keeps the value (Directus does not re-validate on PATCH, and
+#     consume-time writes go through PATCH, not POST).
+#   - We look up the Authentik user pk by email and include it as
+#     authentik_user_id. The api's admin-invites.service.ts:357 throws
+#     ConflictException('invite_missing_authentik_user') at consume time if
+#     the column is null.
 ensure_operator_invite() {
   local email="$1" status="$2" expires_at="$3" consumed_at="$4" token_plain="$5" display_name="$6"
   local role_groups="${7:-[]}"
@@ -280,12 +310,28 @@ ensure_operator_invite() {
   token_hash=$(sha256_hex "$token_plain")
   token_prefix="${token_plain:0:8}"
 
+  # Look up the Authentik user pk by email. Empty result is allowed — the
+  # no-user fixture row uses a plus-addressed email that intentionally has
+  # no Authentik user (it exercises the api's invite_missing_authentik_user
+  # error path).
+  local ak_url="${AK_URL:-http://localhost:9000}"
+  local ak_token="${AK_TOKEN:-}"
+  local ak_user_pk=""
+  if [[ -n "$ak_token" ]]; then
+    ak_user_pk=$(user_pk_by_email "$ak_url" "$ak_token" "$email" 2>/dev/null || true)
+  fi
+
   if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
-    # Mock-mode line includes the email + role_groups so the bats regression
-    # can grep for both the per-row email distribution (3 bare + 1
-    # plus-addressed) AND the role_groups content (valid=aiqadam-staff,
-    # others='[]'). See scripts/tests/uat-seed.bats AC-1 + AC-5.
-    ok "operator_invite ${token_prefix} (mock, email=${email}, role_groups=${role_groups})"
+    # Mock-mode line includes the email, role_groups AND the resolved
+    # authentik_user_id (or "none" for the no-user fixture) so the bats
+    # regression can grep all four invariants from stdout.
+    local ak_label
+    if [[ -n "$ak_user_pk" ]]; then
+      ak_label="$ak_user_pk"
+    else
+      ak_label="none"
+    fi
+    ok "operator_invite ${token_prefix} (mock, email=${email}, role_groups=${role_groups}, authentik_user_id=${ak_label})"
     return
   fi
 
@@ -301,25 +347,63 @@ ensure_operator_invite() {
     return
   fi
 
-  # consumed_at is nullable; pass `null` (not "") when unset so Directus
-  # accepts the row. jq -nc --arg cat "" produces the empty string, hence
-  # we use a sentinel ($cat == "" test) to swap in JSON null.
-  local body jq_cat
+  # Build payload. Two notes:
+  #   (a) `consumed_at` is OMITTED entirely when the value is empty — passing
+  #       null triggers Directus 11 readonly validation (VALUE_TOO_LONG). The
+  #       consumed branch keeps consumed_at in the body.
+  #   (b) `authentik_user_id` is included as an integer JSON value (or
+  #       omitted if the email has no matching Authentik user — e.g. the
+  #       no-user fixture row).
+  local body
   if [[ -n "$consumed_at" ]]; then
-    jq_cat="--arg cat ${consumed_at@Q}"
+    if [[ -n "$ak_user_pk" ]]; then
+      body=$(jq -nc \
+        --arg e   "$email" \
+        --arg dn  "$display_name" \
+        --arg st  "$status" \
+        --arg exp "$expires_at" \
+        --arg cat "$consumed_at" \
+        --arg th  "$token_hash" \
+        --arg tp  "$token_prefix" \
+        --argjson rg "$role_groups" \
+        --argjson ak "$ak_user_pk" \
+        '{email:$e,display_name:$dn,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:$rg,authentik_user_id:$ak}')
+    else
+      body=$(jq -nc \
+        --arg e   "$email" \
+        --arg dn  "$display_name" \
+        --arg st  "$status" \
+        --arg exp "$expires_at" \
+        --arg cat "$consumed_at" \
+        --arg th  "$token_hash" \
+        --arg tp  "$token_prefix" \
+        --argjson rg "$role_groups" \
+        '{email:$e,display_name:$dn,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:$rg}')
+    fi
   else
-    jq_cat='--arg cat ""'
+    if [[ -n "$ak_user_pk" ]]; then
+      body=$(jq -nc \
+        --arg e   "$email" \
+        --arg dn  "$display_name" \
+        --arg st  "$status" \
+        --arg exp "$expires_at" \
+        --arg th  "$token_hash" \
+        --arg tp  "$token_prefix" \
+        --argjson rg "$role_groups" \
+        --argjson ak "$ak_user_pk" \
+        '{email:$e,display_name:$dn,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:$rg,authentik_user_id:$ak}')
+    else
+      body=$(jq -nc \
+        --arg e   "$email" \
+        --arg dn  "$display_name" \
+        --arg st  "$status" \
+        --arg exp "$expires_at" \
+        --arg th  "$token_hash" \
+        --arg tp  "$token_prefix" \
+        --argjson rg "$role_groups" \
+        '{email:$e,display_name:$dn,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:$rg}')
+    fi
   fi
-  body=$(jq -nc \
-    --arg e   "$email" \
-    --arg dn  "$display_name" \
-    --arg st  "$status" \
-    --arg exp "$expires_at" \
-    --arg th  "$token_hash" \
-    --arg tp  "$token_prefix" \
-    --argjson rg "$role_groups" \
-    $jq_cat \
-    'if $cat == "" then {email:$e,display_name:$dn,status:$st,expires_at:$exp,token_hash:$th,token_prefix:$tp,role_groups:$rg} | .consumed_at = null else {email:$e,display_name:$dn,status:$st,expires_at:$exp,consumed_at:$cat,token_hash:$th,token_prefix:$tp,role_groups:$rg} end')
 
   local resp code
   resp=$(curl -s \
@@ -333,7 +417,7 @@ ensure_operator_invite() {
   if [[ "$code" != "200" && "$code" != "201" ]]; then
     fail "ensure_operator_invite ${token_prefix}: HTTP ${code} — ${resp%$'\n'*}"
   fi
-  ok "operator_invite ${token_prefix} (created, status=${status})"
+  ok "operator_invite ${token_prefix} (created, status=${status}, authentik_user_id=${ak_user_pk:-none})"
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -429,6 +513,11 @@ fi
 # — exercising that error path.
 #
 # Tokens are static test-fixture constants — never used in production.
+#
+# ISS-UAT-SEED-001: the AK_TOKEN minted in step 3 is needed here too so
+# ensure_operator_invite can resolve each row's Authentik user pk by
+# email. In mock mode AK_TOKEN is empty (lookups return "" which becomes
+# the "none" label in the mock line).
 echo ""
 echo "[4/4] Provisioning operator_invites rows…"
 _now_plus_7d=$(date_offset "+7" days)

@@ -1,0 +1,102 @@
+---
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260702-fix-055"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-02T20:30:00Z"
+last_updated_at: "2026-07-02T20:30:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+requirement_ref: "ISS-UAT-SEED-001"
+requirement_text: |
+  uat-seed.sh step 4 fails on a fresh Directus: ensure_operator_invite POSTs
+  consumed_at: null for pending invites, which Directus 11 rejects with
+  VALUE_TOO_LONG for the readonly timestamp field. Additionally, the seed
+  rows omit authentik_user_id, and env_get() in uat-seed.sh does not strip
+  \r from Windows .env values, causing curl idempotency checks to return
+  FORBIDDEN.
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+branch: "fix/ISS-UAT-SEED-001-uat-seed-step4"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+current_step: 0.5
+current_step_name: "Context Sync"
+workflow_status: "running"
+
+# ─── Issue (issue-resolution) ────────────────────────────────────────────────
+issue_ref: "ISS-UAT-SEED-001"
+
+# ─── Subworkflow Link (empty — standalone) ──────────────────────────────────
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+gate_results: {}
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+agent_assignments: {}
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+retry_counts: {}
+
+# ─── Retry Limits ────────────────────────────────────────────────────────────
+retry_limits:
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+issues_created: []
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+deferrals: []
+
+# ─── Context Drift Guard ─────────────────────────────────────────────────────
+expects_registry_update: true
+context_sync_commits: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+artifacts: []
+
+# ─── Context References ──────────────────────────────────────────────────────
+context_refs:
+  - .copilot/issues/ISS-UAT-SEED-001.md
+  - scripts/uat-seed.sh
+  - scripts/uat-env-setup.sh
+  - apps/api/.env.example
+  - scripts/tests/uat-seed.bats
+  - infrastructure/directus/bootstrap.sh
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
+
+# ─── Workflow Configuration ──────────────────────────────────────────────────
+merge_mode: "auto"
+created_by: "orchestrator"
+deferral_policy: "honest"
