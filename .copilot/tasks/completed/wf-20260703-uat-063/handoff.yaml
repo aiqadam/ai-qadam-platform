@@ -1,0 +1,113 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260703-uat-063"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-03T10:00:00Z"
+last_updated_at: "2026-07-03T10:45:00Z"
+
+requirement_ref: "BP-UAT-001"
+requirement_text: "Verify Event Publication Broadcast business process end-to-end against a live local stack."
+github_issue_url: ""
+
+branch: "uat/BP-UAT-001-event-publication-broadcast"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/88"
+
+current_step: 2
+current_step_name: "Pre-flight (seed)"
+workflow_status: "needs-review"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: "ISS-UAT-001-1"
+paused_at_step: 2
+paused_at_gate: "step-2-preflight-seed"
+
+gate_results:
+  step-0-init: { status: passed, attempt: 1, timestamp: "2026-07-03T10:00:00Z", summary: "Branch + handoff + counter increment complete." }
+  step-0.5-context-sync: { status: passed, attempt: 1, timestamp: "2026-07-03T10:01:00Z", summary: "check-workflow-state.sh: no drift detected against origin/main." }
+  step-1-script-validation: { status: passed, attempt: 1, timestamp: "2026-07-03T10:02:00Z", summary: "BusinessAnalyst validated BP-UAT-001 script — all 8 checks PASS, all 5 ACs mapped.", output_file: ".copilot/tasks/active/wf-20260703-uat-063/01-uat-script-validation.md" }
+  step-2-preflight: { status: failed-escalate, attempt: 1, timestamp: "2026-07-03T10:45:00Z", summary: "Docker stack + web/api process-identity pre-flight PASS after fixing two latent bugs in scripts/uat-preflight-check.sh (CRLF strip, PS-File rewrite, path-separator normalization). Seed `pnpm uat:seed --reset BP-UAT-001` FAILS — Directus mirror gap for new fixture identities. Registered as ISS-UAT-001-1; follow-up workflow wf-20260703-fix-064 queued.", output_file: ".copilot/tasks/active/wf-20260703-uat-063/NEEDS_REVIEW.md" }
+
+agent_assignments:
+  business-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260703-uat-063/01-uat-script-validation.md"
+    timestamp: "2026-07-03T10:02:00Z"
+  uat-runner:
+    status: not-started
+    step: 3
+    output_file: ".copilot/tasks/active/wf-20260703-uat-063/02-uat-report.md"
+    timestamp: ""
+  visual-reviewer:
+    status: not-started
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260703-uat-063/02b-visual-review.md"
+    timestamp: ""
+
+retry_counts: {}
+
+retry_limits:
+  business-analyst: 1
+  uat-runner: 2
+  visual-reviewer: 2
+  subworkflow: 3
+
+issues_created:
+  - id: ISS-UAT-001-1
+    severity: blocker
+    module: uat/seed
+    title: "uat-seed.sh cannot mirror new Authentik identity fixtures into Directus; BP-UAT-001 seed is blocked"
+    status: open
+    reported: "2026-07-03"
+    reporter: "Orchestrator (wf-20260703-uat-063, Step 2 pre-flight)"
+issue_ref: "ISS-UAT-001-1"
+
+deferrals:
+  - from_feature: "BP-UAT-001"
+    to_feature: "wf-20260703-fix-064"
+    reason: "Seed cannot resolve member_email to directus_users.id for newly-added fixture identities; Directus mirror requires OIDC sign-in via /v1/auth/callback which the seed doesn't drive. Recommended fix: add InternalAuthGuard-protected /v1/internal/users/ensure-linked endpoint so the seed can provision users without an OIDC dance. ACs of BP-UAT-001 are NOT verified by this workflow — they wait for wf-20260703-fix-064 + a fresh BP-UAT-001 verification run."
+    step: 2
+    timestamp: "2026-07-03T10:45:00Z"
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - path: ".copilot/tasks/active/wf-20260703-uat-063/handoff.yaml"
+    kind: workflow-state
+  - path: ".copilot/tasks/active/wf-20260703-uat-063/01-uat-script-validation.md"
+    kind: agent-output
+  - path: ".copilot/tasks/active/wf-20260703-uat-063/NEEDS_REVIEW.md"
+    kind: needs-review
+  - path: ".copilot/issues/ISS-UAT-001-1.md"
+    kind: issue
+  - path: "scripts/uat-preflight-check.sh"
+    kind: script-fix
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-001.md
+  - docs/02-business-processes/uat/registry.md
+  - docs/02-business-processes/operations/event-publication-broadcast.md
+  - apps/e2e/playwright.uat.config.ts
+  - scripts/uat-fixtures/BP-UAT-001.json
+  - .copilot/issues/ISS-UAT-001-1.md
+
+needs_review:
+  reason: "Real env infra gap (seed cannot mirror Authentik identities into Directus for new fixtures). Registered as ISS-UAT-001-1; queued follow-up workflow wf-20260703-fix-064."
+  stopped_at_step: 2
+  stopped_at_step_name: "Pre-flight (seed)"
+  issue_ref: "ISS-UAT-001-1"
+  artifact_file: ".copilot/tasks/active/wf-20260703-uat-063/NEEDS_REVIEW.md"
