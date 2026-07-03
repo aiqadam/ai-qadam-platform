@@ -390,6 +390,88 @@ test.describe('BP-UAT-009 — Auth sign-in and sign-out', () => {
     });
     await hideDevToolbar(page);
 
+    // ─── Regression: leaderboard self-row chip DOM structure (ISS-UAT-009-3) ───
+    //
+    // Bug (pre-fix): the client-side `highlightMe` IIFE in
+    // apps/web/src/pages/leaderboard.astro appended the `.me-chip` as a
+    // child of the ellipsis-clipped `.name` / `.pname` text container,
+    // so the chip's margin collapsed against the truncated display name
+    // and the rendered text read "UAT MemberYou" with no separator.
+    //
+    // Fix (post-fix DOM shape): `.name` / `.pname` and `.me-chip` are
+    // wrapped together inside an inline-flex `.me-name-wrap` sibling of
+    // `.handle` / `.phandle`. The chip itself now carries the canonical
+    // `.badge.mono` pattern from design-system/components.css.
+    //
+    // These assertions pin that post-fix shape; assertion (2) is the
+    // one that would have FAILED before the fix (chip parent was `.name`,
+    // not `.me-name-wrap`). See .copilot/issues/ISS-UAT-009-3.md.
+    //
+    // The chip is injected asynchronously by `highlightMe` after
+    // auth-bootstrap resolves — not synchronously after navigation — so
+    // we wait for it to appear with a soft no-op catch (the user may
+    // not be in top-3 or seed may be missing; the AC-3 visual review
+    // still applies, and the assertions below have their own guards).
+    test.info().annotations.push({
+      type: 'iss-ref',
+      description: 'ISS-UAT-009-3 — leaderboard self-row chip DOM regression',
+    });
+
+    await test.step('ISS-UAT-009-3: self-row chip DOM regression (pre-fix: chip inside .name)', async () => {
+      await page
+        .locator('.lb-row.is-me .me-chip, .podium-card.is-me .me-chip')
+        .first()
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .catch(() => {
+          /* soft no-op: user may not be in top-3 or seed missing; AC-3
+             visual review still applies. The assertions below have
+             their own guards. */
+        });
+
+      const myUserId = await page.evaluate(() => {
+        const row = document.querySelector('.lb-row.is-me, .podium-card.is-me');
+        return row?.getAttribute('data-user-id') ?? null;
+      });
+
+      if (myUserId !== null) {
+        const rowSel = `[data-user-id="${myUserId.replace(/"/g, '\\"')}"]`;
+
+        // (1) Hard: the row has exactly one .me-name-wrap and one .me-chip.
+        const wrapCount = await page.locator(`${rowSel} .me-name-wrap`).count();
+        expect(wrapCount, 'self-row must contain exactly one .me-name-wrap').toBe(1);
+        const chipCount = await page.locator(`${rowSel} .me-chip`).count();
+        expect(chipCount, 'self-row must contain exactly one .me-chip').toBe(1);
+
+        // (2) Hard: the chip's parent is the wrap (not the ellipsis-clipped name).
+        const chipParentClass = await page
+          .locator(`${rowSel} .me-chip`)
+          .first()
+          .evaluate((el) => el.parentElement?.className ?? null);
+        expect(chipParentClass, '.me-chip parent must be .me-name-wrap').toBe('me-name-wrap');
+
+        // (3) Hard: chip carries the canonical badge pattern.
+        const chipClass = await page
+          .locator(`${rowSel} .me-chip`)
+          .first()
+          .evaluate((el) => el.className);
+        expect(chipClass, '.me-chip must carry "badge mono me-chip"').toBe('badge mono me-chip');
+
+        // (4) Hard: chip text is 'You'.
+        const chipText = await page.locator(`${rowSel} .me-chip`).first().textContent();
+        expect(chipText?.trim(), '.me-chip text must be "You"').toBe('You');
+      }
+
+      // (5) Hard: NO non-self row has a chip or a wrap (AC-3 regression guard).
+      const otherRowsWithChip = await page
+        .locator('.lb-row:not(.is-me) .me-chip, .podium-card:not(.is-me) .me-chip')
+        .count();
+      expect(otherRowsWithChip, 'non-self rows must NOT carry a .me-chip').toBe(0);
+      const otherRowsWithWrap = await page
+        .locator('.lb-row:not(.is-me) .me-name-wrap, .podium-card:not(.is-me) .me-name-wrap')
+        .count();
+      expect(otherRowsWithWrap, 'non-self rows must NOT carry a .me-name-wrap').toBe(0);
+    });
+
     await shot(page, 'step-006-next-param-redirect');
 
     // Hard assertion — exit state for this test.

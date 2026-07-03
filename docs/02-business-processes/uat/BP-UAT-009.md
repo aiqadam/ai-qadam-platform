@@ -253,7 +253,16 @@ above.)*
 
 **Expected UI state:** After successful sign-in, the browser lands at `http://localhost:4321/leaderboard`, not at `/me`. The leaderboard page is visible.
 
+The signed-in user's leaderboard row (self-row) must render with a clear visual separation between the display name and the `YOU` self-indicator:
+
+- The self-row shows a distinct badge boundary between the display name and the `YOU` chip — the two read as separate elements, not as concatenated text (the pre-fix defect: `UAT MemberYou` — see ISS-UAT-009-3).
+- The `YOU` chip uses the canonical `.badge.mono` design-system pattern: closed palette, mono uppercased label, visible 1px border, same visual language as the rank-label chips on the podium card.
+- The chip is **not** concatenated against the display name; there is a visible gap between the truncated name and the chip.
+- Non-self rows carry **no** `YOU` chip and **no** `.me-name-wrap` wrapper — only the signed-in user's row carries the chip.
+
 **Screenshot label:** `step-006-next-param-redirect`
+
+**Screenshot review note:** When reviewing `step-006-next-param-redirect.png`, the visual reviewer must confirm (a) the self-row chip is clearly separated from the display name with a visible gap and badge border, and (b) no other row in the screenshot carries a `YOU` chip or self-row wrapper. The pre-fix concatenation `UAT MemberYou` is the regression this contract guards against (see ISS-UAT-009-3).
 
 ---
 

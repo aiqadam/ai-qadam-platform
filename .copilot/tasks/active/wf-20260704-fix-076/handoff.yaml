@@ -1,0 +1,80 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260704-fix-076"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-04T13:30:00Z"
+last_updated_at: "2026-07-04T13:30:00Z"
+
+requirement_ref: "ISS-UAT-009-3"
+requirement_text: >
+  Leaderboard self-row renders "UAT MemberYou" with no space/separator between
+  display name and "You" self-indicator (visual-only, design-system FAIL).
+  Reported in BP-UAT-009 step-006 screenshot review (wf-20260702-uat-058).
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-009-3-leaderboard-self-row"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/97"
+
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-UAT-009-3"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/ISS-UAT-009-3.md
+  - docs/04-development/design-system/Design system for AI agents/readme.md
+  - apps/web/src/components/
+  - design-system/components.css
+  - design-system/tokens.css
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: "ISS-UAT-009-3"
+  artifact_file: ".copilot/tasks/active/wf-20260704-fix-076/NEEDS_REVIEW.md"
+
+merge_mode: "auto"

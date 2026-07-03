@@ -195,26 +195,37 @@ const PODIUM_ORDER: Array<{ idx: number; kind: 'gold' | 'silver' | 'bronze' }> =
 </Layout>
 
 <style>
-  /* C-2a — highlight the signed-in member's row. Added by inline script
-     after auth-bootstrap resolves. Marker chip sits at the right edge so
-     it never collides with the country/streak/change columns. */
+  /* C-2a — highlight the signed-in member's row. The `.is-me` class is
+     added by the client-side script to already-rendered rows, so these
+     scoped selectors DO apply (Astro's scoped hash is on the row element
+     itself). Kept in a separate scoped block so the global block below
+     stays focused on the chip. */
   .lb-row.is-me,
   .podium-card.is-me {
     background: color-mix(in oklch, var(--primary) 12%, var(--card)) !important;
     border-color: color-mix(in oklch, var(--primary) 45%, var(--border)) !important;
   }
+</style>
+
+<style is:global>
+  /* The chip + its inline-flex wrapper are inserted by client-side JS, so
+     they do NOT inherit Astro's scoped hash. Declared globally here so
+     they style correctly without `is:global` leaking the page's other
+     selectors into the global namespace. */
+  .me-name-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
   .me-chip {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 2px 6px;
-    font-family: var(--font-mono);
+    /* `.badge.mono` carries the canonical badge pattern (closed palette,
+       mono uppercased label). The size overrides keep the chip compact
+       next to the 14px table-row display name and the 16px podium name. */
+    height: 18px;
     font-size: 9px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--primary);
-    border: 1px solid color-mix(in oklch, var(--primary) 50%, transparent);
-    border-radius: 4px;
-    vertical-align: middle;
+    padding: 0 6px;
+    flex-shrink: 0;
   }
 </style>
 
@@ -235,13 +246,29 @@ const PODIUM_ORDER: Array<{ idx: number; kind: 'gold' | 'silver' | 'bronze' }> =
     if (rows.length === 0) return;
     for (const row of rows) {
       row.classList.add('is-me');
-      const nameEl = row.querySelector('.name, .pname');
-      if (nameEl && !nameEl.querySelector('.me-chip')) {
-        const chip = document.createElement('span');
-        chip.className = 'me-chip';
-        chip.textContent = 'You';
-        nameEl.appendChild(chip);
-      }
+      const nameEl = row.querySelector<HTMLElement>('.name, .pname');
+      // Guard: skip if nameEl is missing, already wrapped (defensive
+      // against double bootstrap on hot-reload), or the row already
+      // carries a chip (re-render safety).
+      if (!nameEl) continue;
+      if (nameEl.closest('.me-name-wrap') !== null) continue;
+      if (row.querySelector('.me-chip') !== null) continue;
+      // Wrap nameEl + chip in an inline-flex container so the chip lives
+      // OUTSIDE the ellipsis-clipped `.name` / `.pname` (which has
+      // `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`).
+      // Without this wrap, the chip's margin would collapse against the
+      // truncated display name → "UAT MemberYou". See ISS-UAT-009-3.
+      const wrap = document.createElement('div');
+      wrap.className = 'me-name-wrap';
+      const chip = document.createElement('span');
+      chip.className = 'badge mono me-chip';
+      chip.textContent = 'You';
+      // `insertAdjacentElement('afterend', wrap)` puts wrap as a sibling
+      // of nameEl in the same parent; then we move nameEl inside wrap so
+      // wrap replaces nameEl's old DOM position.
+      nameEl.insertAdjacentElement('afterend', wrap);
+      wrap.appendChild(nameEl);
+      wrap.appendChild(chip);
     }
     // Scroll the first match into view only if it's not already visible
     // — never yank the page when the user is already on the podium.
