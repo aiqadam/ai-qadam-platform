@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 (wf-20260703-impl-policy-071 merged as PR #94 squash `9ce08f6` — PRSteward agent + AGENTS.md §6.3 v2 CI-override policy now live on `main`. §6.3 v2 supersedes the v1 "stop on new failure class" gate: new classes are now auto-registered (issue + queued workflow + counter file + registry row) and the override proceeds. Only 4 hard-stop conditions escalate: introduced-by-this-PR, counter at limit, secrets (gitleaks), security-checked job hit. PRSteward re-invoked on PR #94 under v2 and authorized OVERRIDE on both `ci/__vite_ssr_exportName__` (counter 3 → 4, owned by ISS-TEST-WEB-001) and `storybook/PARSE_ERROR Unexpected JSX expression` (auto-registered as `ISS-CI-OVERRIDE-ebd184b`, counter starts at 1). PR #93 (`fix/ISS-WF-REG-002-registry-state-drift`, wf-20260703-fix-070) rebase merged — PRSteward re-invoking under v2. Counter bumped 69 → 72.)
+**Last updated:** 2026-07-03 — BOTH PRs merged. PR #94 squash `9ce08f6` (PRSteward agent + AGENTS.md §6.3 v2 policy) and PR #93 squash `854d4d6` (ISS-WF-REG-002 registry-state drift) are on `main`. PRSteward authorised OVERRIDE on both PRs under §6.3 v2: `ci/__vite_ssr_exportName__` counter 3→4 (ISS-TEST-WEB-001 owned, queued wf-20260703-fix-066-vitest-bump); `storybook/[PARSE_ERROR] Unexpected JSX expression` counter 1→2 (ISS-CI-OVERRIDE-ebd184b owned, queued wf-20260703-fix-072). Both workflow directories archived to `completed/`. Both queues (4 and 2 of 5) are live. Counter at 72. The PRSteward is no longer a stop-and-ask gate; routine CI failures on `main` HEAD no longer block PRs.)
 
 ---
 
@@ -12,8 +12,7 @@
 
 ## Active Workflows
 
-- **wf-20260703-fix-070** — ISS-WF-REG-002 — branch `fix/ISS-WF-REG-002-registry-state-drift`, PR [#93](https://github.com/tvolodi/aiqadam/pull/93) — **blocked** on `ci/__vite_ssr_exportName__` (eligible for override under new policy, ISS-TEST-WEB-001 owner, count 3→4) AND `storybook/PARSE_ERROR Unexpected JSX expression` (new failure class, no queued fix → PRSteward will register blocker issue per §6.3 step 3 and stop). Net: needs-review. Counter 70. Resolution: split registry-state fix into docs-only PR (would land on override alone), or fix the JSX parse errors first.
-- **wf-20260703-impl-policy-071** — ISS-WF-CI-OVERRIDE-1 — branch `feature/PRSTEWARD-agent-and-ci-override-policy`, this workflow. After this PR merges, the PRSteward is invoked against PR #93 as AC-8's integration test. Counter 71.
+_(none — both `wf-20260703-fix-070` and `wf-20260703-impl-policy-071` have merged and been archived to `completed/`. Next to pick up is one of the queued follow-up workflows below, in priority order.)_
 
 ### Queued follow-up workflows (named in respective ISS files)
 
@@ -67,13 +66,13 @@ _(empty — see "Open Issues" above for current status. Kept for delta-only hist
 
 ## Git State
 
-- **Current branch:** fix/ISS-WF-REG-002-registry-state-drift (rebase onto `main` HEAD `9ce08f6` complete; PRSteward re-invocation in progress on PR #93)
-- **Last sync with origin:** 2026-07-03 (`9ce08f6` — `feat(workflow): PRSteward agent + AGENTS.md §6.3 CI-override policy (#94)` on `main`)
-- **Pending PRs:** [PR #93](https://github.com/tvolodi/aiqadam/pull/93) (rebased on `main`, PRSteward re-invoking under §6.3 v2 — both failing checks eligible for override)
+- **Current branch:** main
+- **Last sync with origin:** 2026-07-03 (`854d4d6` — `fix(workflow): resolve ISS-WF-REG-002 registry-state drift (#93)` on `main`)
+- **Pending PRs:** none — both #93 and #94 merged with the §6.3 v2 audit-trail squash trailers.
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: `72` — incremented from `71` by the §6.3 v2 auto-register of `ISS-CI-OVERRIDE-ebd184b` during PR #94's PRSteward invocation). The next workflow should pick counter `72` as its base. If a queued follow-up (see Active Workflows above) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation.
+See `.copilot/meta/next-workflow-id` (currently: `73` — incremented from `72` by the archive of `wf-20260703-impl-policy-071` + `wf-20260703-fix-070`. The next workflow should pick counter `73` as its base. If a queued follow-up (below) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation. The 5-override budget for the ci class is at 4/5 — the **next** PR that hits the same `__vite_ssr_exportName__` failure will be the last before PRSteward refuses to override on this class. Fix `wf-20260703-fix-066-vitest-bump` soon.
 
 ---
 
