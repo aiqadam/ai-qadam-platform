@@ -1,6 +1,8 @@
 # Workspace State
 
-**Last updated:** 2026-07-04 — `wf-20260704-fix-073` merged. PR #95 squash `<pending>` (ISS-UAT-009-1 logout-interstitial — Path B: comment + BP-UAT-009 spec + auth-architecture §5.3 rewrite + drift-detector SHA-suffix fix + doc-coverage regression). 3/3 ACs verified (live BP-UAT-009 Step 004 re-run on full stack: api=200, web=200, authentik=200; Authentik interstitial matches new spec exactly — screenshot at `apps/e2e/test-results/.../test-failed-1.png`). No follow-up workflows queued (no deferred ACs). Counter bumped 73 → 74. ISS-TEST-WEB-001 counter still 4/5 — owned by `wf-20260703-fix-066-vitest-bump` (queue position 1), unchanged by this workflow (the doc-coverage test was deliberately designed to bypass ISS-TEST-WEB-001 via pure `readFileSync`).
+**Last updated:** 2026-07-04 — `wf-20260704-fix-075` merged. [PR #96](https://github.com/tvolodi/aiqadam/pull/96) squash `dbe43bf` (ISS-UAT-009-2 — BP-UAT-009 /me anon-CTA + /workspace 302 per-surface mechanism: docs-only Path B fix). 4/4 ACs verified (live curl on `:4321/me`=200 + `:4321/workspace`=302 to `/workspace/dashboard`; screenshot at `apps/e2e/uat-results/BP-UAT-009/step-005-redirect-after-signout.png`). No follow-up workflows queued (no deferred ACs; Playwright regex text-alignment flagged as known-class pre-existing test-design issue, similar to ISS-UAT-013-12). Counter bumped 74 → 75. ISS-TEST-WEB-001 counter still 4/5 — unchanged by this workflow (no test code touched). Sister workflow `wf-20260704-fix-073` (PR #95 squash `5b23e74` for ISS-UAT-009-1 logout-interstitial) — see Completed Workflows (recent) table below.
+
+---
 
 ---
 
@@ -12,7 +14,7 @@
 
 ## Active Workflows
 
-_(none — `wf-20260704-fix-073` has merged and been archived to `completed/`. Next to pick up is one of the queued follow-up workflows below, in priority order.)_
+_(none — `wf-20260704-fix-075` has merged and is about to be archived to `completed/`. Next to pick up is one of the queued follow-up workflows below, in priority order.)_
 
 ### Queued follow-up workflows (named in respective ISS files)
 
@@ -37,8 +39,9 @@ _(none — `wf-20260704-fix-073` has merged and been archived to `completed/`. N
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
-| wf-20260704-fix-073 | issue-resolution | ISS-UAT-009-1 logout-interstitial (Path B: comment + BP-UAT-009 spec + auth-architecture §5.3 rewrite + drift-detector SHA-suffix fix + doc-coverage regression; 3/3 ACs verified by live BP-UAT-009 Step 004 re-run) | fix/ISS-UAT-009-1-logout-interstitial | _pending — opens on workflow-finish step_ | 2026-07-04 |
-| wf-20260703-fix-070 | issue-resolution | ISS-WF-REG-002 registry-state drift — `BP-UAT-013.md` frontmatter `Ready`→`Implemented`; `workspace-state.md` already self-healed 2026-07-03; registry's `Open Issues` column was removed by wf-20260703-fix-067-coverage-registry (PR #91); AC-4 decision: keep F.5 amendment in `workflow-finish.sh` as opt-in via `context_update:` block (do not deprecate `workspace-state.md`) | fix/ISS-WF-REG-002-registry-state-drift | _pending — opens on workflow-finish step_ | 2026-07-03 |
+| wf-20260704-fix-075 | issue-resolution | ISS-UAT-009-2 — BP-UAT-009 /me anon-CTA + /workspace 302 per-surface mechanism (Path B: docs-only — spec reword to security intent + per-surface mechanism block + "Why two anon-gating mechanisms?" rationale + post-MIG-031 redirect description; 4/4 ACs verified by live curl + screenshot; no code, no DB, no security delta) | fix/ISS-UAT-009-2-me-anon-cta-spec | [PR #96](https://github.com/tvolodi/aiqadam/pull/96) (squash `dbe43bf`) | 2026-07-04 |
+| wf-20260704-fix-073 | issue-resolution | ISS-UAT-009-1 logout-interstitial (Path B: comment + BP-UAT-009 spec + auth-architecture §5.3 rewrite + drift-detector SHA-suffix fix + doc-coverage regression; 3/3 ACs verified by live BP-UAT-009 Step 004 re-run) | fix/ISS-UAT-009-1-logout-interstitial | [PR #95](https://github.com/tvolodi/aiqadam/pull/95) (squash `5b23e74`) | 2026-07-04 |
+| wf-20260703-fix-070 | issue-resolution | ISS-WF-REG-002 registry-state drift — `BP-UAT-013.md` frontmatter `Ready`→`Implemented`; `workspace-state.md` already self-healed 2026-07-03; registry's `Open Issues` column was removed by wf-20260703-fix-067-coverage-registry (PR #91); AC-4 decision: keep F.5 amendment in `workflow-finish.sh` as opt-in via `context_update:` block (do not deprecate `workspace-state.md`) | fix/ISS-WF-REG-002-registry-state-drift | [PR #93](https://github.com/tvolodi/aiqadam/pull/93) (squash `854d4d6`) | 2026-07-03 |
 | wf-20260703-fix-069-biome-scope | issue-resolution | ISS-CI-003 (won't fix as filed) — biome noise policy: trim 30+ noisy recommended-set rules in `packages/biome-config/biome.json` (kept high-signal unused-*/noExplicitAny/useTemplate/useConst/noNonNullAssertion); remove `Lint + format check (Biome)` step from `.github/workflows/ci.yml` `ci` job. Effect: pnpm lint 20,473 errors / 90s → 1,658 errors / 15s. CI no longer surfaces biome noise. | fix/ISS-CI-003-biome-scope | [PR #92](https://github.com/tvolodi/aiqadam/pull/92) (squash `3f2d001`) | 2026-07-03 |
 | wf-20260703-uat-064 | uat-verification | BP-UAT-001 re-verification (live) — Path A minimal verify; AC-1 partial, AC-2/3 failed (bridge gap), AC-4 deferred (no spec), AC-5 failed (api_base port) | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (squash `ee209fc4`) | 2026-07-03 |
 | wf-20260703-fix-065-onboarding-copy | issue-resolution | ISS-UAT-013-13 OnboardingForm welcome copy | fix/ISS-UAT-013-13-onboarding-copy | [PR #90](https://github.com/tvolodi/aiqadam/pull/90) (squash `e38dd18`) | 2026-07-03 |
@@ -68,12 +71,12 @@ _(empty — see "Open Issues" above for current status. Kept for delta-only hist
 ## Git State
 
 - **Current branch:** main
-- **Last sync with origin:** 2026-07-04 (`<pending>` — `fix(auth): resolve ISS-UAT-009-1 logout-interstitial — Path B spec+comment update (#95)` on `main` after PR auto-merge)
-- **Pending PRs:** none — #95 will merge with §6.3 v2 audit-trail squash trailer if ci fails (ISS-TEST-WEB-001 counter is at 4/5; new failure class would auto-register and queue).
+- **Last sync with origin:** 2026-07-04 (`dbe43bf` — `docs(uat): ISS-UAT-009-2 - BP-UAT-009 me anon-CTA + workspace 302 per-surface mechanism (#96)` on `main` after PR auto-merge; prior PR #95 squash `5b23e74` for ISS-UAT-009-1)
+- **Pending PRs:** none. ISS-TEST-WEB-001 counter still 4/5 — unchanged by this workflow (no test code touched).
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: `74` — incremented from `73` by the archive of `wf-20260704-fix-073`. The next workflow should pick counter `74` as its base. If a queued follow-up (below) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation. The 5-override budget for the ci class is at 4/5 — the **next** PR that hits the same `__vite_ssr_exportName__` failure will be the last before PRSteward refuses to override on this class. Fix `wf-20260703-fix-066-vitest-bump` soon.
+See `.copilot/meta/next-workflow-id` (currently: `75` — incremented from `74` by the merge of `wf-20260704-fix-075` for ISS-UAT-009-2. The next workflow should pick counter `75` as its base. If a queued follow-up (below) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation. The 5-override budget for the ci class is at 4/5 — the **next** PR that hits the same `__vite_ssr_exportName__` failure will be the last before PRSteward refuses to override on this class. Fix `wf-20260703-fix-066-vitest-bump` soon.
 
 ---
 

@@ -9,7 +9,7 @@
 | Reported | 2026-07-02 |
 | Resolved | 2026-07-04 |
 | Reporter | BusinessAnalyst (wf-20260702-uat-058 / 03-uat-triage.md) |
-| Workflow | wf-20260704-fix-075 (PR #<pending>) |
+| Workflow | wf-20260704-fix-075 ([PR #96](https://github.com/tvolodi/aiqadam/pull/96) squash `dbe43bf`) |
 | AC ref | AC-4 (BP-UAT-009) |
 
 ## Symptom
@@ -99,8 +99,8 @@ app use two different anon-gating mechanisms:
 ## Resolution
 
 - **Workflow:** [wf-20260704-fix-075](../tasks/active/wf-20260704-fix-075/handoff.yaml)
-- **PR:** `<pending>` (back-filled by Step 11/12 of the workflow)
-- **Merged:** `<pending>` (back-filled by Step 12.5 with the actual merge SHA)
+- **PR:** [#96](https://github.com/tvolodi/aiqadam/pull/96) (back-filled by Step 12 of the workflow)
+- **Merged:** 2026-07-03T20:18:32Z (squash `dbe43bf9e801c9a3903de8ed0c9c1ede564d2c99`)
 
 **Root cause (one sentence):** the BP-UAT-009 process-spec text for Step
 005 and the AC-4 wording assumed a single anon-gating mechanism (hard
