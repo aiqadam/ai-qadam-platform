@@ -6,7 +6,10 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['test/leads-service.spec.ts'],
+    include: [
+      'test/leads-service.spec.ts',
+      'test/auth-logout-doc-coverage.spec.ts',
+    ],
     testTimeout: 30_000,
     hookTimeout: 30_000,
     // transformMode: 'web' avoids the vite-node SSR transform which breaks on

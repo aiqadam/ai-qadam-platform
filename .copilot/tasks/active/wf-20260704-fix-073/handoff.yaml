@@ -1,0 +1,76 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260704-fix-073"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-04T00:00:00Z"
+last_updated_at: "2026-07-04T00:00:00Z"
+
+requirement_ref: ""
+requirement_text: "Sign-out lands on Authentik's RP-Initiated Logout confirmation interstitial instead of auto-redirecting to /auth/signed-out, despite a valid id_token_hint — likely Authentik provider/flow configuration, not app code."
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-009-1-logout-interstitial"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-UAT-009-1"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/ISS-UAT-009-1.md
+  - docs/02-business-processes/uat/BP-UAT-009.md
+  - apps/api/src/modules/auth/auth.service.ts
+  - apps/api/src/modules/auth/auth.controller.ts
+  - apps/web-next/src/pages/auth/signed-out.astro
+  - apps/api/src/modules/auth/auth.service.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260704-fix-073/NEEDS_REVIEW.md"

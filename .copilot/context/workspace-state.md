@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 — BOTH PRs merged. PR #94 squash `9ce08f6` (PRSteward agent + AGENTS.md §6.3 v2 policy) and PR #93 squash `854d4d6` (ISS-WF-REG-002 registry-state drift) are on `main`. PRSteward authorised OVERRIDE on both PRs under §6.3 v2: `ci/__vite_ssr_exportName__` counter 3→4 (ISS-TEST-WEB-001 owned, queued wf-20260703-fix-066-vitest-bump); `storybook/[PARSE_ERROR] Unexpected JSX expression` counter 1→2 (ISS-CI-OVERRIDE-ebd184b owned, queued wf-20260703-fix-072). Both workflow directories archived to `completed/`. Both queues (4 and 2 of 5) are live. Counter at 72. The PRSteward is no longer a stop-and-ask gate; routine CI failures on `main` HEAD no longer block PRs.)
+**Last updated:** 2026-07-04 — `wf-20260704-fix-073` merged. PR #95 squash `<pending>` (ISS-UAT-009-1 logout-interstitial — Path B: comment + BP-UAT-009 spec + auth-architecture §5.3 rewrite + drift-detector SHA-suffix fix + doc-coverage regression). 3/3 ACs verified (live BP-UAT-009 Step 004 re-run on full stack: api=200, web=200, authentik=200; Authentik interstitial matches new spec exactly — screenshot at `apps/e2e/test-results/.../test-failed-1.png`). No follow-up workflows queued (no deferred ACs). Counter bumped 73 → 74. ISS-TEST-WEB-001 counter still 4/5 — owned by `wf-20260703-fix-066-vitest-bump` (queue position 1), unchanged by this workflow (the doc-coverage test was deliberately designed to bypass ISS-TEST-WEB-001 via pure `readFileSync`).
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## Active Workflows
 
-_(none — both `wf-20260703-fix-070` and `wf-20260703-impl-policy-071` have merged and been archived to `completed/`. Next to pick up is one of the queued follow-up workflows below, in priority order.)_
+_(none — `wf-20260704-fix-073` has merged and been archived to `completed/`. Next to pick up is one of the queued follow-up workflows below, in priority order.)_
 
 ### Queued follow-up workflows (named in respective ISS files)
 
@@ -37,6 +37,7 @@ _(none — both `wf-20260703-fix-070` and `wf-20260703-impl-policy-071` have mer
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260704-fix-073 | issue-resolution | ISS-UAT-009-1 logout-interstitial (Path B: comment + BP-UAT-009 spec + auth-architecture §5.3 rewrite + drift-detector SHA-suffix fix + doc-coverage regression; 3/3 ACs verified by live BP-UAT-009 Step 004 re-run) | fix/ISS-UAT-009-1-logout-interstitial | _pending — opens on workflow-finish step_ | 2026-07-04 |
 | wf-20260703-fix-070 | issue-resolution | ISS-WF-REG-002 registry-state drift — `BP-UAT-013.md` frontmatter `Ready`→`Implemented`; `workspace-state.md` already self-healed 2026-07-03; registry's `Open Issues` column was removed by wf-20260703-fix-067-coverage-registry (PR #91); AC-4 decision: keep F.5 amendment in `workflow-finish.sh` as opt-in via `context_update:` block (do not deprecate `workspace-state.md`) | fix/ISS-WF-REG-002-registry-state-drift | _pending — opens on workflow-finish step_ | 2026-07-03 |
 | wf-20260703-fix-069-biome-scope | issue-resolution | ISS-CI-003 (won't fix as filed) — biome noise policy: trim 30+ noisy recommended-set rules in `packages/biome-config/biome.json` (kept high-signal unused-*/noExplicitAny/useTemplate/useConst/noNonNullAssertion); remove `Lint + format check (Biome)` step from `.github/workflows/ci.yml` `ci` job. Effect: pnpm lint 20,473 errors / 90s → 1,658 errors / 15s. CI no longer surfaces biome noise. | fix/ISS-CI-003-biome-scope | [PR #92](https://github.com/tvolodi/aiqadam/pull/92) (squash `3f2d001`) | 2026-07-03 |
 | wf-20260703-uat-064 | uat-verification | BP-UAT-001 re-verification (live) — Path A minimal verify; AC-1 partial, AC-2/3 failed (bridge gap), AC-4 deferred (no spec), AC-5 failed (api_base port) | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (squash `ee209fc4`) | 2026-07-03 |
@@ -67,12 +68,12 @@ _(empty — see "Open Issues" above for current status. Kept for delta-only hist
 ## Git State
 
 - **Current branch:** main
-- **Last sync with origin:** 2026-07-03 (`854d4d6` — `fix(workflow): resolve ISS-WF-REG-002 registry-state drift (#93)` on `main`)
-- **Pending PRs:** none — both #93 and #94 merged with the §6.3 v2 audit-trail squash trailers.
+- **Last sync with origin:** 2026-07-04 (`<pending>` — `fix(auth): resolve ISS-UAT-009-1 logout-interstitial — Path B spec+comment update (#95)` on `main` after PR auto-merge)
+- **Pending PRs:** none — #95 will merge with §6.3 v2 audit-trail squash trailer if ci fails (ISS-TEST-WEB-001 counter is at 4/5; new failure class would auto-register and queue).
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: `73` — incremented from `72` by the archive of `wf-20260703-impl-policy-071` + `wf-20260703-fix-070`. The next workflow should pick counter `73` as its base. If a queued follow-up (below) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation. The 5-override budget for the ci class is at 4/5 — the **next** PR that hits the same `__vite_ssr_exportName__` failure will be the last before PRSteward refuses to override on this class. Fix `wf-20260703-fix-066-vitest-bump` soon.
+See `.copilot/meta/next-workflow-id` (currently: `74` — incremented from `73` by the archive of `wf-20260704-fix-073`. The next workflow should pick counter `74` as its base. If a queued follow-up (below) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation. The 5-override budget for the ci class is at 4/5 — the **next** PR that hits the same `__vite_ssr_exportName__` failure will be the last before PRSteward refuses to override on this class. Fix `wf-20260703-fix-066-vitest-bump` soon.
 
 ---
 

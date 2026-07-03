@@ -141,3 +141,31 @@ insert_workflow_row() {
   run bash scripts/check-workflow-state.sh --base origin/nonexistent
   [ "$status" -ne 0 ]
 }
+
+# Regression for ISS-UAT-009-1 Step 0.5 root cause: the extract_issue_ids
+# regex `ISS-[A-Z0-9-]+` does not include lowercase hex chars, so it
+# greedy-matches only up to the trailing `-` of PRSteward's auto-registered
+# `ISS-CI-OVERRIDE-<sha1-prefix>` IDs (AGENTS.md §6.3 names this exact pattern)
+# and emits a phantom `ISS-CI-OVERRIDE-` orphan that has no file.
+@test "regression: SHA-suffixed ISS IDs (PRSteward auto-registered) do NOT trigger phantom drift" {
+  # Insert a row pointing to ISS-CI-OVERRIDE-ebd184b (the exact ID PRSteward
+  # auto-registered on PR #94). The corresponding file is created on disk
+  # before commit so the drift script's existence check passes.
+  mkdir -p .copilot/issues
+  echo "# Auto-registered CI failure class (regression fixture)" > .copilot/issues/ISS-CI-OVERRIDE-ebd184b.md
+  echo "" >> .copilot/issues/registry.md
+  echo "| [ISS-CI-OVERRIDE-ebd184b](ISS-CI-OVERRIDE-ebd184b.md) | regression-fixture | test | SHA-suffixed ISS ID; file exists at this exact name. | open | — | 2026-07-04 |" >> .copilot/issues/registry.md
+  git -c commit.gpgsign=false add -A
+  git -c commit.gpgsign=false commit -q --no-verify \
+    -m "test fixture: SHA-suffixed ISS ID" \
+    -- .copilot/issues/registry.md .copilot/issues/ISS-CI-OVERRIDE-ebd184b.md
+  git push -q origin main
+  run bash scripts/check-workflow-state.sh --base origin/main 2>&1
+  # The drift script must NOT report the phantom `ISS-CI-OVERRIDE-` prefix
+  # as a missing-file drift. Output is clean when the regex correctly
+  # matches the full ID including the SHA1 hex tail.
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"OK: no drift detected"* ]]
+  [[ "$output" != *"ISS-CI-OVERRIDE-' "* ]]
+  [[ "$output" != *"ISS-CI-OVERRIDE-."* ]]
+}

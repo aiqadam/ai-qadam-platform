@@ -126,10 +126,15 @@ extract_requirement_ids() {
 
 # extract_issue_ids <registry-text>
 # Reads issues/registry.md and lists ISS-<name> ids referenced.
+# Char class is A–Z + a–f + 0–9 + `-`: A–Z covers canonical ISS-CI-OVERRIDE
+# prefix; a–f + 0–9 covers the SHA1-prefixed tail added by PRSteward auto-
+# registered classes (AGENTS.md §6.3 step 3 names them `ISS-CI-OVERRIDE-<sha>`).
+# Without the a–f range, the regex would greedy-match only up to the trailing
+# `-` and report a phantom `ISS-CI-OVERRIDE-` ID that has no corresponding file.
 extract_issue_ids() {
   local registry_text="$1"
   echo "$registry_text" \
-    | grep -oE 'ISS-[A-Z0-9-]+' \
+    | grep -oE 'ISS-[A-Z0-9a-f-]+' \
     | sort -u \
     || true
 }

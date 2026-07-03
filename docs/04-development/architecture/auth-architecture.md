@@ -228,13 +228,30 @@ The two important invariants:
       JWT lifetime. AuthGuard refuses any further use immediately.
    c. Clears both new + legacy cookies on `.aiqadam.org` and on the current
       host.
-5. Client navigates to `/auth/signed-out` (confirmation page).
-6. Authentik's session at `auth.aiqadam.org` is **still alive**. We rely on
-   `prompt=login` on the next /login call to force re-auth at the IdP —
-   the user doesn't get silently signed back in just because Authentik
-   remembers them.
-7. To genuinely kill the Authentik session too, hit Authentik's
-   `end_session_endpoint` (`https://auth.aiqadam.org/application/o/aiqadam-web/end-session/?id_token_hint=…`). We don't today because the default flow renders a "are you sure?" page that's clunky.
+   d. Builds an Authentik `end_session_endpoint` URL via
+      `AuthService.buildLogoutUrl()` — with `id_token_hint` +
+      `post_logout_redirect_uri` when an id_token is available, or no-hint
+      when only a valid bearer survives a refresh-token race.
+5. Client navigates the browser to that logoutUrl. Authentik runs the
+   invalidation flow bound to the provider (the built-in
+   `default-provider-invalidation-flow`; see `.copilot/bootstrap-oidc.sh`
+   for the PK). That flow **always renders an RP-Initiated Logout
+   confirmation interstitial** — heading "You've logged out of AI Qadam
+   Platform (local)." with three buttons (Go back to overview / Log out
+   of authentik / Log back into AI Qadam Platform (local)) — even when a
+   valid `id_token_hint` is present. Per OIDC RP-Initiated Logout 1.0 §2
+   the IdP "MAY" skip that confirmation when the hint is present; the
+   word "MAY" is not a guarantee and Authentik's default flow does not
+   skip it. This is the trade-off accepted on 2026-05-23 (PR #234):
+   IdP-session-termination wins over silent auto-redirect, because
+   silent re-sign-in on a platform that promises SSO sign-out is the
+   worse failure mode. See ISS-UAT-009-1 for the full rationale.
+6. When the user clicks **Log out of authentik** on the interstitial,
+   Authentik completes the invalidation, the IdP session is killed,
+   and the browser 302s to `post_logout_redirect_uri` =
+   `https://auth.aiqadam.org/.../auth/signed-out` (per
+   BP-UAT-009 Step 004, AC-7). The local `aiqadam-refresh` cookie is
+   already absent from this point on — it was cleared in step 4c.
 
 ### 5.4 What happens if Redis is down
 

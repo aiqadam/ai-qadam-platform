@@ -178,24 +178,33 @@ export class AuthService {
   // other Authentik-protected app (Directus, Gatus, workspace tools).
   // Without this, /sign-out is a false promise: the IdP session lingers
   // and the user is silently SSO'd back in on the next sign-in.
+  // Trade-off made on 2026-05-23 (PR #234): IdP-session termination
+  // wins over silent auto-redirect UX because silent re-sign-in on a
+  // platform that promises SSO sign-out is the worse failure mode.
   //
   // Two URL shapes:
   //   - WITH id_token_hint + post_logout_redirect_uri — happy path. Per
   //     OIDC RP-Initiated Logout 1.0 §2, when the hint is present the OP
-  //     MAY skip the user-confirmation step and run the invalidation
-  //     flow silently. This is what we want for the common case.
+  //     "MAY" skip the user-confirmation step and run the invalidation
+  //     flow silently — "MAY", not "MUST". In practice, Authentik
+  //     2024.x's default-provider-invalidation-flow (the flow bound to
+  //     this provider via bootstrap-oidc.sh) always renders a
+  //     "You've logged out of …" confirmation interstitial even when a
+  //     valid id_token_hint is present; the user must click "Log out of
+  //     authentik" to complete the invalidation and be redirected to
+  //     post_logout_redirect_uri = /auth/signed-out. The URL we
+  //     construct here is the OIDC-correct shape; the rendered UX is
+  //     controlled by the IdP's flow binding, not by us. Confirmed by
+  //     BP-UAT-009 Step 004 (2026-07-02, see ISS-UAT-009-1).
   //   - WITHOUT id_token_hint — degraded fallback. Used when the caller
   //     has lost its refresh cookie (e.g. after a refresh-token race
   //     revoked the family + cleared the cookie) but still holds a valid
   //     access token. Per spec §2 the OP MUST then prompt the user
   //     "do you want to log out?" — so the user sees Authentik's
-  //     confirmation page before landing on /auth/signed-out. Acceptable
-  //     UX cost; the alternative is the IdP session lingering and the
-  //     next /login silently SSO'ing the user back in. Per spec §3 we
-  //     MUST NOT pass post_logout_redirect_uri without the hint (the OP
-  //     refuses to honour it without authentication); the static-redirect
-  //     stage in the aiqadam-provider-invalidation flow handles landing
-  //     instead.
+  //     confirmation page. Per spec §3 we MUST NOT pass
+  //     post_logout_redirect_uri without the hint (the OP refuses to
+  //     honour it without authentication); the static-redirect stage in
+  //     default-provider-invalidation-flow handles landing.
   //
   // Returns null only when the issuer doesn't advertise end_session_endpoint
   // (no way to construct any URL). Caller then falls back to a local
