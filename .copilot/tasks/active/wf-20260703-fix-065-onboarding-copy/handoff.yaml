@@ -19,9 +19,9 @@ branch: "fix/ISS-UAT-013-13-onboarding-copy"
 base_branch: "main"
 github_pr_url: "https://github.com/tvolodi/aiqadam/pull/90"
 
-current_step: 5
-current_step_name: "Security Review"
-workflow_status: "running"
+current_step: 13
+current_step_name: "Archive"
+workflow_status: "complete"
 
 parent_link:
   parent_workflow_id: ""

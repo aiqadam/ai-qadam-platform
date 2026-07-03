@@ -153,7 +153,7 @@ the JSX.
   3. `it('returns the fallback for null (nullish-safety)', () => expect(roleGroupsText(null)).toBe('an operator'))` — defensive belt-and-braces (helper signature widened to `string[] | null | undefined`).
   4. `it('returns the single role when role_groups has one element', () => expect(roleGroupsText(['aiqadam-staff'])).toBe('aiqadam-staff'))` — Step-005 regression protection.
   5. `it('joins multiple roles with ", "', () => expect(roleGroupsText(['aiqadam-staff', 'aiqadam-editor'])).toBe('aiqadam-staff, aiqadam-editor'))` — multi-role regression protection.
-- **Merged:** <pending — Step 12.5 back-fills the actual squash SHA on main after PR merge>.
+- **Merged:** `e38dd18` (squash commit `e38dd18077a6a00cfa939798945347d70b0baea9` on `main`, 2026-07-03T13:07:09Z; PR [#90](https://github.com/tvolodi/aiqadam/pull/90) merged via `gh pr merge --squash --auto --delete-branch`).
 
 ### Honesty disclosures (per AGENTS.md §6.1)
 
