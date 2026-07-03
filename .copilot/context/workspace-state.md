@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|
 | wf-20260630-fix-043 | issue-resolution | ISS-UAT-013-9 email_verified guard | fix/ISS-UAT-013-9-lead-verified-guard | [PR #75](https://github.com/tvolodi/aiqadam/pull/75) | 2026-06-30 |
 | wf-20260703-fix-060 | issue-resolution | ISS-UAT-013-12 Neg 004 spec React-18 state-commit race (setReactInputValue + form.requestSubmit) | fix/ISS-UAT-013-12-neg-004-react-race | <pending> | 2026-07-03 |
-| wf-20260703-uat-063 | uat-verification | BP-UAT-001 Event publication broadcast | uat/BP-UAT-001-event-publication-broadcast | <blocked: SSH key on GitHub ≠ local key, push unauthorized> | 2026-07-03 |
+| wf-20260703-uat-063 | uat-verification | BP-UAT-001 Event publication broadcast | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (needs-review, not mergeable until ISS-UAT-001-1 fixed) | 2026-07-03 |
 | wf-20260703-fix-064 (queued) | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | <pending> | 2026-07-03 |
 
 ---
