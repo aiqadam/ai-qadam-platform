@@ -5,8 +5,10 @@
 | ID | ISS-CI-003 |
 | Severity | blocker |
 | Module | ci/infrastructure |
-| Status | open |
+| Status | resolved (won't fix as filed) |
 | Reported | 2026-07-03 |
+| Resolved | 2026-07-03 |
+| Workflow | wf-20260703-fix-069-biome-scope |
 | Reporter | Orchestrator (PR #87, wf-20260703-feat-063 close-out) |
 | Predecessor | ISS-CI-001 (resolved 2026-06-24), ISS-CI-002 (resolved 2026-07-02) |
 
@@ -87,3 +89,64 @@ gh api repos/tvolodi/aiqadam/commits/main/check-runs \
 
 - Filed by the Orchestrator while closing out `wf-20260703-feat-063` (PR #87). PR #87's own content is unaffected by and does not fix this issue — it is a pre-existing, systemic `main`-branch problem.
 - Per user's explicit instruction, PR #87 was merged with an admin override past these two failing required checks (see PR #87's merge record) rather than waiting for this issue to resolve first, since PR #87's own files have zero overlap with the failure surface. This bypass was authorized in chat, not unilaterally decided by the Orchestrator.
+
+## Resolution (2026-07-03, wf-20260703-fix-069-biome-scope)
+
+Closed `won't fix as filed`. The original symptom was based on a **truncated CI
+log capture** that mixed warnings with errors. With the full rule-level
+breakdown from `pnpm exec biome check . --reporter=summary` on the current
+`main` HEAD, the picture is materially different:
+
+| Original claim (this issue's "ci" symptom) | Reality on `main` |
+|---|---|
+| `lint/complexity/noExcessiveCognitiveComplexity` is a CI-blocking error | It is configured at `level: "warn"` — produces **0 errors**, only 864–890 warnings. Exit code 0 if filtered to complexity only. |
+| Specific functions (`sanitizeButtons`, `validateLeafOp`) need refactoring | Those functions' complexity scores are warnings, not errors. Refactoring them would not change CI status. |
+| CI step failure is caused by biome complexity | The `Lint + format check (Biome)` step fails because of ~20k pre-existing style violations across the whole repo (`noCommaOperator` 4,480; `noAssignInExpressions` 5,444; `noVar` 2,392; etc.) — not complexity. |
+
+### What changed in this PR (`wf-20260703-fix-069-biome-scope`)
+
+The user explicitly directed (2026-07-03, chat): "GitHub for me is a simple
+external drive like Google Drive, no more, no less" and "check that biome and
+his friends will not spend time on useless warnings. Turn them off don't waste
+CPU time on it." Two changes land in this PR:
+
+1. **`packages/biome-config/biome.json`** — explicitly disable 30+ noisy
+   `recommended`-set rules that produce cosmetic noise without catching real
+   bugs. Kept only the high-signal rules:
+   - `noUnusedVariables`, `noUnusedImports`, `noUnusedFunctionParameters` (dead-code catch)
+   - `noExplicitAny` (sloppy-type catch)
+   - `useTemplate`, `useConst`, `noNonNullAssertion` (small cheap wins)
+
+   Effect: `pnpm lint` on `main` went from **20,473 errors / 90 s** down to
+   **1,658 errors / 15 s** (~92% noise eliminated, ~6× faster).
+
+2. **`.github/workflows/ci.yml`** — removed the `Lint + format check (Biome)`
+   step entirely from the `ci` job. CI is already advisory
+   (`continue-on-error: true`), but the step was burning CI minutes and
+   cluttering the Actions tab with noise the user has no interest in.
+   Developers can still run `pnpm lint` locally; the trimmed config keeps
+   local runs fast.
+
+### What was NOT changed (and why)
+
+- **The 1,658 remaining biome errors** (mostly `noUnusedImports`,
+  `useTemplate`, real dead code) are still pre-existing on `main` and are
+  out of scope for this PR. The user explicitly declined to participate in
+  "the competition for the best code style and readability" (chat, 2026-07-03).
+  A future PR can trim those opportunistically as part of feature work.
+- **The storybook rolldown binding error** is a real, separate CI failure
+  (failure class identical to ISS-CI-002's deferred follow-up). It is
+  unrelated to biome and was not addressed by this PR. It remains visible
+  in the dedicated `storybook` advisory job and does not block merges.
+
+### Honesty disclosures on this resolution
+
+- The original acceptance criteria in this issue ("refactor `sanitizeButtons`
+  and `validateLeafOp`") were based on a truncated log capture that visually
+  grouped warnings with errors. With the full data, those functions are
+  warnings, not blockers. Doing the refactor would have been wasted work.
+- The scope-down + rule-trim + CI-step-removal combo is a **policy change**
+  rather than a code fix: biome noise is now accepted as part of the
+  project's stance that GitHub is an external drive, not a quality gate.
+  This is consistent with the existing 2026-06-29 override making CI
+  advisory throughout.

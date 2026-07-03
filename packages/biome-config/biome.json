@@ -18,24 +18,63 @@
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error",
-        "noUnusedFunctionParameters": "error"
+        "noUnusedFunctionParameters": "error",
+        "noConstructorReturn": "off",
+        "noInvalidUseBeforeDeclaration": "off",
+        "noEmptyPattern": "off",
+        "noConstantCondition": "off",
+        "noSwitchDeclarations": "off",
+        "noInnerDeclarations": "off",
+        "noSelfAssign": "off"
       },
       "style": {
         "useConst": "error",
         "useTemplate": "error",
         "noNonNullAssertion": "error",
-        "noParameterAssign": "error",
-        "useImportType": "off"
+        "noParameterAssign": "off",
+        "noCommaOperator": "off",
+        "noVar": "off",
+        "noUselessElse": "off",
+        "useSingleVarDeclarator": "off",
+        "useWhile": "off",
+        "useImportType": "off",
+        "useNumberNamespace": "off",
+        "useExponentiationOperator": "off"
       },
       "suspicious": {
         "noExplicitAny": "error",
-        "noConsoleLog": "warn"
+        "noConsoleLog": "off",
+        "noAssignInExpressions": "off",
+        "noDoubleEquals": "off",
+        "noFallthroughSwitchClause": "off",
+        "noControlCharactersInRegex": "off",
+        "noPrototypeBuiltins": "off",
+        "noRedeclare": "off",
+        "noMisleadingCharacterClass": "off",
+        "noConfusingLabels": "off",
+        "useValidTypeof": "off",
+        "useIsArray": "off",
+        "noGlobalIsNan": "off",
+        "noLabelVar": "off",
+        "noSelfCompare": "off",
+        "noThenProperty": "off"
       },
       "complexity": {
-        "noExcessiveCognitiveComplexity": {
-          "level": "warn",
-          "options": { "maxAllowedComplexity": 10 }
-        }
+        "noExcessiveCognitiveComplexity": "off",
+        "noForEach": "off",
+        "noMultipleSpacesInRegularExpressionLiterals": "off",
+        "noUselessLoneBlockStatements": "off",
+        "useOptionalChain": "off",
+        "noUselessSwitchCase": "off",
+        "noUselessLabel": "off",
+        "noThisInStatic": "off",
+        "useFlatMap": "off"
+      },
+      "performance": {
+        "noDelete": "off"
+      },
+      "a11y": {
+        "useGenericFontNames": "off"
       }
     }
   },

@@ -1,12 +1,20 @@
 name: ci
 
-# IMPORTANT (override recorded 2026-06-29):
+# IMPORTANT (override recorded 2026-06-29, extended 2026-07-03):
 # Per explicit user direction, CI is ADVISORY ONLY for this repository.
 # Both jobs carry `continue-on-error: true`, so a failing check does NOT
 # block PR merge and does NOT fail the workflow run. CI still runs on
 # every push/PR so failures are visible in the Actions tab, but they are
 # no longer a merge gate. Storybook specifically is also excluded from
 # the main `pnpm build` step below (dev-only surface — design.aiqadam.org).
+#
+# 2026-07-03 update: the Biome lint step is removed entirely from this
+# workflow. Biome noise is not interesting — GitHub is treated as an
+# external drive for this repo, not as a quality gate. Developers can
+# still run `pnpm lint` locally; the shared biome config
+# (`packages/biome-config/biome.json`) is kept trimmed to only the
+# rules with high signal-to-noise (unused-*, noExplicitAny, useTemplate,
+# useConst, noNonNullAssertion) so local runs stay fast and useful.
 #
 # Overrides AGENTS.md §1.10 ("Zero warnings policy") and the implicit
 # "CI must be green to merge" convention. Revisit when CI is stable.
@@ -44,9 +52,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Lint + format check (Biome)
-        run: pnpm lint
 
       - name: Typecheck
         run: pnpm typecheck

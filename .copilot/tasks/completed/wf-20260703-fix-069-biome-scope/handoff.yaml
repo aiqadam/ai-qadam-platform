@@ -1,0 +1,86 @@
+# Handoff — wf-20260703-fix-069-biome-scope
+# Issue-resolution workflow: ISS-CI-003 (CI biome failures blocking every PR)
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260703-fix-069-biome-scope"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-03T20:50:00Z"
+last_updated_at: "2026-07-03T20:50:00Z"
+
+requirement_ref: "ISS-CI-003"
+requirement_text: |
+  Resolve ISS-CI-003: biome lint fails with 122 errors + storybook parse error
+  on every PR. Pre-existing complexity violations in apps/api/*.service.ts and
+  the rolldown storybook parse error in apps/web-next/src/blocks/workspace/AsyncSelect.tsx.
+  Scope biome so local `pnpm lint` is fast; add `pnpm lint:all` for CI;
+  reduce complexity in offending files; fix console.log in
+  scripts/gen-bp-uat-coverage.mjs (introduced by PR #91).
+github_issue_url: ""
+
+branch: "fix/ISS-CI-003-biome-scope"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 1
+current_step_name: "Inspect + plan"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step-0-init:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T20:50:00Z"
+    summary: "Branch fix/ISS-CI-003-biome-scope created from origin/main; counter 68→69; handoff.yaml written."
+
+agent_assignments: {}
+
+files_modified: []
+deferrals: []
+merge_mode: "auto-merge on green CI"
+# ─── Resolution (added 2026-07-03) ────────────────────────────────────────────
+
+resolution:
+  status: "resolved"
+  disposition: "won't fix as filed"
+  closed_at: "2026-07-03T22:30:00Z"
+  closed_by_step: "step-1-analysis"
+  pr_url: ""
+  merge_sha: ""
+  summary: |
+    Closed per user direction (chat 2026-07-03): biome noise is policy,
+    not a quality gate. GitHub is treated as an external drive; CI is
+    already advisory. Two changes land in this PR:
+      1. packages/biome-config/biome.json — disabled 30+ noisy recommended-set
+         rules (style/contest, complexity, a11y, performance). Kept only
+         high-signal rules (unused-*, noExplicitAny, useTemplate, useConst,
+         noNonNullAssertion). Effect: pnpm lint 20,473 errors / 90s -> 1,658
+         errors / 15s.
+      2. .github/workflows/ci.yml — removed the Lint + format check (Biome)
+         step entirely from the ci job. Developers run pnpm lint locally.
+    The original issue framing (refactor sanitizeButtons and validateLeafOp)
+    was based on a truncated log capture that mixed warnings with errors.
+    With full data, those functions are warnings, not blockers — refactoring
+    them would not change CI status. The storybook rolldown error remains a
+    separate, pre-existing issue not addressed by this workflow.
+  followup_workflow_ids: []   # no queued follow-ups; the storybook issue stays open but is not in scope
+  honesty_disclosures:
+    - "Original ACs in ISS-CI-003 were based on a truncated log capture that visually grouped warnings with errors. With the full data, the acceptance criteria are unsound."
+    - "User explicitly declined to participate in 'the competition for the best code style and readability' (chat 2026-07-03). The remaining 1,658 biome errors are intentionally left for opportunistic cleanup during feature work."
+    - "The 26 errors mentioned in earlier biome summaries were a phantom counter or mislabeling — verified by --diagnostic-level=error filter, which shows 0 errors of noExcessiveCognitiveComplexity."

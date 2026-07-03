@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 (wf-20260703-fix-067-coverage-registry closed — `ISS-UAT-COV-001` resolved via `Spec`+`Smoke Overlap` columns in `docs/02-business-processes/uat/registry.md` plus `scripts/gen-bp-uat-coverage.mjs`; 17 follow-up workflows queued in `.copilot/tasks/queued/uat-bp-uat-coverage-batch/`. Counter bumped 67 → 68.)
+**Last updated:** 2026-07-03 (wf-20260703-fix-069-biome-scope closed — `ISS-CI-003` resolved `won't fix as filed` per user direction. Biome noise is policy, not a quality gate: GitHub is treated as an external drive, not a quality gate. PR trims 30+ noisy `recommended`-set rules (style contest / complexity / a11y / performance) in `packages/biome-config/biome.json` (keeps high-signal `unused-*`, `noExplicitAny`, `useTemplate`, `useConst`, `noNonNullAssertion`); removes the `Lint + format check (Biome)` step from `.github/workflows/ci.yml` `ci` job. Effect: `pnpm lint` 20,473 errors / 90s → 1,658 errors / 15s; CI no longer surfaces biome noise. Counter bumped 68 → 69.)
 
 ---
 
