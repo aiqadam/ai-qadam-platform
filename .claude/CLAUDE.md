@@ -82,6 +82,31 @@ and `git push` succeeds with no prompt.
    `git@github.com:<org>/<repo>.git` if an SSH key is present.
 3. Document your fix in this section under a new heading (date + symptom).
 
+### Local override — tvolodi's Windows workstation (recorded 2026-07-03 by wf-20260703-uat-063)
+
+**Do NOT use the SSH fix above on this machine.** The ed25519 key at
+`%USERPROFILE%\.ssh\id_ed25519` exists but it is **not** the key registered on
+GitHub for `tvolodi` — GitHub rejects it with `Permission denied (publickey)`.
+The key on disk belongs to a different machine.
+
+This machine's actual working configuration is:
+
+- `git remote get-url origin` → `https://github.com/tvolodi/aiqadam.git` (HTTPS).
+- `git config --global credential.helper` → `manager` plus
+  `credential.https://github.com.helper=!gh auth git-credential`.
+- `gh auth status` shows logged-in to `github.com` account `tvolodi` with
+  `repo` scope and `Git operations protocol: https`.
+
+So `git push` works directly on this machine — no prompt, no PAT, no SSH key
+needed. **Future agents: just `git push` and `gh pr create`.** Do not try to
+switch the remote to `git@github.com:...`; do not try to load the local
+`id_ed25519` into ssh-agent; do not loop asking for a PAT.
+
+If `gh auth status` ever shows "not logged in" on this machine, run
+`gh auth login --hostname github.com --git-protocol https --scopes repo,workflow`
+interactively (the user types the PAT) — that's the only auth path that's
+known to work here.
+
 ---
 
 ## How to handle conflicts with user requests
