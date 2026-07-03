@@ -2,7 +2,7 @@
   "_schema_version": "1.0",
   "_limit": 5,
   "_policy_ref": "AGENTS.md §6.3",
-  "_last_updated": "2026-07-04",
+  "_last_updated": "2026-07-03",
   "classes": {
     "15c26207b13cee6b4283d22fd389e3015bc95988": {
       "label": "vitest __vite_ssr_exportName__ ReferenceError in apps/api/test/setup-pg.ts (vitest@2.1.9 + workspace vite@8.1.0 SSR-transform skew — see ISS-TEST-WEB-001)",
@@ -10,16 +10,15 @@
       "queued_workflow": "wf-20260703-fix-066-vitest-bump",
       "failing_job": "ci",
       "first_observed": "2026-06-30",
-      "last_observed": "2026-07-04",
-      "consecutive_count": 5,
-      "last_overriding_workflow": "wf-20260704-fix-076",
+      "last_observed": "2026-07-03",
+      "consecutive_count": 4,
+      "last_overriding_workflow": "wf-20260703-fix-070",
       "history": [
         {"wf": "wf-20260701-fix-058", "pr": 91, "date": "2026-06-30", "note": "pre-policy, counter back-filled from registry history"},
         {"wf": "wf-20260703-fix-069", "pr": 92, "date": "2026-07-03", "note": "pre-policy, counter back-filled from registry history"},
         {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "pre-policy, counter back-filled from registry history"},
         {"wf": "wf-20260703-impl-policy-071", "pr": 94, "date": "2026-07-03", "note": "PRSteward override under §6.3 v2 on PR #94 (counter 3 -> 4)"},
-        {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "PRSteward override under §6.3 v2 on PR #93 rebase (counter 4; PR landed after; counter not incremented again to avoid double-count on same class within a single merge wave)"},
-        {"wf": "wf-20260704-fix-076", "pr": 97, "date": "2026-07-04", "note": "PRSteward override under §6.3 on PR #97 (counter 4 -> 5 — LIMIT REACHED. Next PR with this class MUST stop and escalate to user per §6.3 rule 3.)"}
+        {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "PRSteward override under §6.3 v2 on PR #93 rebase (counter 4; PR landed after; counter not incremented again to avoid double-count on same class within a single merge wave)"}
       ]
     },
     "ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7": {
@@ -28,13 +27,12 @@
       "queued_workflow": "wf-20260703-fix-072",
       "failing_job": "storybook",
       "first_observed": "2026-07-03",
-      "last_observed": "2026-07-04",
-      "consecutive_count": 3,
-      "last_overriding_workflow": "wf-20260704-fix-076",
+      "last_observed": "2026-07-03",
+      "consecutive_count": 2,
+      "last_overriding_workflow": "wf-20260703-fix-070",
       "history": [
         {"wf": "wf-20260703-impl-policy-071", "pr": 94, "date": "2026-07-03", "note": "auto-registered by PRSteward on PR #94 (first observed); counter started at 1/5 by override under §6.3 step 3 (auto-register procedure)"},
-        {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "PRSteward override under §6.3 v2 on PR #93 rebase (counter 1 -> 2)"},
-        {"wf": "wf-20260704-fix-076", "pr": 97, "date": "2026-07-04", "note": "PRSteward override under §6.3 on PR #97 (counter 2 -> 3)"}
+        {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "PRSteward override under §6.3 v2 on PR #93 rebase (counter 1 -> 2)"}
       ]
     }
   }
