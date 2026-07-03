@@ -29,9 +29,10 @@ _(none — all current work resolved/merged. See "Queued follow-up workflows" be
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260703-fix-069-biome-scope | issue-resolution | ISS-CI-003 (won't fix as filed) — biome noise policy: trim 30+ noisy recommended-set rules in `packages/biome-config/biome.json` (kept high-signal unused-*/noExplicitAny/useTemplate/useConst/noNonNullAssertion); remove `Lint + format check (Biome)` step from `.github/workflows/ci.yml` `ci` job. Effect: pnpm lint 20,473 errors / 90s → 1,658 errors / 15s. CI no longer surfaces biome noise. | fix/ISS-CI-003-biome-scope | [PR #92](https://github.com/tvolodi/aiqadam/pull/92) (squash `3f2d001`) | 2026-07-03 |
 | wf-20260703-uat-064 | uat-verification | BP-UAT-001 re-verification (live) — Path A minimal verify; AC-1 partial, AC-2/3 failed (bridge gap), AC-4 deferred (no spec), AC-5 failed (api_base port) | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (squash `ee209fc4`) | 2026-07-03 |
 | wf-20260703-fix-065-onboarding-copy | issue-resolution | ISS-UAT-013-13 OnboardingForm welcome copy | fix/ISS-UAT-013-13-onboarding-copy | [PR #90](https://github.com/tvolodi/aiqadam/pull/90) (squash `e38dd18`) | 2026-07-03 |
-| wf-20260703-fix-067-coverage-registry | issue-resolution | ISS-UAT-COV-001 BP-UAT coverage gap (Spec+Smoke Overlap columns + 17 queued follow-ups); PR #91 open in **draft** mode because main HEAD has pre-existing CI red (ISS-CI-003) — PR's own surface is clean | fix/ISS-UAT-COV-001-coverage-registry | [PR #91](https://github.com/tvolodi/aiqadam/pull/91) (DRAFT; blocked on ISS-CI-003) | 2026-07-03 |
+| wf-20260703-fix-067-coverage-registry | issue-resolution | ISS-UAT-COV-001 BP-UAT coverage gap (Spec+Smoke Overlap columns + 17 queued follow-ups); merged via auto-merge (CI advisory per 2026-06-29 override) | fix/ISS-UAT-COV-001-coverage-registry | [PR #91](https://github.com/tvolodi/aiqadam/pull/91) (squash `113e69d9`) | 2026-07-03 |
 | wf-20260703-fix-064 | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | [PR #89](https://github.com/tvolodi/aiqadam/pull/89) (squash `2b72f460`) | 2026-07-03 |
 | wf-20260629-fix-039 | issue-resolution | ISS-UAT-013-8 operator_invites.email alignment with seeded Authentik user + Neg 005 | fix/ISS-UAT-013-8-invite-email-match | [PR #71](https://github.com/tvolodi/aiqadam/pull/71) | 2026-06-29 |
 | wf-20260629-fix-038 | issue-resolution | ISS-UAT-013-6 Negative-scenario assertion rule + bats regression test | fix/ISS-UAT-013-6-uat-test-design | [PR #70](https://github.com/tvolodi/aiqadam/pull/70) | 2026-06-29 |
@@ -62,7 +63,7 @@ _(empty — see "Open Issues" above for current status. Kept for delta-only hist
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: `68` — incremented from `67` after `wf-20260703-fix-067-coverage-registry` close). The next workflow should pick counter `68`; if a queued follow-up (see Active Workflows above) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation.
+See `.copilot/meta/next-workflow-id` (currently: `69` — incremented from `68` after `wf-20260703-fix-069-biome-scope` close). The next workflow should pick counter `69`; if a queued follow-up (see Active Workflows above) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation.
 
 ---
 
