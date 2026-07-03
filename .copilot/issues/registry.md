@@ -31,6 +31,7 @@
 | [ISS-UAT-009-2](ISS-UAT-009-2.md) | minor | web/auth-gating (uat/test-design) | `/me` renders an in-page AnonView CTA (HTTP 200) for anon visitors while `/workspace` hard-redirects; BP-UAT-009 Step 005 spec asserted the wrong mechanism for `/me` — spec update + inconsistency flagged for product follow-up | open | — | 2026-07-02 |
 | [ISS-UAT-009-3](ISS-UAT-009-3.md) | minor | web/leaderboard (UI) | Leaderboard self-row renders "UAT MemberYou" with no space/separator between display name and "You" self-indicator (visual-only, design-system FAIL) | open | — | 2026-07-02 |
 | [ISS-UAT-009-4](ISS-UAT-009-4.md) | minor | web/me (AnonView layout) | `/me` AnonView page leaves a large unbalanced empty region (~55% of viewport) below the sign-in CTA card (visual-only) | open | — | 2026-07-02 |
+| [ISS-CI-003](ISS-CI-003.md) | blocker | ci/infrastructure | CI failures regressed again on main HEAD: biome cognitive-complexity errors in `apps/api/src/modules/workspace/tg-broadcasts.service.ts`/`tg-segments.service.ts` (`ci` job); storybook/rolldown build error carried over unresolved from ISS-CI-002 (`storybook` job) — blocks every PR to main | open | — | 2026-07-03 |
 
 ---
 
