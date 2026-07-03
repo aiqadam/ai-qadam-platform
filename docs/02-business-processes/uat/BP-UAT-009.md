@@ -233,6 +233,30 @@ decision (accept-as-is).
   the two `expect.soft` lines record the spec/actual mismatch for
   BusinessAnalyst and remain in place as a regression signal.
 
+**Layout-completeness contract (added wf-20260704-fix-077 / ISS-UAT-009-4):**
+
+The page must end in the site-wide `<AppFooter />` (rendered from
+`apps/web/src/layouts/Layout.astro`, ported from
+`apps/web-next/src/blocks/common/AppFooter.astro`). On the standard
+UAT viewport size, the bottom ~10–20% of the viewport below the AnonView
+CTA card must show:
+
+- The footer row with the "AI Qadam" tagline + default description +
+  "N countries served" mono-eyebrow, on the left third.
+- The "Follow" column listing populated social links (Telegram / X /
+  LinkedIn / Instagram / YouTube), each as `Label + ArrowUpRight icon`.
+- The "Contact" column listing populated contact email links
+  (Partners / Press / Support).
+- A thin copyright row with `© <year> AI Qadam · Community-as-platform
+  for Central Asian AI engineers` in the mono-eyebrow style.
+
+There must be **no large unbalanced empty background-coloured region**
+between the AnonView CTA card and the footer — the pre-fix defect was
+~55% of viewport (see `02b-visual-review.md` / ISS-UAT-009-4). This
+contract applies to every page rendered through the shared
+`apps/web/src/layouts/Layout.astro`, not just `/me`, and is the visual
+sister to the in-page "no authed-only content" contract above.
+
 **Screenshot label:** `step-005-redirect-after-signout` *(historical
 label — retained because the live Playwright spec at
 `apps/e2e/tests/uat/BP-UAT-009.spec.ts:371` hardcodes the file name

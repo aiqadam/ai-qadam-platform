@@ -365,6 +365,85 @@ test.describe('BP-UAT-009 — Auth sign-in and sign-out', () => {
 
     await shot(page, 'step-005-redirect-after-signout');
 
+    // ─── Regression: /me AnonView layout-completeness footer (ISS-UAT-009-4) ───
+    //
+    // Bug (pre-fix): apps/web/src/layouts/Layout.astro rendered Nav +
+    // <slot /> + attribution script, but NO <AppFooter />. On short
+    // pages like /me AnonView (single CTA card on a dark background),
+    // this left a large unbalanced empty background-coloured region
+    // below the CTA — the visual defect reported in
+    // .copilot/issues/ISS-UAT-009-4.
+    //
+    // Fix (post-fix DOM shape): apps/web/src/components/AppFooter.astro
+    // is rendered by Layout.astro after <slot />, providing the
+    // layout-completeness bottom anchor (mirrors the apps/web-next
+    // Layout parity).
+    //
+    // These assertions pin that post-fix shape; ALL FOUR would have
+    // FAILED before the fix because the pre-fix DOM contained no
+    // <footer> at all (page.locator('footer') matched zero elements,
+    // and the compareDocumentPosition branch returned false via the
+    // `if (!main || !footer) return false` short-circuit). See
+    // .copilot/issues/ISS-UAT-009-4.md and the sister-workflow
+    // regression pattern in .copilot/issues/ISS-UAT-009-3.md.
+    //
+    // Pattern mirror: wf-20260704-fix-076 added 5 DOM assertions to
+    // Step 006 for the leaderboard self-row chip. This block adds 4
+    // DOM assertions to Step 005 for the footer — same shape, same
+    // placement (after screenshot, before the step's exit-state
+    // hard assertion), same would-have-failed-before contract.
+    await test.step('ISS-UAT-009-4: layout-completeness footer regression (pre-fix: no <footer>)', async () => {
+      test.info().annotations.push({
+        type: 'iss-ref',
+        description: 'ISS-UAT-009-4 — /me AnonView layout-completeness footer',
+      });
+
+      // (1) Hard: there is now a rendered <footer> on the page.
+      //     Pre-fix: apps/web/src/layouts/Layout.astro had no
+      //     <AppFooter />, so this would have timed out / zero-matched.
+      const footer = page.locator('footer');
+      await expect(footer, 'site-wide <AppFooter /> must render on /me AnonView').toBeVisible({
+        timeout: 10_000,
+      });
+
+      // (2) Hard: the footer is in document order AFTER <main>, so it
+      //     acts as the layout-complete anchor (not floating above
+      //     content). Pre-fix: <main> was the last block in the
+      //     Layout, no footer existed, so this assertion would have
+      //     failed (footerCount === 0 → returns false).
+      //
+      //     compareDocumentPosition semantics: `a.compareDocumentPosition(b)`
+      //     returns flags describing b's position relative to a. To ask
+      //     "does <footer> come after <main>?" we therefore call
+      //     `main.compareDocumentPosition(footer)` and check
+      //     DOCUMENT_POSITION_FOLLOWING (4) — i.e. "footer follows main".
+      //     Calling it the other way (`footer.compareDocumentPosition(main)`)
+      //     would check the inverse and always return false here.
+      const footerAfterMain = await page.evaluate(() => {
+        const main = document.querySelector('main');
+        const footer = document.querySelector('footer');
+        if (!main || !footer) return false;
+        // 4 = DOCUMENT_POSITION_FOLLOWING — footer follows main in DOM order
+        return (main.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+      });
+      expect(footerAfterMain, '<footer> must follow <main> in DOM order').toBe(true);
+
+      // (3) Hard: footer renders the canonical design-system tagline.
+      //     Pre-fix: no footer, the "AI Qadam" tagline inside
+      //     .font-display never reached the DOM.
+      await expect(
+        page.locator('footer p.font-display').filter({ hasText: /AI Qadam/i }).first(),
+        'footer must render the "AI Qadam" tagline in font-display',
+      ).toBeVisible();
+
+      // (4) Hard: footer renders the canonical copyright row.
+      //     Pre-fix: no footer, this row never reached the DOM.
+      await expect(
+        page.locator('footer').filter({ hasText: /© \d{4} AI Qadam · Community-as-platform/i }),
+        'footer must render the canonical copyright row',
+      ).toBeVisible();
+    });
+
     // Hard assertion — exit state: authenticated-only dashboard content
     // (points/registrations widgets) must not be visible to an anon
     // visitor, regardless of which UI path (redirect vs in-page CTA)

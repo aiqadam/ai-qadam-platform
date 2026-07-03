@@ -1,0 +1,89 @@
+workflow_instance_id: wf-20260704-fix-077
+workflow_type: issue-resolution
+workflow_version: "1.0"
+created_at: "2026-07-04T01:30:00Z"
+last_updated_at: "2026-07-04T01:30:00Z"
+
+requirement_ref: null
+issue_ref: ISS-UAT-009-4
+issue_title: "/me AnonView leaves a large unbalanced empty region below the sign-in CTA card"
+
+branch: fix/ISS-UAT-009-4-me-anon-view-empty-region
+base_branch: main
+merge_mode: auto   # default per FEAT-WORKFLOW-003
+expects_registry_update: true
+
+parent_link: null
+
+current_step: 0
+current_step_name: "Initialize"
+step_history:
+  - step: 0
+    name: "Initialize"
+    status: passed
+    completed_at: "2026-07-04T01:30:00Z"
+
+retry_limits:
+  RequirementAnalyst: 1
+  DBMigrationAuthor: 2
+  CodeDeveloper: 3
+  SecurityReviewer: 2
+  TestStrategist: 2
+  TestDesigner: 3
+  TestRunner: 2
+  DocWriter: 2
+  QualityGate: 1
+
+retry_counts:
+  step1-issue-lookup: 0
+  step2-impact-analysis: 0
+  step4-develop-fix: 0
+  step5-security-review: 0
+  step6-test-strategy: 0
+  step7-write-tests: 0
+  step8-execute-tests: 0
+  step9-registry-update: 0
+  step10-doc-update: 0
+  step11-quality-gate: 0
+
+agent_assignments:
+  orchestrator: { status: in-progress, output_file: null }
+
+artifacts: []
+
+deferrals: []
+
+issues_created: []
+
+needs_review:
+  reason: null
+  created_at: null
+
+issue_resolution:
+  status: pending
+  merged_at: null
+  merge_sha: null
+
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/100"
+
+context:
+  # The user-facing site served on :4321 is apps/web (legacy). apps/web-next
+  # has the migrated `/me` but is NOT wired to :4321 today. Confirmed via
+  # `Get-CimInstance Win32_Process -Filter "ProcessId = <node-pid-on-4321>"`:
+  # `CommandLine = "...\apps\web\node_modules\astro\bin\astro.mjs dev --json"`.
+  # Therefore the live `/me` AnonView is `apps/web/src/components/MeDashboard.tsx`,
+  # NOT `apps/web-next/src/pages/me/index.astro`. Earlier notes in
+  # workspace-state.md / ISS-UAT-009-2 resolution said the opposite, but
+  # the live stack is the source of truth for this workflow.
+  live_stack_source: "apps/web (legacy Astro on :4321)"
+  apps_web_anon_view: "apps/web/src/components/MeDashboard.tsx::AnonView"
+  apps_web_next_anon_view: "apps/web-next/src/blocks/common/AuthGate.astro (referenced by web-next/pages/me/index.astro)"
+  root_cause_hypothesis: >
+    apps/web/src/layouts/Layout.astro has Nav but NO <AppFooter />. The
+    `apps/web-next` Layout (Layout.astro) DOES include <AppFooter /> — that
+    is the layout-completeness pattern. Fix: bring apps/web Layout into
+    parity with apps/web-next by adding the same AppFooter (or equivalent
+    footer). Alternative considered: add a min-height spacer or extra
+    empty-state content under AnonView — rejected because (a) it doesn't
+    help non-`/me` pages with the same problem; (b) it's the layout's job
+    to provide the footer, not each page's.

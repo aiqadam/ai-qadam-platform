@@ -1,6 +1,7 @@
 ---
 import '../styles/globals.css';
 import Nav from '../components/Nav.astro';
+import AppFooter from '../components/AppFooter.astro';
 
 interface Props {
   title?: string;
@@ -116,6 +117,11 @@ const ssrAuthJson = ssrAuthInject
   <body class="min-h-screen antialiased">
     <Nav />
     <slot />
+    <!-- Site-wide footer (ISS-UAT-009-4 / wf-20260704-fix-077). Rendered
+         after the page slot so every short page — including /me AnonView —
+         gets the same layout-completeness surface as apps/web-next. The
+         attribution-capture script below still runs after paint. -->
+    <AppFooter />
     <!-- F-S3.9 attribution capture: resolves ?ref= + stashes UTM into
          long-lived cookies the registration submit reads. Idempotent;
          no-op when no params present. Runs after page paint. -->

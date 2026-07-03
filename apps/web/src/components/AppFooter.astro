@@ -1,0 +1,141 @@
+---
+// L3 common block — <AppFooter>.
+//
+// Site-wide footer rendered from <Layout> so every page gets the
+// same surface: tagline + countries-served strap, social links (only
+// the ones populated in site_settings), contact emails, and a thin
+// copyright row. No nav / sitemap yet — those need country-aware
+// link sets that ride on the i18n layer in Phase 2.
+//
+// Fetches its own site_settings via the existing fetchSiteSettings
+// helper (graceful default-on-failure). The homepage also fetches
+// the same row for the Hero, so request-deduped layer can land
+// later; for now the extra Directus call per request is negligible
+// (internal docker URL) and the defaults render the same.
+//
+// Ported from apps/web-next/src/blocks/common/AppFooter.astro per
+// ISS-UAT-009-4 / wf-20260704-fix-077: bring the legacy apps/web
+// layout up to layout-completeness parity with web-next so the
+// /me AnonView (and every other short page) no longer leaves a
+// large empty region below the page content. Only the relative
+// import path changes (../../lib/cms -> ../lib/cms).
+
+import { fetchSiteSettings } from '../lib/cms';
+
+const settings = await fetchSiteSettings();
+
+interface SocialLink {
+  href: string;
+  label: string;
+}
+
+const socials: SocialLink[] = [
+  settings.telegramUrl ? { href: settings.telegramUrl, label: 'Telegram' } : null,
+  settings.twitterUrl ? { href: settings.twitterUrl, label: 'X' } : null,
+  settings.linkedinUrl ? { href: settings.linkedinUrl, label: 'LinkedIn' } : null,
+  settings.instagramUrl ? { href: settings.instagramUrl, label: 'Instagram' } : null,
+  settings.youtubeUrl ? { href: settings.youtubeUrl, label: 'YouTube' } : null,
+].filter((x): x is SocialLink => x !== null);
+
+interface ContactLink {
+  href: string;
+  label: string;
+}
+
+const contacts: ContactLink[] = [
+  settings.contactEmailPartners
+    ? { href: `mailto:${settings.contactEmailPartners}`, label: 'Partners' }
+    : null,
+  settings.contactEmailPress
+    ? { href: `mailto:${settings.contactEmailPress}`, label: 'Press' }
+    : null,
+  settings.contactEmailSupport
+    ? { href: `mailto:${settings.contactEmailSupport}`, label: 'Support' }
+    : null,
+].filter((x): x is ContactLink => x !== null);
+
+const year = new Date().getUTCFullYear();
+---
+
+<footer class="border-t border-border mt-16 bg-card">
+  <div class="mx-auto max-w-5xl px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div>
+      <p class="font-display text-lg font-semibold text-foreground mb-2">AI Qadam</p>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        {settings.defaultDescription}
+      </p>
+      <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mt-3">
+        {settings.countriesServed} countries served
+      </p>
+    </div>
+
+    {socials.length > 0 && (
+      <div>
+        <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+          Follow
+        </p>
+        <ul class="list-none p-0 m-0 space-y-2">
+          {socials.map((s) => (
+            <li>
+              <a
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-sm text-foreground no-underline hover:text-primary transition-colors inline-flex items-center gap-1"
+              >
+                {s.label}
+                <!-- Lucide ArrowUpRight (24x24). Inlined as SVG because
+                     Astro server components can't import lucide-react;
+                     matches the brand-arrow visual used elsewhere on
+                     apps/web (per AGENTS.md §11.3 "Lucide icons only"). -->
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M7 7h10v10" />
+                  <path d="M7 17 17 7" />
+                </svg>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    {contacts.length > 0 && (
+      <div>
+        <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+          Contact
+        </p>
+        <ul class="list-none p-0 m-0 space-y-2">
+          {contacts.map((c) => (
+            <li>
+              <a
+                href={c.href}
+                class="text-sm text-foreground no-underline hover:text-primary transition-colors"
+              >
+                {c.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+
+  <div class="border-t border-border">
+    <div class="mx-auto max-w-5xl px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground m-0">
+        © {year} AI Qadam · Community-as-platform for Central Asian AI engineers
+      </p>
+    </div>
+  </div>
+</footer>
