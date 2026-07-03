@@ -10,6 +10,7 @@
 | Reporter | Orchestrator (wf-20260703-uat-063, Step 2 pre-flight) |
 | Workflow | wf-20260703-uat-063 (reported) → wf-20260703-fix-064 (resolved follow-up; 2/5 ACs verified on workstation, 3/5 ACs deferred to wf-20260703-uat-064 queue position 1) |
 | Resolved by PR | [#89](https://github.com/tvolodi/aiqadam/pull/89) (wf-20260703-fix-064) |
+| Merged | `2b72f460` (squash, main, 2026-07-03) |
 
 ## Symptom
 
