@@ -8,7 +8,7 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 | Code | Name | Process Ref | Status | Last Run | Run Status | Open Issues |
 |---|---|---|---|---|---|---|
 | [BP-UAT-000](BP-UAT-000.md) | UAT environment setup and health check | [infrastructure/runbooks/](../../04-development/infrastructure/runbooks/) | Ready | — | — | — |
-| [BP-UAT-001](BP-UAT-001.md) | Event publication broadcast | [event-publication-broadcast.md](../operations/event-publication-broadcast.md) | Ready | — | — | — |
+| [BP-UAT-001](BP-UAT-001.md) | Event publication broadcast | [event-publication-broadcast.md](../operations/event-publication-broadcast.md) | Ready | 2026-07-03 | partial | [ISS-UAT-001-1](../../../.copilot/issues/ISS-UAT-001-1.md), [ISS-UAT-BRIDGE-001](../../../.copilot/issues/ISS-UAT-BRIDGE-001.md), [ISS-UAT-SEED-002](../../../.copilot/issues/ISS-UAT-SEED-002.md), [ISS-UAT-COV-003](../../../.copilot/issues/ISS-UAT-COV-003.md) |
 | [BP-UAT-002](BP-UAT-002.md) | Operator event control panel | [operator-event-control.md](../operations/operator-event-control.md) | Ready | — | — | — |
 | [BP-UAT-003](BP-UAT-003.md) | Member self-service profile | [member-profile.md](../operations/member-profile.md) | Ready | — | — | — |
 | [BP-UAT-004](BP-UAT-004.md) | Operator cohort builder | [operator-cohort-builder.md](../operations/operator-cohort-builder.md) | Ready | — | — | — |

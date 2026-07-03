@@ -176,33 +176,49 @@ probe_via_test_hook() {
 # Real Windows probe: PowerShell + Get-NetTCPConnection + Get-CimInstance.
 # Emits "PID=<pid>\nCOMMANDLINE=<text>" on success, "UNBOUND" if nothing
 # listens, and exits non-zero on PowerShell failure.
+#
+# Implementation note (2026-07-03): the previous version embedded the
+# PowerShell body inline as `powershell.exe -Command "$ps_script" "$port"`.
+# bash's double-quote expansion of $ps_script / $port inside -Command
+# collided with PowerShell's $-token parser, which silently stripped
+# `$port`, `$args[0]`, `$pidVal`, `$cim` references when the heredoc body
+# was re-passed through bash. The script then exited 1 because `$null -eq $conn`
+# evaluated to a parse error. The fix: write the PS body to a temp .ps1 file
+# and invoke `powershell.exe -NoProfile -File <path> <port>` instead, which
+# bypasses the -Command parser entirely. Fix verified against port 4321
+# (PID 32536, commandline contains astro/4321) and port 3000 (PID 42260,
+# commandline contains apps\api\dist\main).
 probe_process_identity_windows() {
   local port="$1"
-  local ps_script
-  ps_script=$(
-    cat <<'PS_EOF'
-$ErrorActionPreference = 'Stop'
-$port = $args[0]
-$conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-  Select-Object -ExpandProperty OwningProcess
-if ($null -eq $conn) { exit 0 }
-$pidVal = [int]$conn
-$cim = Get-CimInstance Win32_Process -Filter ("ProcessId=" + $pidVal) -ErrorAction SilentlyContinue
-if ($null -eq $cim) { exit 2 }
-Write-Output ("PID=" + $cim.ProcessId)
-Write-Output ("COMMANDLINE=" + $cim.CommandLine)
-exit 0
-PS_EOF
-  )
-  local probe_output
-  # Disable shell `set -e` for this single command so we can capture the
-  # exit code without aborting the script.
+  local probe_tmp
+  probe_tmp="$(mktemp -t uat-preflight-probe.XXXXXX.ps1)"
+  # Use a single-quoted PowerShell here-string literal so the embedded `$`
+  # tokens are preserved verbatim (no bash / PowerShell expansion). Write
+  # through `printf '%s\n'` to avoid any trailing-newline ambiguity.
+  printf '%s\n' \
+    "\$ErrorActionPreference = 'Stop'" \
+    "\$port = \$args[0]" \
+    "\$conn = Get-NetTCPConnection -LocalPort \$port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess" \
+    "if (\$null -eq \$conn) { Write-Output 'UNBOUND'; exit 0 }" \
+    "\$pidVal = [int]\$conn" \
+    "\$cim = Get-CimInstance Win32_Process -Filter (\"ProcessId=\" + \$pidVal) -ErrorAction SilentlyContinue" \
+    "if (\$null -eq \$cim) { Write-Output 'NO_CIM'; exit 2 }" \
+    "Write-Output (\"PID=\" + \$cim.ProcessId)" \
+    "Write-Output (\"COMMANDLINE=\" + \$cim.CommandLine)" \
+    "exit 0" \
+    > "$probe_tmp"
+  local probe_output ps_exit
   set +e
-  probe_output="$(
-    powershell.exe -NoProfile -Command "$ps_script" "$port" 2>&1
-  )"
-  local ps_exit=$?
+  probe_output="$(powershell.exe -NoProfile -File "$probe_tmp" "$port" 2>&1)"
+  ps_exit=$?
   set -e
+  rm -f "$probe_tmp"
+  # PowerShell emits CRLF line endings; strip the trailing \r so downstream
+  # bash pattern matches (notably the ^[0-9]+$ PID regex) accept the value.
+  probe_output="${probe_output//$'\r'/}"
+  # Return the captured output to the caller via stdout. The original
+  # pattern was a stdout echo + `return $ps_exit`; preserve that.
+  printf '%s' "$probe_output"
   return $ps_exit
 }
 
@@ -294,7 +310,17 @@ if [[ -z "$commandline" ]]; then
 fi
 
 # Substring check (case-sensitive — PowerShell preserves original casing).
-if [[ "$commandline" != *"$EXPECTED_SUBSTRING"* ]]; then
+# Normalize both sides for path-separator differences: PowerShell's
+# Win32_Process.CommandLine returns backslashes, but UAT scripts and CI
+# invocations commonly spell expected substrings with forward slashes
+# (e.g. "apps/api"). Without normalization, a forward-slash substring never
+# matches a backslash commandline even though both refer to the same path.
+# We normalize both sides by replacing backslash with forward slash before
+# the glob match. This is a whitespace-safe normalization (no character is
+# dropped or reordered); only the byte `\` is rewritten to `/`.
+commandline_norm="${commandline//\\//}"
+expected_norm="${EXPECTED_SUBSTRING//\\//}"
+if [[ "$commandline_norm" != *"$expected_norm"* ]]; then
   # Truncate to the first 200 chars per the issue's required error shape.
   local_preview="${commandline:0:200}"
   fail "process on :$PORT (PID $pid) is not the expected $SERVICE_NAME. CommandLine: $local_preview"

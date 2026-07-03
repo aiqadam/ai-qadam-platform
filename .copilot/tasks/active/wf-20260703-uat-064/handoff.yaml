@@ -1,0 +1,105 @@
+schema_version: "1.0"
+workflow_instance_id: "wf-20260703-uat-064"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-03T16:30:00Z"
+last_updated_at: "2026-07-03T16:30:00Z"
+
+requirement_ref: "BP-UAT-001"
+requirement_text: "Re-verify BP-UAT-001 (Event Publication Broadcast) end-to-end after ISS-UAT-001-1 fix merged. AC-1/AC-2/AC-3 deferred from wf-20260703-fix-064 must be verified by this workflow. AC-4/AC-5 already verified by fix-064."
+github_issue_url: ""
+
+branch: "uat/BP-UAT-001-event-publication-broadcast"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: "wf-20260703-fix-064"
+  parent_branch: "fix/ISS-UAT-001-1-uat-seed-directus-mirror"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-03T16:30:00Z"
+  spawned_by_issue: "ISS-UAT-001-1"
+  resolution_for_parent: "follow-up-uat-verify"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  business-analyst: 1
+  uat-runner: 2
+  visual-reviewer: 2
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals:
+  - from_feature: "wf-20260703-fix-064"
+    to_feature: "wf-20260703-uat-064"
+    reason: "AC-1/AC-2/AC-3 deferred from wf-20260703-fix-064 — live Docker stack required (Postgres + Authentik + Directus + api). Stack must be brought up by Orchestrator per AGENTS.md §6.1 + .copilot/workflows/uat-verification.md §Step 2 before live tests can run."
+    step: 2
+    timestamp: "2026-07-03T16:30:00Z"
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-001.md
+  - docs/02-business-processes/uat/registry.md
+  - docs/02-business-processes/operations/event-publication-broadcast.md
+  - scripts/uat-seed.sh
+  - scripts/uat-fixtures/BP-UAT-001.json
+  - apps/api/src/modules/internal/internal.controller.ts
+  - apps/api/src/modules/directus/directus-users-bridge.service.ts
+  - .copilot/issues/ISS-UAT-001-1.md
+  - .copilot/tasks/completed/wf-20260703-fix-064/07-test-results.md
+  - .copilot/tasks/completed/wf-20260703-fix-064/09-quality-gate.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260703-uat-064/NEEDS_REVIEW.md"
+
+# ─── Workspace notes (recorded by Orchestrator at Step 0) ──────────────────
+#
+# WSL preflight probe gap (manual verification done here):
+#   scripts/uat-preflight-check.sh fails when bash uname returns "Linux"
+#   because the unix probe is a TODO. We are running bash on WSL2 which
+#   reports as Linux but the api/web processes live on the Windows host.
+#   The script's PowerShell-based probe would work if run directly from
+#   PowerShell, but the Orchestrator's bash-only execution blocks it.
+#
+#   Manual verification completed:
+#     - PowerShell Get-NetTCPConnection confirms api PID 9496 on :3000
+#       with CommandLine = node --enable-source-maps apps/api/dist/main
+#     - PowerShell Get-NetTCPConnection confirms web PID 32536 on :4321
+#       with CommandLine = "C:\Program Files\nodejs\node.exe" ... astro.mjs dev
+#     - curl.exe + Invoke-WebRequest from PowerShell: 200 OK on /health
+#     - All Docker services Up + healthy (except aiqadam-telegram-bot-api
+#       which is "unhealthy" but is not used by BP-UAT-001)
+#
+#   This gap is recorded so QualityGate can validate the verification.
+step_0_workspace_notes:
+  wsl_preflight_gap: "scripts/uat-preflight-check.sh unix probe is TODO; manual verification substituted (PowerShell + curl from Windows host)."
+  docker_state_at_step_0: "Postgres(5433), Directus(8200), Mailpit(8025), Twenty(3010), Authentik(9000), Redis(6379), Minio(9100) — all Up+healthy. aiqadam-telegram-bot-api unhealthy but irrelevant to BP-UAT-001."
+  api_state_at_step_0: "PID 9496 on :3000, CommandLine contains apps/api/dist/main (matches @aiqadam/api substring)."
+  web_state_at_step_0: "PID 32536 on :4321, CommandLine contains astro.mjs dev (matches Astro).
