@@ -22,8 +22,10 @@ engineer. He is learning to code through this project.
 This means:
 - **Explain decisions, don't just make them.** Every non-obvious choice gets a comment
   or a paragraph in the PR description.
-- **Refuse to do things that will hurt the project long-term**, even if the user asks.
-  Tell him why, suggest alternatives.
+- **Critically analyze user requests before acting** — see §13. When a request
+  affects architecture, security, scope, or any non-trivial trade-off, surface
+  the concern, evidence, and a counter-proposal. The user has the final say,
+  but agents MUST NOT silently comply with destructive or irreversible asks.
 - **Default to teaching mode** in explanations. Assume the user knows concepts but may
   not know specific frameworks.
 
@@ -158,6 +160,63 @@ Full details in `docs/04-development/security/security.md`.
   Resolve them properly.
 - **Never write code that you wouldn't want to debug at 3am.**
 - **Never use deprecated APIs** without a comment explaining why and a TODO with date.
+
+---
+
+## 6.2 Autonomous mode defaults (added 2026-07-03)
+
+The user has asked for autonomous workflow execution: agents should
+create branches, open PRs, run CI, auto-merge, update registries, and
+archive task directories **without confirmation prompts** unless a
+safety gate below is tripped. The agent's job is to be visible by
+**doing**, not by asking. The user can read PRs, registry, and
+workspace-state afterward.
+
+### Default behavior (no prompt)
+
+- ✅ Create feature branch from `origin/main`
+- ✅ Commit code, push branch
+- ✅ Open PR with auto-generated body
+- ✅ Auto-merge via `gh pr merge --squash --auto --delete-branch`
+  when CI is green and no required human review is configured
+- ✅ Back-fill merge SHA in issue file + registry
+- ✅ Move `.copilot/tasks/active/<wf-id>` → `.copilot/tasks/completed/<wf-id>`
+- ✅ Update `workspace-state.md`, `next-workflow-id`, `registry.md`
+- ✅ Print a one-line summary at workflow end:
+  `[<wf-id>] PR #N merged (squash SHA). <issue> resolved. <count> queued.`
+
+### Safety gates (agent MUST stop and tell the user)
+
+The agent stops ONLY for these. Everything else is autonomous:
+
+1. **Destructive commands** before running: `rm -rf` outside repo,
+   `git reset --hard`, `git push --force` to `main`, `docker system prune`,
+   `pnpm db:migrate` against prod, anything that deletes or rewrites
+   data outside the working tree.
+2. **CI failures on the open PR.** Stop, name the failing job,
+   propose fix-or-abandon.
+3. **Branch protection rejection** of the auto-merge. Stop, surface the
+   protection rule that blocked, propose bypass-with-override (which
+   the user must authorize).
+4. **Secrets in the diff** detected by `gitleaks` or manual review.
+   Stop, never push.
+5. **Conflicting in-flight work** detected by `git status` not clean
+   or by another workflow's artifacts in `.copilot/tasks/active/`.
+   Stop, ask which workflow takes precedence.
+6. **Unresolvable ambiguity** in the issue ACs (e.g. two conflicting
+   interpretations of an acceptance criterion). Stop with the
+   specific ambiguity quoted.
+
+### Honesty still applies in autonomous mode
+
+- Every deferral MUST have a named+queued follow-up workflow ID
+  (§6.1 unchanged).
+- The QualityGate decision file MUST be written with the AC-by-AC
+  disposition (§6.1 unchanged).
+- `git log` and `gh pr view` are the audit trail. The user reads
+  those, not chat transcripts.
+
+---
 
 ---
 
@@ -395,3 +454,36 @@ When in conflict, this is the order:
 6. **Speed of delivery** — last priority, never compromise the above
 
 If a fast solution is unsafe, unclear, or untestable — it's not a solution. Slow down.
+
+---
+
+## 13. Critical analysis of user requests (added 2026-07-03)
+
+When the user makes a request that affects architecture, security, scope,
+or any non-trivial trade-off, agents MUST:
+
+1. **Analyze** the request critically. Identify:
+   - What goes wrong if we do exactly what the user said
+   - What alternatives achieve the user's goal with less risk
+   - What the model-speed estimate vs. real-world-time estimate looks like
+2. **Present** the analysis to the user in chat before acting. Be specific.
+   Use the structure "Concern / Evidence / Proposal".
+3. **Wait** for the user's response. Do not act until the user either:
+   a) Accepts the proposal, OR
+   b) Explicitly overrides the analysis (e.g. "I understand the risk, do it anyway").
+4. **Record** the override in the PR description under "Risks" — including the
+   date, the user's stated reason, and the agent's original concern.
+
+This rule does not give agents veto power. It gives the user
+**informed consent**. The user's override is final. The agent's job is to
+make the cost of each choice visible, not to block.
+
+The earlier "Refuse to do things that will hurt the project long-term"
+language from §0 is retained ONLY for:
+- Security violations (e.g., hardcoded secrets, missing tenant isolation)
+- Copyright violations
+- AGENTS.md non-overrideable rules (the "What you NEVER do" list in §6)
+- Shell commands the user has not authorized (e.g. `pnpm db:migrate` on prod)
+
+Everything else — design choices, scope, timing, tooling, refactors —
+follows the "analyze, present, wait for override" pattern above.

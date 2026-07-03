@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 (wf-20260703-uat-064 closed — PR #88 squash `ee209fc4` merged; live verification surfaced 3 new open issues [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md), [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md), [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md); counter bumped 65 → 66)
+**Last updated:** 2026-07-03 (wf-20260703-fix-067-coverage-registry closed — `ISS-UAT-COV-001` resolved via `Spec`+`Smoke Overlap` columns in `docs/02-business-processes/uat/registry.md` plus `scripts/gen-bp-uat-coverage.mjs`; 17 follow-up workflows queued in `.copilot/tasks/queued/uat-bp-uat-coverage-batch/`. Counter bumped 67 → 68.)
 
 ---
 
@@ -10,10 +10,11 @@ _(none — all current work resolved/merged. See "Queued follow-up workflows" be
 
 ### Queued follow-up workflows (named in respective ISS files)
 
-- **wf-20260703-fix-065-bridge** — owns [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md); queue position 1; placeholder name (counter will be the next increment after `66`)
+- **wf-20260703-fix-065-bridge** — owns [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md); queue position 1; placeholder name (counter will be the next increment after `68`)
 - **wf-20260703-feat-065-bp-uat-001-spec** — owns [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md); queue position 1
 - **wf-20260703-fix-066-seed-port** — owns [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md); queue position 1
 - **wf-20260703-fix-066-vitest-bump** — owns [ISS-TEST-WEB-001](../issues/ISS-TEST-WEB-001.md); queue position 1; spawned by `wf-20260703-fix-065-onboarding-copy` because ISS-UAT-013-13's AC-3 regression test cannot run until vitest + vite 8 version skew is resolved.
+- **uat-bp-uat-coverage-batch** — 17 workflows queued at `.copilot/tasks/queued/uat-bp-uat-coverage-batch/handoff.yaml`; owned by `wf-20260703-fix-067-coverage-registry`. Position 1 = `wf-20260703-uat-068-pilot-bp-uat-010` (run BP-UAT-010.spec.ts against the live stack). Positions 2–17 = one workflow per remaining BP-UAT script (BP-UAT-002, 003, 004, 005, 006, 007, 008, 011, 012, 014, 015, 016, 017, 018 + BP-UAT-001 from ISS-UAT-COV-003 which has its own outer queue).
 
 ---
 
@@ -22,12 +23,15 @@ _(none — all current work resolved/merged. See "Queued follow-up workflows" be
 - [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md) (blocker, api/directus-bridge) — newly-discovered gap in `ensureLinkedByEmail` (returns `null` for seed users without `platform.users` row); discovered during wf-20260703-uat-064 live verification. Blocks AC-2/3 of [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) from flipping to `verified`.
 - [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md) (enhancement, uat/coverage) — BP-UAT-001 has no Playwright spec (`apps/e2e/tests/uat/BP-UAT-001.spec.ts` not present); out of Path A scope by user choice.
 - [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md) (bug, uat/seed) — `scripts/uat-seed.sh`'s `api_base` default points to port 3001; API listens on 3000 (per `apps/api/.env` `PORT=3000`); seed requires undocumented `API_BASE_URL` export.
+- [ISS-UAT-COV-001](../issues/ISS-UAT-COV-001.md) (RESOLVED 2026-07-03 by wf-20260703-fix-067-coverage-registry) — gap is now sequenced and visible in `registry.md` Spec/Smoke Overlap columns + 17 follow-up workflows queued.
 
 ## Completed Workflows (recent)
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
 | wf-20260703-uat-064 | uat-verification | BP-UAT-001 re-verification (live) — Path A minimal verify; AC-1 partial, AC-2/3 failed (bridge gap), AC-4 deferred (no spec), AC-5 failed (api_base port) | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (squash `ee209fc4`) | 2026-07-03 |
+| wf-20260703-fix-065-onboarding-copy | issue-resolution | ISS-UAT-013-13 OnboardingForm welcome copy | fix/ISS-UAT-013-13-onboarding-copy | [PR #90](https://github.com/tvolodi/aiqadam/pull/90) (squash `e38dd18`) | 2026-07-03 |
+| wf-20260703-fix-067-coverage-registry | issue-resolution | ISS-UAT-COV-001 BP-UAT coverage gap (Spec+Smoke Overlap columns + 17 queued follow-ups); PR #91 open in **draft** mode because main HEAD has pre-existing CI red (ISS-CI-003) — PR's own surface is clean | fix/ISS-UAT-COV-001-coverage-registry | [PR #91](https://github.com/tvolodi/aiqadam/pull/91) (DRAFT; blocked on ISS-CI-003) | 2026-07-03 |
 | wf-20260703-fix-064 | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | [PR #89](https://github.com/tvolodi/aiqadam/pull/89) (squash `2b72f460`) | 2026-07-03 |
 | wf-20260629-fix-039 | issue-resolution | ISS-UAT-013-8 operator_invites.email alignment with seeded Authentik user + Neg 005 | fix/ISS-UAT-013-8-invite-email-match | [PR #71](https://github.com/tvolodi/aiqadam/pull/71) | 2026-06-29 |
 | wf-20260629-fix-038 | issue-resolution | ISS-UAT-013-6 Negative-scenario assertion rule + bats regression test | fix/ISS-UAT-013-6-uat-test-design | [PR #70](https://github.com/tvolodi/aiqadam/pull/70) | 2026-06-29 |
@@ -52,13 +56,13 @@ _(empty — see "Open Issues" above for current status. Kept for delta-only hist
 
 ## Git State
 
-- **Current branch:** main
-- **Last sync with origin:** 2026-07-03 (`ee209fc4` — `chore(uat): wf-20260703-uat-064 — live re-verification of ISS-UAT-001-1 deferred ACs (#88)`)
-- **Pending PRs:** none (PR #75 merged in earlier session, PR #88 merged at 11:47 UTC 2026-07-03, PR #89 merged at earlier time, PR #60 #65–#71 #87 all merged by 2026-06-29)
+- **Current branch:** main (workflow archived; branch `fix/ISS-UAT-COV-001-coverage-registry` is HEAD with the DRAFT PR)
+- **Last sync with origin:** 2026-07-03 (`bfcd45c` — `chore(workflow): finalize artifacts for ISS-UAT-COV-001` on `fix/ISS-UAT-COV-001-coverage-registry`)
+- **Pending PRs:** [PR #91](https://github.com/tvolodi/aiqadam/pull/91) (DRAFT, blocked on ISS-CI-003)
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: `66` — incremented from `65` after `wf-20260703-uat-064` close). The next workflow should pick counter `66`; if a queued follow-up (see Active Workflows above) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation.
+See `.copilot/meta/next-workflow-id` (currently: `68` — incremented from `67` after `wf-20260703-fix-067-coverage-registry` close). The next workflow should pick counter `68`; if a queued follow-up (see Active Workflows above) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation.
 
 ---
 

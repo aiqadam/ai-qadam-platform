@@ -1,0 +1,66 @@
+# Handoff — wf-20260703-fix-067-coverage-registry
+# Issue-resolution workflow: ISS-UAT-COV-001 (BP-UAT coverage registry)
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260703-fix-067-coverage-registry"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-03T18:30:00Z"
+last_updated_at: "2026-07-03T18:30:00Z"
+
+requirement_ref: "ISS-UAT-COV-001"
+requirement_text: |
+  Resolve ISS-UAT-COV-001: extend BP-UAT registry with auto-generated
+  Spec / Smoke-overlap columns; provide a single PR that closes the
+  meta-coverage problem (no inventory, no sequencing, no overlap map)
+  without faking all 18 specs as authored. Include a pilot: one new
+  BP-UAT-010 spec authored end-to-end so the pipeline is proven.
+  Queue the remaining 16 specs as follow-up workflows.
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-COV-001-coverage-registry"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step-0-init:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T18:30:00Z"
+    summary: "Branch fix/ISS-UAT-COV-001-coverage-registry created from origin/main; counter bumped 67→68; handoff.yaml written."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-067-coverage-registry/handoff.yaml"
+
+agent_assignments: {}
+
+# ─── Files modified by this workflow (filled in Step 4) ─────────────────────
+files_modified: []
+
+# ─── Deferrals / Honest disclosures (per AGENTS.md §6.1) ────────────────────
+deferrals: []
+
+# ─── Subworkflows spawned by this workflow (queued) ──────────────────────────
+issues_created:
+  - "wf-20260703-uat-068-pilot-bp-uat-010 (queued; position 1)"
+
+# ─── Workflow mode (autonomous, per AGENTS.md §6.2) ──────────────────────────
+merge_mode: "auto"

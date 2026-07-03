@@ -1,0 +1,49 @@
+# Handoff — uat-bp-uat-coverage-batch (sequenced sub-workflows for missing BP-UAT specs)
+#
+# Issued by: wf-20260703-fix-067-coverage-registry (ISS-UAT-COV-001)
+# Purpose:   17 follow-up `uat-verification` (or `issue-resolution`) workflows,
+#            one per BP-UAT script without a Playwright spec at the time of this PR.
+#            Each workflow will: (a) extend seed fixtures as needed,
+#            (b) author the Playwright spec under apps/e2e/tests/uat/BP-UAT-NNN.spec.ts,
+#            (c) run UATRunner live and either pass or register new issues.
+#
+# Honesty disclosure (AGENTS.md §6.1): these are *follow-up workflows*. The 17
+# scripts below do NOT have running Playwright specs at the time this PR merges.
+# Each one is a real chunk of work (a spec + live run + triage); please don't
+# optimistically mark BP-UAT-NN as "Implemented" in registry.md until its spec
+# actually exists and has been executed.
+#
+# Priority order (matches `registry.md` "Execution order recommendation" section
+# where it exists, with BP-UAT-013 already Done so omitted here):
+#
+# | Pos | Workflow placeholder          | BP-UAT | Topic                          | Owned Issue  | Pilot Reason |
+# |-----|-------------------------------|--------|--------------------------------|--------------|-------------|
+# | 1   | wf-20260703-uat-068-pilot-bp-uat-010 | BP-UAT-010 | Event registration flow        | ISS-UAT-COV-003 (parent: COV-001) | Pilot for this workflow; spec included in this PR |
+# | 2   | wf-20260704-uat-069-bp-uat-011 | BP-UAT-011 | QR check-in                    | ISS-UAT-COV-001 | After registration (BP-UAT-010) — uses the same registration rows |
+# | 3   | wf-20260704-uat-070-bp-uat-012 | BP-UAT-012 | Points engine + leaderboard    | ISS-UAT-COV-001 | Needs registration + check-in rows first |
+# | 4   | wf-20260705-uat-071-bp-uat-014 | BP-UAT-014 | Waitlist management            | ISS-UAT-COV-001 | Run before cancellation (BP-UAT-015) reuses same cancel endpoint |
+# | 5   | wf-20260705-uat-072-bp-uat-015 | BP-UAT-015 | Registration cancellation      | ISS-UAT-COV-001 | Consumes confirmed registration from BP-UAT-010 |
+# | 6   | wf-20260706-uat-073-bp-uat-002 | BP-UAT-002 | Operator event control panel   | ISS-UAT-COV-001 | Operator surface; independent |
+# | 7   | wf-20260706-uat-074-bp-uat-003 | BP-UAT-003 | Member self-service profile    | ISS-UAT-COV-001 | Independent member surface |
+# | 8   | wf-20260706-uat-075-bp-uat-004 | BP-UAT-004 | Operator cohort builder        | ISS-UAT-COV-001 | Operator surface |
+# | 9   | wf-20260707-uat-076-bp-uat-005 | BP-UAT-005 | Operator announce composer     | ISS-UAT-COV-001 | Operator surface |
+# | 10  | wf-20260707-uat-077-bp-uat-016 | BP-UAT-016 | Member referral programme      | ISS-UAT-COV-001 | Independent; fresh member context |
+# | 11  | wf-20260708-uat-078-bp-uat-006 | BP-UAT-006 | Event CSAT                     | ISS-UAT-COV-001 | Cron-style capture + operator surface |
+# | 12  | wf-20260708-uat-079-bp-uat-001 | BP-UAT-001 | Event publication broadcast    | ISS-UAT-COV-003 (process verification deferred by uat-064) | Already partially run via wf-20260703-uat-064; spec still missing |
+# | 13  | wf-20260709-uat-080-bp-uat-007 | BP-UAT-007 | Pre-event reminder cron        | ISS-UAT-COV-001 | Cron; depends on time-sensitive seed |
+# | 14  | wf-20260709-uat-081-bp-uat-008 | BP-UAT-008 | Speaker pipeline + post-event cron | ISS-UAT-COV-001 | Cron |
+# | 15  | wf-20260710-uat-082-bp-uat-017 | BP-UAT-017 | Pre-event member matching (T-7) | ISS-UAT-COV-001 | Cron; time-sensitive seed |
+# | 16  | wf-20260710-uat-083-bp-uat-018 | BP-UAT-018 | Lead nurture cron              | ISS-UAT-COV-001 | Cron |
+# | 17  | wf-20260711-uat-084-bp-uat-000 | BP-UAT-000 | UAT environment setup + health check | ISS-UAT-COV-001 | Must pass first per registry's own execution-order note — re-validated per-script workflow |
+
+# Actual IDs will be assigned at workflow start by reading
+# .copilot/meta/next-workflow-id and incrementing. The wf-IDs above are
+# placeholders. The Orchestrator MUST verify there is no ID collision with
+# any in-flight workflow before assignment.
+
+parent_link:
+  parent_workflow_id: "wf-20260703-fix-067-coverage-registry"
+  parent_branch: "fix/ISS-UAT-COV-001-coverage-registry"
+  spawned_at: "2026-07-03T18:30:00Z"
+  spawned_by_issue: "ISS-UAT-COV-001"
+  resolution_for_parent: "fix-and-rebase"

@@ -5,27 +5,27 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 
 ## Scripts
 
-| Code | Name | Process Ref | Status | Last Run | Run Status | Open Issues |
-|---|---|---|---|---|---|---|
-| [BP-UAT-000](BP-UAT-000.md) | UAT environment setup and health check | [infrastructure/runbooks/](../../04-development/infrastructure/runbooks/) | Ready | — | — | — |
-| [BP-UAT-001](BP-UAT-001.md) | Event publication broadcast | [event-publication-broadcast.md](../operations/event-publication-broadcast.md) | Ready | 2026-07-03 | partial | [ISS-UAT-001-1](../../../.copilot/issues/ISS-UAT-001-1.md), [ISS-UAT-BRIDGE-001](../../../.copilot/issues/ISS-UAT-BRIDGE-001.md), [ISS-UAT-SEED-002](../../../.copilot/issues/ISS-UAT-SEED-002.md), [ISS-UAT-COV-003](../../../.copilot/issues/ISS-UAT-COV-003.md) |
-| [BP-UAT-002](BP-UAT-002.md) | Operator event control panel | [operator-event-control.md](../operations/operator-event-control.md) | Ready | — | — | — |
-| [BP-UAT-003](BP-UAT-003.md) | Member self-service profile | [member-profile.md](../operations/member-profile.md) | Ready | — | — | — |
-| [BP-UAT-004](BP-UAT-004.md) | Operator cohort builder | [operator-cohort-builder.md](../operations/operator-cohort-builder.md) | Ready | — | — | — |
-| [BP-UAT-005](BP-UAT-005.md) | Operator announce composer | [operator-announce-composer.md](../operations/operator-announce-composer.md) | Ready | — | — | — |
-| [BP-UAT-006](BP-UAT-006.md) | Event CSAT — capture and operator surface | [event-csat.md](../operations/event-csat.md) | Ready | — | — | — |
-| [BP-UAT-007](BP-UAT-007.md) | Pre-event reminder cron | [event-pre-event-reminders.md](../operations/event-pre-event-reminders.md) | Ready | — | — | — |
-| [BP-UAT-008](BP-UAT-008.md) | Speaker pipeline and post-event cron | [event-speaker-pipeline.md](../operations/event-speaker-pipeline.md) | Ready | — | — | — |
-| [BP-UAT-009](BP-UAT-009.md) | Auth sign-in and sign-out | [FR-AUTH-001](../../03-requirements/FR-AUTH-001.md) | Implemented | 2026-07-02 | partial | [ISS-UAT-009-1](../../../.copilot/issues/ISS-UAT-009-1.md), [ISS-UAT-009-2](../../../.copilot/issues/ISS-UAT-009-2.md), [ISS-UAT-009-3](../../../.copilot/issues/ISS-UAT-009-3.md), [ISS-UAT-009-4](../../../.copilot/issues/ISS-UAT-009-4.md) |
-| [BP-UAT-010](BP-UAT-010.md) | Event registration flow | [FR-REG-001](../../03-requirements/FR-REG-001.md) | Ready | — | — | — |
-| [BP-UAT-011](BP-UAT-011.md) | QR check-in | [FR-REG-004](../../03-requirements/FR-REG-004.md) | Ready | — | — | — |
-| [BP-UAT-012](BP-UAT-012.md) | Points engine and leaderboard | [FR-GAM-001](../../03-requirements/FR-GAM-001.md) | Ready | — | — | — |
-| [BP-UAT-013](BP-UAT-013.md) | Member signup and operator onboarding | [FR-USR-001](../../03-requirements/FR-USR-001.md) | Implemented | 2026-07-02 | partial | [ISS-UAT-013-12](../../../.copilot/issues/ISS-UAT-013-12.md), [ISS-UAT-013-13](../../../.copilot/issues/ISS-UAT-013-13.md) |
-| [BP-UAT-014](BP-UAT-014.md) | Waitlist management | [FR-REG-002](../../03-requirements/FR-REG-002.md) | Ready | — | — | — |
-| [BP-UAT-015](BP-UAT-015.md) | Registration cancellation | [FR-REG-003](../../03-requirements/FR-REG-003.md) | Ready | — | — | — |
-| [BP-UAT-016](BP-UAT-016.md) | Member referral programme | [member-referrals.md](../operations/member-referrals.md) | Ready | — | — | — |
-| [BP-UAT-017](BP-UAT-017.md) | Pre-event member matching (T-7) | [event-member-matches.md](../operations/event-member-matches.md) | Ready | — | — | — |
-| [BP-UAT-018](BP-UAT-018.md) | Lead nurture cron | [lead-nurture.md](../operations/lead-nurture.md) | Ready | — | — | — |
+| Code | Name | Process Ref | Status | Last Run | Run Status | Open Issues | Spec | Smoke Overlap |
+|---|---|---|---|---|---|---|---|---|---|
+| [BP-UAT-000](BP-UAT-000.md) | UAT environment setup and health check | — | — |
+| [BP-UAT-001](BP-UAT-001.md) | Event publication broadcast | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
+| [BP-UAT-002](BP-UAT-002.md) | Operator event control panel | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+14 more |
+| [BP-UAT-003](BP-UAT-003.md) | Member self-service profile | — | <br>smoke-me-profile.spec.ts<br>smoke-workspace-members.spec.ts |
+| [BP-UAT-004](BP-UAT-004.md) | Operator cohort builder | — | — |
+| [BP-UAT-005](BP-UAT-005.md) | Operator announce composer | — | <br>smoke-workspace-announce.spec.ts |
+| [BP-UAT-006](BP-UAT-006.md) | Event CSAT — capture and operator surface | — | <br>smoke-csat.spec.ts<br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>+6 more |
+| [BP-UAT-007](BP-UAT-007.md) | Pre-event reminder cron | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
+| [BP-UAT-008](BP-UAT-008.md) | Speaker pipeline and post-event cron | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+5 more |
+| [BP-UAT-009](BP-UAT-009.md) | Auth sign-in and sign-out | [BP-UAT-009.spec.ts](../../../../apps/e2e/tests/uat/BP-UAT-009.spec.ts) | <br>smoke-auth-gates.spec.ts<br>smoke-me-profile.spec.ts<br>smoke-workspace-members.spec.ts |
+| [BP-UAT-010](BP-UAT-010.md) | Event registration flow | [BP-UAT-010.spec.ts](../../../../apps/e2e/tests/uat/BP-UAT-010.spec.ts) | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+3 more |
+| [BP-UAT-011](BP-UAT-011.md) | QR check-in | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
+| [BP-UAT-012](BP-UAT-012.md) | Points engine and leaderboard | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts |
+| [BP-UAT-013](BP-UAT-013.md) | Member signup and operator onboarding | [BP-UAT-013-signup.spec.ts](../../../../apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts) | <br>smoke-lead-nurture.spec.ts<br>smoke-leads.spec.ts<br>smoke-onboarding.spec.ts<br>+1 more |
+| [BP-UAT-014](BP-UAT-014.md) | Waitlist management | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
+| [BP-UAT-015](BP-UAT-015.md) | Registration cancellation | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
+| [BP-UAT-016](BP-UAT-016.md) | Member referral programme | — | <br>smoke-referrals.spec.ts<br>smoke-workspace-members.spec.ts |
+| [BP-UAT-017](BP-UAT-017.md) | Pre-event member matching (T-7) | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts |
+| [BP-UAT-018](BP-UAT-018.md) | Lead nurture cron | — | <br>smoke-lead-nurture.spec.ts<br>smoke-leads.spec.ts |
 
 ## Status legend
 
@@ -40,6 +40,29 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 - **partial** — some steps passed, some failed; issues registered
 - **failed** — majority of steps failed; issues registered
 - **—** — never run
+
+## Spec / Smoke Overlap columns (auto-generated)
+
+These two columns are populated by `scripts/gen-bp-uat-coverage.mjs`
+(Section 6.1, FR-WORKFLOW-002). Run `node scripts/gen-bp-uat-coverage.mjs --write`
+after any test-rename or test-add to keep the table in sync — do not edit
+the cells by hand. The script is idempotent.
+
+### Spec legend
+
+- `<name>.spec.ts` — link to the BP-UAT Playwright spec under
+  `apps/e2e/tests/uat/`. The Spec is **authored**, not necessarily **passing**.
+  Pass/fail lives in the `Run Status` column from UATRunner's last execution.
+- **—** — no Playwright spec authored yet. Authoring is owned by the queued
+  follow-up workflows (see `.copilot/tasks/queued/uat-bp-uat-coverage-batch/`).
+
+### Smoke Overlap legend
+
+- A short list of `smoke-*.spec.ts` files whose name overlaps a topic word
+  in the BP-UAT's domain. This is **heuristic** — never a substitute for
+  cross-checking the script text. A non-empty list does NOT mean the smoke
+  spec exercises the BP-UAT end-to-end; it is a reading hint only.
+- **—** — no obvious topical overlap.
 
 ## Notes
 
