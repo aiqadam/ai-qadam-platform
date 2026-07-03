@@ -51,6 +51,46 @@ Every tick still has a corresponding `POST /v1/internal/<name>/tick` endpoint pr
 - Manually re-run a failed-and-retried tick after a fix
 - Smoke-test a freshly-deployed tick before waiting for the next scheduled fire
 
+## Provisioning endpoints (non-tick)
+
+Not every `/v1/internal/...` route is a tick. A small, separate class of
+**action endpoints** is mounted on the same `InternalController` (same
+`InternalAuthGuard`, same `x-internal-auth: ${INTERNAL_API_TOKEN}` header)
+and used for **idempotent provisioning that bypasses a round-trip through
+the public OIDC callback**.
+
+The canonical example is:
+
+| Endpoint | Purpose | Used by |
+|---|---|---|
+| `POST /v1/internal/users/ensure-linked` | Look up a local user by email and link / create the matching `directus_users` row (delegates to `DirectusUsersBridgeService.ensureLinkedByEmail` → existing `ensureLinked`). Returns `{directusUserId}` or `null`. | `scripts/uat-seed.sh` `ensure_test_user()` — provisions every freshly-added STEP-3 identity fixture into Directus during `--reset` so domain fixtures (events, registrations, `operator_invites`, ...) have a real `directus_user_id` foreign key to point at. |
+
+### When to prefer an action endpoint over the OIDC callback
+
+The public OIDC callback (`/v1/auth/callback` → `upsertByAuthentikSubject`
+→ `ensureLinked`, documented in `docs/02-business-processes/operations/lead-nurture.md`)
+is the right path for **interactive user sign-in**. The action endpoint
+is the right path when:
+
+- A provisioning script (e.g. `uat-seed.sh`) needs to materialize a
+  Directus row for a user that never logs in during the script.
+- An operator-cabinet job needs to repair a missing `directus_user_id`
+  without forcing the affected user to sign out and back in.
+- A backfill needs to run idempotently across many users in one pass
+  (the callback path is one-user-per-sign-in by definition).
+
+### Conventions
+
+- Mounted on the same `InternalController` with the same
+  `InternalAuthGuard`. No separate auth surface to audit.
+- Body validated with Zod (matches the rest of the API's input rules —
+  see `docs/04-development/security/security.md` §Input validation).
+- **Idempotent by design.** Repeated calls with the same `email` are
+  safe and return the same `directusUserId`. Never name a non-idempotent
+  action endpoint under `/v1/internal/...`.
+- **Not exposed to browser traffic.** No CORS allowance, no public docs
+  entry in `apps/api` OpenAPI — internal clients only.
+
 ## Multi-replica safety
 
 When we scale `aiqadam-api` past 1 replica, the Redis SET-NX lock ensures only one replica runs each tick per fire. No additional config needed. The lock TTL means a crashed replica's lock auto-releases.

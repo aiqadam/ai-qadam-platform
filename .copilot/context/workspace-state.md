@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 (wf-20260703-uat-063, NEEDS_REVIEW + wf-20260703-fix-064 queued)
+**Last updated:** 2026-07-03 (wf-20260703-fix-064 PR #89 open, pending Step 12.5 merge; wf-20260703-uat-063 still NEEDS_REVIEW; wf-20260703-uat-064 queued as BP-UAT-001 re-verification follow-up for AC-1/2/3)
 
 ---
 
@@ -11,15 +11,13 @@
 | wf-20260630-fix-043 | issue-resolution | ISS-UAT-013-9 email_verified guard | fix/ISS-UAT-013-9-lead-verified-guard | [PR #75](https://github.com/tvolodi/aiqadam/pull/75) | 2026-06-30 |
 | wf-20260703-fix-060 | issue-resolution | ISS-UAT-013-12 Neg 004 spec React-18 state-commit race (setReactInputValue + form.requestSubmit) | fix/ISS-UAT-013-12-neg-004-react-race | <pending> | 2026-07-03 |
 | wf-20260703-uat-063 | uat-verification | BP-UAT-001 Event publication broadcast | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (needs-review, not mergeable until ISS-UAT-001-1 fixed) | 2026-07-03 |
-| wf-20260703-fix-064 (queued) | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | <pending> | 2026-07-03 |
+| wf-20260703-fix-064 | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | [PR #89](https://github.com/tvolodi/aiqadam/pull/89) (Step 12.5 merge pending) | 2026-07-03 |
 
 ---
 
 ## Open Issues
 
-- [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) — `uat-seed.sh` cannot mirror new Authentik identity fixtures into Directus (OIDC bridge only fires on `/v1/auth/callback`). Blocks BP-UAT-001 seed step. Queued: `wf-20260703-fix-064`.
-
----
+- _(none — ISS-UAT-001-1 resolved by wf-20260703-fix-064; PR #89 open; AC-1/2/3 deferred to wf-20260703-uat-064)_
 
 ## Completed Workflows (recent)
 
@@ -42,11 +40,9 @@
 
 ---
 
-## Open Issues
+## Open Issues (legacy)
 
-- [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) — `uat-seed.sh` cannot mirror new Authentik identity fixtures into Directus (OIDC bridge only fires on `/v1/auth/callback`). Blocks BP-UAT-001 seed step. Queued: `wf-20260703-fix-064`.
-
----
+_(empty — see "Open Issues" above for current status. Kept for delta-only history.)_
 
 ## Git State
 

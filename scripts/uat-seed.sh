@@ -214,6 +214,57 @@ directus_user_pk_by_email() {
     | jq -r '.data[0].id // empty' 2>/dev/null || true
 }
 
+# ── Ensure a local user is mirrored into directus_users via the api ──────────
+# ISS-UAT-001-1 — bridges Authentik admin user-creation (which does NOT
+# trigger apps/api/src/modules/directus/directus-users-bridge.service.ts's
+# ensureLinked path, because that path only fires from the OIDC callback
+# at apps/api/src/modules/auth/auth.controller.ts:148) into the same
+# idempotent Directus mirror. Posts {email, displayName} to the api's
+# internal endpoint POST /v1/internal/users/ensure-linked, which
+# delegates back to DirectusUsersBridgeService.ensureLinkedByEmail.
+#
+# In mock mode (UAT_SEED_DIRECTUS_MOCK=1) prints a deterministic
+# `ensure_linked <email> (mock, directus_user_id=mock-uuid)` line and
+# returns 0 so the bats regression can grep the invariant from stdout
+# without a live api/Directus stack.
+#
+# Args: <email> <display_name_or_empty>
+# Echoes nothing on success (the api response body is consumed but not
+# surfaced to the caller — ensure_test_user treats a non-zero exit as
+# a hard failure, which is the only signal it needs).
+api_ensure_directus_user_link() {
+  local email="$1" display_name="${2:-}"
+
+  if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+    ok "ensure_linked ${email} (mock, directus_user_id=mock-uuid)"
+    return 0
+  fi
+
+  local api_base="${API_BASE_URL:-http://localhost:3001}"
+  local token
+  token=$(env_get "$API_DIR/.env" "INTERNAL_API_TOKEN")
+  [[ -n "$token" ]] || fail "api_ensure_directus_user_link: INTERNAL_API_TOKEN missing from apps/api/.env (run scripts/uat-env-setup.sh)"
+
+  local body http_code resp
+  body=$(jq -nc \
+    --arg e "$email" \
+    --arg n "$display_name" \
+    '{email:$e, displayName:$n}')
+  resp=$(curl -s \
+    -H "x-internal-auth: ${token}" \
+    -H "Content-Type: application/json" \
+    -X POST -w "\n%{http_code}" \
+    "${api_base}/v1/internal/users/ensure-linked" \
+    -d "$body" 2>/dev/null)
+  http_code="${resp##*$'\n'}"
+
+  if [[ "$http_code" != "200" ]]; then
+    fail "api_ensure_directus_user_link: POST /v1/internal/users/ensure-linked returned HTTP ${http_code} for ${email} — ${resp%$'\n'*}"
+  fi
+
+  ok "ensure_linked ${email} (directus_user_id=$(printf '%s' "${resp%$'\n'*}" | jq -r '.directusUserId // "null"'))"
+}
+
 # ── Look up Authentik group pk by name (empty if not found) ───────────────────
 group_pk_by_name() {
   local ak_url="$1" token="$2" name="$3"
@@ -229,6 +280,22 @@ group_pk_by_name() {
 ensure_test_user() {
   local ak_url="$1" token="$2" username="$3" email="$4" name="$5"
   local password="$6" groups_csv="$7"
+
+  # ISS-UAT-001-1 — mock-mode short-circuit so the new STEP 3 wiring
+  # (which now routes through ensure_test_user even in mock mode) can
+  # emit the same `user X (mock)` line that the old dedicated mock
+  # branch in STEP 3 used to print. This preserves the exact byte
+  # sequence that the existing FR-WORKFLOW-003 AC-6 baseline-equality
+  # bats test (which diffs against `git show HEAD:scripts/uat-seed.sh`)
+  # asserts on — so this fix is non-breaking for that test, AND
+  # additionally emits the ensure_linked mock line further down.
+  if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+    ok "user ${username} (mock)"
+    # Still exercise the new ensure-linked helper so bats can grep its
+    # mock-mode output line. Group-assignment is a no-op in mock mode.
+    api_ensure_directus_user_link "$email" "$name"
+    return 0
+  fi
 
   local pk
   pk=$(user_pk_by_username "$ak_url" "$token" "$username")
@@ -293,6 +360,16 @@ ensure_test_user() {
       ok "${username} → groups: ${groups_csv}"
     fi
   fi
+
+  # ISS-UAT-001-1 — after Authentik user + group state is known-good,
+  # mirror the local user into directus_users via the api's internal
+  # endpoint. Runs unconditionally (even when no groups were assigned),
+  # because the OIDC callback path is the only other trigger for
+  # DirectusUsersBridgeService.ensureLinked and seed never goes through
+  # that path. Failure is hard (fail()) — without this, the consent-row
+  # FK lookup in reset_domain_fixture() cannot resolve the member_email
+  # and BP-UAT-001's seed aborts (the original ISS-UAT-001-1 symptom).
+  api_ensure_directus_user_link "$email" "$name"
 }
 
 # ── Portable SHA-256 hex hash ────────────────────────────────────────────────
@@ -832,9 +909,22 @@ fi
 # ── STEP 3 — Authentik test users ─────────────────────────────────────────────
 echo ""
 echo "[3/4] Creating Authentik test users…"
+# ISS-UAT-001-1 — in mock mode we still go through ensure_test_user()
+# (passing the empty $AK_URL/$AK_TOKEN is fine; ensure_test_user's mock
+# branches short-circuit before any HTTP call). This way the new
+# api_ensure_directus_user_link() call inside ensure_test_user also runs
+# in mock mode and emits the `ensure_linked <email> (mock, …)` line —
+# which is exactly the invariant the new bats tests pin.
 if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
-  ok "user uat-member (mock)"
-  ok "user uat-operator (mock)"
+  ensure_test_user \
+    "${AK_URL:-http://localhost:9000}" "${AK_TOKEN:-}" \
+    "uat-member" "$MEMBER_EMAIL" "UAT Member" \
+    "$MEMBER_PASSWORD" "aiqadam-member"
+
+  ensure_test_user \
+    "${AK_URL:-http://localhost:9000}" "${AK_TOKEN:-}" \
+    "uat-operator" "$OPERATOR_EMAIL" "UAT Operator" \
+    "$OPERATOR_PASSWORD" "aiqadam-super-admin"
 else
   AK_TOKEN=$(get_ak_admin_token "$AK_URL" "$AK_CONTAINER")
   [[ -n "$AK_TOKEN" ]] || fail "Failed to obtain Authentik admin token"

@@ -76,6 +76,30 @@ Step 2 pre-flight). Human operators re-running a single BP-UAT locally.
    ordering, localhost guard, unknown BP-UAT id (exit non-zero),
    `--reset all` iteration.
 
+   **Live reset pre-condition (added 2026-07-03 via ISS-UAT-001-1):
+   the reset path now requires a working api endpoint
+   `POST /v1/internal/users/ensure-linked` (gated by
+   `INTERNAL_API_TOKEN` via the `x-internal-auth` header) to provision
+   every freshly-added STEP-3 identity fixture in `directus_users`
+   before domain fixtures can reference them by FK. The endpoint
+   delegates to `DirectusUsersBridgeService.ensureLinkedByEmail`, which
+   looks up the local user by email and reuses the existing
+   `ensureLinked()` OIDC-style mapping. Under
+   `UAT_SEED_DIRECTUS_MOCK=1` the live call is short-circuited and a
+   stub line is emitted instead — so the bats suite can exercise the
+   seed code path (manifest parsing, ordering, localhost guard, ...)
+   without bringing up the api / Directus stack. Mock-mode bats
+   coverage is the *contract*; live-mode verification is the
+   responsibility of `wf-20260703-uat-064` (uat-verification of the
+   actual reset against the local stack). This provisioning endpoint
+   is a **parallel** path to the OIDC callback's `ensureLinked`
+   (documented in `docs/02-business-processes/operations/lead-nurture.md`)
+   — it exists so `uat-seed.sh` can materialize `directus_users` rows
+   for users that never log in during the script, without forcing an
+   OIDC round-trip. Runbook entry:
+   `docs/04-development/infrastructure/runbooks/internal-cron.md`
+   §"Provisioning endpoints (non-tick)".
+
 ## Acceptance criteria
 
 - [x] AC-1: Running the same BP-UAT twice in a row (seed --reset between

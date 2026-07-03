@@ -250,22 +250,47 @@ teardown() {
   # The --reset branch is an early-exit branch that runs BEFORE the
   # unconditional STEP 1-4 flow (see uat-seed.sh's CLI dispatch comment at
   # the '--reset dispatch' section) — it must not change no-flag behavior
-  # at all. HEAD is the commit this feature branch was created from (no
-  # uncommitted change to uat-seed.sh predates this workflow), so
-  # `git show HEAD:scripts/uat-seed.sh` is a faithful pre-FR-WORKFLOW-003
-  # snapshot of this exact script for this branch's entire lifetime up to
-  # merge — the same comparison CodeDeveloper's self-validation performed
-  # manually (03-code-summary.md, Self-Validation section).
+  # at all.
+  #
+  # ISS-UAT-001-1 note: this fix necessarily adds 2 new mock-mode
+  # `ensure_linked <email> (mock, …)` lines (one per identity fixture in
+  # STEP 3). The baseline-equality test below would fail as-written, so
+  # we instead assert structural invariants of the diff: the new
+  # ensure_linked lines are exactly +2 lines vs the pre-FR baseline, and
+  # every other byte is unchanged. This preserves the regression intent
+  # ("nothing else changed silently") while accommodating the documented
+  # ISS-UAT-001-1 output addition.
+  # The baseline is the pre-ISS-UAT-001-1 version of uat-seed.sh.
+  # We compare against origin/main (the merge-base of this fix branch)
+  # rather than HEAD, because HEAD includes the fix under test.
+  # If origin/main is unreachable (e.g. no network), we fall back to
+  # the parent of the commit that introduced the fix (8db37ac^).
   local baseline="$BATS_TEST_TMPDIR/baseline-uat-seed.sh"
-  run bash -c "cd '$REPO_ROOT' && git show HEAD:scripts/uat-seed.sh > '$baseline'"
+  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    run bash -c "cd '$REPO_ROOT' && git show origin/main:scripts/uat-seed.sh > '$baseline'"
+  else
+    run bash -c "cd '$REPO_ROOT' && git show 8db37ac^:scripts/uat-seed.sh > '$baseline'"
+  fi
   [ "$status" -eq 0 ]
   [ -s "$baseline" ]
 
-  local baseline_output current_output
+  local baseline_output current_output baseline_lines current_lines
   baseline_output=$(UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$baseline" 2>&1)
   current_output=$(UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1)
 
-  [ "$baseline_output" = "$current_output" ]
+  # Exact +2 line delta from the two new ensure_linked mock lines
+  # (one per identity fixture: uat-member + uat-operator).
+  baseline_lines=$(echo "$baseline_output" | wc -l)
+  current_lines=$(echo "$current_output" | wc -l)
+  [ "$((current_lines - baseline_lines))" -eq 2 ]
+
+  # Every non-ensure_linked line from the baseline is present, byte-for-byte,
+  # in the current output. This is the load-bearing regression check.
+  local non_ensure_lines
+  non_ensure_lines=$(echo "$baseline_output" | grep -vE 'ensure_linked .*\(mock, directus_user_id=mock-uuid\)' || true)
+  local current_non_ensure_lines
+  current_non_ensure_lines=$(echo "$current_output" | grep -vE 'ensure_linked .*\(mock, directus_user_id=mock-uuid\)' || true)
+  [ "$non_ensure_lines" = "$current_non_ensure_lines" ]
 }
 
 # ─── Row 7: member_email FK resolution — success ──────────────────────────────
@@ -373,4 +398,51 @@ teardown() {
   [ -n "$step2" ]
   echo "$step2" | grep -qE 'reset <BP-UAT-NNN>'
   echo "$step2" | grep -qE 'failed-escalate'
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ISS-UAT-001-1 — ensure_test_user() now POSTs to the api's new
+# /v1/internal/users/ensure-linked endpoint so newly-provisioned Authentik
+# users are mirrored into directus_users before the consent-row FK lookup
+# runs. In mock mode (UAT_SEED_DIRECTUS_MOCK=1) the api_ensure_directus_user_link
+# helper emits one `ensure_linked <email> (mock, directus_user_id=mock-uuid)`
+# line per identity fixture.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@test "ISS-UAT-001-1: ensure_test_user emits one ensure_linked mock line per identity fixture" {
+  # STEP 3 of uat-seed.sh runs ensure_test_user for two identities
+  # (uat-member + uat-operator). Each call now also invokes
+  # api_ensure_directus_user_link, which in mock mode prints one
+  # `ensure_linked <email> (mock, directus_user_id=mock-uuid)` line.
+  # Total expected: 2 lines.
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
+  [ "$status" -eq 0 ]
+  local count
+  count=$(echo "$output" | grep -cE 'ensure_linked .*\(mock, directus_user_id=mock-uuid\)' || true)
+  [ "$count" -eq 2 ]
+}
+
+@test "ISS-UAT-001-1: ensure_linked mock line carries the right email per identity" {
+  # Strengthens the previous test: the two ensure_linked lines must
+  # reference the right emails (one per identity that STEP 3
+  # provisions). uat-member's email is `uat-member@aiqadam.test`,
+  # uat-operator's is `uat-operator@aiqadam.test`.
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
+  [ "$status" -eq 0 ]
+  local member_lines operator_lines
+  member_lines=$(echo "$output" | grep -cE 'ensure_linked uat-member@aiqadam\.test \(mock, directus_user_id=mock-uuid\)' || true)
+  operator_lines=$(echo "$output" | grep -cE 'ensure_linked uat-operator@aiqadam\.test \(mock, directus_user_id=mock-uuid\)' || true)
+  [ "$member_lines" -eq 1 ]
+  [ "$operator_lines" -eq 1 ]
+}
+
+@test "ISS-UAT-001-1: api_ensure_directus_user_link helper is structurally present in uat-seed.sh" {
+  # Structural regression: the helper function must exist (not just
+  # the inline mock line) so the live-mode curl + token path stays
+  # available. The bats above cover the mock branch; this guards the
+  # function definition itself from a future refactor that accidentally
+  # inlines the mock line and drops the live-mode code path.
+  grep -qE '^api_ensure_directus_user_link\(\)' "$REPO_ROOT/scripts/uat-seed.sh"
+  grep -qE 'INTERNAL_API_TOKEN' "$REPO_ROOT/scripts/uat-seed.sh"
+  grep -qE '/v1/internal/users/ensure-linked' "$REPO_ROOT/scripts/uat-seed.sh"
 }

@@ -32,7 +32,7 @@
 | [ISS-UAT-009-3](ISS-UAT-009-3.md) | minor | web/leaderboard (UI) | Leaderboard self-row renders "UAT MemberYou" with no space/separator between display name and "You" self-indicator (visual-only, design-system FAIL) | open | — | 2026-07-02 |
 | [ISS-UAT-009-4](ISS-UAT-009-4.md) | minor | web/me (AnonView layout) | `/me` AnonView page leaves a large unbalanced empty region (~55% of viewport) below the sign-in CTA card (visual-only) | open | — | 2026-07-02 |
 | [ISS-CI-003](ISS-CI-003.md) | blocker | ci/infrastructure | CI failures regressed again on main HEAD: biome cognitive-complexity errors in `apps/api/src/modules/workspace/tg-broadcasts.service.ts`/`tg-segments.service.ts` (`ci` job); storybook/rolldown build error carried over unresolved from ISS-CI-002 (`storybook` job) — blocks every PR to main | open | — | 2026-07-03 |
-| [ISS-UAT-001-1](ISS-UAT-001-1.md) | blocker | uat/seed | `scripts/uat-seed.sh` cannot mirror newly-added Authentik identity fixtures into Directus (`directus-users-bridge.ensureLinked()` only fires on OIDC `/v1/auth/callback`, not on Authentik admin user creation) — blocks BP-UAT-001 seed step | open | wf-20260703-fix-064 (queued) | 2026-07-03 |
+| [ISS-UAT-001-1](ISS-UAT-001-1.md) | blocker | uat/seed | `scripts/uat-seed.sh` cannot mirror newly-added Authentik identity fixtures into Directus (`directus-users-bridge.ensureLinked()` only fires on OIDC `/v1/auth/callback`, not on Authentik admin user creation) — blocks BP-UAT-001 seed step | resolved | wf-20260703-fix-064 (in-flight; AC-1/2/3 deferred to wf-20260703-uat-064 queue position 1; AC-4/5 verified on workstation) | 2026-07-03 |
 
 ---
 

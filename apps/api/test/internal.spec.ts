@@ -2,6 +2,7 @@ import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
 import { describe, expect, it, vi } from 'vitest';
+import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { EmailService } from '../src/modules/email/email.service';
 import { InternalAuthGuard } from '../src/modules/internal/internal-auth.guard';
 import { InternalController } from '../src/modules/internal/internal.controller';
@@ -46,7 +47,13 @@ describe('InternalController.sendEmail', () => {
   const fakeEmail: EmailService = {
     send: vi.fn(async () => undefined),
   } as unknown as EmailService;
-  const controller = new InternalController(fakeEmail);
+  // sendEmail does not exercise the bridge, so a stub with a no-op
+  // ensureLinkedByEmail satisfies the new two-arg constructor while
+  // keeping sendEmail tests free of bridge interactions.
+  const fakeBridge: DirectusUsersBridgeService = {
+    ensureLinkedByEmail: vi.fn(async () => null),
+  } as unknown as DirectusUsersBridgeService;
+  const controller = new InternalController(fakeEmail, fakeBridge);
 
   it('rejects an unknown template', async () => {
     await expect(
@@ -108,5 +115,74 @@ describe('InternalController.sendEmail', () => {
       to: 'alice@example.com',
       subject: expect.stringContaining('AI Drinks UZ'),
     });
+  });
+});
+
+// ISS-UAT-001-1 — covers the new POST /v1/internal/users/ensure-linked
+// handler. The bridge is mocked because (a) the test runs in-process
+// without Testcontainers Postgres and (b) the controller's contract is
+// the bridge call + the response shape — both of which are fully
+// observable from a vi.fn()-mocked bridge.
+describe('InternalController.ensureLinkedUser', () => {
+  const fakeEmail: EmailService = {
+    send: vi.fn(async () => undefined),
+  } as unknown as EmailService;
+
+  function makeController(bridgeImpl: (input: { email: string; displayName: string | null }) => Promise<string | null>) {
+    const bridge: DirectusUsersBridgeService = {
+      ensureLinkedByEmail: vi.fn(bridgeImpl),
+    } as unknown as DirectusUsersBridgeService;
+    return { controller: new InternalController(fakeEmail, bridge), bridge };
+  }
+
+  it('rejects a body without email', async () => {
+    const { controller } = makeController(async () => 'should-not-be-called');
+    await expect(controller.ensureLinkedUser({ displayName: 'X' })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('rejects a body with a non-email "email"', async () => {
+    const { controller } = makeController(async () => 'should-not-be-called');
+    await expect(controller.ensureLinkedUser({ email: 'not-an-email' })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('rejects an empty body', async () => {
+    const { controller } = makeController(async () => 'should-not-be-called');
+    await expect(controller.ensureLinkedUser({})).rejects.toThrow(BadRequestException);
+  });
+
+  it('forwards {email, displayName} to the bridge and returns the resolved id', async () => {
+    const resolved = 'aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa';
+    const { controller, bridge } = makeController(async () => resolved);
+    const result = await controller.ensureLinkedUser({
+      email: 'alice@example.com',
+      displayName: 'Alice',
+    });
+    expect(result).toEqual({ directusUserId: resolved });
+    expect(bridge.ensureLinkedByEmail).toHaveBeenCalledTimes(1);
+    expect(bridge.ensureLinkedByEmail).toHaveBeenCalledWith({
+      email: 'alice@example.com',
+      displayName: 'Alice',
+    });
+  });
+
+  it('passes displayName=null to the bridge when omitted (caller has no display name)', async () => {
+    const resolved = 'bbbbbbbb-bbbb-4000-8000-bbbbbbbbbbbb';
+    const { controller, bridge } = makeController(async () => resolved);
+    const result = await controller.ensureLinkedUser({ email: 'bob@example.com' });
+    expect(result).toEqual({ directusUserId: resolved });
+    expect(bridge.ensureLinkedByEmail).toHaveBeenCalledWith({
+      email: 'bob@example.com',
+      displayName: null,
+    });
+  });
+
+  it('returns { directusUserId: null } when the bridge returns null (no local user / bridge failure)', async () => {
+    const { controller } = makeController(async () => null);
+    const result = await controller.ensureLinkedUser({ email: 'missing@example.com' });
+    expect(result).toEqual({ directusUserId: null });
   });
 });

@@ -119,6 +119,40 @@ export class DirectusUsersBridgeService {
       displayName: row.displayName,
     });
   }
+
+  // Email-keyed variant for callers (UAT seed scripts, future admin
+  // invitation flows) that only know the user's email at call time —
+  // i.e. they have not yet signed in via OIDC and we therefore do not
+  // have a `users.id` to pass into `ensureLinked`. Looks up the local
+  // row by email (mirroring the inline pattern used by `resolveDirectusId`
+  // and `ensureLinked` itself), then delegates to `ensureLinked` so the
+  // idempotency + error-swallowing semantics stay identical to the
+  // userId-keyed path.
+  //
+  // Returns null when no local user row exists for the email — this is
+  // the caller's signal that a sign-in must happen first (the bridge
+  // cannot create a Directus mirror of a row that doesn't exist locally).
+  // Returns null on bridge failure too (same swallow semantics as
+  // ensureLinked); the controller surfaces that as { directusUserId: null }
+  // so the seed can detect + warn rather than hard-fail.
+  async ensureLinkedByEmail(input: {
+    email: string;
+    displayName: string | null;
+  }): Promise<string | null> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, input.email))
+      .limit(1);
+    if (!row) {
+      return null;
+    }
+    return this.ensureLinked({
+      userId: row.id,
+      email: input.email,
+      displayName: input.displayName,
+    });
+  }
 }
 
 export { DirectusError };
