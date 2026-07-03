@@ -1,0 +1,80 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260704-fix-075"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-04T00:00:00Z"
+last_updated_at: "2026-07-04T00:00:00Z"
+
+requirement_ref: ""
+requirement_text: >
+  /me renders an in-page AnonView CTA (HTTP 200) for anon visitors while
+  /workspace hard-redirects; BP-UAT-009 Step 005 spec asserts the wrong
+  mechanism for /me — spec update + inconsistency flagged for product
+  follow-up.
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-009-2-me-anon-cta-spec"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/96"
+
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-UAT-009-2"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/ISS-UAT-009-2.md
+  - docs/02-business-processes/uat/BP-UAT-009.md
+  - apps/web-next/src/pages/me.astro
+  - apps/web-next/src/pages/workspace.astro
+  - apps/e2e/tests/smoke-auth-gates.spec.ts
+  - apps/web-next/src/components/MeDashboard.tsx
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260704-fix-075/NEEDS_REVIEW.md"

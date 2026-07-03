@@ -23,7 +23,41 @@ attempt via `next` is blocked. Source: [FR-AUTH-001](../../03-requirements/FR-AU
 - [ ] AC-1: Clicking "Sign in" from a public page redirects to the Authentik login UI.
 - [ ] AC-2: After successful sign-in, the user lands at `/me` (or a valid `next` path).
 - [ ] AC-3: The `aiqadam-refresh` cookie is present and is `HttpOnly`.
-- [ ] AC-4: After sign-out, the platform session is cleared (the `aiqadam-refresh` cookie is removed immediately on sign-out click); a subsequent protected page visit redirects to sign-in.
+- [ ] AC-4: After sign-out, the platform session is cleared (the `aiqadam-refresh` cookie is removed immediately on sign-out click); a subsequent protected page visit shows no authenticated-only content to the anonymous visitor (via either an in-page sign-in CTA on hub surfaces such as `/me` — e.g. "Sign in to view your hub", rendered by `<AuthGate signInLabel="Sign in to view your hub">` in `apps/web-next/src/pages/me/index.astro` — or a hard redirect to `/auth/sign-in` on single-purpose authenticated surfaces such as `/workspace`). The two mechanisms cover the same security intent (the live Playwright spec's hard assertion `authedOnlyContent.toHaveCount(0)` at `apps/e2e/tests/uat/BP-UAT-009.spec.ts:387` is the contract-of-record for `/me`'s "no authed-only content" guarantee; `BP-UAT-009` `Neg 001` remains the contract-of-record for `/workspace`'s hard-redirect).
+
+### Why two anon-gating mechanisms?
+
+`/me` is a hub page (FR-MIG-018, `apps/web-next/src/pages/me/index.astro`,
+shipped 2026-06-23 in PR [#24](https://github.com/tvolodi/aiqadam/pull/24))
+— its anon fallback renders a server-side `<AuthGate signInLabel="Sign in
+to view your hub">` block (see
+[`apps/web-next/src/blocks/common/AuthGate.astro:36`](../../web-next/src/blocks/common/AuthGate.astro)),
+which is friendly to deep-links and shared `/me` URLs. A hard redirect
+to `/auth/sign-in` would lose the URL the visitor was trying to reach,
+defeating `next`-param flows like `/auth/sign-in?next=%2Fme` (see Step
+006). `/workspace`, by contrast, is a single-purpose authenticated
+surface (events / members / broadcasts) where the hard client-side
+redirect to sign-in matches the "no anonymous content period" product
+intent.
+
+The smoke test at `apps/e2e/tests/smoke-auth-gates.spec.ts`
+(`/me dashboard renders for anon (client island shows sign-in CTA)`)
+codifies the legacy `apps/web` AnonView contract for the pre-MIG-018
+implementation; for the current `apps/web-next` SSR rendering (the
+shipped production state since FR-MIG-018 merged on 2026-06-23) the
+literal CTA text is "Sign in to view your hub" — rendered from
+`AuthGate.astro`'s `signInLabel` prop on
+`apps/web-next/src/pages/me/index.astro`. Both phrases share the same
+"sign in to view your hub" intent; the literal text drifts between
+the two surfaces' evolutionary generations. `BP-UAT-009` `Neg 001`
+codifies `/workspace`'s hard-redirect as the contract-of-record.
+Both mechanisms are acceptable per the issue body of
+`ISS-UAT-009-2`, which confirms the security intent (no authenticated-only
+content leaked to anon visitors) is met by either path. The
+product/UX consistency question of whether the two surfaces should
+converge on a single anon-gating pattern is logged in `ISS-UAT-009-2`
+(Resolution § "Product/UX consistency decision") and is **not**
+blocking the close of this BP.
 - [ ] AC-5: Visiting a protected page without a session redirects to `/auth/sign-in`.
 - [ ] AC-6: An absolute-URL `next` param (open redirect attempt) is rejected; user lands at `/me`.
 - [ ] AC-7: After completing Authentik's invalidation confirmation (clicking "Log out of authentik" on the interstitial), the browser lands at `/auth/signed-out` showing the AI Qadam-branded sign-out confirmation. The Authentik RP-Initiated Logout interstitial itself is expected UX (see Step 004 notes) and is NOT an AC-7 failure.
@@ -135,7 +169,7 @@ sign-in attempt NOT silently SSO'ing the user back in).
 
 ---
 
-### Step 005 — Protected page after sign-out redirects to sign-in
+### Step 005 — Protected page after sign-out is anon-safe (per-surface mechanism)
 
 **AC ref:** AC-4
 
@@ -143,9 +177,69 @@ sign-in attempt NOT silently SSO'ing the user back in).
 
 **Action:** Navigate directly to `http://localhost:4321/me`.
 
-**Expected UI state:** Browser redirects to `http://localhost:4321/auth/sign-in`. The `/me` dashboard content is NOT visible.
+**Expected UI state (per surface):**
 
-**Screenshot label:** `step-005-redirect-after-signout`
+- **`/me` (the surface this step exercises):** the browser does **not**
+  redirect. The server returns `HTTP 200`, and the SSR-rendered
+  `<AuthGate signInLabel="Sign in to view your hub">` block (see
+  [`apps/web-next/src/pages/me/index.astro`](../../web-next/src/pages/me/index.astro)
+  and
+  [`apps/web-next/src/blocks/common/AuthGate.astro`](../../web-next/src/blocks/common/AuthGate.astro))
+  renders an in-page sign-in CTA with the literal text **"Sign in to
+  view your hub"** and an anchor `href` of the form
+  `/api/v1/auth/login?next=%2Fme` (i.e. contains `/auth/sign-in` or
+  `/api/v1/auth/login`). No authenticated-only content is visible —
+  specifically, none of the `Your registrations` / `Check-in QR` /
+  `Leaderboard points` widgets are present (the Playwright spec's
+  hard assertion `authedOnlyContent.toHaveCount(0)` at
+  `apps/e2e/tests/uat/BP-UAT-009.spec.ts:387` enforces this). The
+  site nav shows **Sign in** (the session is genuinely anonymous).
+
+  _Note: the legacy `apps/web/src/components/MeDashboard.tsx`
+  `AnonView` (rendered before the FR-MIG-018 migration to
+  `apps/web-next`) used the text "Sign in to see your dashboard".
+  Production has been on `apps/web-next` since 2026-06-23. The
+  security intent ("no authed-only content visible to anon") is
+  identical across both renderings; the literal text differs.
+  `smoke-auth-gates.spec.ts` codifies the legacy text, this step
+  codifies the current rendering._
+
+- **`/workspace` (sister surface, exercised by `Neg 001`):** the
+  browser **does** hard-redirect, but the redirect target in the
+  current `apps/web-next` build (since FR-MIG-031 production cutover
+  on 2026-06-25) is `/workspace/dashboard` (a server-side
+  `Astro.redirect('/workspace/dashboard', 302)` from
+  [`apps/web-next/src/pages/workspace/index.astro`](../../web-next/src/pages/workspace/index.astro),
+  not the pre-MIG legacy `window.location.replace('/auth/sign-in')`
+  mechanism recorded in the issue body of `ISS-UAT-009-2`). The
+  landed page `/workspace/dashboard` then renders its own
+  `<AuthGate role="aiqadam-operators">` block which surfaces the
+  sign-in CTA. See `Neg 001` for the assertion. The end-state UX
+  (anon cannot reach authenticated workspace content) is satisfied
+  regardless of the redirect hop's specific target.
+
+The two surfaces intentionally use different anon-gating mechanisms
+because they have different product shapes (a hub page vs. a
+single-purpose authenticated surface). See the "Why two anon-gating
+mechanisms?" paragraph under the Acceptance Criteria section above
+for the rationale and `ISS-UAT-009-2` for the product/UX consistency
+decision (accept-as-is).
+
+**Contract of record:**
+- Smoke test: `apps/e2e/tests/smoke-auth-gates.spec.ts`,
+  test `/me dashboard renders for anon (client island shows sign-in CTA)`.
+- Live UAT assertion: `apps/e2e/tests/uat/BP-UAT-009.spec.ts`, Step 005
+  (line 337). The hard assertion is `authedOnlyContent.toHaveCount(0)`;
+  the two `expect.soft` lines record the spec/actual mismatch for
+  BusinessAnalyst and remain in place as a regression signal.
+
+**Screenshot label:** `step-005-redirect-after-signout` *(historical
+label — retained because the live Playwright spec at
+`apps/e2e/tests/uat/BP-UAT-009.spec.ts:371` hardcodes the file name
+in its `shot(page, 'step-005-redirect-after-signout')` call. The label
+does **not** describe the new expected outcome; the outcome for `/me`
+is "HTTP 200 + AnonView CTA + no authed-only content", as stated
+above.)*
 
 ---
 
