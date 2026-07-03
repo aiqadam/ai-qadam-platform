@@ -5,12 +5,12 @@
 | ID | ISS-UAT-001-1 |
 | Severity | blocker |
 | Module | uat/seed |
-| Status | **resolved (deferred verification pending wf-20260703-uat-064)** |
+| Status | **resolved (AC-1 verified; AC-2/3 deferred again to wf-20260703-fix-065-bridge via ISS-UAT-BRIDGE-001)** |
 | Reported | 2026-07-03 |
 | Reporter | Orchestrator (wf-20260703-uat-063, Step 2 pre-flight) |
-| Workflow | wf-20260703-uat-063 (reported) → wf-20260703-fix-064 (resolved follow-up; 2/5 ACs verified on workstation, 3/5 ACs deferred to wf-20260703-uat-064 queue position 1) |
-| Resolved by PR | [#89](https://github.com/tvolodi/aiqadam/pull/89) (wf-20260703-fix-064) |
-| Merged | `2b72f460` (squash, main, 2026-07-03) |
+| Workflow | wf-20260703-uat-063 (reported) → wf-20260703-fix-064 (resolved follow-up; 1/5 ACs verified on workstation via PR #89 squash 2b72f460) → wf-20260703-uat-064 (live re-verification; AC-1 verified, AC-2/3 failed due to newly-discovered [ISS-UAT-BRIDGE-001](ISS-UAT-BRIDGE-001.md)) |
+| Resolved by PR | [#89](https://github.com/tvolodi/aiqadam/pull/89) (wf-20260703-fix-064) — initial fix landed. Live verification by [#88](https://github.com/tvolodi/aiqadam/pull/88) (wf-20260703-uat-064 re-purposed). |
+| Merged | `2b72f460` (squash, PR #89) — also included in `ee209fc4` (squash, PR #88 — live re-verification) |
 
 ## Symptom
 

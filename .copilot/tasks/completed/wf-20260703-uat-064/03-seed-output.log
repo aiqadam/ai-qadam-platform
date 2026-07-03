@@ -1,0 +1,23 @@
+
+╔══════════════════════════════════════════════════════╗
+║        AI Qadam — UAT Seed Fixtures                  ║
+╚══════════════════════════════════════════════════════╝
+
+[0;32m  ✓[0m localhost guard passed (DIRECTUS_URL=http://localhost:8200, AK_URL=http://localhost:9000)
+  → resetting fixtures for BP-UAT-001 (manifest: /c/Users/tvolo/dev/ai-dala/aiqadam/scripts/uat-fixtures/BP-UAT-001.json)
+  → resetting identity fixture uat-operator (uat-operator)
+[0;32m  ✓[0m user uat-operator (exists, pk=6) — FORCE_REGEN, resetting password
+[0;32m  ✓[0m password set for uat-operator
+[0;32m  ✓[0m uat-operator → groups: aiqadam-super-admin
+[0;32m  ✓[0m ensure_linked uat-operator@aiqadam.test (directus_user_id=null)
+  → resetting identity fixture uat-member-consented (uat-member-consented)
+[0;32m  ✓[0m user uat-member-consented (exists, pk=7) — FORCE_REGEN, resetting password
+[0;32m  ✓[0m password set for uat-member-consented
+[0;32m  ✓[0m uat-member-consented → groups: aiqadam-member
+[0;32m  ✓[0m ensure_linked uat-member-c@aiqadam.test (directus_user_id=null)
+  → resetting identity fixture uat-member-no-consent (uat-member-no-consent)
+[0;32m  ✓[0m user uat-member-no-consent (exists, pk=8) — FORCE_REGEN, resetting password
+[0;32m  ✓[0m password set for uat-member-no-consent
+[0;32m  ✓[0m uat-member-no-consent → groups: aiqadam-member
+[0;32m  ✓[0m ensure_linked uat-member-nc@aiqadam.test (directus_user_id=null)
+[0;31m  ✗ FATAL:[0m fixture uat-member-consented-consent: member_email 'uat-member-c@aiqadam.test' did not resolve to any Directus user — fixture-authoring bug (create the identity fixture first), refusing to POST a broken member_consents row.

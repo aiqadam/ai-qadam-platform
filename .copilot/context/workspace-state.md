@@ -1,28 +1,33 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 (wf-20260703-fix-064 PR #89 open, pending Step 12.5 merge; wf-20260703-uat-063 still NEEDS_REVIEW; wf-20260703-uat-064 queued as BP-UAT-001 re-verification follow-up for AC-1/2/3)
+**Last updated:** 2026-07-03 (wf-20260703-uat-064 closed — PR #88 squash `ee209fc4` merged; live verification surfaced 3 new open issues [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md), [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md), [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md); counter bumped 65 → 66)
 
 ---
 
 ## Active Workflows
 
-| Workflow ID | Type | Issue | Branch | PR | Date |
-|---|---|---|---|---|---|
-| wf-20260630-fix-043 | issue-resolution | ISS-UAT-013-9 email_verified guard | fix/ISS-UAT-013-9-lead-verified-guard | [PR #75](https://github.com/tvolodi/aiqadam/pull/75) | 2026-06-30 |
-| wf-20260703-fix-060 | issue-resolution | ISS-UAT-013-12 Neg 004 spec React-18 state-commit race (setReactInputValue + form.requestSubmit) | fix/ISS-UAT-013-12-neg-004-react-race | <pending> | 2026-07-03 |
-| wf-20260703-uat-063 | uat-verification | BP-UAT-001 Event publication broadcast | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (needs-review, not mergeable until ISS-UAT-001-1 fixed) | 2026-07-03 |
-| wf-20260703-fix-064 | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | [PR #89](https://github.com/tvolodi/aiqadam/pull/89) (Step 12.5 merge pending) | 2026-07-03 |
+_(none — all current work resolved/merged. See "Queued follow-up workflows" below for the next workflows that should start.)_
+
+### Queued follow-up workflows (named in respective ISS files)
+
+- **wf-20260703-fix-065-bridge** — owns [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md); queue position 1; placeholder name (counter will be the next increment after `66`)
+- **wf-20260703-feat-065-bp-uat-001-spec** — owns [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md); queue position 1
+- **wf-20260703-fix-066-seed-port** — owns [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md); queue position 1
 
 ---
 
 ## Open Issues
 
-- _(none — ISS-UAT-001-1 resolved by wf-20260703-fix-064; PR #89 open; AC-1/2/3 deferred to wf-20260703-uat-064)_
+- [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md) (blocker, api/directus-bridge) — newly-discovered gap in `ensureLinkedByEmail` (returns `null` for seed users without `platform.users` row); discovered during wf-20260703-uat-064 live verification. Blocks AC-2/3 of [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) from flipping to `verified`.
+- [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md) (enhancement, uat/coverage) — BP-UAT-001 has no Playwright spec (`apps/e2e/tests/uat/BP-UAT-001.spec.ts` not present); out of Path A scope by user choice.
+- [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md) (bug, uat/seed) — `scripts/uat-seed.sh`'s `api_base` default points to port 3001; API listens on 3000 (per `apps/api/.env` `PORT=3000`); seed requires undocumented `API_BASE_URL` export.
 
 ## Completed Workflows (recent)
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260703-uat-064 | uat-verification | BP-UAT-001 re-verification (live) — Path A minimal verify; AC-1 partial, AC-2/3 failed (bridge gap), AC-4 deferred (no spec), AC-5 failed (api_base port) | uat/BP-UAT-001-event-publication-broadcast | [PR #88](https://github.com/tvolodi/aiqadam/pull/88) (squash `ee209fc4`) | 2026-07-03 |
+| wf-20260703-fix-064 | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | [PR #89](https://github.com/tvolodi/aiqadam/pull/89) (squash `2b72f460`) | 2026-07-03 |
 | wf-20260629-fix-039 | issue-resolution | ISS-UAT-013-8 operator_invites.email alignment with seeded Authentik user + Neg 005 | fix/ISS-UAT-013-8-invite-email-match | [PR #71](https://github.com/tvolodi/aiqadam/pull/71) | 2026-06-29 |
 | wf-20260629-fix-038 | issue-resolution | ISS-UAT-013-6 Negative-scenario assertion rule + bats regression test | fix/ISS-UAT-013-6-uat-test-design | [PR #70](https://github.com/tvolodi/aiqadam/pull/70) | 2026-06-29 |
 | wf-20260629-fix-037 | issue-resolution | ISS-UAT-013-5 Directus 503 bounded-exponential-back-off retry | fix/ISS-UAT-013-5-directus-retry | [PR #69](https://github.com/tvolodi/aiqadam/pull/69) | 2026-06-29 |
@@ -47,12 +52,12 @@ _(empty — see "Open Issues" above for current status. Kept for delta-only hist
 ## Git State
 
 - **Current branch:** main
-- **Last sync with origin:** 2026-06-29
-- **Pending PRs:** none
+- **Last sync with origin:** 2026-07-03 (`ee209fc4` — `chore(uat): wf-20260703-uat-064 — live re-verification of ISS-UAT-001-1 deferred ACs (#88)`)
+- **Pending PRs:** none (PR #75 merged in earlier session, PR #88 merged at 11:47 UTC 2026-07-03, PR #89 merged at earlier time, PR #60 #65–#71 #87 all merged by 2026-06-29)
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 64 — 65 reserved on the uat/BP-UAT-001 branch for wf-20260703-fix-064's first commit; will be incremented to 65 once that workflow starts)
+See `.copilot/meta/next-workflow-id` (currently: `66` — incremented from `65` after `wf-20260703-uat-064` close). The next workflow should pick counter `66`; if a queued follow-up (see Active Workflows above) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation.
 
 ---
 
