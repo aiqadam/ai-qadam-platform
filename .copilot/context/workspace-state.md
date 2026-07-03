@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 (wf-20260703-fix-060, PR pending)
+**Last updated:** 2026-07-03 (wf-20260703-uat-063, NEEDS_REVIEW + wf-20260703-fix-064 queued)
 
 ---
 
@@ -10,6 +10,14 @@
 |---|---|---|---|---|---|
 | wf-20260630-fix-043 | issue-resolution | ISS-UAT-013-9 email_verified guard | fix/ISS-UAT-013-9-lead-verified-guard | [PR #75](https://github.com/tvolodi/aiqadam/pull/75) | 2026-06-30 |
 | wf-20260703-fix-060 | issue-resolution | ISS-UAT-013-12 Neg 004 spec React-18 state-commit race (setReactInputValue + form.requestSubmit) | fix/ISS-UAT-013-12-neg-004-react-race | <pending> | 2026-07-03 |
+| wf-20260703-uat-063 | uat-verification | BP-UAT-001 Event publication broadcast | uat/BP-UAT-001-event-publication-broadcast | <blocked: SSH key on GitHub ≠ local key, push unauthorized> | 2026-07-03 |
+| wf-20260703-fix-064 (queued) | issue-resolution | ISS-UAT-001-1 seed Directus mirror gap for new Authentik fixtures (blocks BP-UAT-001) | fix/ISS-UAT-001-1-uat-seed-directus-mirror | <pending> | 2026-07-03 |
+
+---
+
+## Open Issues
+
+- [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) — `uat-seed.sh` cannot mirror new Authentik identity fixtures into Directus (OIDC bridge only fires on `/v1/auth/callback`). Blocks BP-UAT-001 seed step. Queued: `wf-20260703-fix-064`.
 
 ---
 
@@ -36,7 +44,7 @@
 
 ## Open Issues
 
-_(none — all UAT-013-* issues resolved as of 2026-07-03, including ISS-UAT-013-12 via wf-20260703-fix-060)_
+- [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) — `uat-seed.sh` cannot mirror new Authentik identity fixtures into Directus (OIDC bridge only fires on `/v1/auth/callback`). Blocks BP-UAT-001 seed step. Queued: `wf-20260703-fix-064`.
 
 ---
 
@@ -48,7 +56,7 @@ _(none — all UAT-013-* issues resolved as of 2026-07-03, including ISS-UAT-013
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: 40)
+See `.copilot/meta/next-workflow-id` (currently: 64 — 65 reserved on the uat/BP-UAT-001 branch for wf-20260703-fix-064's first commit; will be incremented to 65 once that workflow starts)
 
 ---
 
