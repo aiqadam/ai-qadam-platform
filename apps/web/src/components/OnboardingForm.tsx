@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactElement, useEffect, useState } from 'react';
+import { roleGroupsText } from './OnboardingForm.helpers';
 
 // F-S2.7 + F-S2.12 — invitee onboarding form, post-DMS cutover.
 //
@@ -191,7 +192,7 @@ function AuthStep(p: AuthStepProps): ReactElement {
       <StepHeader step={1} />
       <h1 style={h1Style()}>Welcome, {preview.display_name ?? preview.email.split('@')[0]}.</h1>
       <p style={pMuted()}>
-        You're being added as <strong>{preview.role_groups.join(', ')}</strong>
+        You're being added as <strong>{roleGroupsText(preview.role_groups)}</strong>
         {preview.country ? ` for ${preview.country.toUpperCase()}` : ''}. Set your password and
         accept the operator agreement to continue.
       </p>

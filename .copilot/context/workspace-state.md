@@ -13,6 +13,7 @@ _(none — all current work resolved/merged. See "Queued follow-up workflows" be
 - **wf-20260703-fix-065-bridge** — owns [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md); queue position 1; placeholder name (counter will be the next increment after `66`)
 - **wf-20260703-feat-065-bp-uat-001-spec** — owns [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md); queue position 1
 - **wf-20260703-fix-066-seed-port** — owns [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md); queue position 1
+- **wf-20260703-fix-066-vitest-bump** — owns [ISS-TEST-WEB-001](../issues/ISS-TEST-WEB-001.md); queue position 1; spawned by `wf-20260703-fix-065-onboarding-copy` because ISS-UAT-013-13's AC-3 regression test cannot run until vitest + vite 8 version skew is resolved.
 
 ---
 

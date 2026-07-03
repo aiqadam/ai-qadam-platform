@@ -1,0 +1,136 @@
+# Handoff — wf-20260703-fix-065-onboarding-copy
+# Issue-resolution workflow: ISS-UAT-013-13 (OnboardingForm welcome copy)
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260703-fix-065-onboarding-copy"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-03T00:00:00Z"
+last_updated_at: "2026-07-03T17:55:00Z"
+
+requirement_ref: "ISS-UAT-013-13"
+requirement_text: |
+  Resolve ISS-UAT-013-13: OnboardingForm welcome copy renders
+  "You're being added as ." when role_groups is empty.
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-013-13-onboarding-copy"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/90"
+
+current_step: 5
+current_step_name: "Security Review"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step-0-init:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T00:00:00Z"
+    summary: "Branch fix/ISS-UAT-013-13-onboarding-copy created from origin/main; counter bumped 66→67; handoff.yaml written."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/handoff.yaml"
+  step-0.5-context-sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T00:00:00Z"
+    summary: "scripts/check-workflow-state.sh --base origin/main returned OK; no drift."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/handoff.yaml"
+  step-1-issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T00:00:00Z"
+    summary: "First issue against web/onboarding; no prior similar issue; no live infra needed."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/01-issue-lookup.md"
+  step-2-impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T00:00:00Z"
+    summary: "Pure frontend render-text fix; one file modified + one new test file; zero API/DB/types/CSS/architecture impact."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/02-impact-analysis.md"
+  step-4-code-developer:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-03T17:55:00Z"
+    summary: "Helper extracted to apps/web/src/components/OnboardingForm.helpers.ts; OnboardingForm.tsx imports it; OnboardingForm.test.ts covers 5 cases. tsc+biome clean. AC-1/AC-2 verified by tsc+manual-read. AC-3 deferred for execution to queued follow-up wf-20260703-fix-066-vitest-bump (ISS-TEST-WEB-001); AC-4 deferred as optional per issue author."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/03-code-summary.md"
+
+agent_assignments:
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/02-impact-analysis.md"
+    timestamp: "2026-07-03T00:00:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/03-code-summary.md"
+    timestamp: "2026-07-03T17:55:00Z"
+
+retry_counts:
+  code-developer: 2
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created:
+  - ISS-TEST-WEB-001
+issue_ref: "ISS-UAT-013-13"
+
+deferrals:
+  - from_feature: "ISS-UAT-013-13 AC-3"
+    to_feature: "wf-20260703-fix-066-vitest-bump (ISS-TEST-WEB-001)"
+    reason: "vitest 2.1.9 + vite 8 SSR-transform skew blocks test execution; test file added (5 cases) but cannot run until vitest is bumped in all three apps."
+    step: 4
+    timestamp: "2026-07-03T17:55:00Z"
+  - from_feature: "ISS-UAT-013-13 AC-4"
+    to_feature: "BP-UAT-013 re-run (optional per issue author)"
+    reason: "Visual re-run of BP-UAT-013 Neg 005 spec marked optional in the issue; visual audit against existing screenshot acceptable."
+    step: 4
+    timestamp: "2026-07-03T17:55:00Z"
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - .copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/01-issue-lookup.md
+  - .copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/02-impact-analysis.md
+  - .copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/03-code-summary.md
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - .copilot/issues/ISS-UAT-013-13.md
+  - .copilot/issues/ISS-TEST-WEB-001.md
+  - apps/web/src/components/OnboardingForm.tsx
+  - apps/web/src/components/OnboardingForm.helpers.ts
+  - apps/web/src/components/OnboardingForm.test.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260703-fix-065-onboarding-copy/NEEDS_REVIEW.md"

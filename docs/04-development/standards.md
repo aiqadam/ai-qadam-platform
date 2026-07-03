@@ -161,6 +161,7 @@ Use `node:assert` or a project-wide `invariant()` helper. Failures should not be
 - AAA pattern: Arrange, Act, Assert — explicit, separated by blank lines.
 - One assertion per test (logical assertion — multiple `expect()` for one fact is fine).
 - No shared mutable state between tests. Each test sets up its own world.
+- When testing logic that lives inside a component (`OnboardingForm.tsx`, etc.) and the app's vitest config uses `environment: 'node'` (no jsdom), extract the pure logic into a sibling `<Component>.helpers.ts` file and import from there in the test; importing the `.tsx` component directly trips the vite/vitest SSR transform and blocks the test. See `OnboardingForm.helpers.ts` and `OnboardingForm.test.ts` in `apps/web/src/components/` for the canonical pattern (added by ISS-UAT-013-13 / wf-20260703-fix-065-onboarding-copy).
 
 ### Integration tests
 

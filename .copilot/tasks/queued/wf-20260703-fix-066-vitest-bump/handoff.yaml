@@ -1,0 +1,95 @@
+# Handoff — wf-20260703-fix-066-vitest-bump (QUEUED, position 1)
+# Owner: ISS-TEST-WEB-001
+# Spawned by: wf-20260703-fix-065-onboarding-copy (this workflow queues the
+# follow-up because the unit test added for ISS-UAT-013-13 AC-3 cannot be
+# executed until the vitest+vite version skew is resolved).
+#
+# AGENTS.md §6.1 requires a named, queued follow-up workflow before the parent
+# workflow closes. This file is that queue entry.
+#
+# Action: move this directory from `.copilot/tasks/queued/` to
+# `.copilot/tasks/active/` when the workflow starts; then increment
+# `.copilot/meta/next-workflow-id` from 67 → 68 for the actual wf-id used.
+
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260703-fix-066-vitest-bump"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-03T17:50:00Z"
+last_updated_at: "2026-07-03T17:50:00Z"
+
+requirement_ref: "ISS-TEST-WEB-001"
+requirement_text: |
+  Resolve ISS-TEST-WEB-001: vitest 2.1.9 + vite 8 SSR-transform skew blocks any
+  test that imports a sibling module. Bump vitest to ^3.x (or ^4.x) in all
+  three apps that pin vitest 2.1.9 (apps/api, apps/web, apps/web-next);
+  re-run pnpm install; verify pnpm --filter web exec vitest run passes
+  OnboardingForm.test.ts (5/5) AND utm.test.ts (45/45 no regression).
+github_issue_url: ""
+
+branch: ""                       # created at Step 0 when workflow starts
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize (deferred — start after wf-20260703-fix-065 closes)"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260703-fix-065-onboarding-copy"
+  parent_branch: "fix/ISS-UAT-013-13-onboarding-copy"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-03T17:50:00Z"
+  spawned_by_issue: "ISS-UAT-013-13"
+  resolution_for_parent: "fix-and-rebase"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-TEST-WEB-001"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/ISS-TEST-WEB-001.md
+  - apps/web/package.json
+  - apps/api/package.json
+  - apps/web-next/package.json
+  - apps/web/vitest.config.ts
+  - apps/web/src/components/OnboardingForm.test.ts
+  - apps/web/src/components/OnboardingForm.helpers.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260703-fix-066-vitest-bump/NEEDS_REVIEW.md"

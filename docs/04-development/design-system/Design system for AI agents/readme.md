@@ -73,6 +73,8 @@ Functional and operator-facing. Closer to a tool than a brand. No exclamation ma
 
 **Emoji:** never in product copy. Country flags (🇺🇿 🇰🇿 🇰🇬 🇹🇯) appear in leaderboard rows and country switcher only. Fire emoji (🔥) for streak badges is the one exception.
 
+**Inline list-join render expressions must have an empty-value fallback** — `groups.join(', ')` inside a sentence silently produces a stray punctuation artefact when `groups` is `[]` (renders as `"You're being added as ."`). Any inline `array.join(...)` interpolated into a UI sentence must be wrapped with a fallback phrase (e.g. helper `groups.length > 0 ? groups.join(', ') : 'an operator'`); see `OnboardingForm.helpers.ts` in `apps/web/src/components/` for the canonical pattern (added by ISS-UAT-013-13 / wf-20260703-fix-065-onboarding-copy).
+
 **Languages:** Russian and English are both first-class. Never assume English-only audience. Avoid US-centric idioms, slang, or references.
 
 **Photography:** Documentary only — real speakers mid-sentence, real rooms, hands going up. No AI-generated humans, robots, glowing data orbs, circuit-brain graphics. No heavy filters, no watermarks, no staged corporate posing.
