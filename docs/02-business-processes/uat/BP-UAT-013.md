@@ -1,7 +1,7 @@
 ---
 code: BP-UAT-013
 name: "Member signup and operator onboarding"
-status: Ready
+status: Implemented
 process_ref: "docs/03-requirements/FR-USR-001.md"
 environment: "http://localhost:4321"
 seed_required: true

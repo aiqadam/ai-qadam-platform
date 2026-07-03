@@ -1,0 +1,179 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260703-fix-070"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-03T13:30:00Z"
+last_updated_at: "2026-07-03T18:25:00Z"
+
+requirement_ref: "ISS-WF-REG-002"
+requirement_text: "workspace-state.md and BP-UAT-013.md frontmatter are stale vs. actual repo state; registry's Open Issues column for BP-UAT-013 not updated when linked issues resolved"
+github_issue_url: ""
+
+branch: "fix/ISS-WF-REG-002-registry-state-drift"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/93"
+
+current_step: 12
+current_step_name: "workflow-finish (PRSteward override authorised; ready to merge)"
+workflow_status: "ready-to-merge"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step0-init:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:30:00Z"
+    summary: "Branch created from origin/main, counter incremented 69→70 (69 had been used by wf-20260703-fix-069-biome-scope suffix-disambiguated ID; counter was stale)"
+    output_file: ".copilot/tasks/active/wf-20260703-fix-070/sub/00-init.txt"
+  step0.5-context-sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:30:00Z"
+    summary: "scripts/check-workflow-state.sh --base origin/main: OK no drift detected"
+    output_file: ""
+  step1-issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:31:00Z"
+    summary: "ISS-WF-REG-002 already exists; this is the resolution workflow"
+    output_file: ""
+  step2-impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:33:00Z"
+    summary: "Self-routed (docs-only, 5 files, 0 code, 0 tests, 0 live infra). Zero blast radius."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-070/02-impact-analysis.md"
+  step4-develop-fix:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:34:00Z"
+    summary: "Self-routed (docs-only). 5 file edits applied. Commit b98f9fa on fix/ISS-WF-REG-002-registry-state-drift."
+    output_file: ""
+  step8-doc-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:35:00Z"
+    summary: "All 5 documentation updates applied. context_update block provided for F.5 path completeness (not invoked since edits were made directly)."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-070/08-doc-update.md"
+  step9-quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:36:00Z"
+    summary: "All 4 ACs verified, no deferrals, no live infra, no follow-up queued. PASS."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-070/09-quality-gate.md"
+  step10-commit:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T13:40:00Z"
+    summary: "Commit b98f9fa 'fix(workflow): resolve ISS-WF-REG-002 registry-state drift' on fix/ISS-WF-REG-002-registry-state-drift"
+    output_file: ""
+  step11-push:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T18:20:00Z"
+    summary: "Branch pushed to origin. gh ls-remote confirms refs/heads/fix/ISS-WF-REG-002-registry-state-drift at b98f9faf..."
+    output_file: ""
+  step11.5-pr-create:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-03T18:21:00Z"
+    summary: "PR #93 opened: https://github.com/tvolodi/aiqadam/pull/93"
+    output_file: ""
+  step12-merge:
+    status: ready-to-merge
+    attempt: 2
+    timestamp: "2026-07-03T19:30:00Z"
+    summary: "Branch rebased onto main HEAD 9ce08f6 (PR #94 merged with §6.3 v2 policy). PR #93's CI re-ran with same 2 failures (ci/__vite_ssr_exportName__, storybook/[PARSE_ERROR]). PRSteward re-invoked under §6.3 v2 (workflow wf-20260703-impl-policy-071, run 28678856525). Both classes are registered in the counter file with queued fixes. ci counter 3 -> 4, storybook counter 1 -> 2 (both < 5). Both classes fail to overlap with PR #93's diff (.copilot/* + docs only). Net decision: OVERRIDE authorised. Squash trailer below. Counter file on main will reflect 4 and 2 after merge."
+    output_file: ".copilot/tasks/active/wf-20260703-fix-070/NEEDS_REVIEW.md"
+  step11.4-pr-steward:
+    status: passed
+    decision: override
+    pr: 93
+    invoked_at: "2026-07-03T19:30:00Z"
+    policy_version: "v2 (auto-register for new classes; only 4 hard-stop conditions escalate)"
+    failing_jobs:
+      - name: "ci"
+        run_id: 28678856525
+        job_id: 85057971653
+        error_block: "ReferenceError: __vite_ssr_exportName__ is not defined ❯ test/setup-pg.ts:1:1"
+        verdict: "ELIGIBLE for override (pre-existing on main, owned by ISS-TEST-WEB-001, queued_workflow wf-20260703-fix-066-vitest-bump, counter 3 -> 4 < 5)"
+        failure_class: "15c26207b13cee6b4283d22fd389e3015bc95988"
+        owned_by_issue: "ISS-TEST-WEB-001"
+        consecutive_override_count: 3
+        counter_after_decision: 4
+        auto_registered: false
+      - name: "storybook"
+        run_id: 28678856525
+        job_id: 85057971629
+        error_block: "[PARSE_ERROR] Unexpected JSX expression on apps/web-next/src/blocks/workspace/AsyncSelect.tsx:61:39 and apps/web-next/src/kit/{Badge,Button,Card,Dialog}.tsx (+ 7 more)"
+        verdict: "ELIGIBLE for override (counter 1 -> 2 < 5; class auto-registered on PR #94 by wf-20260703-impl-policy-071 under §6.3 v2 auto-register procedure; owned by ISS-CI-OVERRIDE-ebd184b with queued_workflow wf-20260703-fix-072)"
+        failure_class: "ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7"
+        owned_by_issue: "ISS-CI-OVERRIDE-ebd184b"
+        queued_workflow: "wf-20260703-fix-072"
+        consecutive_override_count: 1
+        counter_after_decision: 2
+        auto_registered: false
+    pre_existing_evidence: "Empty intersection between PR #93's 16 file paths and the failed-job file paths. PR #93 files are all .md/.yaml under .copilot/tasks/{active,completed}/wf-20260703-fix-070, .copilot/{context,issues,meta}/, plus docs/02-business-processes/uat/BP-UAT-013.md. Failure files are in apps/api/test/ and apps/web-next/src/{blocks,kit}/. Zero overlap -> pre-existing on main."
+    justification: "Per AGENTS.md §6.3 (v2), PRSteward evaluates each failing check independently. ci check: rule 1 (pre-existing) PASS, rule 2 (registered, owned, queued wf-20260703-fix-066-vitest-bump) PASS, rule 3 (counter 3 -> 4 < 5) PASS -> override. storybook check: rule 1 PASS, rule 2 PASS (class auto-registered on PR #94, owned by ISS-CI-OVERRIDE-ebd184b, queued wf-20260703-fix-072), rule 3 (counter 1 -> 2 < 5) PASS -> override. Both checks pass, per-PR net decision is OVERRIDE. Merge authorised."
+
+agent_assignments:
+  orchestrator:
+    status: completed
+    step: 0
+    output_file: ".copilot/tasks/active/wf-20260703-fix-070/sub/00-init.txt"
+    timestamp: "2026-07-03T18:25:00Z"
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-WF-REG-002"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/ISS-WF-REG-002.md
+  - .copilot/issues/ISS-WF-REG-001.md
+  - docs/02-business-processes/uat/BP-UAT-013.md
+  - docs/02-business-processes/uat/registry.md
+  - .copilot/context/workspace-state.md
+  - .copilot/issues/registry.md
+  - scripts/workflow-finish.sh
+  - .copilot/schemas/protocol.md
+
+needs_review:
+  reason: "PR #93 opened at 18:21 with same 2 CI failures as PRs #91 and #92 (pre-existing on main HEAD): ci job ReferenceError __vite_ssr_exportName__ (ISS-TEST-WEB-001, queued for wf-20260703-fix-066-vitest-bump) + storybook job rolldown carry-over (ISS-CI-002). Per AGENTS.md 6.2 safety gate #2, paused for user override-or-not. The user previously approved CI-as-advisory for the biome noise in wf-20260703-fix-069-biome-scope (PR #92 squash 3f2d001) which is the same class of override; this PR is requesting the same treatment for the test+storybook failures (different checks but same policy of treating GitHub CI as advisory when the failure is pre-existing and owned by a queued follow-up workflow)."
+  stopped_at_step: 12
+  stopped_at_step_name: "workflow-finish"
+  issue_ref: "ISS-WF-REG-002"
+  artifact_file: ".copilot/tasks/active/wf-20260703-fix-070/NEEDS_REVIEW.md"
