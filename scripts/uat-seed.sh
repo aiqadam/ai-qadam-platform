@@ -26,6 +26,26 @@
 #
 # Usage (from repo root):
 #   pnpm uat:seed
+#   pnpm uat:seed --reset <BP-UAT-NNN>   # reset one BP-UAT's mutable fixtures
+#                                        # to their declared initial state
+#   pnpm uat:seed --reset all            # reset every BP-UAT that has a
+#                                        # manifest under scripts/uat-fixtures/
+#
+# --reset mode (FR-WORKFLOW-003): scripts/uat-seed.sh is create-if-missing
+# only — BP-UAT scripts mutate the fixtures they seed (event status flips,
+# invite tokens consumed, registrations created), so re-running a script, or
+# running scripts out of order, fails for state reasons, not product
+# reasons. `--reset <BP-UAT-NNN>` reads scripts/uat-fixtures/<BP-UAT-NNN>.json
+# and, for every fixture it declares:
+#   - "kind":"domain"   fixtures (events, operator_invites, member_consents,
+#     …) are DELETED then RECREATED from the manifest's payload.
+#   - "kind":"identity" fixtures (Authentik users) are RESET, never deleted —
+#     group membership is restored via the same FORCE_REGEN-style code path
+#     ensure_test_user() already implements. Deleting an identity would
+#     invalidate sessions and RBAC group history.
+# `--reset` without a flag leaves existing callers' behavior byte-identical
+# (this is a purely additive branch that runs instead of, not alongside,
+# the unconditional STEP 1-4 flow below).
 #
 # Environment guards:
 #   FORCE_REGEN=1              — re-create test users even if they already exist
@@ -42,9 +62,30 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INFRA_DIR="$REPO_ROOT/infrastructure"
 API_DIR="$REPO_ROOT/apps/api"
+FIXTURES_DIR="$REPO_ROOT/scripts/uat-fixtures"
 
 FORCE_REGEN="${FORCE_REGEN:-0}"
 UAT_SEED_DIRECTUS_MOCK="${UAT_SEED_DIRECTUS_MOCK:-0}"
+
+# ── CLI argument parsing (--reset <BP-UAT-NNN> | --reset all) ─────────────────
+# No flag at all: RESET_TARGET stays empty and the script falls through to
+# the pre-existing unconditional STEP 1-4 flow below, byte-identical to
+# pre-FR-WORKFLOW-003 behavior (regression guard, FR AC-6).
+RESET_TARGET=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --reset)
+      [[ -n "${2:-}" ]] || { echo "Usage: uat-seed.sh --reset <BP-UAT-NNN>|all" >&2; exit 2; }
+      RESET_TARGET="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      echo "Usage: uat-seed.sh [--reset <BP-UAT-NNN>|all]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 # ── Colour helpers (same palette as uat-env-setup.sh) ─────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -153,6 +194,24 @@ user_pk_by_email() {
   encoded=$(printf '%s' "$email" | jq -sRr @uri)
   ak_get "${ak_url}/api/v3/core/users/?email=${encoded}" "$token" \
     | jq -r '.results[0].pk // empty' 2>/dev/null || true
+}
+
+# ── Look up a Directus user id (uuid) by email (empty if not found) ───────────
+# Used by reset_domain_fixture() to resolve a manifest's member_email hint to
+# member_consents.member — a uuid FK to directus_users.id (confirmed via
+# infrastructure/directus/bootstrap.sh's
+# `relation member_consents.member -> directus_users.id` and mirrored by
+# apps/api/src/modules/directus/directus-users-bridge.service.ts's own
+# `GET /users?filter[email][_eq]=` lookup). This is a DIFFERENT id space than
+# user_pk_by_email() above (Authentik's numeric pk, used for
+# operator_invites.authentik_user_id) — do not conflate the two.
+directus_user_pk_by_email() {
+  local directus_url="$1" token="$2" email="$3"
+  local encoded
+  encoded=$(printf '%s' "$email" | jq -sRr @uri)
+  curl -sf -H "Authorization: Bearer ${token}" \
+    "${directus_url}/users?filter[email][_eq]=${encoded}&fields=id&limit=1" 2>/dev/null \
+    | jq -r '.data[0].id // empty' 2>/dev/null || true
 }
 
 # ── Look up Authentik group pk by name (empty if not found) ───────────────────
@@ -420,6 +479,276 @@ ensure_operator_invite() {
   ok "operator_invite ${token_prefix} (created, status=${status}, authentik_user_id=${ak_user_pk:-none})"
 }
 
+# ── --reset: localhost-only production guard ──────────────────────────────────
+# Must run before ANY delete/create call in the reset path (FR-WORKFLOW-003
+# item 5 / AC-4). Exits 4 with zero writes performed if DIRECTUS_URL or AK_URL
+# don't resolve to localhost/127.0.0.1. Mechanizes the existing prose rule in
+# uat-verification.md's Scope Constraints ("Never target production").
+reset_localhost_guard() {
+  local directus_url="$1" ak_url="$2"
+  local is_local=1
+  case "$directus_url" in
+    *localhost*|*127.0.0.1*) ;;
+    *) is_local=0 ;;
+  esac
+  if [[ "$is_local" == "1" ]]; then
+    case "$ak_url" in
+      *localhost*|*127.0.0.1*) ;;
+      *) is_local=0 ;;
+    esac
+  fi
+  if [[ "$is_local" != "1" ]]; then
+    echo -e "${RED}  ✗ FATAL:${NC} --reset refuses to run against a non-localhost target (DIRECTUS_URL=${directus_url}, AK_URL=${ak_url}). No writes were performed." >&2
+    exit 4
+  fi
+  ok "localhost guard passed (DIRECTUS_URL=${directus_url}, AK_URL=${ak_url})"
+}
+
+# ── --reset: resolve the manifest path for a given BP-UAT id ──────────────────
+# Unknown BP-UAT id (no manifest file found) is a hard failure via fail()'s
+# existing idiom — actionable message, exit non-zero, no partial work
+# attempted (FR-WORKFLOW-003 item 2 / AC-nothing-silent).
+manifest_path_for() {
+  local bp_uat="$1"
+  printf '%s/%s.json' "$FIXTURES_DIR" "$bp_uat"
+}
+
+require_manifest() {
+  local bp_uat="$1" path
+  path=$(manifest_path_for "$bp_uat")
+  if [[ ! -f "$path" ]]; then
+    fail "No fixture manifest found for '${bp_uat}' (expected ${path}). Known manifests: $(list_known_manifests)."
+  fi
+  printf '%s' "$path"
+}
+
+list_known_manifests() {
+  local f names=()
+  if [[ -d "$FIXTURES_DIR" ]]; then
+    for f in "$FIXTURES_DIR"/*.json; do
+      [[ -e "$f" ]] || continue
+      names+=("$(basename "$f" .json)")
+    done
+  fi
+  if [[ ${#names[@]} -eq 0 ]]; then
+    printf 'none'
+  else
+    (IFS=', '; printf '%s' "${names[*]}")
+  fi
+}
+
+# ── --reset: reset one identity fixture (never deleted, only restored) ────────
+# Reuses ensure_test_user()'s existing FORCE_REGEN=1 branch verbatim — same
+# "keep pk, reset password + groups" semantics (FR-WORKFLOW-003 item 3).
+reset_identity_fixture() {
+  local ak_url="$1" ak_token="$2" fixture_json="$3"
+  local id username email display_name groups_csv
+  id=$(jq -r '.id' <<<"$fixture_json")
+  username=$(jq -r '.username' <<<"$fixture_json")
+  email=$(jq -r '.email' <<<"$fixture_json")
+  display_name=$(jq -r '.display_name' <<<"$fixture_json")
+  groups_csv=$(jq -r '.groups_csv' <<<"$fixture_json")
+
+  if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+    ok "identity ${id} (mock, reset username=${username}, email=${email}, groups=${groups_csv})"
+    return
+  fi
+
+  info "resetting identity fixture ${id} (${username})"
+  FORCE_REGEN=1 ensure_test_user \
+    "$ak_url" "$ak_token" \
+    "$username" "$email" "$display_name" \
+    "UatFixture1!" "$groups_csv"
+}
+
+# ── --reset: delete-then-recreate one mutable domain fixture ──────────────────
+# Generic across collections (operator_invites, events, member_consents, …):
+# looks up an existing row by the manifest's declared lookup field/value,
+# DELETEs it if found, then POSTs the manifest's initial-state payload.
+# Offsets ({"spec":"+7","unit":"days"}) are resolved via the existing
+# date_offset() helper so recreated rows use fresh relative timestamps, same
+# as the unconditional STEP 4 flow does for operator_invites.
+#
+# member_email resolution (fast-follow to the initial FR-WORKFLOW-003 pass):
+# if the fixture's payload declares "member_email" (a manifest-only hint —
+# see resolve_payload_offsets()'s comment), it is resolved to a real Directus
+# user id BEFORE the POST payload is finalized, and set onto the payload's
+# "member" field — member_consents.member is a uuid FK to directus_users.id,
+# not an email string (confirmed against
+# infrastructure/directus/bootstrap.sh's
+# `relation member_consents.member -> directus_users.id` and
+# apps/api/src/modules/directus/directus-users-bridge.service.ts). A live
+# --reset would otherwise POST an email string into a uuid FK column and get
+# a Directus 422/FK error. Unresolvable emails are a fixture-authoring bug,
+# not a runtime condition — fail() loudly rather than POST a broken payload
+# (functional-scope item 4).
+#
+# sibling_fixtures_json (2nd arg) is the full manifest fixtures array for
+# this BP-UAT (same value run_reset_for_bp already holds) — needed ONLY for
+# the mock-mode resolution path below, which resolves member_email against
+# sibling identity fixtures' declared emails instead of hitting a real
+# Directus (there is no real Directus in mock mode). Live mode ignores this
+# argument entirely and queries Directus directly.
+reset_domain_fixture() {
+  local fixture_json="$1" sibling_fixtures_json="${2:-[]}"
+  local id collection lookup_field lookup_value member_email
+  id=$(jq -r '.id' <<<"$fixture_json")
+  collection=$(jq -r '.collection' <<<"$fixture_json")
+  lookup_field=$(jq -r '.lookup_field' <<<"$fixture_json")
+  lookup_value=$(jq -r '.lookup_value' <<<"$fixture_json")
+  member_email=$(jq -r '.payload.member_email // empty' <<<"$fixture_json")
+
+  if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
+    if [[ -n "$member_email" ]]; then
+      # Mock resolution: no real Directus exists in mock mode, so resolve
+      # member_email against sibling identity fixtures' declared emails in
+      # this same manifest (matches the real invariant — the referenced
+      # member's identity fixture must exist — without a network call).
+      local mock_member_id
+      mock_member_id=$(jq -r --arg e "$member_email" \
+        '[.[] | select(.kind=="identity" and .email==$e)][0].id // empty' \
+        <<<"$sibling_fixtures_json")
+      if [[ -z "$mock_member_id" ]]; then
+        fail "fixture ${id}: member_email '${member_email}' did not resolve to any identity fixture in this manifest (mock mode) — fixture-authoring bug, refusing to POST a broken member_consents row."
+      fi
+      ok "fixture ${id} (mock, delete collection=${collection} lookup=${lookup_field}=${lookup_value})"
+      ok "fixture ${id} (mock, create collection=${collection}, member_email=${member_email} resolved to member=${mock_member_id})"
+      return
+    fi
+    ok "fixture ${id} (mock, delete collection=${collection} lookup=${lookup_field}=${lookup_value})"
+    ok "fixture ${id} (mock, create collection=${collection})"
+    return
+  fi
+
+  # Resolve any *_offset keys in the payload to concrete ISO timestamps
+  # before delete/create, using the same date_offset() helper the
+  # unconditional flow already uses.
+  local resolved_payload
+  resolved_payload=$(resolve_payload_offsets "$fixture_json")
+
+  # Resolve member_email (if declared) to a real Directus user id and set it
+  # onto the payload's "member" field. Must happen before delete/create so a
+  # bad fixture never reaches Directus as a malformed POST.
+  if [[ -n "$member_email" ]]; then
+    local member_id
+    member_id=$(directus_user_pk_by_email "$DIRECTUS_URL" "$DIRECTUS_TOKEN" "$member_email")
+    if [[ -z "$member_id" ]]; then
+      fail "fixture ${id}: member_email '${member_email}' did not resolve to any Directus user — fixture-authoring bug (create the identity fixture first), refusing to POST a broken member_consents row."
+    fi
+    resolved_payload=$(jq -c --arg m "$member_id" '.member = $m' <<<"$resolved_payload")
+    info "fixture ${id}: member_email '${member_email}' resolved to member=${member_id}"
+  fi
+
+  # Delete existing row(s) matching the lookup filter, if any.
+  local encoded_value existing_ids existing_id
+  encoded_value=$(printf '%s' "$lookup_value" | jq -sRr @uri)
+  existing_ids=$(curl -sf \
+    -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+    "${DIRECTUS_URL}/items/${collection}?filter[${lookup_field}][_eq]=${encoded_value}&limit=-1" \
+    2>/dev/null | jq -r '.data[]?.id // empty' 2>/dev/null || true)
+
+  for existing_id in $existing_ids; do
+    [[ -z "$existing_id" ]] && continue
+    local del_code
+    del_code=$(curl -s -o /dev/null -w '%{http_code}' \
+      -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+      -X DELETE "${DIRECTUS_URL}/items/${collection}/${existing_id}" 2>/dev/null)
+    if [[ "$del_code" != "200" && "$del_code" != "204" ]]; then
+      fail "reset_domain_fixture ${id}: DELETE ${collection}/${existing_id} failed: HTTP ${del_code}"
+    fi
+    ok "fixture ${id} (deleted, collection=${collection}, id=${existing_id})"
+  done
+
+  local create_resp create_code
+  create_resp=$(curl -s \
+    -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -X POST -w "\n%{http_code}" \
+    "${DIRECTUS_URL}/items/${collection}" \
+    -d "$resolved_payload" 2>/dev/null)
+  create_code="${create_resp##*$'\n'}"
+  if [[ "$create_code" != "200" && "$create_code" != "201" ]]; then
+    fail "reset_domain_fixture ${id}: POST ${collection} failed: HTTP ${create_code} — ${create_resp%$'\n'*}"
+  fi
+  ok "fixture ${id} (created, collection=${collection})"
+}
+
+# ── --reset: resolve {"spec":"+7","unit":"days"} offset objects to ISO strings ─
+# Walks the manifest fixture's "payload" object: any key ending in "_offset"
+# is replaced by the equivalent plain key (offset suffix stripped) holding
+# date_offset()'s resolved ISO-8601 value. Non-offset keys pass through
+# unchanged. member_email (an FK-resolution hint, not a real Directus column)
+# is dropped from the outgoing payload — the caller resolves it to a real FK
+# separately when the collection needs one (e.g. member_consents.member).
+resolve_payload_offsets() {
+  local fixture_json="$1"
+  local payload keys k
+  payload=$(jq -c '.payload' <<<"$fixture_json")
+  keys=$(jq -r '.payload | keys[] | select(endswith("_offset"))' <<<"$fixture_json")
+  for k in $keys; do
+    local spec unit resolved base_key
+    spec=$(jq -r ".payload[\"$k\"].spec" <<<"$fixture_json")
+    unit=$(jq -r ".payload[\"$k\"].unit" <<<"$fixture_json")
+    resolved=$(date_offset "$spec" "$unit")
+    base_key="${k%_offset}"
+    payload=$(jq -c --arg bk "$base_key" --arg v "$resolved" \
+      'del(.[$bk + "_offset"]) | .[$bk] = $v' <<<"$payload")
+  done
+  # member_email is a manifest-only FK-resolution hint, never a real column.
+  payload=$(jq -c 'del(.member_email)' <<<"$payload")
+  printf '%s' "$payload"
+}
+
+# ── --reset: process every fixture in one BP-UAT's manifest ───────────────────
+# Order: identity fixtures first (restore group/consent state), then domain
+# fixtures (delete-then-recreate) — matches functional-scope item 1's
+# "delete and recreate every mutable domain fixture" after identities are
+# known-good, and gives TestDesigner a stable ordering to assert against.
+run_reset_for_bp() {
+  local bp_uat="$1" ak_url="$2" ak_token="$3"
+  local manifest_file fixtures_json count i fixture kind
+  manifest_file=$(require_manifest "$bp_uat")
+  info "resetting fixtures for ${bp_uat} (manifest: ${manifest_file})"
+
+  fixtures_json=$(jq -c '.fixtures' "$manifest_file")
+  count=$(jq 'length' <<<"$fixtures_json")
+
+  # Pass 1: identity fixtures (reset, never recreated).
+  for ((i = 0; i < count; i++)); do
+    fixture=$(jq -c ".[$i]" <<<"$fixtures_json")
+    kind=$(jq -r '.kind' <<<"$fixture")
+    [[ "$kind" == "identity" ]] || continue
+    reset_identity_fixture "$ak_url" "$ak_token" "$fixture"
+  done
+
+  # Pass 2: domain fixtures (delete-then-recreate).
+  for ((i = 0; i < count; i++)); do
+    fixture=$(jq -c ".[$i]" <<<"$fixtures_json")
+    kind=$(jq -r '.kind' <<<"$fixture")
+    [[ "$kind" == "domain" ]] || continue
+    reset_domain_fixture "$fixture" "$fixtures_json"
+  done
+
+  ok "${bp_uat} reset complete (${count} fixture(s))"
+}
+
+# ── --reset all: iterate every manifest present under scripts/uat-fixtures/ ───
+run_reset_all() {
+  local ak_url="$1" ak_token="$2"
+  local f bp_uat any=0
+  if [[ -d "$FIXTURES_DIR" ]]; then
+    for f in "$FIXTURES_DIR"/*.json; do
+      [[ -e "$f" ]] || continue
+      any=1
+      bp_uat=$(basename "$f" .json)
+      run_reset_for_bp "$bp_uat" "$ak_url" "$ak_token"
+    done
+  fi
+  if [[ "$any" == "0" ]]; then
+    fail "No fixture manifests found under ${FIXTURES_DIR} — nothing to reset."
+  fi
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
@@ -444,6 +773,30 @@ MEMBER_EMAIL="${UAT_MEMBER_EMAIL:-uat-member@aiqadam.test}"
 MEMBER_PASSWORD="${UAT_MEMBER_PASSWORD:-UatMember1!}"
 OPERATOR_EMAIL="${UAT_OPERATOR_EMAIL:-uat-operator@aiqadam.test}"
 OPERATOR_PASSWORD="${UAT_OPERATOR_PASSWORD:-UatOperator1!}"
+
+# ── --reset dispatch (runs instead of, not alongside, STEP 1-4 below) ─────────
+# The localhost guard is the very first thing that runs in this branch —
+# before any manifest is even read — so a misconfigured non-local target
+# never reaches a delete/create call (FR-WORKFLOW-003 AC-4).
+if [[ -n "$RESET_TARGET" ]]; then
+  reset_localhost_guard "$DIRECTUS_URL" "$AK_URL"
+
+  RESET_AK_TOKEN=""
+  if [[ "$UAT_SEED_DIRECTUS_MOCK" != "1" ]]; then
+    RESET_AK_TOKEN=$(get_ak_admin_token "$AK_URL" "$AK_CONTAINER")
+    [[ -n "$RESET_AK_TOKEN" ]] || fail "Failed to obtain Authentik admin token"
+  fi
+
+  if [[ "$RESET_TARGET" == "all" ]]; then
+    run_reset_all "$AK_URL" "$RESET_AK_TOKEN"
+  else
+    run_reset_for_bp "$RESET_TARGET" "$AK_URL" "$RESET_AK_TOKEN"
+  fi
+
+  echo ""
+  ok "--reset ${RESET_TARGET} complete"
+  exit 0
+fi
 
 # ── STEP 1 — Reachability ─────────────────────────────────────────────────────
 echo "[1/4] Verifying stack reachability…"

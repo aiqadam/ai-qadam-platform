@@ -43,13 +43,19 @@ deliberately uses an email with no matching Authentik user to exercise
 the api's `invite_missing_authentik_user` error path. Tokens are static
 public test fixtures — never used in production.
 
-| Fixture | Email | `display_name` | Description |
-|---|---|---|---|
-| `uat-onboard-token` | `uat-operator@aiqadam.test` | `UAT Operator (valid)` | A valid, unused operator invite token. Exposed as `UAT_ONBOARD_TOKEN` in `.env.test`. |
-| `uat-onboard-used-token` | `uat-operator@aiqadam.test` | `UAT Operator (used)` | An operator invite token that has already been accepted (`used_at` is set). Exposed as `UAT_ONBOARD_USED_TOKEN`. |
-| `uat-onboard-expired-token` | `uat-operator@aiqadam.test` | `UAT Operator (expired)` | An operator invite token with `expires_at` in the past. Exposed as `UAT_ONBOARD_EXPIRED_TOKEN`. |
-| `uat-onboard-no-user-token` | `uat-operator+no-user@aiqadam.test` | `UAT Operator (no-user)` | An operator invite row whose email has no matching Authentik user; exercises the api's `invite_missing_authentik_user` (409) error path. Exposed as `UAT_ONBOARD_NO_USER_TOKEN`. |
-| Mail catcher | — | — | Local mail-catcher (e.g., Mailpit at `http://localhost:8025`) is running to capture outbound emails. |
+`id` maps 1:1 to `scripts/uat-fixtures/BP-UAT-013.json`'s fixture ids and to
+`scripts/uat-seed.sh`'s existing token constants — `--reset BP-UAT-013`
+deletes and recreates each row from the manifest's payload. The "Mail
+catcher" row is infrastructure, not a Directus/Authentik-backed fixture, so
+its `id` cell is `—` (it is intentionally absent from the JSON manifest).
+
+| `id` | Fixture | Email | `display_name` | Description |
+|---|---|---|---|---|
+| `uat-onboard-token` | `uat-onboard-token` | `uat-operator@aiqadam.test` | `UAT Operator (valid)` | A valid, unused operator invite token. Exposed as `UAT_ONBOARD_TOKEN` in `.env.test`. |
+| `uat-onboard-used-token` | `uat-onboard-used-token` | `uat-operator@aiqadam.test` | `UAT Operator (used)` | An operator invite token that has already been accepted (`used_at` is set). Exposed as `UAT_ONBOARD_USED_TOKEN`. |
+| `uat-onboard-expired-token` | `uat-onboard-expired-token` | `uat-operator@aiqadam.test` | `UAT Operator (expired)` | An operator invite token with `expires_at` in the past. Exposed as `UAT_ONBOARD_EXPIRED_TOKEN`. |
+| `uat-onboard-no-user-token` | `uat-onboard-no-user-token` | `uat-operator+no-user@aiqadam.test` | `UAT Operator (no-user)` | An operator invite row whose email has no matching Authentik user; exercises the api's `invite_missing_authentik_user` (409) error path. Exposed as `UAT_ONBOARD_NO_USER_TOKEN`. |
+| `—` | Mail catcher | — | — | Local mail-catcher (e.g., Mailpit at `http://localhost:8025`) is running to capture outbound emails. |
 
 ## Steps
 

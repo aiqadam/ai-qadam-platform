@@ -42,6 +42,7 @@ Check every field against the template contract:
 | Every step has `action`, `expected_ui_state`, and `screenshot_label` | All three present |
 | At least one negative scenario present | `negative_scenarios` list non-empty |
 | Acceptance criteria listed and each mapped to at least one step or scenario | AC list non-empty, each AC has a step reference |
+| manifest matches doc fixture table (if BP-UAT has a `scripts/uat-fixtures/<NNN>.json`) | PASS/FAIL/N/A — diff named on FAIL |
 
 If any check fails: output the gap and set `gate_result: failed-retry` — the
 script must be corrected before UATRunner is invoked.
@@ -104,6 +105,7 @@ missing — a run without visual review is an incomplete run.
 | all steps have action + expected + label | PASS / FAIL | list any gaps |
 | negative scenarios present | PASS / FAIL | |
 | ACs mapped to steps | PASS / FAIL | list unmapped ACs |
+| manifest matches doc fixture table (if `scripts/uat-fixtures/<NNN>.json` exists) | PASS / FAIL / N/A | diff named on FAIL |
 
 ### Summary
 

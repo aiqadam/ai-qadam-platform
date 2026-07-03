@@ -164,3 +164,7 @@ BusinessAnalyst triage additionally hard-fails (`failed-escalate`) if
 4. Re-run `uat-verification` on BP-UAT-013 as the pilot: it has an existing
    screenshot corpus (`apps/e2e/uat-results/BP-UAT-013/`) to validate the
    VisualReviewer protocol end-to-end.
+5. Implement `FR-WORKFLOW-003` (UAT fixture state reset,
+   `docs/03-requirements/FR-WORKFLOW-003.md`) so BP-UAT scripts become
+   re-entrant — a precondition for scheduled nightly re-verification of
+   all business processes with visual review.

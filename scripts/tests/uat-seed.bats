@@ -2,9 +2,10 @@
 # scripts/tests/uat-seed.bats
 #
 # Regression tests for the ensure_operator_invite() addition in
-# scripts/uat-seed.sh (ISS-UAT-013-4 fix).
+# scripts/uat-seed.sh (ISS-UAT-013-4 fix), plus the FR-WORKFLOW-003
+# `--reset <BP-UAT-NNN>|all` fixture-reset mode (wf-20260703-feat-063).
 #
-# These tests use two techniques:
+# These tests use three techniques:
 #
 #   1. UAT_SEED_DIRECTUS_MOCK=1 (full mock mode) — bypasses ALL external
 #      calls (Directus health, bootstrap.sh, Authentik, operator_invites
@@ -15,12 +16,32 @@
 #      scripts without running them, e.g. that uat-env-setup.sh contains
 #      the UAT_ONBOARD_* variables.
 #
+#   3. Isolated-copy mock mode (FR-WORKFLOW-003 tests only) — copies
+#      scripts/uat-seed.sh and scripts/uat-fixtures/ into BATS_TEST_TMPDIR
+#      so a manifest can be deliberately corrupted (via jq) without
+#      touching the real repo files. REPO_ROOT/FIXTURES_DIR are derived
+#      from BASH_SOURCE inside uat-seed.sh, so running the copy from a
+#      tmpdir is what makes the corrupted manifest take effect.
+#
 # Coverage:
 #   AC-1: Mock mode exits 0 and calls ensure_operator_invite for all 3 tokens
 #   AC-2: Missing DIRECTUS_TOKEN exits non-zero with FATAL message
 #   AC-3: ensure_operator_invite contains an idempotency check (token_prefix GET)
 #   AC-4: uat-env-setup.sh contains UAT_ONBOARD_TOKEN, UAT_ONBOARD_USED_TOKEN,
 #         UAT_ONBOARD_EXPIRED_TOKEN
+#
+# FR-WORKFLOW-003 coverage (--reset mode, see
+# .copilot/tasks/active/wf-20260703-feat-063/06-test-strategy.md):
+#   AC-1/AC-3: manifest parsing + delete-then-create ordering
+#   AC-4: localhost guard (DIRECTUS_URL and AK_URL checked independently)
+#   AC-2/AC-3: unknown BP-UAT id + --reset all iteration
+#   AC-6: byte-identical no-flag regression vs. the pre-FR baseline
+#   member_email -> Directus user id FK resolution (success, failure,
+#     and BP-UAT-013 non-regression)
+#   CLI-parsing structural edge cases (missing --reset value, unknown flag)
+#   AC-5/AC-7: doc-presence structural checks (business-analyst.md,
+#     uat-verification.md) — not runtime behavior of uat-seed.sh, but
+#     grepped here per this suite's established structural-check pattern.
 #
 # Run:
 #   bash scripts/run-bats.sh scripts/tests/uat-seed.bats
@@ -34,10 +55,14 @@ setup() {
   export REPO_ROOT
   # Unset any inherited mocks from surrounding environment
   unset UAT_SEED_DIRECTUS_MOCK
+  unset DIRECTUS_URL
+  unset AK_URL
 }
 
 teardown() {
   unset UAT_SEED_DIRECTUS_MOCK
+  unset DIRECTUS_URL
+  unset AK_URL
 }
 
 @test "AC-1: mock mode exits 0 and provisions all 4 operator_invite tokens" {
@@ -132,4 +157,220 @@ teardown() {
 
 @test "AC-4: uat-env-setup.sh contains UAT_ONBOARD_EXPIRED_TOKEN" {
   grep -q 'UAT_ONBOARD_EXPIRED_TOKEN=' "$REPO_ROOT/scripts/uat-env-setup.sh"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FR-WORKFLOW-003: `--reset <BP-UAT-NNN>|all` fixture-reset mode
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ─── Row 1: Manifest parsing (run_reset_for_bp reading BP-UAT-013.json) ───────
+
+@test "FR-WORKFLOW-003 row 1: --reset BP-UAT-013 mock mode logs exactly 4 fixture lines" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-013 2>&1'
+  [ "$status" -eq 0 ]
+  # One create line per fixture in the manifest (4 operator_invites rows).
+  local count
+  count=$(echo "$output" | grep -cE '\(mock, create collection=operator_invites\)' || true)
+  [ "$count" -eq 4 ]
+}
+
+# ─── Row 2: Delete-then-create ordering (reset_domain_fixture mock branch) ────
+
+@test "FR-WORKFLOW-003 row 2: each domain fixture's delete line precedes its create line" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-013 2>&1'
+  [ "$status" -eq 0 ]
+  # For each of the 4 fixture ids, the delete line's line number must be
+  # lower than the create line's line number.
+  local id
+  for id in uat-onboard-token uat-onboard-used-token uat-onboard-expired-token uat-onboard-no-user-token; do
+    local del_line create_line
+    del_line=$(echo "$output" | grep -nE "fixture ${id} \(mock, delete collection=" | head -1 | cut -d: -f1)
+    create_line=$(echo "$output" | grep -nE "fixture ${id} \(mock, create collection=" | head -1 | cut -d: -f1)
+    [ -n "$del_line" ]
+    [ -n "$create_line" ]
+    [ "$del_line" -lt "$create_line" ]
+  done
+}
+
+# ─── Row 3: Localhost guard — non-localhost DIRECTUS_URL ──────────────────────
+
+@test "FR-WORKFLOW-003 row 3: non-localhost DIRECTUS_URL exits 4 with zero writes" {
+  run bash -c 'DIRECTUS_URL=https://prod.aiqadam.org UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-001 2>&1'
+  [ "$status" -eq 4 ]
+  [[ "$output" == *"FATAL"* ]]
+  [[ "$output" == *"non-localhost target"* ]]
+  # Load-bearing assertion: zero mock/fixture output lines were emitted —
+  # not even the manifest read happens once the guard trips.
+  local mock_lines
+  mock_lines=$(echo "$output" | grep -cE '\(mock,' || true)
+  [ "$mock_lines" -eq 0 ]
+}
+
+# ─── Row 3b: Localhost guard — non-localhost AK_URL, DIRECTUS_URL local ───────
+
+@test "FR-WORKFLOW-003 row 3b: non-localhost AK_URL (DIRECTUS_URL local) exits 4 with zero writes" {
+  # Confirms AK_URL is checked independently — not short-circuited once
+  # DIRECTUS_URL passes the localhost check.
+  run bash -c 'DIRECTUS_URL=http://localhost:8200 AK_URL=https://prod-ak.aiqadam.org UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-001 2>&1'
+  [ "$status" -eq 4 ]
+  [[ "$output" == *"FATAL"* ]]
+  [[ "$output" == *"non-localhost target"* ]]
+  local mock_lines
+  mock_lines=$(echo "$output" | grep -cE '\(mock,' || true)
+  [ "$mock_lines" -eq 0 ]
+}
+
+# ─── Row 4: Unknown BP-UAT id (require_manifest) ──────────────────────────────
+
+@test "FR-WORKFLOW-003 row 4: --reset BP-UAT-999 (no manifest) exits non-zero with actionable FATAL" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-999 2>&1'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"FATAL"* ]]
+  [[ "$output" == *"No fixture manifest found for 'BP-UAT-999'"* ]]
+  [[ "$output" == *"BP-UAT-999.json"* ]]
+  # list_known_manifests() output — both known manifests named.
+  [[ "$output" == *"BP-UAT-001"* ]]
+  [[ "$output" == *"BP-UAT-013"* ]]
+}
+
+# ─── Row 5: --reset all iteration (run_reset_all) ─────────────────────────────
+
+@test "FR-WORKFLOW-003 row 5: --reset all processes both manifests and exits 0" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset all 2>&1'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"resetting fixtures for BP-UAT-001"* ]]
+  [[ "$output" == *"resetting fixtures for BP-UAT-013"* ]]
+  [[ "$output" == *"BP-UAT-001 reset complete (5 fixture(s))"* ]]
+  [[ "$output" == *"BP-UAT-013 reset complete (4 fixture(s))"* ]]
+}
+
+# ─── Row 6: Regression — byte-identical no-flag output vs. pre-FR baseline ────
+
+@test "FR-WORKFLOW-003 row 6: no-flag mock output is byte-identical to the pre-FR baseline" {
+  # The --reset branch is an early-exit branch that runs BEFORE the
+  # unconditional STEP 1-4 flow (see uat-seed.sh's CLI dispatch comment at
+  # the '--reset dispatch' section) — it must not change no-flag behavior
+  # at all. HEAD is the commit this feature branch was created from (no
+  # uncommitted change to uat-seed.sh predates this workflow), so
+  # `git show HEAD:scripts/uat-seed.sh` is a faithful pre-FR-WORKFLOW-003
+  # snapshot of this exact script for this branch's entire lifetime up to
+  # merge — the same comparison CodeDeveloper's self-validation performed
+  # manually (03-code-summary.md, Self-Validation section).
+  local baseline="$BATS_TEST_TMPDIR/baseline-uat-seed.sh"
+  run bash -c "cd '$REPO_ROOT' && git show HEAD:scripts/uat-seed.sh > '$baseline'"
+  [ "$status" -eq 0 ]
+  [ -s "$baseline" ]
+
+  local baseline_output current_output
+  baseline_output=$(UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$baseline" 2>&1)
+  current_output=$(UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1)
+
+  [ "$baseline_output" = "$current_output" ]
+}
+
+# ─── Row 7: member_email FK resolution — success ──────────────────────────────
+
+@test "FR-WORKFLOW-003 row 7: member_email resolves to the sibling identity fixture in mock mode" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-001 2>&1'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"fixture uat-member-consented-consent (mock, create collection=member_consents, member_email=uat-member-c@aiqadam.test resolved to member=uat-member-consented)"* ]]
+}
+
+# ─── Row 8: member_email FK resolution — unresolvable email fails loudly ──────
+
+@test "FR-WORKFLOW-003 row 8: unresolvable member_email fails loudly; prior fixtures still succeed" {
+  # Isolated-copy technique: copy uat-seed.sh + scripts/uat-fixtures/ into a
+  # scratch dir so REPO_ROOT/FIXTURES_DIR (both derived from BASH_SOURCE
+  # inside uat-seed.sh) resolve into the tmpdir, then corrupt the scratch
+  # copy of BP-UAT-001.json's member_email with jq. The real repo's
+  # scripts/uat-fixtures/BP-UAT-001.json is never touched.
+  local scratch="$BATS_TEST_TMPDIR/scratch-repo"
+  mkdir -p "$scratch/scripts/uat-fixtures"
+  cp "$REPO_ROOT/scripts/uat-seed.sh" "$scratch/scripts/uat-seed.sh"
+  cp "$REPO_ROOT/scripts/uat-fixtures/BP-UAT-013.json" "$scratch/scripts/uat-fixtures/BP-UAT-013.json"
+  jq '(.fixtures[] | select(.id=="uat-member-consented-consent") | .payload.member_email) |= "nonexistent@aiqadam.test"' \
+    "$REPO_ROOT/scripts/uat-fixtures/BP-UAT-001.json" \
+    > "$scratch/scripts/uat-fixtures/BP-UAT-001.json"
+
+  run bash -c "UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash '$scratch/scripts/uat-seed.sh' --reset BP-UAT-001 2>&1"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"FATAL"* ]]
+  [[ "$output" == *"fixture uat-member-consented-consent"* ]]
+  [[ "$output" == *"member_email 'nonexistent@aiqadam.test' did not resolve to any identity fixture in this manifest (mock mode)"* ]]
+  # The two identity fixtures ordered before the bad domain fixture in the
+  # manifest must still have logged successfully — the failure is isolated
+  # to the one bad domain fixture, not a global short-circuit.
+  [[ "$output" == *"identity uat-operator (mock, reset"* ]]
+  [[ "$output" == *"identity uat-member-consented (mock, reset"* ]]
+}
+
+# ─── Row 9: BP-UAT-013 unaffected by the member_email change (regression) ─────
+
+@test "FR-WORKFLOW-003 row 9: --reset BP-UAT-013 output has no member_email/resolved-to substrings" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-013 2>&1'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"member_email="* ]]
+  [[ "$output" != *"resolved to member="* ]]
+}
+
+# ─── Row 10: Structural — --reset requires an argument ────────────────────────
+
+@test "FR-WORKFLOW-003 row 10: --reset with no following argument exits 2 with usage message" {
+  run bash -c 'bash "$REPO_ROOT/scripts/uat-seed.sh" --reset 2>&1'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: uat-seed.sh --reset <BP-UAT-NNN>|all"* ]]
+}
+
+# ─── Row 11: Structural — unknown flag rejected ───────────────────────────────
+
+@test "FR-WORKFLOW-003 row 11: unknown flag exits 2 with usage message" {
+  run bash -c 'bash "$REPO_ROOT/scripts/uat-seed.sh" --bogus-flag 2>&1'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Unknown argument: --bogus-flag"* ]]
+  [[ "$output" == *"Usage: uat-seed.sh [--reset <BP-UAT-NNN>|all]"* ]]
+}
+
+# ─── AC-6 (first clause): bash -n scripts/uat-seed.sh passes ──────────────────
+
+@test "FR-WORKFLOW-003 AC-6: bash -n scripts/uat-seed.sh passes (syntax check)" {
+  run bash -n "$REPO_ROOT/scripts/uat-seed.sh"
+  [ "$status" -eq 0 ]
+}
+
+# ─── AC-5: BusinessAnalyst Step 1 checklist + output-format table doc-presence ─
+
+@test "FR-WORKFLOW-003 AC-5: business-analyst.md Step 1 checklist has the manifest-drift row" {
+  # Same structural-doc-presence pattern as bp-uat-template-rule.bats: grep
+  # a doc file for a required substring so a future edit that silently
+  # drops the row is caught. AC-5 is a process/authoring-time check, not
+  # runtime behavior of uat-seed.sh, so this is the load-bearing test for it.
+  local doc="$REPO_ROOT/.copilot/agents/business-analyst.md"
+  [ -f "$doc" ]
+  grep -qE 'manifest matches doc fixture table.*scripts/uat-fixtures' "$doc"
+  grep -qE 'PASS/FAIL/N/A.*diff named on FAIL' "$doc"
+}
+
+@test "FR-WORKFLOW-003 AC-5: business-analyst.md's 01-uat-script-validation.md output table has the manifest-drift row" {
+  local doc="$REPO_ROOT/.copilot/agents/business-analyst.md"
+  [ -f "$doc" ]
+  # The output-file-format table's row uses the 3-column shape
+  # (Check | Result | Notes) — 'PASS / FAIL / N/A' in the Result column,
+  # 'diff named on FAIL' in the Notes column.
+  grep -qE 'manifest matches doc fixture table.*scripts/uat-fixtures.*PASS / FAIL / N/A.*diff named on FAIL' "$doc"
+}
+
+# ─── AC-7: uat-verification.md Step 2 documents the reset invocation ──────────
+
+@test "FR-WORKFLOW-003 AC-7: uat-verification.md Step 2 section documents --reset and failed-escalate together" {
+  # Slice the file to the Step 2 section only (from its header to the next
+  # '### Step' header), matching bp-uat-template-rule.bats's awk-slice
+  # pattern for scoping a grep to one doc section rather than the whole
+  # file. Guards against the doc drifting silently in a future edit.
+  local doc="$REPO_ROOT/.copilot/workflows/uat-verification.md"
+  [ -f "$doc" ]
+  local step2
+  step2=$(awk '/^### Step 2: Pre-Flight/{flag=1} flag{print} /^### Step 3:/{if (flag) exit}' "$doc")
+  [ -n "$step2" ]
+  echo "$step2" | grep -qE 'reset <BP-UAT-NNN>'
+  echo "$step2" | grep -qE 'failed-escalate'
 }

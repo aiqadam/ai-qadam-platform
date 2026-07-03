@@ -28,12 +28,18 @@ not re-broadcast) and the no-audience edge case. Source runbook:
 
 ## Seed Fixtures Required
 
-| Fixture | Description |
-|---|---|
-| `uat-operator` | Operator account (`uat-operator@aiqadam.test`, password from `.env.test`), country=`uz` |
-| `uat-member-consented` | Member account (`uat-member-c@aiqadam.test`), country=`uz`, `member_consents.purpose='events'` active |
-| `uat-member-no-consent` | Member account (`uat-member-nc@aiqadam.test`), country=`uz`, no `member_consents` row for `events` |
-| `uat-event-draft-uz` | Event in `uz` tenant, `status='draft'`, capacity=20, 0 registrations |
+`id` maps 1:1 to `scripts/uat-fixtures/BP-UAT-001.json`'s fixture ids.
+`uat-operator` is an identity fixture (reset, never deleted/recreated —
+`--reset BP-UAT-001` restores its group membership). The other three rows
+are recreated from the manifest's declared initial-state payload on
+`--reset BP-UAT-001`.
+
+| `id` | Fixture | Description |
+|---|---|---|
+| `uat-operator` | Operator account | Operator account (`uat-operator@aiqadam.test`, password from `.env.test`), country=`uz` |
+| `uat-member-consented` | Member account (consented) | Member account (`uat-member-c@aiqadam.test`), country=`uz`, `member_consents.purpose='events'` active |
+| `uat-member-no-consent` | Member account (no consent) | Member account (`uat-member-nc@aiqadam.test`), country=`uz`, no `member_consents` row for `events` |
+| `uat-event-draft-uz` | Draft event | Event in `uz` tenant, `status='draft'`, capacity=20, 0 registrations |
 
 ## Steps
 

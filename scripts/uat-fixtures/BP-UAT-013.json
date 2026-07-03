@@ -1,0 +1,75 @@
+{
+  "bp_uat": "BP-UAT-013",
+  "description": "Member signup and operator onboarding — operator_invites reset manifest. Payloads lifted verbatim from scripts/uat-seed.sh's existing ensure_operator_invite() calls (STEP 4, lines ~545-559) so --reset BP-UAT-013 restores exactly what the unconditional seed flow already creates.",
+  "fixtures": [
+    {
+      "id": "uat-onboard-token",
+      "kind": "domain",
+      "collection": "operator_invites",
+      "lookup_field": "token_prefix",
+      "lookup_value": "uat-onbo",
+      "note": "token_prefix alone is not unique across these 4 rows (all share prefix 'uat-onbo' from the shared 'uat-onboard-' stem) — the real uniqueness key is token_hash, computed at recreate time from token_plain, same as ensure_operator_invite()'s existing idempotency check.",
+      "token_plain": "uat-onboard-token",
+      "payload": {
+        "email": "uat-operator@aiqadam.test",
+        "display_name": "UAT Operator (valid)",
+        "status": "pending",
+        "expires_at_offset": { "spec": "+7", "unit": "days" },
+        "consumed_at": null,
+        "role_groups": ["aiqadam-staff"],
+        "country": null
+      }
+    },
+    {
+      "id": "uat-onboard-used-token",
+      "kind": "domain",
+      "collection": "operator_invites",
+      "lookup_field": "token_prefix",
+      "lookup_value": "uat-onbo",
+      "token_plain": "uat-onboard-used-token",
+      "payload": {
+        "email": "uat-operator@aiqadam.test",
+        "display_name": "UAT Operator (used)",
+        "status": "consumed",
+        "expires_at_offset": { "spec": "+7", "unit": "days" },
+        "consumed_at_offset": { "spec": "-2", "unit": "hours" },
+        "role_groups": [],
+        "country": null
+      }
+    },
+    {
+      "id": "uat-onboard-expired-token",
+      "kind": "domain",
+      "collection": "operator_invites",
+      "lookup_field": "token_prefix",
+      "lookup_value": "uat-onbo",
+      "token_plain": "uat-onboard-expired-token",
+      "payload": {
+        "email": "uat-operator@aiqadam.test",
+        "display_name": "UAT Operator (expired)",
+        "status": "pending",
+        "expires_at_offset": { "spec": "-1", "unit": "days" },
+        "consumed_at": null,
+        "role_groups": [],
+        "country": null
+      }
+    },
+    {
+      "id": "uat-onboard-no-user-token",
+      "kind": "domain",
+      "collection": "operator_invites",
+      "lookup_field": "token_prefix",
+      "lookup_value": "uat-onbo",
+      "token_plain": "uat-onboard-no-user-token",
+      "payload": {
+        "email": "uat-operator+no-user@aiqadam.test",
+        "display_name": "UAT Operator (no-user)",
+        "status": "pending",
+        "expires_at_offset": { "spec": "+7", "unit": "days" },
+        "consumed_at": null,
+        "role_groups": [],
+        "country": null
+      }
+    }
+  ]
+}

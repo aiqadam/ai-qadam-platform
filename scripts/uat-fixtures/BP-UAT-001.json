@@ -1,0 +1,65 @@
+{
+  "bp_uat": "BP-UAT-001",
+  "description": "Event publication broadcast — 3 of these 4 fixtures are NOT created by uat-seed.sh's unconditional flow today (only uat-operator is, via STEP 3's ensure_test_user). Payloads for uat-member-consented, uat-member-no-consent, and uat-event-draft-uz are authored from docs/02-business-processes/uat/BP-UAT-001.md's Seed Fixtures Required table and step text (Step 002: DRAFT status badge; Step 006: uat-member-no-consent excluded from recipient count), not lifted from existing script code.",
+  "fixtures": [
+    {
+      "id": "uat-operator",
+      "kind": "identity",
+      "note": "Already seeded unconditionally by STEP 3 (ensure_test_user). Reset semantics: restore group membership (aiqadam-super-admin) via the existing FORCE_REGEN path — never delete/recreate (would invalidate Authentik sessions/PKs per FR-WORKFLOW-003 functional-scope item 3).",
+      "username": "uat-operator",
+      "email": "uat-operator@aiqadam.test",
+      "display_name": "UAT Operator",
+      "groups_csv": "aiqadam-super-admin"
+    },
+    {
+      "id": "uat-member-consented",
+      "kind": "identity",
+      "note": "Not created by uat-seed.sh's unconditional flow today (only uat-member/uat-operator are). Reset creates-if-missing then restores group membership, same idiom as ensure_test_user's existing FORCE_REGEN branch. The events-purpose consent row (member_consents) is the domain half of this fixture — see the paired 'uat-member-consented-consent' domain entry below.",
+      "username": "uat-member-consented",
+      "email": "uat-member-c@aiqadam.test",
+      "display_name": "UAT Member (consented)",
+      "groups_csv": "aiqadam-member"
+    },
+    {
+      "id": "uat-member-consented-consent",
+      "kind": "domain",
+      "collection": "member_consents",
+      "lookup_field": "member_email",
+      "lookup_value": "uat-member-c@aiqadam.test",
+      "note": "member_consents.member is an FK to directus_users.id — resolved at recreate time by looking up the uat-member-consented identity's Authentik/Directus user id, same pattern ensure_operator_invite() already uses for authentik_user_id.",
+      "payload": {
+        "member_email": "uat-member-c@aiqadam.test",
+        "purpose": "events",
+        "revoked_at": null,
+        "source": "signup"
+      }
+    },
+    {
+      "id": "uat-member-no-consent",
+      "kind": "identity",
+      "note": "Not created by uat-seed.sh's unconditional flow today. No member_consents row for purpose='events' is created for this identity — that absence IS the fixture's declared initial state (BP-UAT-001.md: 'no member_consents row for events'). Reset must NOT create a consent row for this member.",
+      "username": "uat-member-no-consent",
+      "email": "uat-member-nc@aiqadam.test",
+      "display_name": "UAT Member (no consent)",
+      "groups_csv": "aiqadam-member"
+    },
+    {
+      "id": "uat-event-draft-uz",
+      "kind": "domain",
+      "collection": "events",
+      "lookup_field": "title",
+      "lookup_value": "UAT Event UZ",
+      "note": "Not created by uat-seed.sh's unconditional flow today (STEP 4 today only inserts operator_invites rows). Authored from BP-UAT-001.md Step 002 ('Status badge shows DRAFT') and the Seed Fixtures Required table ('status=draft, capacity=20, 0 registrations'). country='uz' must match the operator's country scope per the doc's Notes section.",
+      "payload": {
+        "title": "UAT Event UZ",
+        "description": "UAT fixture event for BP-UAT-001 (event publication broadcast).",
+        "status": "draft",
+        "format": "meetup",
+        "starts_at_offset": { "spec": "+7", "unit": "days" },
+        "ends_at_offset": { "spec": "+7", "unit": "days" },
+        "capacity": 20,
+        "country": "uz"
+      }
+    }
+  ]
+}

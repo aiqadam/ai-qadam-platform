@@ -28,11 +28,19 @@ negative scenario below.
 Only relevant when `seed_required: true`. List exactly what state the
 `pnpm uat:seed` script must create before this test runs.
 
-| Fixture | Description |
-|---|---|
-| `test-operator` | Operator account (`uat-operator@aiqadam.test`, password from `.env.test`) |
-| `test-member` | Member account (`uat-member@aiqadam.test`, password from `.env.test`) |
-| `test-event-uz` | Published event in `uz` tenant, capacity 10, 0 registrations |
+The `id` column is a stable fixture identifier matching the corresponding
+entry in `scripts/uat-fixtures/<BP-UAT-NNN>.json` (when this BP-UAT has a
+manifest file — see FR-WORKFLOW-003). Infra rows that have no
+Directus/Authentik-backed fixture (e.g. "mail catcher is running") are
+exempt from needing an `id` — leave that cell as `—`. BP-UAT files with
+richer fixture tables (e.g. extra `Email`/`display_name` columns) still
+gain this same `id` column, positioned first.
+
+| `id` | Fixture | Description |
+|---|---|---|
+| `test-operator` | Operator account | Operator account (`uat-operator@aiqadam.test`, password from `.env.test`) |
+| `test-member` | Member account | Member account (`uat-member@aiqadam.test`, password from `.env.test`) |
+| `test-event-uz` | Published event | Published event in `uz` tenant, capacity 10, 0 registrations |
 
 ## Steps
 

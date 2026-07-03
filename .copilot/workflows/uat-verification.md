@@ -110,8 +110,19 @@ bash scripts/uat-preflight-check.sh web  :4321 "@astrojs/node"
 bash scripts/uat-preflight-check.sh api  :3000 "@aiqadam/api"
 
 # 3. Seed (if UAT script declares seed_required: true)
+# If the BP-UAT being run has a manifest under scripts/uat-fixtures/
+# (currently: BP-UAT-001, BP-UAT-013 — see FR-WORKFLOW-003), use --reset so
+# the fixtures are restored to their declared initial state regardless of
+# what a prior run left behind:
+pnpm uat:seed --reset <BP-UAT-NNN>
+# For any other BP-UAT (no manifest yet — all except BP-UAT-001/013 as of
+# FR-WORKFLOW-003), keep using the plain create-if-missing invocation until
+# a manifest is authored for it in a future FR:
 pnpm uat:seed
-# Non-zero exit: failed-escalate (env issue).
+# Non-zero exit (either form): failed-escalate (env issue) — matches this
+# step's existing pre-flight gate semantics below. A non-zero exit from
+# --reset specifically means either the manifest was missing/invalid or the
+# localhost guard tripped; both are env issues, not product bugs.
 ```
 
 **Gate:**
@@ -119,6 +130,8 @@ pnpm uat:seed
 - Any check fails → register env issue in `.copilot/issues/`, `failed-escalate`.
   On a process-identity mismatch, the message includes the foreign PID and
   CommandLine so the operator can stop the conflicting process.
+  A non-zero exit from `pnpm uat:seed --reset <BP-UAT-NNN>` is
+  `failed-escalate` under this same rule.
 
 ---
 
