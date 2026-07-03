@@ -1,0 +1,36 @@
+{
+  "_schema_version": "1.0",
+  "_limit": 5,
+  "_policy_ref": "AGENTS.md §6.3",
+  "_last_updated": "2026-07-03",
+  "classes": {
+    "15c26207b13cee6b4283d22fd389e3015bc95988": {
+      "label": "vitest __vite_ssr_exportName__ ReferenceError in apps/api/test/setup-pg.ts (vitest@2.1.9 + workspace vite@8.1.0 SSR-transform skew — see ISS-TEST-WEB-001)",
+      "owned_by_issue": "ISS-TEST-WEB-001",
+      "queued_workflow": "wf-20260703-fix-066-vitest-bump",
+      "failing_job": "ci",
+      "first_observed": "2026-06-30",
+      "last_observed": "2026-07-03",
+      "consecutive_count": 3,
+      "last_overriding_workflow": null,
+      "history": [
+        {"wf": "wf-20260701-fix-058", "pr": 91, "date": "2026-06-30", "note": "pre-policy, counter back-filled from registry history"},
+        {"wf": "wf-20260703-fix-069", "pr": 92, "date": "2026-07-03", "note": "pre-policy, counter back-filled from registry history"},
+        {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "pre-policy, counter back-filled from registry history"}
+      ]
+    },
+    "ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7": {
+      "label": "rolldown [PARSE_ERROR] Unexpected JSX expression on apps/web-next .tsx files during storybook-static build (rolldown 1.1.3 — see ISS-CI-OVERRIDE-ebd184b)",
+      "owned_by_issue": "ISS-CI-OVERRIDE-ebd184b",
+      "queued_workflow": "wf-20260703-fix-072",
+      "failing_job": "storybook",
+      "first_observed": "2026-07-03",
+      "last_observed": "2026-07-03",
+      "consecutive_count": 1,
+      "last_overriding_workflow": "wf-20260703-impl-policy-071",
+      "history": [
+        {"wf": "wf-20260703-impl-policy-071", "pr": 94, "date": "2026-07-03", "note": "auto-registered by PRSteward on PR #94 (first observed); counter incremented to 1/5 by override under §6.3 step 3 (auto-register procedure)"}
+      ]
+    }
+  }
+}

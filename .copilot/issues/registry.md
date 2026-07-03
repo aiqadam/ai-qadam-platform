@@ -37,6 +37,8 @@
 | [ISS-UAT-SEED-002](ISS-UAT-SEED-002.md) | bug | uat/seed | `scripts/uat-seed.sh`'s `api_base` default points to port 3001; api listens on 3000 — seed requires undocumented `API_BASE_URL` export | open | — | 2026-07-03 |
 | [ISS-UAT-COV-003](ISS-UAT-COV-003.md) | enhancement | uat/coverage | BP-UAT-001 has no Playwright spec under `apps/e2e/tests/uat/BP-UAT-001.spec.ts`; process verification deferred by wf-20260703-uat-064 (parent: ISS-UAT-COV-001) | open | — | 2026-07-03 |
 | [ISS-TEST-WEB-001](ISS-TEST-WEB-001.md) | blocker | web/test-infrastructure (api, web-next — same root cause) | `vitest 2.1.9` (pinned in all three apps) + workspace `vite 8.1.0` SSR-transform skew — `ReferenceError: __vite_ssr_exportName__ is not defined` fires on any test that imports a sibling module; blocks AC-3 of ISS-UAT-013-13 (regression test added but not executable); existing `apps/web/src/lib/utm.test.ts` passes only because it inlines all helpers | open | queued: wf-20260703-fix-066-vitest-bump (position 1 of ISS-UAT-013-13 follow-up) | 2026-07-03 |
+| [ISS-WF-CI-OVERRIDE-1](ISS-WF-CI-OVERRIDE-1.md) | blocker | workflow/ci-policy | Operational CI-override agent (`PRSteward`) + counter-limited policy so that pre-existing CI failures on main HEAD don't force a human prompt on every PR — bounded by a 5-override ceiling per failure class | open | wf-20260703-impl-policy-071 | 2026-07-03 |
+| [ISS-CI-OVERRIDE-ebd184b](ISS-CI-OVERRIDE-ebd184b.md) | blocker | ci/infrastructure | Auto-registered by PRSteward (AGENTS.md §6.3 step 3) on PR #94: rolldown 1.1.3 in `apps/storybook` cannot parse JSX in `.tsx` files (`[PARSE_ERROR] Unexpected JSX expression`); first observed during storybook-static build | open | queued: wf-20260703-fix-072 (position 1) | 2026-07-03 |
 
 ---
 

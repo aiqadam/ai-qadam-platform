@@ -1,12 +1,13 @@
 # Workspace State
 
-**Last updated:** 2026-07-03 (wf-20260703-fix-069-biome-scope closed — `ISS-CI-003` resolved `won't fix as filed` per user direction. Biome noise is policy, not a quality gate: GitHub is treated as an external drive, not a quality gate. PR trims 30+ noisy `recommended`-set rules (style contest / complexity / a11y / performance) in `packages/biome-config/biome.json` (keeps high-signal `unused-*`, `noExplicitAny`, `useTemplate`, `useConst`, `noNonNullAssertion`); removes the `Lint + format check (Biome)` step from `.github/workflows/ci.yml` `ci` job. Effect: `pnpm lint` 20,473 errors / 90s → 1,658 errors / 15s; CI no longer surfaces biome noise. Counter bumped 68 → 69.)
+**Last updated:** 2026-07-03 (wf-20260703-impl-policy-071 — PRSteward agent + AGENTS.md §6.3 CI-override policy. Adds `.copilot/agents/pr-steward.md` (decision-maker that operates on a per-check basis with three preconditions: pre-existing on `origin/main`, owned by tracked issue with queued follow-up, counter < `_limit=5`); adds `.copilot/meta/ci-override-counters.json` with `_schema_version: "1.0"`, back-filled with the `__vite_ssr_exportName__` failure class (sha1 `15c26207b13cee6b4283d22fd389e3015bc95988`, consecutive_count 3, owned by ISS-TEST-WEB-001, queued_workflow `wf-20260703-fix-066-vitest-bump`); rewrites §6.2 safety gate #2 to delegate to PRSteward; regenerates all 5 tool configs (`.github/copilot-instructions.md`, `.clinerules`, `.cursorrules`, `.windsurfrules`, `.cursor/rules/00-project.mdc`). Branches: this workflow's `feature/PRSTEWARD-agent-and-ci-override-policy` (wf-20260703-impl-policy-071, counter 69 → 71). Side effect: PR #93 (`fix/ISS-WF-REG-002-registry-state-drift`, wf-20260703-fix-070) remains blocked — its storybook failure (`PARSE_ERROR Unexpected JSX expression` on `apps/web-next/src/kit/{Badge,Card,Dialog,Wizard}.tsx` and `apps/web-next/src/blocks/workspace/AsyncSelect.tsx`) is a NEW failure class that the PRSteward will register as a blocker issue per §6.3 step 3 and stop. Counter bumped 69 → 71.)
 
 ---
 
 ## Active Workflows
 
-_(none — all current work resolved/merged. See "Queued follow-up workflows" below for the next workflows that should start.)_
+- **wf-20260703-fix-070** — ISS-WF-REG-002 — branch `fix/ISS-WF-REG-002-registry-state-drift`, PR [#93](https://github.com/tvolodi/aiqadam/pull/93) — **blocked** on `ci/__vite_ssr_exportName__` (eligible for override under new policy, ISS-TEST-WEB-001 owner, count 3→4) AND `storybook/PARSE_ERROR Unexpected JSX expression` (new failure class, no queued fix → PRSteward will register blocker issue per §6.3 step 3 and stop). Net: needs-review. Counter 70. Resolution: split registry-state fix into docs-only PR (would land on override alone), or fix the JSX parse errors first.
+- **wf-20260703-impl-policy-071** — ISS-WF-CI-OVERRIDE-1 — branch `feature/PRSTEWARD-agent-and-ci-override-policy`, this workflow. After this PR merges, the PRSteward is invoked against PR #93 as AC-8's integration test. Counter 71.
 
 ### Queued follow-up workflows (named in respective ISS files)
 
@@ -20,9 +21,11 @@ _(none — all current work resolved/merged. See "Queued follow-up workflows" be
 
 ## Open Issues
 
+- [ISS-WF-CI-OVERRIDE-1](../issues/ISS-WF-CI-OVERRIDE-1.md) (blocker, workflow/ci-policy) — PRSteward agent + counter-limited override policy. Active in this workflow (wf-20260703-impl-policy-071).
 - [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md) (blocker, api/directus-bridge) — newly-discovered gap in `ensureLinkedByEmail` (returns `null` for seed users without `platform.users` row); discovered during wf-20260703-uat-064 live verification. Blocks AC-2/3 of [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) from flipping to `verified`.
 - [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md) (enhancement, uat/coverage) — BP-UAT-001 has no Playwright spec (`apps/e2e/tests/uat/BP-UAT-001.spec.ts` not present); out of Path A scope by user choice.
 - [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md) (bug, uat/seed) — `scripts/uat-seed.sh`'s `api_base` default points to port 3001; API listens on 3000 (per `apps/api/.env` `PORT=3000`); seed requires undocumented `API_BASE_URL` export.
+- [ISS-TEST-WEB-001](../issues/ISS-TEST-WEB-001.md) (blocker, web/test-infrastructure) — `vitest 2.1.9` + workspace `vite 8.1.0` SSR-transform skew causes `ReferenceError: __vite_ssr_exportName__ is not defined` on any test that imports a sibling module. Blocks AC-3 of [ISS-UAT-013-13](../issues/ISS-UAT-013-13.md). Fix queued at `wf-20260703-fix-066-vitest-bump` (counter 66).
 - [ISS-UAT-COV-001](../issues/ISS-UAT-COV-001.md) (RESOLVED 2026-07-03 by wf-20260703-fix-067-coverage-registry) — gap is now sequenced and visible in `registry.md` Spec/Smoke Overlap columns + 17 follow-up workflows queued.
 
 ## Completed Workflows (recent)
@@ -57,13 +60,13 @@ _(empty — see "Open Issues" above for current status. Kept for delta-only hist
 
 ## Git State
 
-- **Current branch:** main (workflow archived; branch `fix/ISS-UAT-COV-001-coverage-registry` is HEAD with the DRAFT PR)
-- **Last sync with origin:** 2026-07-03 (`bfcd45c` — `chore(workflow): finalize artifacts for ISS-UAT-COV-001` on `fix/ISS-UAT-COV-001-coverage-registry`)
-- **Pending PRs:** [PR #91](https://github.com/tvolodi/aiqadam/pull/91) (DRAFT, blocked on ISS-CI-003)
+- **Current branch:** feature/PRSTEWARD-agent-and-ci-override-policy (wf-20260703-impl-policy-071 — PR open, then back to main)
+- **Last sync with origin:** 2026-07-03 (`4f98ce9` — `docs(registry): back-fill PR #92 / squash SHA 3f2d001 for ISS-CI-003 + add wf-20260703-fix-069 row` on `main`)
+- **Pending PRs:** [PR #93](https://github.com/tvolodi/aiqadam/pull/93) (MERGEABLE but 2 pre-existing CI failures); upcoming PR for the PRSteward policy PR (this workflow).
 
 ## Next Workflow ID
 
-See `.copilot/meta/next-workflow-id` (currently: `69` — incremented from `68` after `wf-20260703-fix-069-biome-scope` close). The next workflow should pick counter `69`; if a queued follow-up (see Active Workflows above) starts, it should use the placeholder-named IDs (e.g. `wf-20260703-fix-065-bridge`) with the actual counter assignment done at handoff.yaml creation.
+See `.copilot/meta/next-workflow-id` (currently: `71` — incremented from `69` by `wf-20260703-impl-policy-071`). **Collision note:** `fix/ISS-WF-REG-002-registry-state-drift` (wf-20260703-fix-070) has the counter file at `70` on its branch. When PR #93 lands, the Orchestrator at merge time will see the conflict and keep main's value (`71`), not re-write to `70`. The next workflow after wf-71 will use counter `72`.
 
 ---
 

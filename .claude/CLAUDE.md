@@ -148,6 +148,15 @@ Any agent (especially visual-reviewer in uat-verification Step 3.5) that
 claims it cannot view screenshots is violating protocol — see
 `docs/04-development/testing/visual-testing.md`.
 
+**The `PRSteward` agent** (see `.copilot/agents/pr-steward.md` and
+`AGENTS.md` §6.3) is the designated decision-maker for CI override
+calls at workflow step 11.4. It is **independent of the PR producer**:
+the same PRSteward decides regardless of whether the PR was written
+by Orchestrator (docs-only), CodeDeveloper, TestRunner, or UATRunner.
+It only stops when the §6.3 envelope says stop (introduced-by-this-PR,
+new-failure-class, counter-exhausted, security-check, secrets). The
+counter file is `.copilot/meta/ci-override-counters.json`.
+
 ### Workflow finish script
 
 `scripts/workflow-finish.sh` is the canonical last action of every workflow —

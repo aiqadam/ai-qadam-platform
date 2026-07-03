@@ -26,8 +26,10 @@ engineer. He is learning to code through this project.
 This means:
 - **Explain decisions, don't just make them.** Every non-obvious choice gets a comment
   or a paragraph in the PR description.
-- **Refuse to do things that will hurt the project long-term**, even if the user asks.
-  Tell him why, suggest alternatives.
+- **Critically analyze user requests before acting** — see §13. When a request
+  affects architecture, security, scope, or any non-trivial trade-off, surface
+  the concern, evidence, and a counter-proposal. The user has the final say,
+  but agents MUST NOT silently comply with destructive or irreversible asks.
 - **Default to teaching mode** in explanations. Assume the user knows concepts but may
   not know specific frameworks.
 
@@ -165,6 +167,66 @@ Full details in `docs/04-development/security/security.md`.
 
 ---
 
+## 6.2 Autonomous mode defaults (added 2026-07-03)
+
+The user has asked for autonomous workflow execution: agents should
+create branches, open PRs, run CI, auto-merge, update registries, and
+archive task directories **without confirmation prompts** unless a
+safety gate below is tripped. The agent's job is to be visible by
+**doing**, not by asking. The user can read PRs, registry, and
+workspace-state afterward.
+
+### Default behavior (no prompt)
+
+- ✅ Create feature branch from `origin/main`
+- ✅ Commit code, push branch
+- ✅ Open PR with auto-generated body
+- ✅ Auto-merge via `gh pr merge --squash --auto --delete-branch`
+  when CI is green and no required human review is configured
+- ✅ Back-fill merge SHA in issue file + registry
+- ✅ Move `.copilot/tasks/active/<wf-id>` → `.copilot/tasks/completed/<wf-id>`
+- ✅ Update `workspace-state.md`, `next-workflow-id`, `registry.md`
+- ✅ Print a one-line summary at workflow end:
+  `[<wf-id>] PR #N merged (squash SHA). <issue> resolved. <count> queued.`
+
+### Safety gates (agent MUST stop and tell the user)
+
+The agent stops ONLY for these. Everything else is autonomous:
+
+1. **Destructive commands** before running: `rm -rf` outside repo,
+   `git reset --hard`, `git push --force` to `main`, `docker system prune`,
+   `pnpm db:migrate` against prod, anything that deletes or rewrites
+   data outside the working tree.
+2. **CI failures on the open PR.** Handed off to the `PRSteward`
+   agent, which decides per the §6.3 override policy. The
+   PRSteward stops only when the policy says stop (introduced-by-this-PR,
+   counter-exhausted, security-check, secrets). New failure classes
+   are auto-registered and queued — they do not stop the override.
+3. **Branch protection rejection** of the auto-merge. Stop, surface the
+   protection rule that blocked, propose bypass-with-override (which
+   the user must authorize).
+4. **Secrets in the diff** detected by `gitleaks` or manual review.
+   Stop, never push.
+5. **Conflicting in-flight work** detected by `git status` not clean
+   or by another workflow's artifacts in `.copilot/tasks/active/`.
+   Stop, ask which workflow takes precedence.
+6. **Unresolvable ambiguity** in the issue ACs (e.g. two conflicting
+   interpretations of an acceptance criterion). Stop with the
+   specific ambiguity quoted.
+
+### Honesty still applies in autonomous mode
+
+- Every deferral MUST have a named+queued follow-up workflow ID
+  (§6.1 unchanged).
+- The QualityGate decision file MUST be written with the AC-by-AC
+  disposition (§6.1 unchanged).
+- `git log` and `gh pr view` are the audit trail. The user reads
+  those, not chat transcripts.
+
+---
+
+---
+
 ## 6.1 Production-readiness and infrastructure obligations (added 2026-06-29)
 
 **Any implementation that lands on `main` MUST be production-ready. There are no
@@ -235,6 +297,184 @@ bullet that:
 If a workflow ends with the issue still showing `Status: resolved` while any
 AC has unverified deferral without a queued follow-up, that is a workflow
 violation and must be reported.
+
+---
+
+## 6.3 CI override policy (added 2026-07-03) — delegated to the PRSteward agent
+
+**Why this section exists.** The §6.2 safety gate #2 ("CI failures on the
+open PR — stop, name the failing job, propose fix-or-abandon") is a tax on
+every workflow when the failure is pre-existing on `main` HEAD and owned by
+a queued follow-up workflow. The override decision is **operational, not
+strategic** — and it can be made autonomously when the answer is fully
+determined by the file-path intersection, the counter file, and the
+counter limit. The PRSteward is the agent that holds that decision. The
+user does not need to be prompted for any of the operational steps —
+registering a new failure class, queuing a follow-up workflow, ticking the
+counter, or writing the audit trail. The only conditions that escalate
+back to the user are the ones that protect against **real damage**:
+introductions, secrets, and counter exhaustion.
+
+**The decision-maker is the `PRSteward` agent** (see
+`.copilot/agents/pr-steward.md`). It is invoked at workflow step 11.4,
+after `gh pr create` (Step 11) and before the merge (Step 11.5). It is
+**independent of the producer** of the PR — the same agent makes the
+override call regardless of whether the PR's commits were written by
+Orchestrator (docs-only), CodeDeveloper (feat/*), TestRunner, or
+UATRunner.
+
+### When override is allowed
+
+The PRSteward MAY override a CI failure and merge the PR **iff ALL** of
+the following are true:
+
+1. **Pre-existing on `origin/main`.** The failing job's error log does not
+   mention any file path under this PR's diff. The PRSteward verifies
+   this by:
+   ```bash
+   # 1. Get the PR's file paths
+   pr_files=$(gh pr view <N> --json files --jq '.files[].path')
+   # 2. Check that none of the failing log's file paths are in pr_files
+   gh run view <run-id> --log-failed \
+     | grep -oE '[a-zA-Z0-9_./-]+\.(ts|tsx|js|jsx|astro|vue|json|yaml|yml)' \
+     | sort -u \
+     | comm -12 - <(echo "$pr_files" | sort -u)
+   # Empty output → pre-existing. Non-empty → introduced by this PR → STOP.
+   ```
+   If the PR's diff **does** touch a file in the failure trace, the
+   PRSteward MUST stop and surface the failure to the user — even if the
+   failure is also present on `main`. The PRSteward does not adjudicate
+   "is this OUR fault" — it only verifies "did this PR touch the file".
+
+2. **Failure class is registered and owned.** For each failing check,
+   compute `failure_class = sha1(canonical_error_block)`. Then:
+
+   - **If the class is already in `.copilot/meta/ci-override-counters.json`:**
+     the `owned_by_issue` field MUST be non-null, and the issue's row in
+     `registry.md` MUST show a `Workflow:` entry pointing to a directory
+     that exists under `.copilot/tasks/{active,queued}/`. If either
+     condition fails, treat it as a new class (next bullet).
+   - **If the class is NOT in the counter file:** the PRSteward
+     **auto-registers** it — opens a new `blocker`-severity GitHub
+     issue (label `ci-policy`, name pattern
+     `ISS-CI-OVERRIDE-<sha1-prefix>`), creates the follow-up workflow
+     directory `.copilot/tasks/queued/wf-<next-id>-<short-slug>/` with
+     a handoff.yaml, appends a row to `registry.md`, adds the class to
+     the counter file with `consecutive_count: 1`, and continues. The
+     PRSteward does **not** stop and does **not** ask the user. The
+     follow-up workflow is queued — it is the queued_workflow that
+     rule 2 requires.
+
+3. **Counter below `OVERRIDE_COUNTER_LIMIT` (default 5).** The current
+   consecutive override count for this failure class must be strictly
+   less than 5. If the class was just auto-registered, it starts at 1
+   (this override is the first). After 5 consecutive overrides (i.e.
+   `consecutive_count` reaches 5), the PRSteward MUST stop and surface
+   the failure to the user with the recommendation "either fix the
+   underlying issue (run the queued follow-up workflow now) or raise
+   the counter limit in `AGENTS.md §6.3` explicitly". The counter is
+   reset to 0 when a PR that **does not** override the failure class
+   is merged with green CI for that class, OR when the owning issue is
+   closed.
+
+### When override is NOT allowed (safety gates, agent MUST stop)
+
+The PRSteward MUST stop and surface to the user (write
+`NEEDS_REVIEW.md`, set `workflow_status: needs-review`) **only** when:
+
+- **The failure is introduced by this PR's diff (rule 1 fails).** The
+  PR's own code is producing the failure — a real bug in the PR, not a
+  pre-existing issue. The user must decide whether to fix or abandon.
+- **The counter has hit the limit (rule 3 fails).** The same class has
+  been overridden 5 times in a row — the queued follow-up workflow
+  has not produced a fix. The user must decide whether to escalate
+  the queued workflow, raise the limit, or accept the failure.
+- **The failure is a `gitleaks` secret-scan hit (rule 4 absolute —
+  secrets in the diff are never overridden, per §6.2 safety gate #4).**
+- **The failure is in a security-checked job** (`architecture-check`,
+  `pnpm audit` for direct dependencies added by this PR, or any
+  gitleaks / trivy result) — even pre-existing ones are individually
+  escalated, not overridden.
+
+**All other failure-handling paths are autonomous.** New failure
+classes, missing queued workflows (auto-queued), counter ticks
+(0/5, 1/5, 2/5, 3/5, 4/5) — none of these stop the PRSteward. The
+user is not asked.
+
+### Audit trail (mandatory)
+
+Every override decision — allowed OR denied — MUST be recorded in:
+
+1. **`handoff.yaml` `gate_results.step11.4-pr-steward:`** — block with
+   `status: passed|denied`, `decision: override|escalate`,
+   `failure_class`, `failing_job`, `pre_existing_evidence`,
+   `owned_by_issue`, `consecutive_override_count`,
+   `counter_after_decision`, `auto_registered: true|false`, and a
+   one-line justification.
+2. **The squash commit message trailer** (set by the PRSteward via
+   `git commit --amend` if the workflow's squash commit is the only one
+   on the branch, otherwise via a follow-up `chore(ci-override): …`
+   commit on the branch before merge):
+   ```
+   CI-Override: <failure_class> via <issue-id> (count N/5)
+   ```
+3. **The registry row for the owning issue** — the `Workflow` column is
+   amended to include the most recent overriding workflow ID and the
+   counter (e.g. `wf-20260703-fix-070 (3/5)`).
+4. **`.copilot/meta/ci-override-counters.json`** — the counter for the
+   failure class is incremented (or the new class is added with
+   `count: 1`).
+5. **The PR description** — if `decision: override`, the PRSteward
+   appends a "CI Override" section to the body (via `gh pr edit
+   --body-file`) summarising the evidence and the audit-trail
+   references above.
+
+If the PRSteward auto-registered a new class, the audit trail also
+records the new issue number, the queued workflow ID, and the
+`gh issue create` and `mkdir`/`touch` commands run (so the user can
+audit them later via `gh issue view <N>` and
+`ls .copilot/tasks/queued/wf-...`).
+
+### Renamed safety gate
+
+`§6.2` safety gate #2 is now read as: **"CI failures on the open PR.
+The PRSteward agent decides per the §6.3 override policy. The
+PRSteward stops only when the policy says stop (introduced-by-this-PR,
+counter-exhausted, security-check, secrets)."** The "new-failure-class"
+stop is **removed** — new classes are auto-registered and the override
+proceeds. The "stop, name the failing job, propose fix-or-abandon"
+language is retained only for the four stop conditions above.
+
+### Counter file format (`.copilot/meta/ci-override-counters.json`)
+
+```json
+{
+  "_schema_version": "1.0",
+  "_limit": 5,
+  "_policy_ref": "AGENTS.md §6.3",
+  "classes": {
+    "<sha1-of-error-message>": {
+      "label": "<human-readable short label>",
+      "owned_by_issue": "ISS-<id>",
+      "queued_workflow": "wf-<id>",
+      "failing_job": "<ci-job-name>",
+      "first_observed": "YYYY-MM-DD",
+      "last_observed": "YYYY-MM-DD",
+      "consecutive_count": <int>,
+      "last_overriding_workflow": "wf-<id>",
+      "history": [
+        {"wf": "wf-<id>", "pr": <N>, "date": "YYYY-MM-DD"}
+      ]
+    }
+  }
+}
+```
+
+The PRSteward updates `consecutive_count` after every decision. The
+`history` array is append-only; the counter is the count of consecutive
+overrides since the last green-CI merge for that class. New classes
+added by the PRSteward start at `consecutive_count: 1` (this PR is
+the first override).
 
 ---
 
@@ -399,6 +639,39 @@ When in conflict, this is the order:
 6. **Speed of delivery** — last priority, never compromise the above
 
 If a fast solution is unsafe, unclear, or untestable — it's not a solution. Slow down.
+
+---
+
+## 13. Critical analysis of user requests (added 2026-07-03)
+
+When the user makes a request that affects architecture, security, scope,
+or any non-trivial trade-off, agents MUST:
+
+1. **Analyze** the request critically. Identify:
+   - What goes wrong if we do exactly what the user said
+   - What alternatives achieve the user's goal with less risk
+   - What the model-speed estimate vs. real-world-time estimate looks like
+2. **Present** the analysis to the user in chat before acting. Be specific.
+   Use the structure "Concern / Evidence / Proposal".
+3. **Wait** for the user's response. Do not act until the user either:
+   a) Accepts the proposal, OR
+   b) Explicitly overrides the analysis (e.g. "I understand the risk, do it anyway").
+4. **Record** the override in the PR description under "Risks" — including the
+   date, the user's stated reason, and the agent's original concern.
+
+This rule does not give agents veto power. It gives the user
+**informed consent**. The user's override is final. The agent's job is to
+make the cost of each choice visible, not to block.
+
+The earlier "Refuse to do things that will hurt the project long-term"
+language from §0 is retained ONLY for:
+- Security violations (e.g., hardcoded secrets, missing tenant isolation)
+- Copyright violations
+- AGENTS.md non-overrideable rules (the "What you NEVER do" list in §6)
+- Shell commands the user has not authorized (e.g. `pnpm db:migrate` on prod)
+
+Everything else — design choices, scope, timing, tooling, refactors —
+follows the "analyze, present, wait for override" pattern above.
 
 ---
 
