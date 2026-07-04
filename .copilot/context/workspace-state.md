@@ -27,7 +27,6 @@ _(none — `wf-20260704-fix-095` has merged. Next to pick up is one of the queue
 
 ## Open Issues
 
-- [ISS-WF-CI-OVERRIDE-1](../issues/ISS-WF-CI-OVERRIDE-1.md) (blocker, workflow/ci-policy) — PRSteward agent + counter-limited override policy. Active in this workflow (wf-20260703-impl-policy-071).
 - [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md) (blocker, api/directus-bridge) — newly-discovered gap in `ensureLinkedByEmail` (returns `null` for seed users without `platform.users` row); discovered during wf-20260703-uat-064 live verification. Blocks AC-2/3 of [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) from flipping to `verified`.
 - [ISS-TEST-WEB-001](../issues/ISS-TEST-WEB-001.md) (RESOLVED 2026-07-04 by wf-20260704-fix-095, PR #110 squash `69b2bc6`) — vitest 2.1.9 → 4.1.9 in apps/{web,web-next,api}; companion edits to apps/api/vitest.unit.config.ts (transformMode removal) and apps/web-next/vitest.config.ts (@vitejs/plugin-react wiring mirroring PR #109 storybook pattern). Unblocks ISS-UAT-013-13 AC-3 regression test (now 5/5 passes). Follow-up queue: `wf-20260704-fix-096-pre-existing-api-test-flakes` for 3 apps/api test-design bugs unmasked by this fix.
 - [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md) (RESOLVED 2026-07-04 by wf-20260704-feat-090, PR #107 squash `c013f6e`) — BP-UAT-001 now has `apps/e2e/tests/uat/BP-UAT-001.spec.ts` (7 Playwright tests) + bats row 22. Live re-run deferred to position 12 of `uat-bp-uat-coverage-batch/`.

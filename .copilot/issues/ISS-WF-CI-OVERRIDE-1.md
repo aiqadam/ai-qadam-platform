@@ -65,8 +65,8 @@ writes `NEEDS_REVIEW.md`, and sets `workflow_status: needs-review`.
 
 - **Workflow:** `wf-20260705-fix-098` (this file's status flip; **substantive
   implementation** shipped earlier via `wf-20260703-impl-policy-071`)
-- **PR:** https://github.com/tvolodi/aiqadam/pull/111
-- **Merged:** `4d6c4f2` — Step 12.5 back-fills this SHA after PR auto-merge
+- **PR:** https://github.com/tvolodi/aiqadam/pull/111 (squash `30b312c`,
+  merged 2026-07-05T01:55:00Z)
 - **Substantive PR (where the "code" landed):**
   [PR #94](https://github.com/tvolodi/aiqadam/pull/94) (squash `9ce08f6`,
   merged 2026-07-03T19:00:28Z) — `feat(workflow): PRSteward agent +
