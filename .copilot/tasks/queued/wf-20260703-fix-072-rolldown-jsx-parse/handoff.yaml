@@ -1,3 +1,8 @@
+# SUPERSEDED 2026-07-04 by wf-20260704-fix-093 — see .copilot/tasks/active/wf-20260704-fix-093/
+# (PR #109 squash 255d2bb merged 2026-07-04). This queued placeholder handoff
+# is preserved in the audit trail; the actual fix landed in wf-20260704-fix-093.
+# Counter for class ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7 was reset to 0 on merge.
+
 schema_version: "1.0"
 workflow_instance_id: "wf-20260703-fix-072"
 workflow_type: "issue-resolution"

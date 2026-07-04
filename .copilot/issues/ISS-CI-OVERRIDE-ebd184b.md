@@ -148,4 +148,4 @@ of:
   `ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7` resets to 0 when a PR
   that does not override the failure class is merged with green CI.
   This PR merges with a green storybook job → counter resets.
-- **Merged:** `<pending>` — back-filled by Step 12.5.
+- **Merged:** 2026-07-04 — squash commit `255d2bb7815605f0ab705e585387caab80cdb208` ([PR #109](https://github.com/tvolodi/aiqadam/pull/109)).

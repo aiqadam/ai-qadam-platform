@@ -2,7 +2,7 @@
   "_schema_version": "1.0",
   "_limit": 5,
   "_policy_ref": "AGENTS.md §6.3",
-  "_last_updated": "2026-07-03",
+  "_last_updated": "2026-07-04",
   "classes": {
     "15c26207b13cee6b4283d22fd389e3015bc95988": {
       "label": "vitest __vite_ssr_exportName__ ReferenceError in apps/api/test/setup-pg.ts (vitest@2.1.9 + workspace vite@8.1.0 SSR-transform skew — see ISS-TEST-WEB-001)",
@@ -27,12 +27,17 @@
       "queued_workflow": "wf-20260703-fix-072",
       "failing_job": "storybook",
       "first_observed": "2026-07-03",
-      "last_observed": "2026-07-03",
-      "consecutive_count": 2,
-      "last_overriding_workflow": "wf-20260703-fix-070",
+      "last_observed": "2026-07-04",
+      "consecutive_count": 0,
+      "last_overriding_workflow": "wf-20260704-fix-093",
+      "resolved_at": "2026-07-04",
+      "resolved_by_pr": 109,
+      "resolved_by_sha": "255d2bb7815605f0ab705e585387caab80cdb208",
+      "resolution_note": "Counter reset to 0 per AGENTS.md §6.3 step 5: PR #109 merged with a green storybook job, did NOT override the failure class (the underlying bug is fixed — @vitejs/plugin-react@5.2.0 is now wired via viteFinal so rolldown's PARSE_ERROR no longer fires).",
       "history": [
         {"wf": "wf-20260703-impl-policy-071", "pr": 94, "date": "2026-07-03", "note": "auto-registered by PRSteward on PR #94 (first observed); counter started at 1/5 by override under §6.3 step 3 (auto-register procedure)"},
-        {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "PRSteward override under §6.3 v2 on PR #93 rebase (counter 1 -> 2)"}
+        {"wf": "wf-20260703-fix-070", "pr": 93, "date": "2026-07-03", "note": "PRSteward override under §6.3 v2 on PR #93 rebase (counter 1 -> 2)"},
+        {"wf": "wf-20260704-fix-093", "pr": 109, "date": "2026-07-04", "note": "Root cause fixed: @vitejs/plugin-react@5.2.0 injected via apps/storybook/.storybook/main.ts viteFinal; storybook build now exits 0 with 226 modules transformed. Counter reset to 0 per §6.3 step 5 (PR merged with green CI for the class, no override applied)."}
       ]
     }
   }
