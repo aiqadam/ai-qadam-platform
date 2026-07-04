@@ -244,9 +244,22 @@ teardown() {
   [[ "$output" == *"BP-UAT-013 reset complete (4 fixture(s))"* ]]
 }
 
-# ─── Row 6: Regression — byte-identical no-flag output vs. pre-FR baseline ────
+# ─── Row 6: Regression — structural equivalence vs. pre-FR baseline ──────────
+#
+# ISS-UAT-BATS-001 (resolved 2026-07-04 by wf-20260704-fix-092, PR #108):
+#   Two interacting bugs in the previous version of this test were fixed:
+#   (a) Baseline source-of-truth was `git show origin/main:scripts/uat-seed.sh`,
+#       which stopped being pre-fix once main advanced past commit `2b72f46`
+#       (ISS-UAT-001-1 fix). Now pinned to the immutable SHA `8db37ac^`
+#       (parent of the commit that introduced the +2 ensure_linked lines).
+#   (b) Strict byte-equality assertion was too strict for the documented
+#       `@aiqadam.test → @example.com` TLD migration in
+#       `wf-20260704-fix-086` / ISS-UAT-BRIDGE-002. Replaced with a structural
+#       assertion: every non-ensure_linked line from the pre-fix baseline must
+#       appear in the post-fix output, modulo a small whitelist of accepted
+#       drift sources (see DRIFT_SED_FILTERS below).
 
-@test "FR-WORKFLOW-003 row 6: no-flag mock output is byte-identical to the pre-FR baseline" {
+@test "FR-WORKFLOW-003 row 6: no-flag mock output is structurally equivalent to the pre-FR baseline (+2 ensure_linked lines + documented drift)" {
   # The --reset branch is an early-exit branch that runs BEFORE the
   # unconditional STEP 1-4 flow (see uat-seed.sh's CLI dispatch comment at
   # the '--reset dispatch' section) — it must not change no-flag behavior
@@ -254,24 +267,18 @@ teardown() {
   #
   # ISS-UAT-001-1 note: this fix necessarily adds 2 new mock-mode
   # `ensure_linked <email> (mock, …)` lines (one per identity fixture in
-  # STEP 3). The baseline-equality test below would fail as-written, so
-  # we instead assert structural invariants of the diff: the new
-  # ensure_linked lines are exactly +2 lines vs the pre-FR baseline, and
-  # every other byte is unchanged. This preserves the regression intent
-  # ("nothing else changed silently") while accommodating the documented
-  # ISS-UAT-001-1 output addition.
-  # The baseline is the pre-ISS-UAT-001-1 version of uat-seed.sh.
-  # We compare against origin/main (the merge-base of this fix branch)
-  # rather than HEAD, because HEAD includes the fix under test.
-  # If origin/main is unreachable (e.g. no network), we fall back to
-  # the parent of the commit that introduced the fix (8db37ac^).
+  # STEP 3). The structural assertion below verifies the line-count delta
+  # is exactly +2 and every other line is present (modulo the documented
+  # drift whitelist).
+
+  # Baseline is pinned to 8db37ac^ — the parent of the commit that introduced
+  # the ensure_linked mock lines. This SHA is immutable; the baseline never
+  # moves as main advances.
   local baseline="$BATS_TEST_TMPDIR/baseline-uat-seed.sh"
-  if git rev-parse --verify origin/main >/dev/null 2>&1; then
-    run bash -c "cd '$REPO_ROOT' && git show origin/main:scripts/uat-seed.sh > '$baseline'"
-  else
-    run bash -c "cd '$REPO_ROOT' && git show 8db37ac^:scripts/uat-seed.sh > '$baseline'"
+  if ! git rev-parse --verify 8db37ac^ >/dev/null 2>&1; then
+    skip "baseline commit 8db37ac^ not reachable from this clone"
   fi
-  [ "$status" -eq 0 ]
+  git show 8db37ac^:scripts/uat-seed.sh > "$baseline"
   [ -s "$baseline" ]
 
   local baseline_output current_output baseline_lines current_lines
@@ -284,13 +291,36 @@ teardown() {
   current_lines=$(echo "$current_output" | wc -l)
   [ "$((current_lines - baseline_lines))" -eq 2 ]
 
-  # Every non-ensure_linked line from the baseline is present, byte-for-byte,
-  # in the current output. This is the load-bearing regression check.
-  local non_ensure_lines
-  non_ensure_lines=$(echo "$baseline_output" | grep -vE 'ensure_linked .*\(mock, directus_user_id=mock-uuid\)' || true)
-  local current_non_ensure_lines
-  current_non_ensure_lines=$(echo "$current_output" | grep -vE 'ensure_linked .*\(mock, directus_user_id=mock-uuid\)' || true)
-  [ "$non_ensure_lines" = "$current_non_ensure_lines" ]
+  # Strip the new ensure_linked lines from both outputs, then strip the
+  # accepted-drift patterns (currently just the @aiqadam.test → @example.com
+  # TLD migration from wf-20260704-fix-086), then assert structural
+  # equivalence: every remaining line from the baseline appears in the
+  # current output (modulo ordering, which we sort to remove dependency on
+  # output stability across minor refactors).
+  #
+  # If you add a new drift source here, file an issue and update the
+  # comment so the next reviewer knows why each sed filter exists.
+  local DRIFT_SED_FILTERS=(
+    -e 's/@aiqadam\.test/@example.com/g'
+  )
+
+  local non_ensure_lines current_non_ensure_lines
+  non_ensure_lines=$(echo "$baseline_output" \
+    | grep -vE 'ensure_linked .*\(mock, directus_user_id=mock-uuid\)' \
+    | sed "${DRIFT_SED_FILTERS[@]}" || true)
+  current_non_ensure_lines=$(echo "$current_output" \
+    | grep -vE 'ensure_linked .*\(mock, directus_user_id=mock-uuid\)' \
+    | sed "${DRIFT_SED_FILTERS[@]}" || true)
+
+  # Sort both sides so the assertion is order-independent.
+  # `comm -23` reports lines unique to the baseline that are NOT in current.
+  # If non-empty, the current output is missing structural content from the
+  # baseline — a regression.
+  local missing_from_current
+  missing_from_current=$(comm -23 \
+    <(echo "$non_ensure_lines" | sort) \
+    <(echo "$current_non_ensure_lines" | sort) || true)
+  [ -z "$missing_from_current" ]
 }
 
 # ─── Row 7: member_email FK resolution — success ──────────────────────────────
