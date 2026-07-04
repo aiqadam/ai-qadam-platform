@@ -1,6 +1,6 @@
 # Workspace State
 
-**Last updated:** 2026-07-04 — `wf-20260704-fix-089` merged. [PR #106](https://github.com/tvolodi/aiqadam/pull/106) squash `3e524bd` (ISS-UAT-SEED-002 — `scripts/uat-seed.sh`'s `api_ensure_directus_user_link` derived `api_base` from `apps/api/.env` `PORT` via existing `env_get` helper, replacing the wrong `http://host.docker.internal:3001` literal and the misleading WSL2/Docker Desktop comment). 5/5 ACs verified (2 grep regressions + 3 helper-extraction cases in `scripts/tests/uat-seed.bats`; pre-existing FR-WORKFLOW-003 row 6 bats failure unrelated, present on origin/main). No follow-up workflows queued (no deferred ACs). Counter bumped 89 → 90. Auto-merge per AGENTS.md §6.2 + §6.3 user CI opt-out. Sister workflow `wf-20260704-fix-086` (PR #105 squash `5bb819b` for ISS-UAT-BRIDGE-002) — see Completed Workflows (recent) table below.
+**Last updated:** 2026-07-04 — `wf-20260704-feat-090` merged. [PR #107](https://github.com/tvolodi/aiqadam/pull/107) squash `c013f6e8fb8d4c349374f482e1a60cd80592d8a4` (FEAT-UAT-COV-003 / ISS-UAT-COV-003 — authored `apps/e2e/tests/uat/BP-UAT-001.spec.ts` (588 lines, 7 Playwright tests mapping to Steps 002-006 + Neg 001/002) and appended FEAT-UAT-COV-003 row 22 to `scripts/tests/uat-seed.bats` (asserts `--reset BP-UAT-001` idempotency for `uat-member-consented`'s `member_consents` row across reruns; `uat-member-no-consent` never acquires one). 5/5 ACs verified (4 hermetic; AC-3 live Playwright re-run deferred to **position 12 of `uat-bp-uat-coverage-batch/`** queued batch per AGENTS.md §6.1). Typecheck clean. bats 33/34 pass; the 1 failure (FR-WORKFLOW-003 row 6) is pre-existing on origin/main, owned by `wf-20260704-fix-087-fix-fr-workflow-003-row-6`. No code, no schema, no shared-types, no frontend changes; no new deps/env-vars/migration. Counter bumped 91 → 92. Auto-merge per AGENTS.md §6.2 + §6.3 user CI opt-out. Sister workflow `wf-20260704-fix-089` (PR #106 squash `3e524bd` for ISS-UAT-SEED-002) — see Completed Workflows (recent) table below.
 
 ---
 
@@ -14,15 +14,13 @@
 
 ## Active Workflows
 
-_(none — `wf-20260704-fix-089` has merged and is archived to `completed/`. Next to pick up is one of the queued follow-up workflows below, in priority order.)_
+_(none — `wf-20260704-feat-090` has merged and is archived to `completed/`. Next to pick up is one of the queued follow-up workflows below, in priority order.)_
 
 ### Queued follow-up workflows (named in respective ISS files)
 
 - **wf-20260703-fix-065-bridge** — owns [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md); queue position 1; placeholder name (counter will be the next increment after `68`)
-- **wf-20260703-feat-065-bp-uat-001-spec** — owns [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md); queue position 1
-- **wf-20260703-fix-066-seed-port** — owns [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md); queue position 1 — **DONE** 2026-07-04 by `wf-20260704-fix-089` (PR #106).
 - **wf-20260703-fix-066-vitest-bump** — owns [ISS-TEST-WEB-001](../issues/ISS-TEST-WEB-001.md); queue position 1; spawned by `wf-20260703-fix-065-onboarding-copy` because ISS-UAT-013-13's AC-3 regression test cannot run until vitest + vite 8 version skew is resolved.
-- **uat-bp-uat-coverage-batch** — 17 workflows queued at `.copilot/tasks/queued/uat-bp-uat-coverage-batch/handoff.yaml`; owned by `wf-20260703-fix-067-coverage-registry`. Position 1 = `wf-20260703-uat-068-pilot-bp-uat-010` (run BP-UAT-010.spec.ts against the live stack). Positions 2–17 = one workflow per remaining BP-UAT script (BP-UAT-002, 003, 004, 005, 006, 007, 008, 011, 012, 014, 015, 016, 017, 018 + BP-UAT-001 from ISS-UAT-COV-003 which has its own outer queue).
+- **uat-bp-uat-coverage-batch** — 17 workflows queued at `.copilot/tasks/queued/uat-bp-uat-coverage-batch/handoff.yaml`; owned by `wf-20260703-fix-067-coverage-registry`. Position 1 = `wf-20260703-uat-068-pilot-bp-uat-010` (run BP-UAT-010.spec.ts against the live stack). Positions 2–17 = one workflow per remaining BP-UAT script (BP-UAT-002, 003, 004, 005, 006, 007, 008, 011, 012, 014, 015, 016, 017, 018 + **BP-UAT-001 from ISS-UAT-COV-003** at position 12 — spec now authored by `wf-20260704-feat-090` PR #107 squash `c013f6e`; only the live re-run against the local stack remains).
 
 ---
 
@@ -30,15 +28,16 @@ _(none — `wf-20260704-fix-089` has merged and is archived to `completed/`. Nex
 
 - [ISS-WF-CI-OVERRIDE-1](../issues/ISS-WF-CI-OVERRIDE-1.md) (blocker, workflow/ci-policy) — PRSteward agent + counter-limited override policy. Active in this workflow (wf-20260703-impl-policy-071).
 - [ISS-UAT-BRIDGE-001](../issues/ISS-UAT-BRIDGE-001.md) (blocker, api/directus-bridge) — newly-discovered gap in `ensureLinkedByEmail` (returns `null` for seed users without `platform.users` row); discovered during wf-20260703-uat-064 live verification. Blocks AC-2/3 of [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md) from flipping to `verified`.
-- [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md) (enhancement, uat/coverage) — BP-UAT-001 has no Playwright spec (`apps/e2e/tests/uat/BP-UAT-001.spec.ts` not present); out of Path A scope by user choice.
-- [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md) (RESOLVED 2026-07-04 by wf-20260704-fix-089, PR #106 squash `3e524bd`) — `scripts/uat-seed.sh`'s `api_base` default now derived from `apps/api/.env` `PORT` via `env_get`; `:3000` fallback for fresh-checkout UX.
 - [ISS-TEST-WEB-001](../issues/ISS-TEST-WEB-001.md) (blocker, web/test-infrastructure) — `vitest 2.1.9` + workspace `vite 8.1.0` SSR-transform skew causes `ReferenceError: __vite_ssr_exportName__ is not defined` on any test that imports a sibling module. Blocks AC-3 of [ISS-UAT-013-13](../issues/ISS-UAT-013-13.md). Fix queued at `wf-20260703-fix-066-vitest-bump` (counter 66).
+- [ISS-UAT-COV-003](../issues/ISS-UAT-COV-003.md) (RESOLVED 2026-07-04 by wf-20260704-feat-090, PR #107 squash `c013f6e`) — BP-UAT-001 now has `apps/e2e/tests/uat/BP-UAT-001.spec.ts` (7 Playwright tests) + bats row 22. Live re-run deferred to position 12 of `uat-bp-uat-coverage-batch/`.
+- [ISS-UAT-SEED-002](../issues/ISS-UAT-SEED-002.md) (RESOLVED 2026-07-04 by wf-20260704-fix-089, PR #106 squash `3e524bd`) — `scripts/uat-seed.sh`'s `api_base` default now derived from `apps/api/.env` `PORT` via `env_get`; `:3000` fallback for fresh-checkout UX.
 - [ISS-UAT-COV-001](../issues/ISS-UAT-COV-001.md) (RESOLVED 2026-07-03 by wf-20260703-fix-067-coverage-registry) — gap is now sequenced and visible in `registry.md` Spec/Smoke Overlap columns + 17 follow-up workflows queued.
 
 ## Completed Workflows (recent)
 
 | Workflow ID | Type | Feature/Issue | Branch | PR | Date |
 |---|---|---|---|---|---|
+| wf-20260704-feat-090 | requirement-development | FEAT-UAT-COV-003 / ISS-UAT-COV-003 — authored `apps/e2e/tests/uat/BP-UAT-001.spec.ts` (7 Playwright tests mapping to Steps 002-006 + Neg 001/002) + appended FEAT-UAT-COV-003 row 22 to `scripts/tests/uat-seed.bats` (`--reset BP-UAT-001` idempotency). 5/5 ACs (4 hermetic verified; AC-3 live Playwright re-run deferred to position 12 of `uat-bp-uat-coverage-batch/`). Typecheck clean; bats 33/34 pass; pre-existing FR-WORKFLOW-003 row 6 unrelated. | feat/UAT-COV-003-bp-uat-001-spec | [PR #107](https://github.com/tvolodi/aiqadam/pull/107) (squash `c013f6e`) | 2026-07-04 |
 | wf-20260704-fix-089 | issue-resolution | ISS-UAT-SEED-002 — `scripts/uat-seed.sh`'s `api_ensure_directus_user_link` derived `api_base` from `apps/api/.env` `PORT` via `env_get` (`:3000` fallback); replaced wrong `http://host.docker.internal:3001` literal + misleading WSL2 comment. 5/5 ACs verified by 2 grep regressions + 3 helper-extraction bats cases in `scripts/tests/uat-seed.bats`. Pre-existing FR-WORKFLOW-003 row 6 bats failure unrelated, present on origin/main. | fix/ISS-UAT-SEED-002-seed-port-default | [PR #106](https://github.com/tvolodi/aiqadam/pull/106) (squash `3e524bd`) | 2026-07-04 |
 | wf-20260704-fix-075 | issue-resolution | ISS-UAT-009-2 — BP-UAT-009 /me anon-CTA + /workspace 302 per-surface mechanism (Path B: docs-only — spec reword to security intent + per-surface mechanism block + "Why two anon-gating mechanisms?" rationale + post-MIG-031 redirect description; 4/4 ACs verified by live curl + screenshot; no code, no DB, no security delta) | fix/ISS-UAT-009-2-me-anon-cta-spec | [PR #96](https://github.com/tvolodi/aiqadam/pull/96) (squash `dbe43bf`) | 2026-07-04 |
 | wf-20260704-fix-073 | issue-resolution | ISS-UAT-009-1 logout-interstitial (Path B: comment + BP-UAT-009 spec + auth-architecture §5.3 rewrite + drift-detector SHA-suffix fix + doc-coverage regression; 3/3 ACs verified by live BP-UAT-009 Step 004 re-run) | fix/ISS-UAT-009-1-logout-interstitial | [PR #95](https://github.com/tvolodi/aiqadam/pull/95) (squash `5b23e74`) | 2026-07-04 |

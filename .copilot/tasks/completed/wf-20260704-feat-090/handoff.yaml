@@ -22,7 +22,7 @@ github_issue_url: ""
 
 branch: "feat/UAT-COV-003-bp-uat-001-spec"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/107"
 
 current_step: 10
 current_step_name: "final-quality-gate"
