@@ -5,9 +5,11 @@
 | ID | ISS-UAT-COV-003 |
 | Severity | enhancement |
 | Module | uat/coverage |
-| Status | **open** |
+| Status | **resolved** |
 | Reported | 2026-07-03 |
 | Reporter | Orchestrator (wf-20260703-uat-064, Step 4 — registry update) |
+| Workflow | wf-20260704-feat-090 |
+| Resolved | 2026-07-04 |
 | Related | [ISS-UAT-COV-001](ISS-UAT-COV-001.md) (parent — 18 of 19 BP-UAT scripts have no Playwright spec). BP-UAT-001 was the #1 gap on that list; this issue is the BP-UAT-001-specific entry carved out so it can be tracked separately when a focused workflow addresses it. |
 
 ## Symptom
@@ -92,3 +94,19 @@ recipient list.
   to address all 18).
 - The fix-064 + uat-064 work already brought us to "fixtures reset
   correctly"; the missing piece is "process verifies end-to-end".
+
+## Resolution
+
+- **Workflow:** `wf-20260704-feat-090` (requirement-development — UAT coverage track)
+- **PR:** <pending> (Step 12 back-fills after `gh pr create`)
+- **Root cause:** No Playwright spec existed for BP-UAT-001's process; the 5 fixtures merged in PR #87 (commit `fb01386`) were never exercised by an end-to-end test that asserts the operator UI flow + recipient-list gating.
+- **Fix:**
+  1. Authored `apps/e2e/tests/uat/BP-UAT-001.spec.ts` (588 lines) covering Steps 002, 003, 004, 005, 006 + Neg 001 (anonymous redirect) + Neg 002 (idempotent re-save). Spec mirrors BP-UAT-009/BP-UAT-010 idioms (signInAsOperator delegation, `request.get` direct-api assertions, ARIA-role/stable-text locators, `test.skip(!UAT_OPERATOR_PASSWORD, ...)` gating). Auto-discovered by `apps/e2e/playwright.uat.config.ts` (testDir='./tests/uat', no explicit testMatch — verified by `playwright test --list BP-UAT-001` showing 7 tests).
+  2. Appended `FEAT-UAT-COV-003 row 12` to `scripts/tests/uat-seed.bats` asserting `--reset BP-UAT-001` is idempotent across runs: `uat-member-consented`'s consent row is re-created every reset, `uat-member-no-consent` never acquires a consent row, the second `--reset` produces the same consent-row pattern. Pre-existing row 6 (FR-WORKFLOW-003) failure is unrelated and owned by follow-up `wf-20260704-fix-087`.
+  3. Authored `docs/03-requirements/FEAT-UAT-COV-003.md` as the formal requirement record (5 ACs, all mapped to either the new spec or the new bats row).
+- **Regression test:** `scripts/tests/uat-seed.bats` row 22 (FEAT-UAT-COV-003 row 12). Passes hermetically against `UAT_SEED_DIRECTUS_MOCK=1`. The 7 Playwright tests in `apps/e2e/tests/uat/BP-UAT-001.spec.ts` form the live layer (deferred — see below).
+- **Merged:** <pending> (Step 12.5 back-fills the actual squash SHA after `gh pr merge`).
+- **Honesty disclosures:**
+  - **Live Playwright verification is deferred** to the BP-UAT-001 entry of follow-up batch [`.copilot/tasks/queued/uat-bp-uat-coverage-batch/`](../../tasks/queued/uat-bp-uat-coverage-batch/handoff.yaml) (position 12 in that batch, parented by `wf-20260703-fix-067-coverage-registry`; actual wf-id will be assigned by the next Orchestrator invocation that picks up the batch). Pre-flight requirement: `docker ps` shows api, web, postgres, mailpit, Authentik up; `curl -fsS http://localhost:3000/api/v1/health` and `curl -fsS http://localhost:4321/` return 200. Verification command: `pnpm uat:seed --reset BP-UAT-001 && pnpm --filter @aiqadam/e2e exec playwright test --config playwright.uat.config.ts BP-UAT-001`. Expected result: 7 tests pass, screenshot grid dropped to `apps/e2e/uat-results/BP-UAT-001/`. This issue is flipped to `resolved` based on hermetic verification (bats row 22 + typecheck + Playwright `--list`), not on deferred live verification alone; the issue remains `resolved-with-followup` until the live run lands in the queue.
+  - **Script-vs-UI drift disclosures recorded in spec annotations**: BP-UAT-001.md says "Status badge shows DRAFT" but `EventControlPanel.tsx` renders sentence-case "Draft" in StatusPill; script says "Success toast" but UI shows inline "Saved" text; recipient-list assertion depends on api v1's `recipient_count` (number), not the resolved user-id list (per `02-impact-analysis.md` Open Gaps to CodeDeveloper). BusinessAnalyst's post-live-run triage review will see all five disclosures as `test.info().annotations` in the Playwright report.
+  - **Pre-existing FR-WORKFLOW-003 row 6 bats failure** is unrelated to this PR. Confirmed by `git stash` + re-run on baseline; same row 6 failure reproduces on main HEAD. Owned by `wf-20260704-fix-087-fix-fr-workflow-003-row-6` per `.copilot/issues/registry.md`.

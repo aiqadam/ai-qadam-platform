@@ -1,0 +1,87 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260704-feat-090"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-04T20:00:00Z"
+last_updated_at: "2026-07-04T20:00:00Z"
+
+requirement_ref: "FEAT-UAT-COV-003"
+requirement_text: |
+  Author apps/e2e/tests/uat/BP-UAT-001.spec.ts so that BP-UAT-001
+  (Event Publication Broadcast) has an executable Playwright process
+  verification, replacing the live-run deferral recorded by
+  wf-20260703-uat-064 (Path A). Coverage gap is owned by
+  ISS-UAT-COV-003; spec content must cover the ACs in
+  docs/02-business-processes/uat/BP-UAT-001.md (AC-1..AC-5 + Neg 001
+  + Neg 002). Spec must run against the local stack with the
+  scripts/uat-fixtures/BP-UAT-001.json manifest in place
+  (already merged via PR #87).
+github_issue_url: ""
+
+branch: "feat/UAT-COV-003-bp-uat-001-spec"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 10
+current_step_name: "final-quality-gate"
+workflow_status: "running"
+issue_resolution: "resolved"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/ISS-UAT-COV-003.md
+  - docs/02-business-processes/uat/BP-UAT-001.md
+  - scripts/uat-fixtures/BP-UAT-001.json
+  - apps/e2e/tests/uat/BP-UAT-009.spec.ts
+  - apps/e2e/tests/uat/BP-UAT-010.spec.ts
+  - apps/e2e/playwright.uat.config.ts
+  - docs/02-business-processes/operations/event-publication-broadcast.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260704-feat-090/NEEDS_REVIEW.md"

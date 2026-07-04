@@ -354,7 +354,68 @@ teardown() {
   [[ "$output" == *"Unknown argument: --bogus-flag"* ]]
   [[ "$output" == *"Usage: uat-seed.sh [--reset <BP-UAT-NNN>|all]"* ]]
 }
+# ─── Row 12 (BP-UAT-001 owner: ISS-UAT-COV-003 / FEAT-UAT-COV-003) ───────────
+# BP-UAT-001 contract (docs/02-business-processes/uat/BP-UAT-001.md +
+# scripts/uat-fixtures/BP-UAT-001.json):
+#   - uat-member-consented has a member_consents row (events purpose)
+#   - uat-member-no-consent has NO member_consents row — the absence IS
+#     the fixture's declared initial state and the consent-gating guarantee
+#     that the operator's broadcast excludes this member from recipient_count
+#   - --reset BP-UAT-001 must be idempotent across reruns: the consented
+#     member's consent row must be re-created every run, and the
+#     no-consent member must NEVER acquire a member_consents row.
 
+@test "FEAT-UAT-COV-003 row 12: --reset BP-UAT-001 mock mode re-creates uat-member-consented's consent row and never materialises one for uat-member-no-consent" {
+  # ── Act ────────────────────────────────────────────────────────────────
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-001 2>&1'
+  [ "$status" -eq 0 ]
+
+  # ── Assert 1: uat-member-consented's consent row IS re-created ─────────
+  # The mock output format from reset_domain_fixture() (scripts/uat-seed.sh
+  # line ~743) for fixtures with member_email is:
+  #   "fixture <id> (mock, delete collection=member_consents lookup=member_email=<email>)"
+  #   "fixture <id> (mock, create collection=member_consents, member_email=<email> resolved to member=<id>)"
+  # The delete line must precede the create line (FR-WORKFLOW-003 row 2 invariant).
+  local consented_email="uat-member-c@example.com"
+  local consented_id="uat-member-consented-consent"
+  local del_line create_line
+  del_line=$(echo "$output" | grep -nE "fixture ${consented_id} \(mock, delete collection=member_consents" | head -1 | cut -d: -f1)
+  create_line=$(echo "$output" | grep -nE "fixture ${consented_id} \(mock, create collection=member_consents, member_email=${consented_email} resolved to member=${consented_id%-consent}" | head -1 | cut -d: -f1)
+  [ -n "$del_line" ]
+  [ -n "$create_line" ]
+  [ "$del_line" -lt "$create_line" ]
+
+  # ── Assert 2: uat-member-no-consent acquires NO member_consents row ────
+  # The contract from BP-UAT-001.md's Seed Fixtures Required table + the
+  # JSON manifest's note field is that this fixture's "declared initial
+  # state" is the ABSENCE of a member_consents row for the events purpose.
+  # We assert that the mock output emits zero collection=member_consents
+  # lines whose member_email is uat-member-nc@example.com (the no-consent
+  # fixture's email) — across the entire reset run.
+  local nc_email="uat-member-nc@example.com"
+  local nc_member_consents_lines
+  nc_member_consents_lines=$(echo "$output" | grep -cE "collection=member_consents.*member_email=${nc_email}" || true)
+  [ "$nc_member_consents_lines" -eq 0 ]
+
+  # ── Assert 3: the uat-member-no-consent identity fixture IS reset ─────
+  # The identity reset emits `identity <id> (mock, reset group=<group>)`
+  # lines (FR-WORKFLOW-003 row 5 / row 7 idiom). We assert one such line
+  # exists for uat-member-no-consent, confirming the reset visited the
+  # identity layer (so the negative assertion 2 is meaningful — the reset
+  # ran, and it deliberately did NOT create a consent row).
+  [[ "$output" == *"identity uat-member-no-consent (mock, reset"* ]]
+
+  # ── Assert 4: idempotency — second --reset produces identical consent-row output ─
+  local second
+  second=$(UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-001 2>&1)
+  # The consented-member create line is present in BOTH runs (re-created
+  # every run = the fixture contract).
+  [[ "$second" == *"fixture ${consented_id} (mock, create collection=member_consents, member_email=${consented_email} resolved to member=uat-member-consented)"* ]]
+  # The no-consent member has no member_consents line in EITHER run.
+  local second_nc_lines
+  second_nc_lines=$(echo "$second" | grep -cE "collection=member_consents.*member_email=${nc_email}" || true)
+  [ "$second_nc_lines" -eq 0 ]
+}
 # ─── AC-6 (first clause): bash -n scripts/uat-seed.sh passes ──────────────────
 
 @test "FR-WORKFLOW-003 AC-6: bash -n scripts/uat-seed.sh passes (syntax check)" {
