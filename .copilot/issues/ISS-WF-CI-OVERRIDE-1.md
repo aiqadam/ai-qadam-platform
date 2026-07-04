@@ -1,8 +1,8 @@
 # ISS-WF-CI-OVERRIDE-1 — Operational CI override agent (PRSteward) + counter-limited policy
 
-| Severity | Module | Status | Workflow | Date |
-|---|---|---|---|---|
-| blocker | workflow/ci-policy | open | wf-20260703-impl-policy-071 | 2026-07-03 |
+| Severity | Module | Status | Workflow | Resolved | Date |
+|---|---|---|---|---|---|
+| blocker | workflow/ci-policy | resolved | wf-20260705-fix-098 | 2026-07-05 | 2026-07-03 |
 
 ## Problem
 
@@ -63,4 +63,79 @@ writes `NEEDS_REVIEW.md`, and sets `workflow_status: needs-review`.
 
 ## Resolution
 
-(will be written after the policy lands)
+- **Workflow:** `wf-20260705-fix-098` (this file's status flip; **substantive
+  implementation** shipped earlier via `wf-20260703-impl-policy-071`)
+- **PR:** https://github.com/tvolodi/aiqadam/pull/111
+- **Merged:** `4d6c4f2` — Step 12.5 back-fills this SHA after PR auto-merge
+- **Substantive PR (where the "code" landed):**
+  [PR #94](https://github.com/tvolodi/aiqadam/pull/94) (squash `9ce08f6`,
+  merged 2026-07-03T19:00:28Z) — `feat(workflow): PRSteward agent +
+  AGENTS.md §6.3 CI-override policy`
+
+### Root cause (one sentence)
+
+The §6.2 safety gate #2 forced the Orchestrator to stop and ask the user on
+every PR that hit a pre-existing CI failure, even when the PR's own diff
+had no overlap with the failure trace — converting trivial PR matters into
+interactive Q&A.
+
+### Fix (one paragraph)
+
+Added `AGENTS.md §6.3` — a narrow, auditable policy defining a dedicated
+**PRSteward** agent that, at workflow step 11.4, evaluates each failing CI
+check against three preconditions (pre-existing on `origin/main`, failure
+class owned by a tracked issue with a queued follow-up, counter below
+`_limit=5`). When all three hold, PRSteward records a full audit trail
+(`handoff.yaml.gate_results`, squash-commit `CI-Override:` trailer, registry
+row amendment, counter file, PR description "CI Override" section) and
+authorizes the merge. When any precondition fails OR one of the four
+hard-stop conditions (introduced-by-this-PR, counter exhaustion, secrets,
+security-checked job) trips, PRSteward writes `NEEDS_REVIEW.md` and stops.
+The §6.2 safety gate #2 is rewritten to delegate to PRSteward instead of
+stopping the Orchestrator. A new agent definition
+`.copilot/agents/pr-steward.md` (decision logic, auto-register procedure,
+audit-trail actions, escalation behavior) operationalizes the policy; a
+new counter file `.copilot/meta/ci-override-counters.json` tracks each
+failure class's consecutive override count (5-strike budget); and the 5
+tool configs (`.github/copilot-instructions.md`, `.clinerules`,
+`.cursorrules`, `.windsurfrules`, `.cursor/rules/00-project.mdc`) are
+regenerated via `pnpm ai:sync` so downstream agents pick up the new
+rules.
+
+### Regression test (per Step 6 requirement)
+
+The integration test is the **live PRSteward invocation** against the
+policy PR itself (PR #94) and against the immediate-next PR (#93, the
+ISS-WF-REG-002 fix). PRSteward evaluated two failing checks on PR #94:
+
+- `ci/__vite_ssr_exportName__` → class `15c26207…` (registered, owned by
+  ISS-TEST-WEB-001, queued `wf-20260703-fix-066-vitest-bump`, counter 3).
+  Verdict: **override** (counter 3 → 4; < 5).
+- `storybook/PARSE_ERROR Unexpected JSX expression` → class `ebd184b…`
+  (NOT in counter file → **auto-registered** per the Auto-register
+  procedure: created `ISS-CI-OVERRIDE-ebd184b`, queued
+  `wf-20260703-fix-072`, counter started at 1). Verdict: **override**
+  (1 < 5).
+
+The same logic was applied to PR #93 in the merge wave. PRSteward PASSED
+both invocations. (PR #109 subsequently landed a real fix for the
+`storybook` class — `@vitejs/plugin-react@5.2.0` injected via
+`apps/storybook/.storybook/main.ts` `viteFinal` — and that counter was
+reset to 0 per AGENTS.md §6.3 step 5.)
+
+### Honesty disclosures (resolution-specific, per AGENTS.md §6.1)
+
+- **The substantive PR (#94) was authored by `wf-20260703-impl-policy-071`
+  on 2026-07-03.** This workflow (`wf-20260705-fix-098`) is a **registry-
+  state drift** fix analogous to `wf-20260703-fix-070` (ISS-WF-REG-002) —
+  it does not introduce any new AC, does not touch any application code,
+  and does not modify the policy. The "code" is the atomic status flip
+  on this file + the corresponding row in `registry.md` (Step 9, atomic
+  per protocol.md §Status-Consistency Check).
+- The predecessor workflow's `09-quality-gate.md` already recorded
+  `Decision: PASS (override authorised by PRSteward on PR #94 under §6.3
+  v2; ready to merge)` and an AC-by-AC disposition table showing all 9
+  ACs as `verified`. No additional verification is performed by this
+  workflow.
+- The `_last_updated` field in `.copilot/meta/ci-override-counters.json`
+  is `2026-07-04` and is NOT touched by this resolution.
