@@ -1,0 +1,51 @@
+workflow_id: wf-20260704-uat-081-verify-bp-uat-009
+type: issue-resolution
+status: queued
+owner_issue: ISS-UAT-009-6
+parent_workflow: wf-20260704-fix-081-jsx-dev-runtime
+parent_pr: "103"
+created: "2026-07-04"
+queue_position: 1
+
+# This follow-up workflow exists to verify AC-3 of ISS-UAT-009-6, which was
+# deferred from wf-20260704-fix-081-jsx-dev-runtime per AGENTS.md §6.1.
+# AC-3 is the full BP-UAT-009 Playwright re-run against the live local stack
+# to confirm the fix lands the same outcome on the UAT path (not just the
+# curl-level smoke tests in the parent workflow).
+
+acceptance_criteria:
+  - id: AC-3
+    description: |
+      Full BP-UAT-009 Playwright suite passes end-to-end against the live
+      local stack with the fix (PR #103) merged into main. Specifically:
+        - BP-UAT-009 Neg 001 (workspace redirect): green
+        - BP-UAT-009 Neg 002 (event registration gate): green
+        - BP-UAT-009 Neg 003 (leaderboard read): green
+        - BP-UAT-009 Pos 001 (sign-in → workspace): green
+      No _jsxDEV errors in the test logs; dev server stays responsive
+      for the full suite duration.
+    verification:
+      - scripts/uat-env-setup.sh
+      - scripts/uat-preflight-check.sh
+      - scripts/uat-seed.sh
+      - pnpm --filter @aiqadam/e2e test:e2e:uat -- --grep "BP-UAT-009"
+      - inspect playwright-report/ for zero failures across Neg 001/002/003
+        and Pos 001
+
+blocked_by:
+  - PR #103 merged to main
+    status: pending
+
+next_steps_on_pickup:
+  - Wait for PR #103 to be merged (autonomous mode auto-merges when CI green).
+  - Checkout main, pull --rebase.
+  - Re-run live curl pre-flight to confirm the fix is present on main HEAD.
+  - Execute the BP-UAT-009 Playwright suite as listed in verification.
+  - File a fresh issue if the suite fails any BP-UAT-009 scenario.
+  - Update ISS-UAT-009-6 Resolution section with AC-3 verified status.
+  - Update registry.md row 36: Status -> verified-uat (or open a follow-up
+    if a new bug is found).
+
+cancellation:
+  If ISS-UAT-009-6 is closed by other means before pickup, this workflow
+  becomes a no-op.

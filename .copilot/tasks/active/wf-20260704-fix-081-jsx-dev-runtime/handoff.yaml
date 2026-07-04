@@ -1,0 +1,102 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260704-fix-081-jsx-dev-runtime"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-04T10:00:00Z"
+last_updated_at: "2026-07-04T10:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-UAT-009-6"
+requirement_text: "apps/web React islands fail with `TypeError: _jsxDEV is not a function` on every page load; blocks all BP-UAT-009 tests and all client-side interactivity."
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-UAT-009-6-jsx-dev-runtime"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/103"
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 12
+current_step_name: "QualityGate"
+workflow_status: "running"
+
+# ─── Subworkflow Link (none) ─────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results: {}
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments: {}
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: "ISS-UAT-009-6"
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard ─────────────────────────────────────────────────────
+
+expects_registry_update: true
+context_sync_commits: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts: []
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/web/astro.config.mjs
+  - apps/web/tsconfig.json
+  - apps/web/package.json
+  - docs/04-development/design-system/Design system for AI agents/readme.md
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
