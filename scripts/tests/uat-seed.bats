@@ -451,3 +451,147 @@ teardown() {
   grep -qE 'INTERNAL_API_TOKEN' "$REPO_ROOT/scripts/uat-seed.sh"
   grep -qE '/v1/internal/users/ensure-linked' "$REPO_ROOT/scripts/uat-seed.sh"
 }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ISS-UAT-SEED-002 (wf-20260704-fix-089): default-port drift in
+# scripts/uat-seed.sh's api_ensure_directus_user_link helper.
+# AC-1 / AC-5 are pure structural-grep regressions; AC-2 / AC-3 / AC-4
+# use a stubbed-source technique that mirrors the FR-WORKFLOW-003
+# isolated-copy pattern (see row 8 above) — the helper is byte-extracted
+# from the live script into a BATS_TEST_TMPDIR stub with a controlled
+# API_DIR, so the test never mutates the real apps/api/.env.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@test "ISS-UAT-SEED-002 AC-1: uat-seed.sh contains no localhost:3001 reference" {
+  # Pre-fix bug surface: the default literal was
+  #   ${API_BASE_URL:-http://host.docker.internal:3001}
+  # and an earlier iteration used
+  #   ${API_BASE_URL:-http://localhost:3001}.
+  # Both must be gone. The post-fix shape is ${API_BASE_URL:-http://localhost:${api_port}}
+  # where api_port derives from apps/api/.env's PORT — see AC-2.
+  ! grep -F 'localhost:3001' "$REPO_ROOT/scripts/uat-seed.sh"
+  ! grep -F 'host.docker.internal:3001' "$REPO_ROOT/scripts/uat-seed.sh"
+}
+
+@test "ISS-UAT-SEED-002 AC-5: uat-seed.sh contains no host.docker.internal reference" {
+  # Companion to AC-1: the misleading `host.docker.internal` prefix is
+  # explicitly removed (the seed runs on the host shell, not in Docker,
+  # so the magic DNS resolved to the same address as localhost and
+  # implied a Docker-bridge path that doesn't exist).
+  ! grep -F 'host.docker.internal' "$REPO_ROOT/scripts/uat-seed.sh"
+}
+
+# Stubbed-source helper: extracts the api_ensure_directus_user_link
+# function body verbatim from uat-seed.sh, and runs it under a
+# self-contained bash environment where:
+#   - env_get / fail / ok are provided as local stubs (the helper's
+#     only dependencies from the parent script)
+#   - curl is replaced with an echoer that prints the URL it would
+#     have called
+#   - API_DIR points at the test's stub apps/api/.env (real file
+#     untouched)
+# so the captured stdout is exactly the resolved api_base URL.
+#
+# args: <stubbed_env_port_or_empty> <api_base_url_override_or_empty>
+# stdout: the api_base URL the helper would have curl-ed
+extract_api_base_from_helper() {
+  local port_override="$1" url_override="$2"
+  local stub_dir="$BATS_TEST_TMPDIR/api-base-stub"
+  mkdir -p "$stub_dir/apps/api"
+  rm -f "$stub_dir/apps/api/.env"
+  # Always populate INTERNAL_API_TOKEN=dummy so the helper's token
+  # guard passes (we are not testing token handling here — only the
+  # resolved `api_base` URL). PORT is optional; when empty, the
+  # helper's `${api_port:-3000}` fallback fires (AC-4 path).
+  local env_body='INTERNAL_API_TOKEN=dummy'
+  if [[ -n "$port_override" ]]; then
+    env_body=$(printf 'PORT=%s\nINTERNAL_API_TOKEN=dummy\n' "$port_override")
+  fi
+  printf '%s' "$env_body" > "$stub_dir/apps/api/.env"
+
+  # Extract the helper function verbatim from the live script. awk
+  # walks from the function header to the matching closing brace
+  # (depth tracking) — robust against unrelated `}` in strings/comments.
+  local helper_src
+  helper_src=$(awk '
+    /^api_ensure_directus_user_link\(\) \{/ { in_fn=1; depth=0 }
+    in_fn { print; for (i=1; i<=length($0); i++) { c=substr($0,i,1); if (c=="{") depth++; else if (c=="}") { depth--; if (depth==0 && in_fn) { in_fn=0; exit } } } }
+  ' "$REPO_ROOT/scripts/uat-seed.sh")
+
+  # Build a self-contained wrapper. The helper's only external
+  # dependencies are env_get, fail, ok — provide them locally so we
+  # can source the helper without the rest of uat-seed.sh's main flow.
+  # The curl stub mimics `-w "\n%{http_code}"` semantics by emitting
+  # the captured URL on one line and "200" on a new line — so the
+  # helper's resp-parse path completes and the OK branch fires
+  # (echoing the URL one more time, which the caller greps).
+  cat > "$stub_dir/run.sh" <<WRAPPER_EOF
+# Self-contained stubs (mirrors uat-seed.sh semantics):
+RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
+ok()   { echo -e "\${GREEN}  ✓\${NC} \$*"; }
+fail() { echo -e "\${RED}  ✗ FATAL:\${NC} \$*" >&2; exit 1; }
+env_get() {
+  local file="\$1" key="\$2"
+  [[ -f "\$file" ]] || { echo ""; return; }
+  grep -E "^\${key}=" "\$file" 2>/dev/null | head -1 | sed 's/^[^=]*=//' | tr -d '"\r' || true
+}
+$helper_src
+$( [[ -n "$url_override" ]] && echo "export API_BASE_URL='$url_override'" )
+# Stub curl: mimic \`-w "\n%{http_code}"\` semantics — emit the URL,
+# then a newline + "200". We also capture the URL into a side file
+# (\$BATS_TEST_TMPDIR is shared with the parent) so the assertion can
+# read it deterministically regardless of tty shape.
+LAST_URL_FILE="$stub_dir/last_url"
+curl() {
+  local URL=""; local HTTP_CODE_LINE=""
+  while [[ \$# -gt 0 ]]; do
+    case "\$1" in
+      http://*|https://*) URL="\$1" ;;
+    esac
+    shift
+  done
+  printf '%s' "\$URL" > "\$LAST_URL_FILE"
+  printf '{\\n  "directusUserId": "stub-uuid"\\n}\\n200\\n'
+}
+api_ensure_directus_user_link "uat-test@example.com" "UAT Test"
+WRAPPER_EOF
+
+  # Run with API_DIR pointing at the stub apps/api dir.
+  API_DIR="$stub_dir/apps/api" \
+    OUT_FILE="$stub_dir/last_url" \
+    bash "$stub_dir/run.sh" >&2
+  cat "$stub_dir/last_url"
+}
+
+@test "ISS-UAT-SEED-002 AC-2: api_base default port is derived from apps/api/.env PORT" {
+  # Stub apps/api/.env with PORT=4321 — the helper must produce
+  # http://localhost:4321/v1/internal/users/ensure-linked (i.e. adopt
+  # whatever PORT the api declares, not a hardcoded 3000 or 3001).
+  local captured
+  captured=$(extract_api_base_from_helper 4321 "")
+  [[ "$captured" == *"http://localhost:4321/v1/internal/users/ensure-linked"* ]]
+  # And confirm the hardcoded 3001 leak is gone.
+  [[ "$captured" != *":3001"* ]]
+  [[ "$captured" != *"host.docker.internal"* ]]
+}
+
+@test "ISS-UAT-SEED-002 AC-3: API_BASE_URL env override wins over the derived default" {
+  # Even when apps/api/.env declares PORT=4321, an explicit API_BASE_URL
+  # must take precedence. This guards the ${VAR:-default} shape across
+  # future refactors.
+  local captured
+  captured=$(extract_api_base_from_helper 4321 "http://override-host:9999")
+  [[ "$captured" == *"http://override-host:9999/v1/internal/users/ensure-linked"* ]]
+  # The derived PORT=4321 must NOT bleed through.
+  [[ "$captured" != *"4321"* ]]
+}
+
+@test "ISS-UAT-SEED-002 AC-4: api_base default falls back to :3000 when apps/api/.env is absent" {
+  # Fresh-checkout UX: when apps/api/.env hasn't been created yet
+  # (uat-env-setup.sh hasn't run), the seed must still produce a
+  # sensible api_base URL — the documented fallback is :3000, matching
+  # apps/api/.env.example's PORT=3000.
+  local captured
+  captured=$(extract_api_base_from_helper "" "")
+  [[ "$captured" == *"http://localhost:3000/v1/internal/users/ensure-linked"* ]]
+}

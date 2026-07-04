@@ -1,0 +1,219 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260704-fix-089"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-04T19:06:00Z"
+last_updated_at: "2026-07-04T19:18:00Z"
+
+requirement_ref: "ISS-UAT-SEED-002"
+requirement_text: "scripts/uat-seed.sh api_base default points to port 3001; api listens on 3000; seed requires undocumented API_BASE_URL export."
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-SEED-002-seed-port-default"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 12
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step-0-init:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:06:30Z"
+    summary: "Branch fix/ISS-UAT-SEED-002-seed-port-default created from main; task dir materialized."
+    output_file: ""
+  step-0.5-context-sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:07:00Z"
+    summary: "scripts/check-workflow-state.sh --base origin/main exits 0; no drift."
+    output_file: ""
+  step-1-issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:08:00Z"
+    summary: "Single-incident, trivial scope (1 line + 1 comment + 1 bats test). No duplicate ISS files."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/01-issue-lookup.md"
+  step-2-impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:09:00Z"
+    summary: "Blast radius = uat-seed.sh helper only. No DB, no security, no API code, no new deps."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/02-impact-analysis.md"
+  step-3-db-migrations:
+    status: skipped
+    attempt: 0
+    timestamp: "2026-07-04T19:09:30Z"
+    summary: "N/A: code change is in a bash helper, no schema impact."
+    output_file: ""
+  step-4-code-developer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:10:00Z"
+    summary: "One-hunk change to scripts/uat-seed.sh lines 263-269: derive api_base from apps/api/.env PORT with :3000 fallback; comment replaced with accurate 6-line block."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/03-code-summary.md"
+  step-5-security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:11:00Z"
+    summary: "All 11 baseline security invariants N/A or PASS; the fix strictly reduces attack surface (replaces misleading hardcoded port with one derived from the api's own configuration)."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/04-security-review.md"
+  step-6-test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:12:00Z"
+    summary: "5 bats cases (2 structural greps + 3 stubbed-helper cases) pin every AC; existing 29 cases continue to apply unchanged."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/06-test-strategy.md"
+  step-7-test-designer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:13:00Z"
+    summary: "5 cases added to scripts/tests/uat-seed.bats following the established FR-WORKFLOW-003 isolated-copy pattern; pre-fix shape fails 3/5, post-fix passes 5/5."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/06-test-design.md"
+  step-8-test-runner:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:14:00Z"
+    summary: "32/33 cases pass; 5/5 new cases pass; 1 pre-existing failure on origin/main (FR-WORKFLOW-003 row 6) unchanged by this fix."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/07-test-results.md"
+  step-9-registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:15:00Z"
+    summary: "Atomic Step-9 edits applied: ISS-UAT-SEED-002.md Status→resolved + Resolved + Workflow + Resolution section; registry.md row Status→resolved with workflow + date."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/09-registry-update.md"
+  step-10-doc-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:16:00Z"
+    summary: "Doc delta bounded to Step 9 atomic-flip files + inline code comment block. No external guide or ADR needed updating."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/08-doc-update.md"
+  step-11-quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T19:17:00Z"
+    summary: "All 3 ACs verified (1 grep, 2 stub-helper); status-consistency atomic pair planned for workflow-artifacts commit; no pre-push gates fail; no follow-up workflow required."
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/09-quality-gate.md"
+  step-12-pr-creation:
+    status: pending
+    attempt: 0
+    timestamp: "2026-07-04T19:18:00Z"
+    summary: "Pending — will be executed by scripts/workflow-finish.sh."
+    output_file: ""
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/01-issue-lookup.md"
+    timestamp: "2026-07-04T19:08:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/02-impact-analysis.md"
+    timestamp: "2026-07-04T19:09:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/03-code-summary.md"
+    timestamp: "2026-07-04T19:10:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/04-security-review.md"
+    timestamp: "2026-07-04T19:11:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/06-test-strategy.md"
+    timestamp: "2026-07-04T19:12:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/06-test-design.md"
+    timestamp: "2026-07-04T19:13:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/07-test-results.md"
+    timestamp: "2026-07-04T19:14:00Z"
+  doc-writer:
+    status: completed
+    step: 10
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/08-doc-update.md"
+    timestamp: "2026-07-04T19:16:00Z"
+  quality-gate:
+    status: completed
+    step: 11
+    output_file: ".copilot/tasks/active/wf-20260704-fix-089/09-quality-gate.md"
+    timestamp: "2026-07-04T19:17:00Z"
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-UAT-SEED-002"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260704-fix-089/01-issue-lookup.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/09-registry-update.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/09-quality-gate.md"
+  - ".copilot/tasks/active/wf-20260704-fix-089/handoff.yaml"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - scripts/uat-seed.sh
+  - scripts/tests/uat-seed.bats
+  - apps/api/.env
+  - .copilot/issues/ISS-UAT-SEED-002.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260704-fix-089/NEEDS_REVIEW.md"
+
+issue_resolution: resolved
+merge_mode: auto

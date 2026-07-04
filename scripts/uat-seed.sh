@@ -261,12 +261,17 @@ api_ensure_directus_user_link() {
     return 0
   fi
 
-  # host.docker.internal resolves to the host machine from BOTH WSL bash and
-  # PowerShell — Docker Desktop's magic DNS. Using it instead of localhost:3001
-  # because the API container/pod may be running on the Windows host side, not
-  # inside the WSL2 VM's network namespace. Override via API_BASE_URL=...
-  # (e.g. "http://localhost:3001" if the API is also running inside WSL).
-  local api_base="${API_BASE_URL:-http://host.docker.internal:3001}"
+  # Default `api_base` is derived from `apps/api/.env`'s `PORT` so the seed
+  # matches whatever port the api actually listens on (today: 3000).
+  # `env_get` reads the bare PORT value (and tolerates CRLF — see env_get's
+  # header comment); the `:3000` literal below is a documented fallback that
+  # fires only when apps/api/.env is absent (i.e. uat-env-setup.sh hasn't
+  # been run yet) AND API_BASE_URL is unset. Override via API_BASE_URL=...
+  # for non-default setups (e.g. api in a remote container).
+  local api_port
+  api_port=$(env_get "$API_DIR/.env" "PORT")
+  api_port="${api_port:-3000}"
+  local api_base="${API_BASE_URL:-http://localhost:${api_port}}"
   local token
   token=$(env_get "$API_DIR/.env" "INTERNAL_API_TOKEN")
   [[ -n "$token" ]] || fail "api_ensure_directus_user_link: INTERNAL_API_TOKEN missing from apps/api/.env (run scripts/uat-env-setup.sh)"

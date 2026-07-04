@@ -5,8 +5,10 @@
 | ID | ISS-UAT-SEED-002 |
 | Severity | bug |
 | Module | uat/seed |
-| Status | **open** (small fix — can fold into next uat/seed workflow) |
+| Status | **resolved** |
 | Reported | 2026-07-03 |
+| Resolved | 2026-07-04 |
+| Workflow | wf-20260704-fix-089 |
 | Reporter | Orchestrator (wf-20260703-uat-064, Step 3 — debug seed run) |
 | Related | wf-20260703-fix-064 introduced `api_ensure_directus_user_link` |
 
@@ -99,3 +101,21 @@ file, single change, ~10 lines + bats case).
 - Discovered while verifying ISS-UAT-001-1 in
   `wf-20260703-uat-064` (see
   `.copilot/tasks/active/wf-20260703-uat-064/03-uat-verification.md`).
+
+## Resolution
+
+- **Workflow:** wf-20260704-fix-089
+- **PR:** https://github.com/tvolodi/aiqadam/pull/<pending>
+- **Root cause:** `scripts/uat-seed.sh`'s `api_ensure_directus_user_link` defaulted
+  to `${API_BASE_URL:-http://host.docker.internal:3001}` (and an earlier iteration
+  to `${API_BASE_URL:-http://localhost:3001}`) — both wrong. The API actually
+  listens on port 3000 per `apps/api/.env PORT=3000` and every other artifact;
+  the seed silently failed unless an operator exported `API_BASE_URL` first.
+- **Fix:** Replaced the literal default with a derivation from `apps/api/.env`'s
+  `PORT` via the existing `env_get` helper, with `:3000` as a named fallback for
+  fresh-checkout UX. Also replaced the misleading `host.docker.internal` /
+  `WSL2 VM network namespace` comment with an accurate 6-line block.
+- **Regression test:** `scripts/tests/uat-seed.bats` cases
+  `ISS-UAT-SEED-002 AC-1..AC-5` (5 cases: 2 structural `grep` regressions +
+  3 stubbed-helper cases that derive `api_base` from a stub `apps/api/.env`).
+- **Merged:** <pending> — back-filled post-merge.
