@@ -105,7 +105,8 @@ file, single change, ~10 lines + bats case).
 ## Resolution
 
 - **Workflow:** wf-20260704-fix-089
-- **PR:** https://github.com/tvolodi/aiqadam/pull/<pending>
+- **PR:** https://github.com/tvolodi/aiqadam/pull/106
+- **Merge SHA:** `3e524bd7dcb240c3188465b86b1ed26568b61295` (squash)
 - **Root cause:** `scripts/uat-seed.sh`'s `api_ensure_directus_user_link` defaulted
   to `${API_BASE_URL:-http://host.docker.internal:3001}` (and an earlier iteration
   to `${API_BASE_URL:-http://localhost:3001}`) — both wrong. The API actually
@@ -118,4 +119,4 @@ file, single change, ~10 lines + bats case).
 - **Regression test:** `scripts/tests/uat-seed.bats` cases
   `ISS-UAT-SEED-002 AC-1..AC-5` (5 cases: 2 structural `grep` regressions +
   3 stubbed-helper cases that derive `api_base` from a stub `apps/api/.env`).
-- **Merged:** <pending> — back-filled post-merge.
+- **Merged:** 2026-07-04 — `3e524bd` (squash, PR #106). Auto-merged via `gh pr merge --squash --auto --delete-branch` per AGENTS.md §6.2 autonomous mode + §6.3 user CI opt-out.
