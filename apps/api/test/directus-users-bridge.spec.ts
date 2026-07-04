@@ -215,8 +215,19 @@ describe('DirectusUsersBridgeService.ensureLinkedByEmail', () => {
     await db.delete(users);
   });
 
-  it('returns null when no local user exists for the email (no Directus traffic)', async () => {
-    const fake: FakeDirectus = { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
+  it('creates the Directus row and returns the id when no local user exists (no link-back write)', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [] }),
+      post: vi.fn().mockResolvedValue({
+        data: {
+          id: 'NEW-ID-FROM-DIRECTUS',
+          email: 'nobody@nowhere.test',
+          external_identifier: 'nobody@nowhere.test',
+          provider: 'authentik',
+        },
+      }),
+      patch: vi.fn(),
+    };
     const bridge = makeBridge(fake);
 
     const id = await bridge.ensureLinkedByEmail({
@@ -224,13 +235,21 @@ describe('DirectusUsersBridgeService.ensureLinkedByEmail', () => {
       displayName: null,
     });
 
-    expect(id).toBeNull();
-    // No Directus call must happen when there's no local row to mirror —
-    // otherwise the bridge would happily create a Directus user for a
-    // row that doesn't exist locally, which is exactly the audit hole
-    // we're trying to avoid by gating on the local lookup.
-    expect(fake.get).not.toHaveBeenCalled();
-    expect(fake.post).not.toHaveBeenCalled();
+    expect(id).toBe('NEW-ID-FROM-DIRECTUS');
+    // GET-by-email fires (findOrCreate lookup).
+    expect(fake.get).toHaveBeenCalledTimes(1);
+    // POST /users fires because no Directus row existed for this email.
+    expect(fake.post).toHaveBeenCalledTimes(1);
+    expect(fake.post.mock.calls[0]?.[0]).toBe('/users');
+    const body = fake.post.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(body).toMatchObject({
+      provider: 'authentik',
+      external_identifier: 'nobody@nowhere.test',
+      status: 'active',
+    });
+    // No link-back write happens — there is no local row to update.
+    const rows = await db.select().from(users).where(eq(users.email, 'nobody@nowhere.test'));
+    expect(rows.length).toBe(0);
   });
 
   it('returns the existing directusUserId without re-creating when the column is already populated', async () => {
@@ -301,5 +320,79 @@ describe('DirectusUsersBridgeService.ensureLinkedByEmail', () => {
     // call (real sign-in or another seed run) needs a clean retry.
     const [refreshed] = await db.select().from(users).where(eq(users.id, user.id));
     expect(refreshed?.directusUserId).toBeNull();
+  });
+
+  // No-local-row branch (ISS-UAT-BRIDGE-001): the bridge must still
+  // resolve a Directus id when the only thing the caller knows is the
+  // email. The local-row tests above cover the OIDC-callback contract;
+  // these three cover the seed / admin-invite contract.
+  it('no local row + existing Directus row with mismatched provider → backfills and returns existing id', async () => {
+    const existingId = '88888888-8888-4000-8000-000000000008';
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: existingId,
+            email: 'stranger@nowhere.test',
+            external_identifier: null,
+            provider: 'default',
+          },
+        ],
+      }),
+      post: vi.fn(),
+      patch: vi.fn().mockResolvedValue({}),
+    };
+    const bridge = makeBridge(fake);
+
+    const id = await bridge.ensureLinkedByEmail({
+      email: 'stranger@nowhere.test',
+      displayName: null,
+    });
+
+    expect(id).toBe(existingId);
+    expect(fake.get).toHaveBeenCalledTimes(1);
+    expect(fake.patch).toHaveBeenCalledWith(`/users/${existingId}`, {
+      provider: 'authentik',
+      external_identifier: 'stranger@nowhere.test',
+    });
+    // No POST — the existing row was reused.
+    expect(fake.post).not.toHaveBeenCalled();
+  });
+
+  it('no local row + Directus GET throws → returns null with warn (seed must not block)', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+      post: vi.fn(),
+      patch: vi.fn(),
+    };
+    const bridge = makeBridge(fake);
+
+    const id = await bridge.ensureLinkedByEmail({
+      email: 'unreachable@nowhere.test',
+      displayName: null,
+    });
+
+    expect(id).toBeNull();
+    expect(fake.get).toHaveBeenCalledTimes(1);
+    // GET threw before POST could run.
+    expect(fake.post).not.toHaveBeenCalled();
+  });
+
+  it('no local row + Directus POST throws (race during create) → returns null with warn', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [] }),
+      post: vi.fn().mockRejectedValue(new Error('502 Bad Gateway')),
+      patch: vi.fn(),
+    };
+    const bridge = makeBridge(fake);
+
+    const id = await bridge.ensureLinkedByEmail({
+      email: 'race@nowhere.test',
+      displayName: null,
+    });
+
+    expect(id).toBeNull();
+    expect(fake.get).toHaveBeenCalledTimes(1);
+    expect(fake.post).toHaveBeenCalledTimes(1);
   });
 });

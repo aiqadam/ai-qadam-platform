@@ -123,18 +123,19 @@ export class DirectusUsersBridgeService {
   // Email-keyed variant for callers (UAT seed scripts, future admin
   // invitation flows) that only know the user's email at call time —
   // i.e. they have not yet signed in via OIDC and we therefore do not
-  // have a `users.id` to pass into `ensureLinked`. Looks up the local
-  // row by email (mirroring the inline pattern used by `resolveDirectusId`
-  // and `ensureLinked` itself), then delegates to `ensureLinked` so the
-  // idempotency + error-swallowing semantics stay identical to the
-  // userId-keyed path.
-  //
-  // Returns null when no local user row exists for the email — this is
-  // the caller's signal that a sign-in must happen first (the bridge
-  // cannot create a Directus mirror of a row that doesn't exist locally).
-  // Returns null on bridge failure too (same swallow semantics as
-  // ensureLinked); the controller surfaces that as { directusUserId: null }
-  // so the seed can detect + warn rather than hard-fail.
+  // have a `users.id` to pass into `ensureLinked`. Tries the local-row
+  // path first; if a `platform.users` row exists, delegates to
+  // `ensureLinked` so the idempotency + link-back-write semantics stay
+  // identical to the userId-keyed path. If no local row exists (the
+  // seed / admin-invite case), calls the private `findOrCreate`
+  // directly — the Directus mirror can be created from just an email
+  // + displayName, and the link-back write into `platform.users` is
+  // simply skipped because there is no row to update. Directus errors
+  // on the no-local-row path are logged with `warn` and swallowed,
+  // matching the swallow semantics of `ensureLinked`. The controller
+  // surfaces either return value as `{ directusUserId: string | null }`
+  // so the seed can treat `null` as a soft warning rather than a hard
+  // failure.
   async ensureLinkedByEmail(input: {
     email: string;
     displayName: string | null;
@@ -144,14 +145,22 @@ export class DirectusUsersBridgeService {
       .from(users)
       .where(eq(users.email, input.email))
       .limit(1);
-    if (!row) {
+    if (row) {
+      return this.ensureLinked({
+        userId: row.id,
+        email: input.email,
+        displayName: input.displayName,
+      });
+    }
+    try {
+      return await this.findOrCreate(input.email, input.displayName);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(
+        `[directus-bridge] ensureLinkedByEmail fallback failed for ${input.email}: ${reason}`,
+      );
       return null;
     }
-    return this.ensureLinked({
-      userId: row.id,
-      email: input.email,
-      displayName: input.displayName,
-    });
   }
 }
 

@@ -1,0 +1,171 @@
+schema_version: "1.0"
+workflow_instance_id: wf-20260704-fix-085
+workflow_type: issue-resolution
+workflow_version: "1.0"
+
+created_at: "2026-07-04T12:30:00Z"
+last_updated_at: "2026-07-04T12:45:00Z"
+
+requirement_ref: ISS-UAT-BRIDGE-001
+requirement_text: >-
+  ensureLinkedByEmail short-circuits with null when no platform.users row
+  exists; seed-driven bridge cannot create Directus mirror. Apply Option A
+  (relax the contract): allow ensureLinkedByEmail to create a Directus mirror
+  via findOrCreate even when no local row exists; link-back write to
+  platform.users.directus_user_id is best-effort.
+github_issue_url: ""
+
+branch: fix/ISS-UAT-BRIDGE-001-bridge-no-local-row-fallback
+base_branch: main
+github_pr_url: ""
+
+current_step: 3
+current_step_name: "Skip — no DB migration required"
+workflow_status: running
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step0-init:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T12:30:00Z"
+    summary: "Counter read 85 → bump to 86; branch fix/ISS-UAT-BRIDGE-001-bridge-no-local-row-fallback created from main (698c8d9); tree clean"
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/handoff.yaml"
+  step0.5-context-sync:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T12:30:00Z"
+    summary: "scripts/check-workflow-state.sh --base origin/main returned OK: no drift detected"
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/handoff.yaml"
+  step1-issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T12:35:00Z"
+    summary: "ISS-UAT-BRIDGE-001 found in registry; related root-cause family ISS-UAT-001-1 also resolved but contract gap unaddressed"
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/01-issue-lookup.md"
+  step2-impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-04T12:45:00Z"
+    summary: "Single-service fix in directus-users-bridge.service.ts:138-156; no DB migration; 1 test rewrite + 3 new test cases; SecurityReviewer required (audit-hole tradeoff); live UAT verification via uat-runner"
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/02-impact-analysis.md"
+
+agent_assignments:
+  code-developer:
+    status: pending
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/03-code-summary.md"
+    timestamp: ""
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/02-impact-analysis.md"
+    timestamp: "2026-07-04T12:45:00Z"
+  test-designer:
+    status: pending
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/06-test-design.md"
+    timestamp: ""
+  test-runner:
+    status: pending
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/07-test-results.md"
+    timestamp: ""
+  security-reviewer:
+    status: pending
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/04-security-review.md"
+    timestamp: ""
+  test-strategist:
+    status: pending
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/06-test-strategy.md"
+    timestamp: ""
+  uat-runner:
+    status: completed
+    step: 4-live-verify
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/uat-live-verify.md"
+    timestamp: "2026-07-04T10:42:00Z"
+    summary: >-
+      Live UAT verification report written to uat-live-verify.md. AC-1/AC-2
+      blocked by pre-existing Directus .test-TLD validator (NOT introduced by
+      this fix; documented at wf-20260701-fix-044/07-test-results-RETRY.md);
+      AC-3 verified end-to-end via bonus probes (returned Directus UUIDs
+      9d990e8f and b14ec429); AC-4 deferred to wf-20260703-fix-066-vitest-bump.
+      New blocker ISS-UAT-BRIDGE-002 auto-registered and registry row appended
+      per AGENTS.md §14.
+  quality-gate:
+    status: pending
+    step: 11
+    output_file: ".copilot/tasks/active/wf-20260704-fix-085/09-quality-gate.md"
+    timestamp: ""
+
+retry_counts:
+  code-developer: 0
+  test-strategist: 0
+  test-designer: 0
+  quality-gate: 0
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ISS-UAT-BRIDGE-001
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - .copilot/tasks/active/wf-20260704-fix-085/handoff.yaml
+  - .copilot/tasks/active/wf-20260704-fix-085/01-issue-lookup.md
+  - .copilot/tasks/active/wf-20260704-fix-085/02-impact-analysis.md
+  - .copilot/tasks/active/wf-20260704-fix-085/03-code-summary.md
+  - .copilot/tasks/active/wf-20260704-fix-085/04-security-review.md
+  - .copilot/tasks/active/wf-20260704-fix-085/06-test-strategy.md
+  - .copilot/tasks/active/wf-20260704-fix-085/06-test-design.md
+  - .copilot/tasks/active/wf-20260704-fix-085/07-test-results.md
+  - .copilot/tasks/active/wf-20260704-fix-085/uat-live-verify.md
+  - .copilot/tasks/active/wf-20260704-fix-085/09-quality-gate.md
+  - .copilot/tasks/active/wf-20260704-fix-085/09-registry-update.md
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/security/security.md
+  - .copilot/issues/ISS-UAT-BRIDGE-001.md
+  - .copilot/issues/ISS-UAT-001-1.md
+  - apps/api/src/modules/directus/directus-users-bridge.service.ts
+  - apps/api/src/modules/directus/directus.client.ts
+  - apps/api/test/directus-users-bridge.spec.ts
+  - scripts/uat-seed.sh
+  - apps/e2e/playwright.uat.config.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ISS-UAT-BRIDGE-001
+  artifact_file: ".copilot/tasks/active/wf-20260704-fix-085/NEEDS_REVIEW.md"
