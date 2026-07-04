@@ -11,8 +11,8 @@
 #      operator_invites, …) + RBAC policies. Idempotent by design.
 #   3. Creates the two UAT test users in Authentik and assigns them to
 #      RBAC groups:
-#        uat-member@aiqadam.test   → aiqadam-member
-#        uat-operator@aiqadam.test → aiqadam-super-admin (full operator cab)
+#        uat-member@example.com   → aiqadam-member
+#        uat-operator@example.com → aiqadam-super-admin (full operator cab)
 #      These credentials are referenced in apps/e2e/.env.uat
 #      (UAT_MEMBER_EMAIL / UAT_OPERATOR_EMAIL) written by uat-env-setup.sh.
 #   4. Inserts three operator_invites rows into Directus (one valid+unused,
@@ -196,6 +196,24 @@ user_pk_by_email() {
     | jq -r '.results[0].pk // empty' 2>/dev/null || true
 }
 
+# ── Look up Authentik user email by pk (empty if not found) ───────────────────
+# Used by ensure_test_user's existing-user branch to detect a stale email
+# after a fixture TLD migration (wf-20260704-fix-086 /
+# ISS-UAT-BRIDGE-002: @aiqadam.test → @example.com). When the existing
+# user's email differs from the seed's declared email, the helper PATCHes
+# the email to align the Authentik user with the manifest.
+# Counterpart to user_pk_by_email() — that resolves email→pk for the
+# `operator_invites.authentik_user_id` lookup; this resolves pk→email for
+# the in-place email migration. Both are zero-network-failure by design
+# (ak_get's `|| true` returns empty on any error), so a missing user
+# surfaces as an empty string and the caller's `[[ -n ... ]]` check
+# decides whether to act.
+user_email_by_pk() {
+  local ak_url="$1" token="$2" pk="$3"
+  ak_get "${ak_url}/api/v3/core/users/${pk}/" "$token" \
+    | jq -r '.email // empty' 2>/dev/null || true
+}
+
 # ── Look up a Directus user id (uuid) by email (empty if not found) ───────────
 # Used by reset_domain_fixture() to resolve a manifest's member_email hint to
 # member_consents.member — a uuid FK to directus_users.id (confirmed via
@@ -209,7 +227,10 @@ directus_user_pk_by_email() {
   local directus_url="$1" token="$2" email="$3"
   local encoded
   encoded=$(printf '%s' "$email" | jq -sRr @uri)
-  curl -sf -H "Authorization: Bearer ${token}" \
+  # `-g` (--globoff) disables curl's URL-bracket range parsing; required for
+  # Directus `filter[field][op]=...` URLs which contain `[` and `]` that bash's
+  # curl otherwise treats as character classes (ISS-UAT-BRIDGE-002).
+  curl -sgf -H "Authorization: Bearer ${token}" \
     "${directus_url}/users?filter[email][_eq]=${encoded}&fields=id&limit=1" 2>/dev/null \
     | jq -r '.data[0].id // empty' 2>/dev/null || true
 }
@@ -240,7 +261,12 @@ api_ensure_directus_user_link() {
     return 0
   fi
 
-  local api_base="${API_BASE_URL:-http://localhost:3001}"
+  # host.docker.internal resolves to the host machine from BOTH WSL bash and
+  # PowerShell — Docker Desktop's magic DNS. Using it instead of localhost:3001
+  # because the API container/pod may be running on the Windows host side, not
+  # inside the WSL2 VM's network namespace. Override via API_BASE_URL=...
+  # (e.g. "http://localhost:3001" if the API is also running inside WSL).
+  local api_base="${API_BASE_URL:-http://host.docker.internal:3001}"
   local token
   token=$(env_get "$API_DIR/.env" "INTERNAL_API_TOKEN")
   [[ -n "$token" ]] || fail "api_ensure_directus_user_link: INTERNAL_API_TOKEN missing from apps/api/.env (run scripts/uat-env-setup.sh)"
@@ -301,6 +327,30 @@ ensure_test_user() {
   pk=$(user_pk_by_username "$ak_url" "$token" "$username")
 
   if [[ -n "$pk" && "$FORCE_REGEN" == "0" ]]; then
+    # ISS-UAT-BRIDGE-002 — if the existing Authentik user's email differs
+    # from the seed's declared email, PATCH the email so the seeded
+    # identity stays consistent with `UAT_OPERATOR_EMAIL` /
+    # `UAT_MEMBER_EMAIL` in apps/e2e/.env.uat. This is what makes the
+    # 2026-07-04 transition from @aiqadam.test to @example.com
+    # migration transparent: a developer with a stack seeded before the
+    # transition has uat-operator/uat-member Authentik users with
+    # `@aiqadam.test` emails; on the next `bash scripts/uat-seed.sh` the
+    # email is PATCHed to the new TLD. Idempotent — if the email already
+    # matches, the diff is a no-op (PATCH returns 200 with no observable
+    # change).
+    local existing_email
+    existing_email=$(user_email_by_pk "$ak_url" "$token" "$pk")
+    if [[ -n "$existing_email" && "$existing_email" != "$email" ]]; then
+      local email_patch_resp email_patch_code
+      email_patch_resp=$(ak_patch "${ak_url}/api/v3/core/users/${pk}/" \
+        "$(jq -nc --arg e "$email" '{email:$e}')" "$token")
+      email_patch_code="${email_patch_resp%%|*}"
+      if [[ "$email_patch_code" != "200" && "$email_patch_code" != "204" ]]; then
+        warn "email update for ${username} returned HTTP ${email_patch_code} (non-fatal) — old email may persist"
+      else
+        ok "${username} email updated: ${existing_email} -> ${email}"
+      fi
+    fi
     ok "user ${username} (exists, pk=${pk})"
   else
     if [[ -z "$pk" ]]; then
@@ -414,7 +464,7 @@ date_offset() {
 # <display_name> is the value copied into the Directus `display_name` column
 # and surfaced verbatim by the OnboardingForm at /onboard?token=…
 # (`Welcome, {preview.display_name ?? preview.email.split('@')[0]}.`). Three
-# fixture rows share the same Authentik email (`uat-operator@aiqadam.test`)
+# fixture rows share the same Authentik email (`uat-operator@example.com`)
 # but are distinguished in the UI by `display_name` (e.g. "UAT Operator
 # (valid)"). The fourth fixture row uses a plus-addressed email with no
 # matching Authentik user, which exercises the api's
@@ -472,9 +522,10 @@ ensure_operator_invite() {
   fi
 
   # Idempotency guard: full SHA-256 hash uniquely identifies the row across
-  # all four fixtures (their token_prefixes collide on "uat-onbo").
+  # all four fixtures (their token_prefixes collide on "uat-onbo"). `-g`
+  # disables curl's URL-bracket parsing so `filter[...]` passes through verbatim.
   local existing
-  existing=$(curl -sf \
+  existing=$(curl -sgf \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
     "${DIRECTUS_URL}/items/operator_invites?filter[token_hash][_eq]=${token_hash}&limit=1" \
     2>/dev/null | jq -r '.data[0].id // empty' 2>/dev/null || true)
@@ -717,9 +768,10 @@ reset_domain_fixture() {
   fi
 
   # Delete existing row(s) matching the lookup filter, if any.
+  # `-g` disables curl's URL-bracket parsing (see directus_user_pk_by_email).
   local encoded_value existing_ids existing_id
   encoded_value=$(printf '%s' "$lookup_value" | jq -sRr @uri)
-  existing_ids=$(curl -sf \
+  existing_ids=$(curl -sgf \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
     "${DIRECTUS_URL}/items/${collection}?filter[${lookup_field}][_eq]=${encoded_value}&limit=-1" \
     2>/dev/null | jq -r '.data[]?.id // empty' 2>/dev/null || true)
@@ -846,9 +898,9 @@ AK_URL="${AK_URL:-http://localhost:9000}"
 AK_CONTAINER="${AK_CONTAINER:-aiqadam-authentik-server}"
 
 # Test credentials — must match apps/e2e/.env.uat written by uat-env-setup.sh
-MEMBER_EMAIL="${UAT_MEMBER_EMAIL:-uat-member@aiqadam.test}"
+MEMBER_EMAIL="${UAT_MEMBER_EMAIL:-uat-member@example.com}"
 MEMBER_PASSWORD="${UAT_MEMBER_PASSWORD:-UatMember1!}"
-OPERATOR_EMAIL="${UAT_OPERATOR_EMAIL:-uat-operator@aiqadam.test}"
+OPERATOR_EMAIL="${UAT_OPERATOR_EMAIL:-uat-operator@example.com}"
 OPERATOR_PASSWORD="${UAT_OPERATOR_PASSWORD:-UatOperator1!}"
 
 # ── --reset dispatch (runs instead of, not alongside, STEP 1-4 below) ─────────
@@ -948,7 +1000,7 @@ fi
 # consumed, expired, plus a fourth row whose email has no matching Authentik
 # user to exercise the api's `invite_missing_authentik_user` path.
 #
-# All three "happy" rows share email `uat-operator@aiqadam.test` so the api
+# All three "happy" rows share email `uat-operator@example.com` so the api
 # can resolve the seeded Authentik user at accept time. Rows are
 # distinguished in the OnboardingForm UI by `display_name`. The fourth
 # (`no-user`) row uses a plus-addressed email so the api's
@@ -971,8 +1023,8 @@ ONBOARD_TOKEN="uat-onboard-token"
 ONBOARD_USED_TOKEN="uat-onboard-used-token"
 ONBOARD_EXPIRED_TOKEN="uat-onboard-expired-token"
 ONBOARD_NO_USER_TOKEN="uat-onboard-no-user-token"
-OPERATOR_FIXTURE_EMAIL="uat-operator@aiqadam.test"
-NO_USER_FIXTURE_EMAIL="uat-operator+no-user@aiqadam.test"
+OPERATOR_FIXTURE_EMAIL="uat-operator@example.com"
+NO_USER_FIXTURE_EMAIL="uat-operator+no-user@example.com"
 
 # ISS-UAT-013-10: valid invite must include 'aiqadam-staff' so the
 # BP-UAT-013 Step 005 spec assertion `getByText(/aiqadam-staff/i)` can

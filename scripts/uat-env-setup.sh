@@ -473,9 +473,9 @@ UAT_AUTHENTIK_URL=http://localhost:9000
 UAT_INTERNAL_API_TOKEN=${_internal_for_uat}
 
 # Test credentials — provisioned by pnpm uat:seed
-UAT_MEMBER_EMAIL=uat-member@aiqadam.test
+UAT_MEMBER_EMAIL=uat-member@example.com
 UAT_MEMBER_PASSWORD=UatMember1!
-UAT_OPERATOR_EMAIL=uat-operator@aiqadam.test
+UAT_OPERATOR_EMAIL=uat-operator@example.com
 UAT_OPERATOR_PASSWORD=UatOperator1!
 
 # Operator invite tokens — provisioned by pnpm uat:seed (ISS-UAT-013-4, ISS-UAT-013-8)

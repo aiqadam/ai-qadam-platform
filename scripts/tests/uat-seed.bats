@@ -98,8 +98,8 @@ teardown() {
   run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
   [ "$status" -eq 0 ]
   local bare plus
-  bare=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator@aiqadam\.test' || true)
-  plus=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator[+]no-user@aiqadam\.test' || true)
+  bare=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator@example\.com' || true)
+  plus=$(echo "$output" | grep -cE 'operator_invite .*\(mock, email=uat-operator[+]no-user@example\.com' || true)
   [ "$bare" -eq 3 ]
   [ "$plus" -eq 1 ]
 }
@@ -298,7 +298,7 @@ teardown() {
 @test "FR-WORKFLOW-003 row 7: member_email resolves to the sibling identity fixture in mock mode" {
   run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-001 2>&1'
   [ "$status" -eq 0 ]
-  [[ "$output" == *"fixture uat-member-consented-consent (mock, create collection=member_consents, member_email=uat-member-c@aiqadam.test resolved to member=uat-member-consented)"* ]]
+  [[ "$output" == *"fixture uat-member-consented-consent (mock, create collection=member_consents, member_email=uat-member-c@example.com resolved to member=uat-member-consented)"* ]]
 }
 
 # ─── Row 8: member_email FK resolution — unresolvable email fails loudly ──────
@@ -425,13 +425,18 @@ teardown() {
 @test "ISS-UAT-001-1: ensure_linked mock line carries the right email per identity" {
   # Strengthens the previous test: the two ensure_linked lines must
   # reference the right emails (one per identity that STEP 3
-  # provisions). uat-member's email is `uat-member@aiqadam.test`,
-  # uat-operator's is `uat-operator@aiqadam.test`.
+  # provisions). uat-member's email is `uat-member@example.com`,
+  # uat-operator's is `uat-operator@example.com`.
+  # (Switched from @aiqadam.test to @example.com in wf-20260704-fix-086 /
+  # ISS-UAT-BRIDGE-002 — the @aiqadam.test TLD is rejected by Directus's
+  # built-in is-email validator, blocking the bridge from creating the
+  # directus_users mirror. .example.com is RFC 2606 reserved and passes
+  # every email validator.)
   run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
   [ "$status" -eq 0 ]
   local member_lines operator_lines
-  member_lines=$(echo "$output" | grep -cE 'ensure_linked uat-member@aiqadam\.test \(mock, directus_user_id=mock-uuid\)' || true)
-  operator_lines=$(echo "$output" | grep -cE 'ensure_linked uat-operator@aiqadam\.test \(mock, directus_user_id=mock-uuid\)' || true)
+  member_lines=$(echo "$output" | grep -cE 'ensure_linked uat-member@example\.com \(mock, directus_user_id=mock-uuid\)' || true)
+  operator_lines=$(echo "$output" | grep -cE 'ensure_linked uat-operator@example\.com \(mock, directus_user_id=mock-uuid\)' || true)
   [ "$member_lines" -eq 1 ]
   [ "$operator_lines" -eq 1 ]
 }
