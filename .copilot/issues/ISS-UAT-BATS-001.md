@@ -76,7 +76,7 @@ The fix preserves the regression intent (no silent changes outside the documente
 ## Resolution
 
 - **Workflow:** `wf-20260704-fix-092`
-- **PR:** https://github.com/tvolodi/aiqadam/pull/108 (squash merge pending)
+- **PR:** https://github.com/tvolodi/aiqadam/pull/108 (squash merge `69f2b3f`)
 - **Root cause:** Row 6 in `scripts/tests/uat-seed.bats` had two interacting bugs — (a) baseline source-of-truth drift (`origin/main:` no longer pre-fix after main advanced past `2b72f46`), and (b) byte-equality assertion too strict for `wf-20260704-fix-086`'s documented `@aiqadam.test → @example.com` TLD migration.
 - **Fix:** Pinned baseline to `8db37ac^:scripts/uat-seed.sh` (immutable SHA); replaced strict byte-equality with a structural assertion + `sed` whitelist for documented drift sources. bats row 6 now passes.
 - **Regression test:** `scripts/tests/uat-seed.bats` row 6 itself — this fix IS the regression test. The row is now self-validating against the pre-fix baseline and will catch any future regression in the same code path.
