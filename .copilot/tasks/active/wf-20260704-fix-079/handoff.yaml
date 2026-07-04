@@ -1,0 +1,70 @@
+workflow_instance_id: wf-20260704-fix-079
+workflow_type: issue-resolution
+workflow_version: "1.0"
+created_at: "2026-07-04T03:00:00Z"
+last_updated_at: "2026-07-04T03:00:00Z"
+
+requirement_ref: null
+issue_ref: "ISS-UAT-009-5 (+ policy clarification AGENTS.md §14)"
+issue_title: "Register pre-existing test-design failure Neg 001 as ISS-UAT-009-5; clarify agent authority via §14"
+
+branch: doc/policy-clarify-agent-authority-and-register-neg-001
+base_branch: main
+merge_mode: auto
+expects_registry_update: true
+
+parent_link: null
+
+current_step: 0
+current_step_name: "Initialize"
+step_history:
+  - step: 0
+    name: "Initialize"
+    status: passed
+    completed_at: "2026-07-04T03:00:00Z"
+
+retry_limits:
+  RequirementAnalyst: 1
+  DBMigrationAuthor: 2
+  CodeDeveloper: 3
+  SecurityReviewer: 2
+  TestStrategist: 2
+  TestDesigner: 3
+  TestRunner: 2
+  DocWriter: 2
+  QualityGate: 1
+
+retry_counts:
+  step1-issue-lookup: 0
+  step2-impact-analysis: 0
+  step4-develop-fix: 0
+  step5-security-review: 0
+  step6-test-strategy: 0
+  step7-write-tests: 0
+  step8-execute-tests: 0
+  step9-registry-update: 0
+  step10-doc-update: 0
+  step11-quality-gate: 0
+
+agent_assignments:
+  orchestrator: { status: in-progress, output_file: null }
+
+context:
+  # AGENTS.md §14 (just added in this same workflow) explicitly authorizes
+  # BusinessAnalyst/DocWriter to register unambiguous minor test-design issues
+  # without prompting the user. ISS-UAT-009-5 is exactly that case: pre-existing
+  # failure observed on disk (apps/e2e/tests/uat/BP-UAT-009.spec.ts:564), with
+  # clear ownership (test-design), clear severity (minor — does not block merge
+  # for unrelated work), and a known reproduction.
+  workflow_purpose: |
+    Two related changes bundled into one PR:
+    1) Land AGENTS.md §14 + 5 regenerated tool configs.
+       Source: explicit user override of §13 prompt on 2026-07-04.
+       Risks: future agents over-interpret §14. Mitigation: explicit carve-outs.
+       PR Risks section records the override per §13 step 4.
+    2) File ISS-UAT-009-5.md and queue wf-20260704-fix-080 for the actual fix.
+       Source: pre-existing BP-UAT-009 Neg 001 failure observed during
+       wf-20260704-fix-077 test run. Owned by BusinessAnalyst under §14.
+  bundled: true
+  neg_001_owner: "BusinessAnalyst / TestDesigner"
+  neg_001_fix_workflow: "wf-20260704-fix-080 (queued, not started)"

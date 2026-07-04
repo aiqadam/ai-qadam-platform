@@ -1,0 +1,48 @@
+workflow_instance_id: wf-20260704-fix-080
+workflow_type: issue-resolution
+workflow_version: "1.0"
+created_at: "2026-07-04T03:05:00Z"
+last_updated_at: "2026-07-04T03:05:00Z"
+
+requirement_ref: null
+issue_ref: ISS-UAT-009-5
+issue_title: "BP-UAT-009 Neg 001: rewrite `/workspace` redirect spec to await the client-side navigation (no more `.catch(() => {})`)"
+
+branch: fix/ISS-UAT-009-5-bp-uat-009-neg-001-redirect-spec
+base_branch: main
+merge_mode: auto
+expects_registry_update: true
+
+parent_link:
+  wf-20260704-fix-079: "Bundled the registration; this wf does the fix"
+  wf-20260704-fix-077: "Discovered during pre-existing-failure verification (07-test-results.md)"
+
+current_step: 0
+current_step_name: "Initialize (queued — start by promoting to active)"
+step_history:
+  - step: 0
+    name: "Initialize (queued)"
+    status: queued
+    completed_at: null
+
+retry_limits:
+  TestRunner: 2
+  TestDesigner: 2
+  QualityGate: 1
+
+retry_counts: {}
+
+agent_assignments:
+  orchestrator: { status: queued, output_file: null }
+
+context:
+  # See .copilot/issues/ISS-UAT-009-5.md for full background.
+  scope: "test-only — rewrite the assertion path in apps/e2e/tests/uat/BP-UAT-009.spec.ts:564-603 (Neg 001)"
+  out_of_scope: "any product code (Workspace.tsx redirect is intentional)"
+  expected_diff: ~10-15 LOC inside the Neg 001 test block
+  expected_outcome: "Neg 001 passes deterministically on the live stack; no other BP-UAT-009 step regresses"
+  verification_command: "pnpm exec playwright test --config=playwright.uat.config.ts --grep 'Neg 001 — Protected page'"
+  acceptance_criteria:
+    - "AC-1: Neg 001 passes deterministically on three consecutive live-stack runs"
+    - "AC-2: No regression on BP-UAT-009 Steps 001-006 or Neg 002/003 (full suite re-run stays green where it was green)"
+    - "AC-3: Test code matches docs/02-business-processes/uat/BP-UAT-009.md §Neg 001 expectations"

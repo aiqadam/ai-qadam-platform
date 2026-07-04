@@ -700,3 +700,70 @@ language from §0 is retained ONLY for:
 
 Everything else — design choices, scope, timing, tooling, refactors —
 follows the "analyze, present, wait for override" pattern above.
+
+---
+
+## 14. Default authority by agent role (added 2026-07-04, per user override)
+
+**Agents own their competence area.** Each agent — TestRunner, CodeDeveloper,
+SecurityReviewer, TestDesigner, TestStrategist, BusinessAnalyst, DocWriter,
+QualityGate, PRSteward, Orchestrator — decides in its own domain. The user
+assigns the task, the agent team executes, the user checks the final result.
+
+Concretely:
+
+- **CodeDeveloper** decides how to implement a validated requirement —
+  file layout, helper extraction, naming, internal API shape. The user does
+  not review these micro-decisions; the QualityGate + tests verify them.
+- **TestRunner** decides which assertions to author, what data to seed, how
+  many retry attempts to spend, what counts as a flaky vs. broken test. The
+  user does not review test-design choices that don't break §6 / §13.
+- **SecurityReviewer** decides the verdict on each invariant (Pass / N/A /
+  blocking finding) and writes the gate result. The user does not adjudicate
+  per-invariance judgments.
+- **DocWriter** decides prose structure, link inventory, sidebar weight. The
+  user checks the doc lands are correct at the end of the workflow.
+- **QualityGate** decides whether a workflow is ready to push, including
+  the AC-by-AC disposition. The user does not grade ACs.
+- **PRSteward** decides CI-override / auto-register / escalate per the §6.3
+  policy without prompting.
+- **BusinessAnalyst / DocWriter** may register a new issue file when an
+  unambiguous pre-existing failure is observed (specific reproduction steps
+  on disk; severity and module derived from existing registry precedent).
+  Such auto-registrations are honest, bounded, and do not require a prompt.
+- **Orchestrator** queues follow-up workflows, archives completed task
+  directories, and bumps `next-workflow-id`. The user does not see these
+  operational steps individually — they read `git log` and `registry.md`.
+
+**The default is "decide and proceed." The exception is "stop and tell the
+user."** This rule explicitly defers to:
+
+1. **§6 NEVER-DOs** — `.env` edits without authorization, prod migrations,
+   `--force`, secret leaks, test-disabling, `--legacy-peer-deps`, writing
+   code to `main` (must use the workflow), and the rest of the list in §6.
+   These are *non-overrideable* agent-handling rules; the user is the only
+   entity that can relax them, by writing the authorization in chat.
+2. **§6.2 safety gates 1–6** — destructive commands, conflicting in-flight
+   work, ambiguous ACs, secret-in-diff, branch-protection rejection, and
+   the four override-stop conditions in §6.3 (introduced-by-this-PR,
+   counter-exhausted, security-check, secrets). These escalate to the user.
+3. **§13 ambiguities** — when a request has multiple valid interpretations,
+   irreversible side-effects, or a trade-off the agent cannot grade, the
+   agent MUST raise a Concern / Evidence / Proposal message and wait.
+4. **Production infrastructure** — `pnpm db:migrate` against prod,
+   `docker system prune`, anything that mutates state outside the working
+   tree. Agents run these only on explicit user authorization.
+5. **Public-side-effect registry writes** — agents may file issues that
+   follow existing precedent (test-design / minor / clear reproduction).
+   Agents may NOT issue `gh issue create` against external systems, modify
+   the project's GitHub settings, or open PRs that touch `.github/`
+   workflows without user opt-in.
+
+In short: agents ask the user about irreversibles, ambiguities, and
+cross-project external effects — not about test data, file naming, code
+organization, prose style, or whether to file a follow-up workflow for an
+already-disclosed debt.
+
+The user can override any agent decision in chat at any time. The override
+is recorded in the PR description under "Risks" per §13 step 4 (date,
+user's reason, agent's original concern) so the audit trail is preserved.
