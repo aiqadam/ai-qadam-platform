@@ -2,7 +2,7 @@
 
 | Severity | Module | Status | Workflow | Date |
 |---|---|---|---|---|
-| blocker | ci/infrastructure | open | wf-20260703-fix-072 | 2026-07-03 |
+| blocker | ci/infrastructure | resolved | wf-20260704-fix-093 | 2026-07-04 |
 
 ## Problem
 
@@ -99,3 +99,53 @@ of:
 - **PRSteward audit fields:**
   - `gate_results.step11.4-pr-steward.auto_registered: true`
   - PR #94 squash-commit trailer: `CI-Override: ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7 via ISS-CI-OVERRIDE-ebd184b (count 1/5)`
+
+---
+
+## Resolution
+
+- **Workflow:** `wf-20260704-fix-093`
+- **PR:** [https://github.com/tvolodi/aiqadam/pull/109](https://github.com/tvolodi/aiqadam/pull/109)
+- **Root cause:** `apps/storybook` uses `@storybook/react-vite@8.6.18`
+  which is a thin pass-through Vite config — its `dist/node/index.js`
+  is a 43-byte identity function and does not inject any Vite plugin
+  to handle `.tsx` JSX. Vite 8.1.0 (resolved transitively because
+  `@aiqadam/web-next` depends on `@astrojs/react@6.0.0` →
+  `vite@^8.1.0`) uses **rolldown 1.1.3** as the default production
+  bundler. rolldown's built-in parser disables JSX by default for
+  `.tsx` files, so when Storybook's preview build hits any `.tsx`
+  file from `apps/web-next/src/kit/*` or `apps/blocks/*`, rolldown
+  fails with `PARSE_ERROR: Unexpected JSX expression`. Astro's own
+  build (`pnpm --filter @aiqadam/web-next build`) succeeds with the
+  same rolldown because Astro configures JSX handling internally;
+  Storybook 8 does not.
+- **Fix:** Two surgical edits in `apps/storybook/`:
+  1. `apps/storybook/package.json` — added `@vitejs/plugin-react@^5.2.0`
+     as a direct `devDependencies` entry (already in the workspace
+     tree transitively via `@astrojs/react`; declaring it as a direct
+     devDep documents intent and protects against future pnpm
+     hoisting changes).
+  2. `apps/storybook/.storybook/main.ts` — imported `react` from
+     `@vitejs/plugin-react` and prepended `react({ jsxRuntime:
+     'automatic' })` as the first plugin in `viteFinal`. The plugin
+     runs Babel + `@babel/plugin-transform-react-jsx` on every
+     `.tsx` file so that rolldown's parser never sees JSX.
+- **Regression test:** `pnpm --filter @aiqadam/storybook build`.
+  - Before: exits 1 with 12 `[PARSE_ERROR] Unexpected JSX expression`
+    errors against `apps/web-next/src/blocks/workspace/AsyncSelect.tsx`
+    and 11 other `.tsx` files in `apps/web-next/src/kit/*`.
+  - After: exits 0. 226 modules transformed. Output
+    `apps/storybook/storybook-static/` contains 31+ asset chunks
+    including per-atom stories files (`Badge.stories`, `Button.stories`,
+    `Card.stories`, `Dialog.stories`, `Select.stories`, `Tabs.stories`,
+    `Toast.stories`, `Drawer.stories`, `Input.stories`, `Welcome`).
+- **Verification:** `biome check` clean on the modified files. `tsc
+  --noEmit` reports the same 2 errors as `origin/main` (pre-existing
+  in `apps/storybook/stories/blocks/AsyncSelect.stories.tsx` and
+  `apps/web-next/src/lib/api-client.ts`); zero new tsc errors
+  introduced by this workflow.
+- **Counter reset:** Per AGENTS.md §6.3 step 5, the counter for class
+  `ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7` resets to 0 when a PR
+  that does not override the failure class is merged with green CI.
+  This PR merges with a green storybook job → counter resets.
+- **Merged:** `<pending>` — back-filled by Step 12.5.

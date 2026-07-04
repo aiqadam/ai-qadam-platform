@@ -1,0 +1,57 @@
+schema_version: "1.0"
+workflow_instance_id: "wf-20260704-fix-093"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+created_at: "2026-07-04T20:30:00Z"
+last_updated_at: "2026-07-04T20:30:00Z"
+requirement_ref: "ISS-CI-OVERRIDE-ebd184b"
+requirement_text: >-
+  Auto-registered CI failure class ebd184bfe1c7b3c4fde6d4d0685be02d595d8be7
+  (rolldown 1.1.3 [PARSE_ERROR] Unexpected JSX expression on apps/web-next
+  .tsx files during storybook-static build). This workflow lands a real fix
+  so the storybook CI job returns to green and the consecutive counter
+  resets to 0 on merge.
+github_issue_url: "local:.copilot/issues/ISS-CI-OVERRIDE-ebd184b.md"
+branch: "fix/ISS-CI-OVERRIDE-ebd184b-rolldown-jsx"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/109"
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "running"
+parent_link: {}
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: "ISS-CI-OVERRIDE-ebd184b"
+paused_at_step: 0
+paused_at_gate: ""
+gate_results: {}
+agent_assignments: {}
+retry_limits:
+  code-developer: 2
+  security-reviewer: 1
+  test-runner: 2
+  pr-steward: 1
+issues_created:
+  - id: "ISS-CI-OVERRIDE-ebd184b"
+    file: ".copilot/issues/ISS-CI-OVERRIDE-ebd184b.md"
+    severity: "blocker"
+    module: "ci/infrastructure"
+    created_at: "2026-07-03T19:30:00Z"
+    workflow: "wf-20260704-fix-093"
+issue_ref: "ISS-CI-OVERRIDE-ebd184b"
+deferrals: []
+expects_registry_update: true
+context_sync_commits: 0
+artifacts: []
+context_refs:
+  - ".copilot/meta/ci-override-counters.json"
+  - ".copilot/issues/registry.md"
+  - ".copilot/issues/ISS-CI-OVERRIDE-ebd184b.md"
+  - "apps/storybook/package.json"
+  - "apps/storybook/.storybook/main.ts"
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
