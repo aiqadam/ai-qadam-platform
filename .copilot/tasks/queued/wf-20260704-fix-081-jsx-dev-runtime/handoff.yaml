@@ -1,0 +1,136 @@
+workflow:
+  id: wf-20260704-fix-081
+  title: "Fix apps/web React island _jsxDEV is not a function (blocks all BP-UAT-009)"
+  type: issue-resolution
+  owner: Orchestrator
+  created: 2026-07-04
+  branch: fix/ISS-UAT-009-6-jsx-dev-runtime
+  issue: ISS-UAT-009-6
+  parent_workflow: wf-20260704-fix-080
+
+steps:
+  - id: 0
+    name: Init
+    actions:
+      - Check clean tree, fetch origin main, checkout main, pull --rebase
+      - Increment .copilot/meta/next-workflow-id (81 → 82)
+      - Create task directory .copilot/tasks/active/wf-20260704-fix-081/
+      - Copy handoff.yaml into active/
+      - Create branch fix/ISS-UAT-009-6-jsx-dev-runtime from origin/main
+
+  - id: 1
+    name: RequirementAnalyst (issue already exists — re-validate scope)
+    input: .copilot/issues/ISS-UAT-009-6.md
+    output: .copilot/tasks/active/wf-20260704-fix-081/01-requirement-analysis.md
+    actions:
+      - Confirm scope: apps/web React island runtime failure
+      - Confirm ACs from ISS-UAT-009-6
+
+  - id: 2
+    name: ImpactAnalyzer
+    output: .copilot/tasks/active/wf-20260704-fix-081/02-impact-analysis.md
+    actions:
+      - Inventory all React island usages across apps/web
+      - Identify likely root cause candidates (duplicate React, stale cache, vite alias, jsx transform)
+      - Plan investigation order (lowest blast radius first)
+
+  - id: 3
+    name: TestDesigner
+    output: .copilot/tasks/active/wf-20260704-fix-081/03-test-design.md
+    actions:
+      - Design a smoke test that mounts an island and asserts no _jsxDEV error
+      - Design BP-UAT-009 regression run plan
+
+  - id: 4
+    name: CodeDeveloper
+    output: .copilot/tasks/active/wf-20260704-fix-081/04-code-summary.md
+    actions:
+      - Apply the fix (likely apps/web/package.json pnpm overrides OR apps/web/.gitignore + clean script OR astro.config.mjs alias)
+      - Add smoke test per TestDesigner
+
+  - id: 5
+    name: SecurityReviewer
+    output: .copilot/tasks/active/wf-20260704-fix-081/05-security-review.md
+    actions:
+      - Verify the fix doesn't introduce duplicate-React vector (cross-island identity leak)
+      - Verify refresh-token-replay protection still holds
+
+  - id: 6
+    name: TestStrategist
+    output: .copilot/tasks/active/wf-20260704-fix-081/06-test-strategy.md
+    actions:
+      - Plan: smoke test runs, BP-UAT-009 re-run, 5-min console-clean verification
+
+  - id: 7
+    name: TestRunner
+    output: .copilot/tasks/active/wf-20260704-fix-081/07-test-results.md
+    actions:
+      - Run smoke test
+      - Run BP-UAT-009 (full, 9 steps)
+      - Confirm AC-1/2/3/4/5
+
+  - id: 8
+    name: DocWriter
+    output: .copilot/tasks/active/wf-20260704-fix-081/08-doc-update.md
+    actions:
+      - Update testing docs to mention the smoke test
+      - Update BP-UAT-009.md if needed
+      - Update AGENTS.md §11 if a new React constraint applies
+
+  - id: 9
+    name: QualityGate
+    output: .copilot/tasks/active/wf-20260704-fix-081/09-quality-gate.md
+    actions:
+      - AC-by-AC disposition
+      - PASS / FAIL decision
+
+  - id: 9.5
+    name: Registry update
+    output: .copilot/tasks/active/wf-20260704-fix-081/09-registry-update.md
+    actions:
+      - ISS-UAT-009-6 row: open → resolved
+      - ISS-UAT-009-5 row: Resolution section updated (was symptom of THIS bug)
+      - workspace-state.md updated
+
+  - id: 10
+    name: Branch push
+    actions:
+      - git add -A && git commit -m "fix(web): resolve React island _jsxDEV is not a function (ISS-UAT-009-6)"
+      - git push origin fix/ISS-UAT-009-6-jsx-dev-runtime
+
+  - id: 11
+    name: PR + merge
+    actions:
+      - gh pr create --base main --head fix/ISS-UAT-009-6-jsx-dev-runtime
+      - gh pr merge <N> --squash --admin --delete-branch  (per AGENTS.md §6.3 user opt-out)
+
+  - id: 12
+    name: Archive + print
+    actions:
+      - git mv .copilot/tasks/active/wf-20260704-fix-081 .copilot/tasks/completed/wf-20260704-fix-081
+      - Bump .copilot/meta/next-workflow-id (82 → 83)
+      - Commit + push archive
+      - Print: [wf-20260704-fix-081] PR #N merged (squash SHA). ISS-UAT-009-6 resolved. ISS-UAT-009-5 verified.
+
+acceptance_criteria:
+  - id: AC-1
+    text: "apps/web /workspace renders the Workspace island (not just SSR shell); browser console clean of _jsxDEV errors"
+  - id: AC-2
+    text: "apps/web/.astro/dev.log has zero new _jsxDEV entries after 5 minutes of normal navigation"
+  - id: AC-3
+    text: "BP-UAT-009 re-run: at least Steps 001-006 + Neg 001 pass"
+  - id: AC-4
+    text: "Root cause documented in quality gate with file paths, pnpm output, and the fix"
+  - id: AC-5
+    text: "Regression smoke test added that verifies React islands mount cleanly under client:load"
+
+risks:
+  - "Duplicate React may be in transitive deps; pnpm overrides may need broader scope"
+  - "Fix may reveal additional React-related issues that have been masked by the JSX error"
+  - "If root cause is jsx transform, fixing it might break the production build path"
+
+related:
+  - issue: ISS-UAT-009-5
+    relationship: "was symptom of this bug; will flip from 'flaky' to 'verified stable' after this lands"
+  - issue: ISS-UAT-009-6
+    relationship: "this workflow's primary issue"

@@ -573,21 +573,39 @@ test.describe('BP-UAT-009 — negative scenarios', () => {
     // Workspace.tsx client-side redirects anon visitors via
     // window.location.replace(signInUrl()) inside a useEffect once
     // bootstrap resolves to 'anon' — so we wait for that navigation.
-    await page
+    // The intent of this rewrite (see ISS-UAT-009-5 / wf-20260704-fix-080):
+    // capture the waitForURL outcome as a boolean instead of swallowing
+    // the timeout with `.catch(() => {})`. Mirrors the Step 004 idiom at
+    // line 302–310. Timeout is 20s, matching the sibling client-side
+    // redirect budget used by Steps 002/003/006.
+    const reachedSignIn = await page
       .waitForURL(new RegExp(`^${BASE_URL}/(auth/sign-in|api/v1/auth/login)`), {
-        timeout: 15_000,
+        timeout: 20_000,
       })
-      .catch(() => {
-        /* handled by the assertion below — report actual URL either way */
-      });
+      .then(() => true)
+      .catch(() => false);
 
     await shot(page, 'neg-001-protected-page-redirect');
 
+    expect
+      .soft(
+        reachedSignIn,
+        'browser should auto-redirect to /auth/sign-in or /api/v1/auth/login after entering /workspace while signed-out',
+      )
+      .toBe(true);
+
+    // Defensive second check: if the waitForURL regex above did not match
+    // (e.g. the redirect landed on an Authentik shell URL or somewhere
+    // we did not enumerate), still surface the actual landing page so the
+    // test report flags it for triage. Independent of reachedSignIn so a
+    // future regex expansion does not silently pass.
     const landedOnSignIn =
       page.url().startsWith(`${BASE_URL}/auth/sign-in`) ||
       page.url().startsWith(AUTHENTIK_URL) ||
       page.url().includes('/api/v1/auth/login');
-    expect.soft(landedOnSignIn, 'browser should land on sign-in (app or Authentik)').toBe(true);
+    expect
+      .soft(landedOnSignIn, 'final URL must be a sign-in surface (app, Authentik, or api login)')
+      .toBe(true);
 
     const workspaceContent = page.getByText(/operator workspace|single landing/i);
     await expect(workspaceContent).toHaveCount(0);

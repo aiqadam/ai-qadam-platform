@@ -9,7 +9,7 @@
 | Reported | 2026-07-04 |
 | Resolved | — |
 | Reporter | TestRunner (wf-20260704-fix-077 / 07-test-results.md) — registered by BusinessAnalyst under AGENTS.md §14 |
-| Workflow | queued: wf-20260704-fix-080 |
+| Workflow | wf-20260704-fix-080 (in progress) → wf-20260704-fix-081 (queued follow-up) |
 
 ## Symptom
 
@@ -60,3 +60,20 @@ Owned by `wf-20260704-fix-080` (queued).
 - This issue was observed during [wf-20260704-fix-077](.copilot/tasks/completed/wf-20260704-fix-077/07-test-results.md) §"BP-UAT-009 full suite — mixed results". The TestRunner disclosed it as "PRE-EXISTING (unrelated)" without filing an owning issue because the agentic policy at the time required user authorization for new registry rows. Under the new AGENTS.md §14 (added 2026-07-04), BusinessAnalyst is authorized to register unambiguous minor test-design issues autonomously.
 - The PR #100 merge (this issue's parent workflow) was not waiting on Neg 001 — the BP-UAT-009 spec already documents the `/workspace` vs `/me` mechanism asymmetry (ISS-UAT-009-2 closed it).
 - No product code is touched by the proposed fix.
+
+## Resolution (in progress — 2026-07-04)
+
+**Status:** Test-only fix shipped in [wf-20260704-fix-080](.copilot/tasks/active/wf-20260704-fix-080/) (PR <pending>). The fix adopts the Step 004 idiom at lines 302-310 (`.then(() => true).catch(() => false)` capturing waitForURL outcome as a boolean) and bumps the timeout from 15s to 20s (matching sibling client-side redirect tests at lines 215, 242, 276). Diff is +24 / −6 LOC inside one block.
+
+**AC-1 deferred** to [wf-20260704-fix-081-jsx-dev-runtime](.copilot/tasks/queued/wf-20260704-fix-081-jsx-dev-runtime/handoff.yaml). The deferred verification command:
+
+```bash
+cd apps/e2e && pnpm exec playwright test \
+    --config=playwright.uat.config.ts \
+    --grep "BP-UAT-009 — negative scenarios › Neg 001 — Protected page"
+# Run 3 times consecutively — all 3 must exit 0.
+```
+
+**Root cause is NOT flakiness** — it's [ISS-UAT-009-6](ISS-UAT-009-6.md): `apps/web` React islands crash with `_jsxDEV is not a function` on every page load. The original "flaky" classification was a symptom of this deeper bug. The test rewrite produces better error messages either way (clear distinction between "redirect never fired" and "landed somewhere unexpected"), so shipping it now is correct even before wf-20260704-fix-081 lands.
+
+This issue flips to `resolved` only after **both** PRs land AND the 3× Neg 001 determinism check passes on the post-wf-20260704-fix-081 stack.
