@@ -85,7 +85,8 @@ Whichever of the above matches:
 ## Resolution
 
 **Workflow:** wf-20260704-fix-081-jsx-dev-runtime
-**PR:** https://github.com/tvolodi/aiqadam/pull/<pending>
+**PR:** https://github.com/tvolodi/aiqadam/pull/103
+**Squash SHA:** `94baad8`
 **Root cause:** `@astrojs/react@6.0.0` registers `react/jsx-dev-runtime` in Vite's `optimizeDeps.include`. React 19's `node_modules/react/jsx-dev-runtime.js` is a conditional dispatcher that loads the development variant when `process.env.NODE_ENV !== 'production'`. When `astro dev` was launched in a shell that injected `NODE_ENV=production` (PowerShell env, `pnpm` workspace scripts, CI runners), the pre-bundler captured the **production** variant (`exports.jsxDEV = void 0`). Every React island then threw `TypeError: _jsxDEV is not a function` at the first JSX evaluation line.
 
 **Fix:** Two targeted changes in `apps/web/astro.config.mjs`:
@@ -98,7 +99,7 @@ Plus one regression test in `apps/web/src/components/__tests__/jsx-dev-runtime.t
 
 **Regression test:** `apps/web/src/components/__tests__/jsx-dev-runtime.test.ts` — would have failed before the fix (`typeof jsxDEV === 'function'` would have been `'undefined'`); passes after.
 
-**Merged:** <pending — Step 12.5 back-fills the squash SHA after auto-merge>.
+**Merged:** 2026-07-04, PR #103 squash `94baad8`.
 
 ### Honesty disclosures
 
