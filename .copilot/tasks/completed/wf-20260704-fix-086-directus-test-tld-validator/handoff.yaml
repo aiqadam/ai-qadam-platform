@@ -1,0 +1,141 @@
+schema_version: '1.0'
+workflow_instance_id: wf-20260704-fix-086
+workflow_type: issue-resolution
+workflow_version: '1.0'
+created_at: '2026-07-04T11:30:00Z'
+last_updated_at: '2026-07-04T13:16:57Z'
+requirement_ref: ISS-UAT-BRIDGE-002
+requirement_text: 'Directus `directus_users.email` `is-email` validator rejects the
+  `*.aiqadam.test` TLD with HTTP 400 FAILED_VALIDATION, blocking the rewritten `ensureLinkedByEmail`
+  fallback (from wf-20260704-fix-085) from creating a Directus mirror for any seeded
+  `*@aiqadam.test` UAT user. PIVOTED from Option A (relax the validator at platform
+  layer — infeasible: `directus_users.email` is a Directus system field with `meta.system:
+  true` and rejects `meta.validation` modifications with 400 "Only schema.is_indexed
+  may be modified for system fields") to Option B (switch BP-UAT-001 fixtures and
+  seeded identities to use `@example.com`, which passes every email validator and
+  is RFC 2606 reserved). Pivot recorded per AGENTS.md §13 critical-analysis pattern;
+  user override was implicit (autonomous mode per §6.2).'
+github_issue_url: ''
+branch: fix/ISS-UAT-BRIDGE-002-directus-test-tld-validator
+base_branch: main
+github_pr_url: https://github.com/tvolodi/aiqadam/pull/105
+current_step: 13
+current_step_name: Workflow Finish post-merge archive
+workflow_status: completed
+parent_link:
+  parent_workflow_id: wf-20260704-fix-085
+  parent_branch: fix/ISS-UAT-BRIDGE-001-bridge-no-local-row-fallback
+  parent_paused_at_step: 12
+  parent_paused_at_gate: 12.5
+  spawned_at: '2026-07-04T11:00:00Z'
+  spawned_by_issue: ISS-UAT-BRIDGE-002
+  resolution_for_parent: fix-and-rebase
+  parent_resolution:
+    workflow_completed_at: '2026-07-04T05:55:27Z'
+    pr_url: https://github.com/tvolodi/aiqadam/pull/104
+    squash_sha: 9fd57aa67a0b78f87156c75baa7777cdb2e9815a
+    file_intersection_with_current_branch:
+    - scripts/uat-seed.sh
+    - scripts/uat-env-setup.sh
+    - scripts/uat-fixtures/BP-UAT-001.json
+    - scripts/tests/uat-seed.bats
+issue_ref: ISS-UAT-BRIDGE-002
+expects_registry_update: true
+deferrals:
+- id: pre-existing-fr-workflow-003-row-6
+  description: FR-WORKFLOW-003 row 6 test (in scripts/tests/uat-seed.bats) asserts
+    `current_lines - baseline_lines == 2`, but the actual delta is 0 (no-flag mock
+    output line count is unchanged by ISS-UAT-001-1 or Option B). This is a pre-existing
+    test bug on origin/main, not introduced by this PR. The PRSteward override policy
+    applies per AGENTS.md §6.3 (pre-existing on main, PR does not touch CI surfaces,
+    unrelated to ISS-UAT-BRIDGE-002 scope). The QualityGate marks this AC as `deferred-with-followup-workflow-ID-and-queue-position`
+    and queues a separate follow-up workflow to correct the assertion (`-eq 2` ->
+    `-eq 0`) under FR-WORKFLOW-003, not here.
+  follow_up_workflow_id: wf-20260704-fix-087-fix-fr-workflow-003-row-6
+  queue_position: 1
+  registered_at: '2026-07-04T13:10:00Z'
+retry_counts:
+  impact-analyzer: 0
+  code-developer: 0
+  security-reviewer: 0
+  test-strategist: 0
+  test-designer: 0
+  test-runner: 0
+  quality-gate: 0
+context_refs:
+- .copilot/issues/ISS-UAT-BRIDGE-002.md
+- .copilot/tasks/active/wf-20260704-fix-085/uat-live-verify.md
+- .copilot/tasks/active/wf-20260704-fix-085/09-registry-update.md
+- scripts/uat-seed.sh
+- scripts/uat-env-setup.sh
+- scripts/uat-fixtures/BP-UAT-001.json
+- scripts/tests/uat-seed.bats
+gate_results:
+  step1-requirement-analyst:
+    status: passed
+    decision: valid
+    note: 'ISS-UAT-BRIDGE-002 is well-formed: specific TLD, specific validator, specific
+      HTTP code, specific caller. Same parent_id as wf-20260704-fix-085, same diagnosis
+      flow.'
+  step2-impact-analyzer:
+    status: passed
+    decision: pivot-option-a-to-b
+    note: 'Option A (relax validator at platform layer) is structurally infeasible:
+      `directus_users.email` is a Directus system field (`meta.system: true`) and
+      PATCH /fields/directus_users/email returns 400 "Only schema.is_indexed may be
+      modified for system fields". Pivoted to Option B (switch fixtures to @example.com)
+      per AGENTS.md §13. Impact: 4 files, 84 insertions, 27 deletions (well within
+      §4 400-line / 5-file limits).'
+  step3-code-summary:
+    status: passed
+    decision: implemented
+    note: 'Code in scripts/uat-seed.sh (user_email_by_pk helper + email-update branch
+      in ensure_test_user + host.docker.internal:3001 default + 3 -g curl flags),
+      scripts/uat-env-setup.sh (2 email defaults), scripts/uat-fixtures/BP-UAT-001.json
+      (5 email references), scripts/tests/uat-seed.bats (3 assertions updated). Live-verified:
+      end-to-end seed creates all 5 BP-UAT-001 fixtures including 3 directus_users
+      mirrors.'
+  step4-security-review:
+    status: passed
+    decision: no-new-findings
+    note: Tenant isolation unchanged (UAT_OPERATOR_EMAIL / UAT_MEMBER_EMAIL remain
+      env-driven, default to @example.com). No new secrets, no new PII. No new external
+      service. RFC 2606 .example.com is reserved for testing and is safe for non-prod.
+      host.docker.internal is Docker Desktop magic DNS, not a public endpoint.
+  step5-doc-update:
+    status: skipped
+    decision: no-changes-needed
+    note: No doc changes needed for Option B. Comment updates inside scripts/uat-seed.sh,
+      scripts/uat-env-setup.sh, scripts/uat-fixtures/BP-UAT-001.json, scripts/tests/uat-seed.bats
+      cite wf-20260704-fix-086 / ISS-UAT-BRIDGE-002 as the migration source.
+  step6-test-strategy:
+    status: passed
+    decision: bats-mock-plus-live-verify
+    note: 'Strategy: bats mock mode (existing 28 tests cover the @example.com flow)
+      + live seed end-to-end verification (script does the seeding against the real
+      Directus/Authentik/API stack). No new bats tests needed; existing assertions
+      updated to match the new TLD.'
+  step6-test-design:
+    status: passed
+    decision: assertion-updates-only
+    note: 'Three assertion updates in scripts/tests/uat-seed.bats (rows 101, 301,
+      433-434) match the @example.com string changes. No new tests authored: the live
+      end-to-end verification at scripts/uat-seed.sh --reset BP-UAT-001 provides the
+      load-bearing proof that Directus accepts the new emails.'
+  step7-test-results:
+    status: passed
+    decision: 95-of-96-bats-pass-live-verify-pass
+    note: 'bats: 95/96 pass. Single failure is pre-existing on origin/main (FR-WORKFLOW-003
+      row 6 asserts `current_lines - baseline_lines == 2` but actual delta is 0; the
+      ISS-UAT-001-1 fix did not add lines to no-flag output). Live verify: bash scripts/uat-seed.sh
+      --reset BP-UAT-001 exits 0 with all 5 fixtures created (3 identity mirrors in
+      directus_users + 1 member_consents row + 1 events row). Directus GET confirms
+      uat-operator@example.com / uat-member-c@example.com / uat-member-nc@example.com
+      all present with valid UUIDs.'
+  step8-quality-gate:
+    status: passed
+    decision: ready-to-merge
+    note: 'AC-by-AC disposition written in 09-quality-gate.md. PR scope: 4 files,
+      84+27 = 111 net lines (§4: 400-line limit respected). No CI surfaces touched.
+      Pre-existing row 6 failure routed to follow-up workflow per AGENTS.md §6.3.'
+squash_sha: 5bb819bfb74c6d27caf3f9102ec94459b998bd90
