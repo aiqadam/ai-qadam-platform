@@ -6,7 +6,7 @@
 | Severity | blocker |
 | Module | api/directus-bridge |
 | Status | **resolved** |
-| Workflow | [wf-20260704-fix-085](../tasks/active/wf-20260704-fix-085/) |
+| Workflow | [wf-20260704-fix-085](../tasks/completed/wf-20260704-fix-085/) |
 | Resolved | 2026-07-04 |
 | Reported | 2026-07-03 |
 | Reporter | Orchestrator (wf-20260703-uat-064, Step 3 — UAT verification live run) |
@@ -165,11 +165,11 @@ workflow ships.
 ## Resolution (added 2026-07-04 by wf-20260704-fix-085)
 
 - **Workflow:** wf-20260704-fix-085
-- **PR:** <https://github.com/tvolodi/aiqadam/pull/<pending> — back-filled by Step 12.5 of `wf-20260704-fix-085` after `gh pr create`.
+- **PR:** <https://github.com/tvolodi/aiqadam/pull/104> (squash 9fd57aa67a0b78f87156c75baa7777cdb2e9815a)
 - **Root cause:** the public `ensureLinkedByEmail({ email })` carried an OIDC-callback-shaped precondition (must have a `platform.users` row to delegate to `ensureLinked`); seed/admin paths have no such row, so the method returned `null` unconditionally and the bridge never reached the existing private `findOrCreate` helper.
 - **Fix:** Option A as described in this issue file. Rewrite of `apps/api/src/modules/directus/directus-users-bridge.service.ts:125-181` so the method tries the local-row path first (delegates to `ensureLinked` → back-write `platform.users.directus_user_id` on success) and falls through to a direct `findOrCreate(email, displayName)` call on the no-local-row branch (link-back write skipped because no row exists; Directus failures are swallowed with a `warn` log, matching the existing `ensureLinked` pattern at `:67-72`). Test rewrite: 1 in `apps/api/test/directus-users-bridge.spec.ts:215-249` (the "no Directus traffic" assertion flipped to assert the new contract — `get`+`post`+id, no link-back write). 3 new tests appended at `:336-392` (mismatched-provider backfill, GET-throws, POST-throws). 3 kept-as-is tests at `:251-313` for OIDC-callback contract regression. 5 pre-existing `ensureLinked` cases + 2 pre-existing `resolveDirectusId` cases untouched.
 - **Regression test:** directus-users-bridge.spec.ts:215-249 (rewritten) + :336-392 (3 new). Cannot be executed by vitest on this workstation because of the pre-existing [ISS-TEST-WEB-001](ISS-TEST-WEB-001.md) vitest+vite 8 SSR-transform skew; same deferral pattern as [wf-20260703-fix-065-onboarding-copy](../tasks/completed/wf-20260703-fix-065-onboarding-copy/). Live UAT integration probe (Step F of [uat-live-verify.md](../tasks/active/wf-20260704-fix-085/uat-live-verify.md)) exercised the rewritten body end-to-end against a freshly-seeded stack and returned two real Directus UUIDs (`9d990e8f-2f6c-4817-abfe-9d782cc3a8cd`, `b14ec429-eb90-452b-89c7-c007facc0289`) — confirming the contract change works in production code path.
-- **Merged:** <pending — Step 12.5 back-fills the squash SHA on main.>
+- **Merged:** squash 9fd57aa67a0b78f87156c75baa7777cdb2e9815a on 2026-07-04T05:55:27Z (PR #104).
 
 ### Honesty disclosures (per AGENTS.md §6.1 — required when deferral is unavoidable)
 

@@ -20,11 +20,15 @@ workflow_status: queued
 parent_link:
   parent_workflow_id: wf-20260704-fix-085
   parent_branch: fix/ISS-UAT-BRIDGE-001-bridge-no-local-row-fallback
-  parent_paused_at_step: 0
-  parent_paused_at_gate: ""
+  parent_paused_at_step: 12
+  parent_paused_at_gate: 12.5
   spawned_at: "2026-07-04T11:00:00Z"
   spawned_by_issue: ISS-UAT-BRIDGE-002
   resolution_for_parent: "fix-and-rebase"
+  parent_resolution:
+    workflow_completed_at: "2026-07-04T05:55:27Z"
+    pr_url: "https://github.com/tvolodi/aiqadam/pull/104"
+    squash_sha: "9fd57aa67a0b78f87156c75baa7777cdb2e9815a"
 issue_ref: ISS-UAT-BRIDGE-002
 expects_registry_update: true
 deferrals: []
