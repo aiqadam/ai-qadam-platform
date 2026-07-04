@@ -83,11 +83,11 @@ Update `apps/web/src/lib/utm.test.ts`'s "Local re-implementation" comment to poi
 ## Resolution
 
 - **Workflow:** `wf-20260704-fix-095`
-- **PR:** `https://github.com/tvolodi/aiqadam/pull/<pending>` — Step 12 back-fills the number after `gh pr create`
+- **PR:** [`#110`](https://github.com/tvolodi/aiqadam/pull/110)
 - **Root cause:** `vitest ^2.1.8` (pinned in apps/web, apps/web-next, apps/api) bundles vite 5.x/6.x whose SSR transform is missing `__vite_ssr_exportName__` (added in vite v8). The workspace's hoisted `vite@8.1.0` defines that helper, so any cross-module import in a test crashed the suite load with `ReferenceError`.
 - **Fix:** Bump `vitest ^2.1.8` → `^4.1.9` in all three apps + `@vitest/coverage-v8 ^2.1.8` → `^4.1.9` in apps/api (matches the 4.x series peer-pinning). vitest 4.1.9 declares peer `vite: ^6.0.0 || ^7.0.0 || ^8.0.0` — satisfied by the workspace's vite 8.1.0. Companion edits: removed the obsolete `transformMode: 'web'` workaround from `apps/api/vitest.unit.config.ts` (the option was removed in vitest 3.0); wired `react({ jsxRuntime: 'automatic' })` as the first plugin in `apps/web-next/vitest.config.ts` and added `@vitejs/plugin-react@^5.2.0` to `apps/web-next/package.json` devDeps (mirroring the `apps/storybook` fix from PR #109 / ISS-CI-OVERRIDE-ebd184b) so `FilterChip.test.tsx` and any future `.tsx` test files in `apps/web-next` parse under vite 8.1.0.
 - **Regression test:** `apps/web/src/components/OnboardingForm.test.ts` — pre-existing, authored by `wf-20260703-fix-065-onboarding-copy` (PR #90). Before the fix: `ReferenceError: __vite_ssr_exportName__ is not defined`. After the fix: **5/5 cases pass**.
-- **Merged:** `<pending>` — Step 12.5 back-fills the squash SHA.
+- **Merged:** `69b2bc6` (squash of `fix/ISS-TEST-WEB-001-vitest-bump` via PR #110).
 
 ### Honesty disclosures
 
