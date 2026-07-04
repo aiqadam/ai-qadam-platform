@@ -50,7 +50,8 @@
     "@aiqadam/tsconfig": "workspace:*",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.9"
   }
 }

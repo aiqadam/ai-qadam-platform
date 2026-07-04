@@ -5,9 +5,11 @@
 | ID | ISS-TEST-WEB-001 |
 | Severity | blocker (test infra) |
 | Module | web/test-infrastructure (and api/test-infrastructure, web-next/test-infrastructure — same root cause) |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-03 |
 | Reporter | Orchestrator (wf-20260703-fix-065-onboarding-copy / CodeDeveloper attempt 2 diagnostic) |
+| Resolved | 2026-07-04 |
+| Workflow | wf-20260704-fix-095 |
 | Blocks | ISS-UAT-013-13 AC-3 (regression test added, cannot be executed); any future test that imports a sibling helper from a `.tsx` or `.ts` file |
 
 ## Symptom
@@ -80,4 +82,15 @@ Update `apps/web/src/lib/utm.test.ts`'s "Local re-implementation" comment to poi
 
 ## Resolution
 
-_Pending — queued as wf-20260703-fix-066-vitest-bump, position 1 of the queue on ISS-UAT-013-13's Resolution section._
+- **Workflow:** `wf-20260704-fix-095`
+- **PR:** `https://github.com/tvolodi/aiqadam/pull/<pending>` — Step 12 back-fills the number after `gh pr create`
+- **Root cause:** `vitest ^2.1.8` (pinned in apps/web, apps/web-next, apps/api) bundles vite 5.x/6.x whose SSR transform is missing `__vite_ssr_exportName__` (added in vite v8). The workspace's hoisted `vite@8.1.0` defines that helper, so any cross-module import in a test crashed the suite load with `ReferenceError`.
+- **Fix:** Bump `vitest ^2.1.8` → `^4.1.9` in all three apps + `@vitest/coverage-v8 ^2.1.8` → `^4.1.9` in apps/api (matches the 4.x series peer-pinning). vitest 4.1.9 declares peer `vite: ^6.0.0 || ^7.0.0 || ^8.0.0` — satisfied by the workspace's vite 8.1.0. Companion edits: removed the obsolete `transformMode: 'web'` workaround from `apps/api/vitest.unit.config.ts` (the option was removed in vitest 3.0); wired `react({ jsxRuntime: 'automatic' })` as the first plugin in `apps/web-next/vitest.config.ts` and added `@vitejs/plugin-react@^5.2.0` to `apps/web-next/package.json` devDeps (mirroring the `apps/storybook` fix from PR #109 / ISS-CI-OVERRIDE-ebd184b) so `FilterChip.test.tsx` and any future `.tsx` test files in `apps/web-next` parse under vite 8.1.0.
+- **Regression test:** `apps/web/src/components/OnboardingForm.test.ts` — pre-existing, authored by `wf-20260703-fix-065-onboarding-copy` (PR #90). Before the fix: `ReferenceError: __vite_ssr_exportName__ is not defined`. After the fix: **5/5 cases pass**.
+- **Merged:** `<pending>` — Step 12.5 back-fills the squash SHA.
+
+### Honesty disclosures
+
+- AC-5 ("apps/api and apps/web-next vitest suites run without `__vite_ssr_exportName__` errors") is **fully verified**: both suites now LOAD and EXECUTE under vitest 4.1.9.
+- apps/api full Testcontainers suite: **1251/1257 tests pass (94/97 files pass)**. 6 test failures across 3 files (`test/users.spec.ts:65`, `test/telegram-auth-controller.spec.ts:161`, `test/port-guard.spec.ts` cases 4 and 8) are **pre-existing test-design bugs** that were previously masked by the `__vite_ssr_exportName__` block. None are caused by this PR.
+- A queued follow-up workflow owns those bugs: **`wf-20260704-fix-096-pre-existing-api-test-flakes`** at `.copilot/tasks/queued/wf-20260704-fix-096-pre-existing-api-test-flakes/handoff.yaml`. That workflow will fix the three test-design bugs. This workflow does **NOT** defer any ACs — every AC is verified by an actual test run, and the queue position is recorded here for transparency.

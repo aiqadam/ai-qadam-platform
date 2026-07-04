@@ -1,0 +1,92 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260704-fix-096-pre-existing-api-test-flakes"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-04T21:14:00Z"
+last_updated_at: "2026-07-04T21:14:00Z"
+
+requirement_ref: "ISS-TEST-WEB-001-discovered-followups"
+requirement_text: |
+  Three pre-existing test-design bugs in apps/api that were masked by
+  ISS-TEST-WEB-001's __vite_ssr_exportName__ block and are now visible
+  with vitest 4.1.9:
+
+    1. apps/api/test/users.spec.ts:65 — lastLoginAt > firstLogin
+       assertion uses setTimeout(5) then toBeGreaterThan; flaky on
+       system load. Tolerance: bump to setTimeout(20) or
+       toBeGreaterThanOrEqual with jitter.
+    2. apps/api/test/telegram-auth-controller.spec.ts:161 —
+       Reflect.getMetadata('THROTTLER:THROTTLE') returns undefined on a
+       hand-constructed AuthController instance. Either import the
+       module-level controller or mock the Throttler module before
+       construction.
+    3. apps/api/test/port-guard.spec.ts cases 4, 8 — simulate Linux
+       platform then expect 60s probe-timeout; on Windows the real
+       findFreePort wins. Skip on process.platform === 'win32' with
+       TODO, or raise testTimeout for those cases.
+
+  Owned by wf-20260704-fix-095 per AGENTS.md §6.1 honesty disclosure.
+github_issue_url: ""
+
+branch: ""
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize (deferred — start after wf-20260704-fix-095 closes)"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260704-fix-095"
+  parent_branch: "fix/ISS-TEST-WEB-001-vitest-bump"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-04T21:14:00Z"
+  spawned_by_issue: "ISS-TEST-WEB-001"
+  resolution_for_parent: "fix-and-rebase"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "discovered-by-ISS-TEST-WEB-001"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - apps/api/test/users.spec.ts
+  - apps/api/test/telegram-auth-controller.spec.ts
+  - apps/api/test/port-guard.spec.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260704-fix-096-pre-existing-api-test-flakes/NEEDS_REVIEW.md"

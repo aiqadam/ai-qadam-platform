@@ -6,7 +6,16 @@
 import { describe, expect, it } from 'vitest';
 
 // ─── Local re-implementation of UTM constants and logic ──────────────────────
-// Avoids ESM/alias issues with Astro + Vitest integration.
+//
+// Pre-vitest-4 the test runner crashed at `import { ... } from './utm'` with
+// `ReferenceError: __vite_ssr_exportName__ is not defined` (the workspace's
+// hoisted vite 8.1.0 introduced that helper which vitest 2.1.x's bundled
+// older vite didn't define). See ISS-TEST-WEB-001. As of vitest 4.1.9 the
+// cross-module import works, but this file keeps the local re-implementation
+// for now — converting it to `import { UTM_MEDIUMS, validateUtmField, ... }
+// from './utm'` is a future refactor tracked separately (deferred to keep
+// this ISS-TEST-WEB-001 PR small and mechanical; see the linked issue for
+// the unblocking work).
 
 const UTM_MEDIUMS = [
   'linkedin_post',

@@ -12,9 +12,6 @@ export default defineConfig({
     ],
     testTimeout: 30_000,
     hookTimeout: 30_000,
-    // transformMode: 'web' avoids the vite-node SSR transform which breaks on
-    // Node.js v24 with emitDecoratorMetadata:true (__vite_ssr_exportName__ error).
-    transformMode: 'web',
     // No globalSetup — leads-service spec uses fully-mocked Directus client
     env: {
       NODE_ENV: 'test',
