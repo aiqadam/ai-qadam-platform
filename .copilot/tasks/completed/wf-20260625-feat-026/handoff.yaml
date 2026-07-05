@@ -1,0 +1,136 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260625-feat-026"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-25T00:00:00Z"
+last_updated_at: "2026-06-25T00:00:00Z"
+
+requirement_ref: "FR-CRM-001"
+requirement_text: "Deploy Twenty CRM as a self-hosted service at crm.aiqadam.org authenticated via Authentik OIDC SSO. Deliver the production Coolify Docker Compose stack (infrastructure/twenty/docker-compose.yml), local dev compose additions, and mark FR-CRM-001 Implemented."
+github_issue_url: ""
+
+branch: "feature/CRM-001-twenty-crm-deployment"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/51"
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "completed"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:05:00Z"
+    summary: "FR-CRM-001 C5.1 validated; C5.2 already shipped; infra-only PR"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:10:00Z"
+    summary: "No DB changes; Step 3 skipped; 5 files to change"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/02-impact-analysis.md"
+  code-developer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:20:00Z"
+    summary: "infrastructure/twenty/docker-compose.yml created; 4 working-tree files confirmed"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:25:00Z"
+    summary: "No BLOCKER/MAJOR findings; all infra security checks pass"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/04-security-review.md"
+  test-strategist:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:30:00Z"
+    summary: "Infra-only PR; YAML lint + scope guard are the automated gates"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/06-test-strategy.md"
+  test-designer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:31:00Z"
+    summary: "Three automated commands documented; manual smoke S1-S7 for post-deploy"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/06-test-design.md"
+  test-runner:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:35:00Z"
+    summary: "YAML lint EXIT 0; scope guard EXIT 0; biome EXIT 0; TS errors pre-existing"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/07-test-results.md"
+  doc-writer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:40:00Z"
+    summary: "FR-CRM-001.md → Implemented; registry row 6 → Shipped"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-06-25T00:45:00Z"
+    summary: "All gates passed; pre-existing TS4111 noted; workflow-finish authorized"
+    output_file: ".copilot/tasks/active/wf-20260625-feat-026/09-quality-gate.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260625-feat-026/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260625-feat-026/09-quality-gate.md"
+
+context_refs:
+  - docs/03-requirements/FR-CRM-001.md
+  - docs/04-development/infrastructure/runbooks/coolify-app-stacks.md
+  - infrastructure/docker-compose.yml
+  - docs/03-requirements/sprint-5-to-8-plan.md
+
+# ─── Back-filled by archive-stale-active-dupes.py ─────────────────────
+merge_commit_sha: "7b874f10e6d02f0e2ef11e88dc6b096b35aa7ecd"
+merged_at: "2026-06-25T03:31:32Z"
+head_ref: "feature/CRM-001-twenty-crm-deployment"
+pr_number: "51"

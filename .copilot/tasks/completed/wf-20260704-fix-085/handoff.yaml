@@ -21,7 +21,7 @@ github_pr_url: ""
 
 current_step: 3
 current_step_name: "Skip — no DB migration required"
-workflow_status: running
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -169,3 +169,9 @@ needs_review:
   stopped_at_step_name: ""
   issue_ref: ISS-UAT-BRIDGE-001
   artifact_file: ".copilot/tasks/active/wf-20260704-fix-085/NEEDS_REVIEW.md"
+
+# ─── Back-filled by archive-stale-active-dupes.py ─────────────────────
+merge_commit_sha: "9fd57aa67a0b78f87156c75baa7777cdb2e9815a"
+merged_at: "2026-07-04T05:55:27Z"
+head_ref: "fix/ISS-UAT-BRIDGE-001-bridge-no-local-row-fallback"
+pr_number: "104"

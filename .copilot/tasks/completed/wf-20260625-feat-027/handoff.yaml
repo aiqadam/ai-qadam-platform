@@ -1,0 +1,82 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260625-feat-027"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-06-25T00:00:00Z"
+last_updated_at: "2026-06-25T00:00:00Z"
+
+requirement_ref: "FR-AUTH-002"
+requirement_text: "Telegram authentication — users can sign in or register using their Telegram identity via the Login Widget on the web sign-in page and via the bot /start command. Authentik remains the single session authority."
+github_issue_url: ""
+
+branch: "feature/AUTH-002-telegram-signin"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/52"
+
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "completed"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - docs/03-requirements/FR-AUTH-002.md
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/security/security.md
+  - apps/api/src/core/auth/
+  - packages/shared-types/src/
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260625-feat-027/NEEDS_REVIEW.md"
+
+# ─── Back-filled by archive-stale-active-dupes.py ─────────────────────
+merge_commit_sha: "227b89b8979750cad3a45f50bdb8f0e6dc3b9c7e"
+merged_at: "2026-06-25T04:28:32Z"
+head_ref: "feature/AUTH-002-telegram-signin"
+pr_number: "52"

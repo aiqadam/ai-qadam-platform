@@ -26,7 +26,7 @@ github_pr_url: "https://github.com/tvolodi/aiqadam/pull/107"
 
 current_step: 10
 current_step_name: "final-quality-gate"
-workflow_status: "running"
+workflow_status: "completed"
 issue_resolution: "resolved"
 
 parent_link:
@@ -85,3 +85,9 @@ needs_review:
   stopped_at_step_name: ""
   issue_ref: ""
   artifact_file: ".copilot/tasks/active/wf-20260704-feat-090/NEEDS_REVIEW.md"
+
+# ─── Back-filled by archive-stale-active-dupes.py ─────────────────────
+merge_commit_sha: "c013f6e8fb8d4c349374f482e1a60cd80592d8a4"
+merged_at: "2026-07-04T14:56:30Z"
+head_ref: "feat/UAT-COV-003-bp-uat-001-spec"
+pr_number: "107"

@@ -17,7 +17,7 @@ github_pr_url: "https://github.com/tvolodi/aiqadam/pull/88"
 
 current_step: 2
 current_step_name: "Pre-flight (seed)"
-workflow_status: "needs-review"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -111,3 +111,9 @@ needs_review:
   stopped_at_step_name: "Pre-flight (seed)"
   issue_ref: "ISS-UAT-001-1"
   artifact_file: ".copilot/tasks/active/wf-20260703-uat-063/NEEDS_REVIEW.md"
+
+# ─── Back-filled by archive-stale-active-dupes.py ─────────────────────
+merge_commit_sha: "ee209fc435ab762037bb24c548133e84c2021481"
+merged_at: "2026-07-03T11:47:08Z"
+head_ref: "uat/BP-UAT-001-event-publication-broadcast"
+pr_number: "88"

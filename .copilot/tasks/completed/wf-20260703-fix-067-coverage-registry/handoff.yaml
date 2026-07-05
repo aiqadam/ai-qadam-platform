@@ -25,7 +25,7 @@ github_pr_url: "https://github.com/tvolodi/aiqadam/pull/91"
 
 current_step: 12
 current_step_name: "Finish (commit + push + PR open)"
-workflow_status: "pr-open"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -138,3 +138,9 @@ issues_created:
 
 # ─── Workflow mode (autonomous, per AGENTS.md §6.2) ──────────────────────────
 merge_mode: "auto"
+
+# ─── Back-filled by archive-stale-active-dupes.py ─────────────────────
+merge_commit_sha: "113e69d9f9f299e8dc0f7fea81083f9ee10fd3a1"
+merged_at: "2026-07-03T15:40:16Z"
+head_ref: "fix/ISS-UAT-COV-001-coverage-registry"
+pr_number: "91"

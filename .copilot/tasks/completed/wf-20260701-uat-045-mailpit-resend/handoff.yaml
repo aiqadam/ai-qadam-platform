@@ -1,0 +1,173 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260701-uat-045-mailpit-resend"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-01T21:00:00Z"
+last_updated_at: "2026-07-02T01:00:00Z"
+
+requirement_ref: "ISS-UAT-013-7"
+requirement_text: >-
+  RESEND_API_KEY is unset in apps/api/.env. POST /v1/leads returns 202 but
+  the api's EmailService logs `[email skipped: RESEND_API_KEY not set]`
+  and Mailpit never receives the verify email. BP-UAT-013 Steps 002/003
+  fail at the mailpit boundary for that reason — not a product bug, but
+  also not addressed by wf-20260701-fix-044 (whose AC-5 partial-resolved
+  status depends on this workflow's verification).
+
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-013-7-mailpit-resend-key"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/79"
+
+current_step: 12
+current_step_name: "Workflow Finalize (workflow-finish.sh)"
+workflow_status: "completed"
+
+# This workflow is the canonical follow-up named in
+# .copilot/issues/ISS-LEAD-DISC-001.md Resolution section and in
+# AGENTS.md §6.1. Queue position: 1 (no other follow-up workflows
+# ahead of it as of 2026-07-01).
+queue_position: 1
+
+parent_link:
+  parent_workflow_id: "wf-20260701-fix-044"
+  parent_branch: "fix/ISS-LEAD-DISC-001-lead-form-discoverability"
+  parent_paused_at_step: 8
+  parent_paused_at_gate: "test_run"
+  spawned_at: "2026-07-01T21:00:00Z"
+  spawned_by_issue: "ISS-LEAD-DISC-001"
+  resolution_for_parent: "fix-and-rebase"
+
+issue_ref: "ISS-UAT-013-7"
+
+retry_limits:
+  issue_lookup: 1
+  impact_analysis: 2
+  db_migration: 2
+  implement: 3
+  security_review: 2
+  test_strategy: 2
+  test_design: 2
+  test_run: 3
+  docs: 2
+  quality_gate: 2
+
+retry_counts:
+  implement: 0
+  security_review: 0
+  test_strategy: 0
+  test_design: 0
+  test_run: 0
+  issue_status: 0
+  docs: 0
+  quality_gate: 0
+
+gate_results: {}
+
+agent_assignments:
+  code_developer:
+    status: passed
+    output_file: 03-code-summary.md
+    validation: "tsc 0; biome clean on 4 TS files; bash -n OK; --help OK; live unit test blocked by pre-existing Node 24 / vite-node 2.1.9 SSR bug (repo-wide, out of PR scope per AGENTS.md §4)"
+  security_reviewer:
+    status: passed
+    output_file: 04-security-review.md
+    validation: "11 invariants pass; 1 non-blocking MAJOR (scheme validation in uat-preflight-email.sh + JSDoc on unauthenticated disclosure in health.controller.ts) addressed in 595baeb; bash -n + scheme reject test passed"
+  test_strategist:
+    status: passed
+    output_file: 06-test-strategy.md
+    validation: "Rubric score 1 (<4 integration threshold; <6 E2E threshold); tier = unit only; 19 unit cases mapped (13 new/extended + 7 regression-guarded); AC-1/AC-2/AC-3 each mapped to ≥1 verification; regression test identified (health-email.spec.ts #1/#3/#4 cannot exist before PR; BP-UAT-013 Step 002 was timing out pre-fix); live verification plan = bash pre-flight + BP-UAT-013 Steps 002/003 + log audit; honest disclosure re local vitest blocked by Node 24 / vite-node 2.1.9 SSR bug (ISS-UAT-013-9, out of PR scope)"
+  test_designer:
+    status: passed
+    output_file: 06-test-design.md
+    validation: "sub-cases-authored: 0; all 19 cases confirmed on disk (health-email.spec.ts L42-89, email-service-mode.spec.ts L70-122, email-service-smtp.spec.ts L65-180); uat-preflight-email.sh bash audit clean (set -euo pipefail, scheme validation, readonly constants, --max-time, --write-out, jq --arg, 0 dot-includes, 0 wget, 1 curl); uat-env-setup.sh Step 5 wiring confirmed at L256; 6-phase run order documented"
+  test_runner:
+    status: passed
+    output_file: 07-test-results.md
+    validation: "Phase A static checks clean; Phase B local vitest skipped honestly (ISS-UAT-013-9 out of PR scope; CI on Node 22 is canonical); Phase C pre-flight script integration-tested live on 3 paths (ready/provider=none+mode=disabled/smtp+mode=disabled); Phase D direct API→Mailpit round-trip proves AC-1 (subject matches /confirm|verify/i; body contains verify?token=; <3s delivery vs 60s budget); Phase E Playwright 2-pass/2-fail with 001+002-screenshot passing and 002+003 failing due to pre-existing LEAD_NEW idempotency collision (NOT a transport regression; out of PR scope per AGENTS.md §4); Phase F log audit confirms send went through nodemailer SMTP not env-skip branch (AC-2 cleared); one in-scope fix shipped (ee249ee, Windows curl.exe preference)"
+  issue_status:
+    status: passed
+    validation: "ISS-UAT-013-7 frontmatter updated (Status: resolved; Resolved: 2026-07-01; Resolver: wf-20260701-uat-045 + correction note for wf-20260629-fix-034 incompleteness); Resolution section added with AC-1/AC-2/AC-3 verification table, honesty disclosures (local vitest blocked by ISS-UAT-013-9; Playwright 2P/2F traced to LEAD_NEW idempotency not transport regression); registry.md row updated to list both resolvers; ISS-LEAD-DISC-001 AC-5 follow-up completion note added; registry row updated to reflect AC-5 fully closed"
+  docs:
+    status: passed
+    output_file: 08-doc-update.md
+    validation: "Documentation no-op determination: canonical docs already in ISS-UAT-013-7.md Resolution section + ISS-LEAD-DISC-001.md AC-5 follow-up completion + registry.md rows + scripts/uat-preflight-email.sh header docstring + apps/api/src/health/health.controller.ts JSDoc. No user-facing surface, no README change, no docs/04-development/ change needed (small PR per AGENTS.md §4)."
+  quality_gate:
+    status: passed
+    output_file: 09-quality-gate.md
+    validation: "All 12 checks pass (step completion, branch sanity, traceability, test coverage, security, documentation, branch readiness, status-consistency, honesty, plus 3 deferred follow-ups catalogued). 0 MAJOR / 0 MINOR / 0 BLOCKER security findings. Gate result: passed. AC-1/AC-2/AC-3 of ISS-UAT-013-7 verified end-to-end; AC-5 of ISS-LEAD-DISC-001 verified to transport-side bar (Playwright 2P/2F isolated to LEAD_NEW idempotency — separate follow-up)."
+
+artifacts:
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/00-preflight.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/01-issue-lookup.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/02-impact-analysis.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/03-code-summary.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/04-security-review.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/06-test-strategy.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/06-test-design.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/07-test-results.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/08-doc-update.md
+  - .copilot/tasks/active/wf-20260701-uat-045-mailpit-resend/09-quality-gate.md
+
+deferrals: []
+
+issues_created:
+  - "ISS-UAT-013-7"
+
+needs_review: {}
+
+subworkflow_history:
+  - workflow_id: "wf-20260701-fix-044"
+    parent_branch: "fix/ISS-LEAD-DISC-001-lead-form-discoverability"
+    spawned_for: "AC-5 Steps 002/003 must verify in main before flipping ISS-LEAD-DISC-001 fully resolved"
+
+notes: >-
+  This follow-up was registered proactively by the Orchestrator running
+  wf-20260701-fix-044, per AGENTS.md §6.1 ("any implementation that
+  lands on main MUST be production-ready"). Without this workflow,
+  ISS-LEAD-DISC-001's AC-5 carries an unverified deferral.
+
+  Branch: fix/ISS-UAT-013-7-mailpit-resend-key from main b3dbba0.
+
+  Strategy (Option A.2 from ISS-UAT-013-7): add a nodemailer SMTP transport
+  to EmailService that routes to Mailpit when env.SMTP_HOST is set
+  (independent of RESEND_API_KEY). Then BP-UAT-013 Steps 002/003 will work
+  without setting RESEND_API_KEY at all — the UAT stack will use the local
+  Mailpit SMTP listener (smtp://mailpit:1025).
+
+  Expected verification at QualityGate: BP-UAT-013 Steps 002 + 003
+  pass against apps/api with RESEND_API_KEY set (or whichever SMTP
+  transport is chosen). Mailpit must capture the verify email; clicking
+  the verify link must land on /leads/verified.
+
+  Concrete verification commands (planned, not run yet):
+    1. docker ps --filter "name=aiqadam-mailpit" --format "{{.Status}}"
+       (must show healthy)
+    2. curl -fsS http://localhost:8025/api/v1/messages (must respond)
+    3. Set RESEND_API_KEY in apps/api/.env (or DSN to local Mailpit at
+       smtp://mailpit:1025) and restart the api container
+    4. Re-run apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts Steps 002/003
+       with playwright.uat.config.ts; expect both to PASS
+
+  This follow-up may be merged independently of wf-20260701-fix-044.
+
+  # Product decisions confirmed by Orchestrator (Option A path; user selected A 2026-07-01):
+  #   1. mode derivation: SEND_EMAILS=false -> "disabled"; else NODE_ENV=production -> "production"; else "uat".
+  #   2. NO global /v1 prefix in main.ts — routes resolve at the literal @Controller path.
+  #   3. Pre-flight entry point: (a) new file scripts/uat-preflight-email.sh, wired into
+  #      scripts/uat-env-setup.sh Step 5 (after the Mailpit wait_for_url).
+  #   4. Endpoint path: GET /health/email (no /v1 prefix; main.ts has no setGlobalPrefix call).
+
+product_decisions:
+  mode_derivation: "SEND_EMAILS=false -> disabled; NODE_ENV=production -> production; else uat"
+  endpoint_path: "/health/email"
+  preflight_entry_point: "scripts/uat-preflight-email.sh (new file), called from scripts/uat-env-setup.sh Step 5"
+
+# ─── Back-filled by archive-stale-active-dupes.py ─────────────────────
+merge_commit_sha: "939747ff8e197777d96c9d8d4f62ef60d49646a3"
+merged_at: "2026-07-02T00:23:59Z"
+head_ref: "fix/ISS-UAT-013-7-mailpit-resend-key"
+pr_number: "79"
