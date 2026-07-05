@@ -50,7 +50,7 @@ follow-ups under `ISS-UAT-COV-001`'s backlog rather than separate issues.
 
 **Workflow:** wf-20260705-fix-099-uat-cov-002
 
-**PR:** `<pending>`
+**PR:** [PR #113](https://github.com/tvolodi/aiqadam/pull/113) (squash `25502b2`)
 
 **Root cause:** The issue as filed assumed a live "review pending
 registrations, approve/reject, flag a member" flow on the operator approvals
@@ -85,7 +85,7 @@ ships (see the "Deferred Steps" section of BP-UAT-019.md) — no follow-up
 workflow is queued now because there is nothing for it to verify yet (the
 approve/reject/flag surfaces don't exist).
 
-**Merged:** `<pending>`
+**Merged:** `25502b2` (squash-merged to main 2026-07-05T00:55:42Z)
 
 **Honesty disclosures:**
 - This resolution deliberately narrows scope versus the issue as filed. The
