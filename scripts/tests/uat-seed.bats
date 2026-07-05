@@ -626,6 +626,12 @@ env_get() {
   [[ -f "\$file" ]] || { echo ""; return; }
   grep -E "^\${key}=" "\$file" 2>/dev/null | head -1 | sed 's/^[^=]*=//' | tr -d '"\r' || true
 }
+# ISS-UAT-013-15: the live script's MSYS-detection block (added at the
+# top of uat-seed.sh) is NOT extracted with the helper — this wrapper
+# therefore sets CURL_BIN explicitly so the helper's \`"\$CURL_BIN"\`
+# expansion resolves to the same name our stub shadows below.
+CURL_BIN='curl'
+export CURL_BIN
 $helper_src
 $( [[ -n "$url_override" ]] && echo "export API_BASE_URL='$url_override'" )
 # Stub curl: mimic \`-w "\n%{http_code}"\` semantics — emit the URL,
@@ -644,6 +650,11 @@ curl() {
   printf '%s' "\$URL" > "\$LAST_URL_FILE"
   printf '{\\n  "directusUserId": "stub-uuid"\\n}\\n200\\n'
 }
+# ISS-UAT-013-15: if a CI runner or developer happens to have curl.exe
+# on PATH AND our local export CURL_BIN='curl' is overridden (e.g. via
+# pre-existing environment), forward curl.exe to our curl stub so the
+# assertion still captures the URL.
+curl.exe() { curl "\$@"; }
 api_ensure_directus_user_link "uat-test@example.com" "UAT Test"
 WRAPPER_EOF
 
@@ -760,4 +771,99 @@ WRAPPER_EOF
   local count
   count=$(echo "$output" | grep -cE 'operator_invite .*\(mock' || true)
   [ "$count" -eq 4 ]
+}
+
+# ─── ISS-UAT-013-15: MSYS-aware curl binary selector ───────────────────────────
+# Background: under a Git Bash / MSYS shell on Windows (the Copilot-Chat
+# run_in_terminal sandbox on this machine), bash resolves `curl` to the
+# MSYS2 GNU ELF binary, which cannot reach Windows-host `localhost:<port>`.
+# scripts/uat-seed.sh must therefore prefer curl.exe when it is on PATH
+# (matching the precedent in scripts/uat-preflight-email.sh). These tests
+# are pinned to structural assertions on the script source so they
+# survive the baseline-shift bug already documented in row 6 above.
+@test "ISS-UAT-013-15 AC-2 (structural): uat-seed.sh has an MSYS-aware CURL_BIN detection block using 'command -v curl.exe'" {
+  # The detection block is required (AC-2). It MUST use the
+  # `command -v curl.exe` form (matching uat-preflight-email.sh's
+  # precedent) and NOT the `uname -s | grep mingw` heuristic from
+  # the issue body — the latter does not cover WSL bash, where
+  # curl.exe is reachable from /mnt/c/Windows/System32.
+  grep -q "command -v curl.exe" "$REPO_ROOT/scripts/uat-seed.sh"
+  grep -q "CURL_BIN='curl.exe'" "$REPO_ROOT/scripts/uat-seed.sh"
+  grep -q "CURL_BIN='curl'" "$REPO_ROOT/scripts/uat-seed.sh"
+  # The detection block must appear near the top of the script
+  # (before any function that uses curl). Allow a generous ceiling of
+  # 100 lines to accommodate future growth.
+  local detection_line
+  detection_line=$(grep -n "command -v curl.exe" "$REPO_ROOT/scripts/uat-seed.sh" | head -1 | cut -d: -f1)
+  [[ -n "$detection_line" ]]
+  [ "$detection_line" -lt 100 ]
+}
+
+@test "ISS-UAT-013-15 AC-2 (structural): every runtime curl invocation in uat-seed.sh routes through \$CURL_BIN" {
+  # Count standalone `curl` invocations in the script. We allow curl
+  # to appear in comments and in `check_deps` (which is a `command -v`
+  # check, not an HTTP call). The script must have ZERO `curl`
+  # invocations OUTSIDE of check_deps/comments after the fix.
+  #
+  # Implementation: extract all non-comment lines containing literal
+  # `curl ` (with trailing space, to avoid `curl.exe` / `curl.exe` /
+  # `$CURL_BIN` matches) and verify they belong to check_deps OR to
+  # a comment.
+  local offending
+  offending=$(grep -nE '^\s*curl ' "$REPO_ROOT/scripts/uat-seed.sh" || true)
+  if [[ -n "$offending" ]]; then
+    echo "Found runtime curl invocations outside \$CURL_BIN:"
+    echo "$offending"
+    return 1
+  fi
+  # And verify the substitution actually happened: there must be at
+  # least 10 \"\$CURL_BIN\" call sites (the impact analysis counted 14
+  # runtime invocations; allow some slack for future edits).
+  local curlbin_count
+  curlbin_count=$(grep -cE '"?\$CURL_BIN"?\s' "$REPO_ROOT/scripts/uat-seed.sh" || true)
+  [ "$curlbin_count" -ge 10 ]
+}
+
+@test "ISS-UAT-013-15 AC-2 (runtime sim): CURL_BIN resolution branch — curl.exe-on-PATH selects curl.exe; absent falls back to curl" {
+  # Run a stripped-down copy of the detection block under two
+  # simulated PATH states and assert the right CURL_BIN is selected.
+  # This is hermetic (no api / no Docker / no git). Mirrors the
+  # structural check above with a runtime check that proves the
+  # actual control flow, not just the literal text.
+  local stub="$BATS_TEST_TMPDIR/curl-bin-stub"
+  mkdir -p "$stub"
+
+  # (a) curl.exe on PATH: detection block selects curl.exe
+  cat > "$stub/curl.exe" <<'STUB'
+#!/usr/bin/env bash
+echo "curl.exe stub invoked"
+STUB
+  chmod +x "$stub/curl.exe"
+  run bash -c "PATH=\"$stub:\$PATH\" bash -c '
+    if command -v curl.exe &>/dev/null; then CURL_BIN=curl.exe; else CURL_BIN=curl; fi
+    echo \"CURL_BIN=\$CURL_BIN\"
+  '"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CURL_BIN=curl.exe"* ]]
+
+  # (b) curl.exe NOT on PATH (empty stub dir): detection block falls back to curl
+  local empty_stub="$BATS_TEST_TMPDIR/empty-stub"
+  mkdir -p "$empty_stub"
+  run bash -c "PATH=\"$empty_stub:/usr/bin:/bin\" bash -c '
+    # Mask the parent shell\"s curl.exe by prepending an empty dir only.
+    if command -v curl.exe &>/dev/null; then CURL_BIN=curl.exe; else CURL_BIN=curl; fi
+    echo \"CURL_BIN=\$CURL_BIN\"
+  '"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CURL_BIN=curl"* ]]
+  # And the fallback must NOT be curl.exe.
+  [[ "$output" != *"CURL_BIN=curl.exe"* ]]
+}
+
+@test "ISS-UAT-013-15 AC-2 (structural): check_deps now also verifies \$CURL_BIN is on PATH" {
+  # The fix added a second `command -v \"$CURL_BIN\"` check inside
+  # check_deps so a missing curl.exe surfaces an actionable FATAL
+  # message before any helper function runs.
+  grep -q 'command -v "$CURL_BIN"' "$REPO_ROOT/scripts/uat-seed.sh"
+  grep -q 'Missing required curl binary' "$REPO_ROOT/scripts/uat-seed.sh"
 }

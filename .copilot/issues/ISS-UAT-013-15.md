@@ -2,7 +2,9 @@
 
 **Severity:** minor (workflow/orchestrator — affects remote/CI/sandboxed runs only)
 **Module:** workflow/orchestrator
-**Status:** open
+**Status:** resolved
+**Resolved:** 2026-07-05
+**Workflow:** wf-20260705-fix-105
 **Date:** 2026-07-05
 **Discovered by:** wf-20260705-uat-100 (BP-UAT-013 re-verification pre-flight)
 
@@ -84,9 +86,29 @@ Recommended. Path A is the right engineering answer (the seed script should not 
 
 Queued as `wf-20260705-fix-102-uat-seed-curl-exe-aware` (issue-resolution workflow). Pairs with `ISS-UAT-013-14` (`wf-20260705-fix-101-bp-uat-013-seed-reset`) — both must land before the `wf-20260705-fix-103-uat-013-verify` UAT re-run workflow can complete.
 
+## Resolution
+
+**Workflow:** wf-20260705-fix-105
+**PR:** [#120](https://github.com/tvolodi/aiqadam/pull/120)
+**Root cause:** `scripts/uat-seed.sh` invoked `curl` directly; under Git Bash MSYS on Windows, bash resolves `curl` to the MSYS2 GNU ELF binary (`/usr/bin/curl`), which cannot reach Windows-host `localhost:<port>` from this machine's Copilot-Chat `run_in_terminal` sandbox — only native `curl.exe` (in `System32`, on PATH from Git Bash) can.
+
+**Fix:** added an MSYS-aware `CURL_BIN` resolution block at the top of `scripts/uat-seed.sh` that mirrors the existing `scripts/uat-preflight-email.sh` precedent (`command -v curl.exe` form, which is strictly broader than the `uname` heuristic in the issue body — it also covers WSL bash). All 14 runtime `curl` invocations across 12 helper functions now route through `"$CURL_BIN"`. `check_deps()` was extended to also verify `$CURL_BIN` is on PATH with an actionable `fail "Missing required curl binary: $CURL_BIN"` message.
+
+**Refinement vs. issue body:** chose `command -v curl.exe` over the issue's `uname` heuristic (broader coverage, matches repo precedent). Recorded in PR description under "Risks" per AGENTS.md §13 step 4 (date 2026-07-05, refinement reason: WSL bash + repo-pattern consistency, original concern disposition: superseded).
+
+**Regression tests:** 4 new bats rows in `scripts/tests/uat-seed.bats` (rows 38-41): AC-2 structural detection-block check, AC-2 routing-completeness check, AC-2 runtime simulation (curl.exe-on-PATH vs absent), AC-2 `check_deps` extension check. Existing ISS-UAT-SEED-002 AC-2/3/4 test stub patched to honor the new MSYS-aware resolution. bats suite 41/41 passing (was 37/37 + 4 new). Bash syntax check (`bash -n`) passes.
+
+**Merged:** <pending> (Step 12.5 back-fills).
+
+## Honesty disclosures
+
+- **AC-1** ("`bash scripts/uat-seed.sh` invoked from a Git Bash MSYS shell on Windows completes successfully") and **AC-4** ("the queued follow-up `wf-20260705-fix-101-uat-013-verify` runs successfully against the live stack from the user's terminal") are owned by the queued follow-up `wf-20260705-fix-103-uat-013-verify` (queue position 3 of the BP-UAT-013 cascade). This workflow ships the code change and the regression test; the live acceptance test runs from the user's native terminal (or a future CI runner with the right network namespace) where curl.exe reaches Windows-host localhost.
+- **AC-3** ("Document Path B as a note in AGENTS.md §6.1") is moot — Path A is now landing, no Path B workaround note is needed.
+
 ## Related
 
 - AGENTS.md §6.1 (production-readiness infra obligations) — "If pre-flight fails … fix the root cause, do not defer"
 - `.claude/CLAUDE.md` "Local override" — notes the machine's git-auth quirks; same category of "this terminal is special"
 - `wf-20260705-uat-100` pre-flight (`02-preflight.md`) — full reproduction with curl traces
 - `scripts/uat-seed.sh` lines 264-296 — current `api_base` derivation
+- `scripts/uat-preflight-email.sh` lines 85-90 — existing `command -v curl.exe` precedent that the fix mirrors

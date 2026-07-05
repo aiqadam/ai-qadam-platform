@@ -67,6 +67,23 @@ FIXTURES_DIR="$REPO_ROOT/scripts/uat-fixtures"
 FORCE_REGEN="${FORCE_REGEN:-0}"
 UAT_SEED_DIRECTUS_MOCK="${UAT_SEED_DIRECTUS_MOCK:-0}"
 
+# ── MSYS-aware curl binary selector ───────────────────────────────────────────
+# ISS-UAT-013-15: on this machine's Copilot-Chat run_in_terminal sandbox (Git
+# Bash MSYS), bash resolves `curl` to the MSYS2 GNU ELF build (/usr/bin/curl)
+# which cannot reach Windows-host `localhost:<port>` from inside the sandbox
+# — only the native Windows curl.exe (in System32, on PATH from Git Bash) can.
+# The MSYS bug also affects WSL bash on Windows hosts that publish services
+# on the IPv6 wildcard adapter. Mirror the precedent set in
+# scripts/uat-preflight-email.sh lines 85-90: prefer curl.exe when present,
+# fall back to GNU curl otherwise. On Linux/macOS CI runners, curl.exe is
+# not on PATH so CURL_BIN falls back to `curl` — byte-identical to pre-fix.
+if command -v curl.exe &>/dev/null; then
+  CURL_BIN='curl.exe'
+else
+  CURL_BIN='curl'
+fi
+export CURL_BIN
+
 # ── CLI argument parsing (--reset <BP-UAT-NNN> | --reset all) ─────────────────
 # No flag at all: RESET_TARGET stays empty and the script falls through to
 # the pre-existing unconditional STEP 1-4 flow below, byte-identical to
@@ -115,6 +132,14 @@ check_deps() {
   if [[ ${#missing[@]} -gt 0 ]]; then
     fail "Missing required tools: ${missing[*]}"
   fi
+  # ISS-UAT-013-15: also verify the MSYS-resolved $CURL_BIN is on PATH.
+  # `curl` (the bare name) is checked above for legacy / docs reasons; the
+  # script's actual HTTP traffic routes through $CURL_BIN which may be
+  # curl.exe on Windows. A failure here surfaces an actionable error
+  # rather than a downstream `curl: command not found` deep inside a
+  # helper function.
+  command -v "$CURL_BIN" &>/dev/null \
+    || fail "Missing required curl binary: $CURL_BIN (resolved from PATH)"
 }
 
 # ── Resolve Authentik admin token via docker exec ak shell ────────────────────
@@ -150,13 +175,13 @@ print(t.key)
 # ── HTTP helpers (Bearer token) ────────────────────────────────────────────────
 ak_get() {
   local url="$1" token="$2"
-  curl -sf -H "Authorization: Bearer ${token}" "$url" 2>/dev/null || true
+  "$CURL_BIN" -sf -H "Authorization: Bearer ${token}" "$url" 2>/dev/null || true
 }
 
 ak_post() {
   local url="$1" body="$2" token="$3"
   local resp code
-  resp=$(curl -s -H "Authorization: Bearer ${token}" \
+  resp=$("$CURL_BIN" -s -H "Authorization: Bearer ${token}" \
     -H "Content-Type: application/json" \
     -X POST -w "\n%{http_code}" "$url" -d "$body")
   code="${resp##*$'\n'}"
@@ -166,7 +191,7 @@ ak_post() {
 ak_patch() {
   local url="$1" body="$2" token="$3"
   local resp code
-  resp=$(curl -s -H "Authorization: Bearer ${token}" \
+  resp=$("$CURL_BIN" -s -H "Authorization: Bearer ${token}" \
     -H "Content-Type: application/json" \
     -X PATCH -w "\n%{http_code}" "$url" -d "$body")
   code="${resp##*$'\n'}"
@@ -230,7 +255,7 @@ directus_user_pk_by_email() {
   # `-g` (--globoff) disables curl's URL-bracket range parsing; required for
   # Directus `filter[field][op]=...` URLs which contain `[` and `]` that bash's
   # curl otherwise treats as character classes (ISS-UAT-BRIDGE-002).
-  curl -sgf -H "Authorization: Bearer ${token}" \
+  "$CURL_BIN" -sgf -H "Authorization: Bearer ${token}" \
     "${directus_url}/users?filter[email][_eq]=${encoded}&fields=id&limit=1" 2>/dev/null \
     | jq -r '.data[0].id // empty' 2>/dev/null || true
 }
@@ -281,7 +306,7 @@ api_ensure_directus_user_link() {
     --arg e "$email" \
     --arg n "$display_name" \
     '{email:$e, displayName:$n}')
-  resp=$(curl -s \
+  resp=$("$CURL_BIN" -s \
     -H "x-internal-auth: ${token}" \
     -H "Content-Type: application/json" \
     -X POST -w "\n%{http_code}" \
@@ -530,7 +555,7 @@ ensure_operator_invite() {
   # all four fixtures (their token_prefixes collide on "uat-onbo"). `-g`
   # disables curl's URL-bracket parsing so `filter[...]` passes through verbatim.
   local existing
-  existing=$(curl -sgf \
+  existing=$("$CURL_BIN" -sgf \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
     "${DIRECTUS_URL}/items/operator_invites?filter[token_hash][_eq]=${token_hash}&limit=1" \
     2>/dev/null | jq -r '.data[0].id // empty' 2>/dev/null || true)
@@ -598,7 +623,7 @@ ensure_operator_invite() {
   fi
 
   local resp code
-  resp=$(curl -s \
+  resp=$("$CURL_BIN" -s \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
     -H "Content-Type: application/json" \
     -X POST -w "\n%{http_code}" \
@@ -806,7 +831,7 @@ reset_domain_fixture() {
   # `-g` disables curl's URL-bracket parsing (see directus_user_pk_by_email).
   local encoded_value existing_ids existing_id
   encoded_value=$(printf '%s' "$lookup_value" | jq -sRr @uri)
-  existing_ids=$(curl -sgf \
+  existing_ids=$("$CURL_BIN" -sgf \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
     "${DIRECTUS_URL}/items/${collection}?filter[${lookup_field}][_eq]=${encoded_value}&limit=-1" \
     2>/dev/null | jq -r '.data[]?.id // empty' 2>/dev/null || true)
@@ -814,7 +839,7 @@ reset_domain_fixture() {
   for existing_id in $existing_ids; do
     [[ -z "$existing_id" ]] && continue
     local del_code
-    del_code=$(curl -s -o /dev/null -w '%{http_code}' \
+    del_code=$("$CURL_BIN" -s -o /dev/null -w '%{http_code}' \
       -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
       -X DELETE "${DIRECTUS_URL}/items/${collection}/${existing_id}" 2>/dev/null)
     if [[ "$del_code" != "200" && "$del_code" != "204" ]]; then
@@ -824,7 +849,7 @@ reset_domain_fixture() {
   done
 
   local create_resp create_code
-  create_resp=$(curl -s \
+  create_resp=$("$CURL_BIN" -s \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
     -H "Content-Type: application/json" \
     -X POST -w "\n%{http_code}" \
@@ -968,11 +993,11 @@ if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
   ok "Directus reachable (mock)"
   ok "Authentik reachable (mock)"
 else
-  if ! curl -sf "${DIRECTUS_URL}/server/ping" -H "Authorization: Bearer ${DIRECTUS_TOKEN}" >/dev/null 2>&1; then
+  if ! "$CURL_BIN" -sf "${DIRECTUS_URL}/server/ping" -H "Authorization: Bearer ${DIRECTUS_TOKEN}" >/dev/null 2>&1; then
     fail "Directus unreachable at ${DIRECTUS_URL}. Start the stack: bash scripts/uat-env-setup.sh"
   fi
   ok "Directus reachable"
-  if ! curl -sf "${AK_URL}/if/admin/" >/dev/null 2>&1; then
+  if ! "$CURL_BIN" -sf "${AK_URL}/if/admin/" >/dev/null 2>&1; then
     fail "Authentik unreachable at ${AK_URL}. Start the stack: bash scripts/uat-env-setup.sh"
   fi
   ok "Authentik reachable"

@@ -294,6 +294,29 @@ If a workflow ends with the issue still showing `Status: resolved` while any
 AC has unverified deferral without a queued follow-up, that is a workflow
 violation and must be reported.
 
+### Shell-script HTTP client binary selection (added 2026-07-05, ISS-UAT-013-15)
+
+`scripts/uat-*.sh` (and any other shell-script HTTP client in the repo)
+**must prefer native `curl.exe` on Windows when it is on PATH**, falling
+back to GNU `curl` otherwise. The canonical idiom is:
+
+```bash
+if command -v curl.exe &>/dev/null; then
+  CURL_BIN='curl.exe'
+else
+  CURL_BIN='curl'
+fi
+```
+
+This pattern was added to `scripts/uat-seed.sh` in 2026-07-05 (ISS-UAT-013-15)
+because the Copilot-Chat `run_in_terminal` sandbox on Windows resolves
+`curl` to the MSYS2 GNU ELF binary, which cannot reach Windows-host
+`localhost:<port>`. The `command -v curl.exe` form (matching the
+precedent in `scripts/uat-preflight-email.sh` lines 85-90) is strictly
+broader than the `uname -s | grep mingw` heuristic — it also covers WSL
+bash. **Future scripts should adopt this idiom at the top of the file
+rather than invoking `curl` directly.**
+
 ---
 
 ## 6.3 CI override policy (added 2026-07-03) — delegated to the PRSteward agent
