@@ -17,7 +17,7 @@ github_pr_url: ""
 
 current_step: 1
 current_step_name: "author-artifacts"
-workflow_status: "paused"
+workflow_status: "archived"
 
 parent_link:
   parent_workflow_id: ""
@@ -75,7 +75,45 @@ needs_review:
   issue_ref: ""
   artifact_file: ".copilot/tasks/active/wf-20260702-feat-056/NEEDS_REVIEW.md"
 
-# ─── Paused by close-stalled-active-workflows.py ──────────────────
+# ─── Paused by close-stalled-active-workflows.py (2026-07-05) ─────
+# Original pause_note (now superseded — see note below):
 paused_at: "2026-07-05T01:23:51+00:00"
 pause_note: |
   Paused 2026-07-05 during wf-20260705-close-stalled-active cleanup. FR-UAT-VISUAL-001 (VisualReviewer agent + three-layer visual testing strategy) was at Step 1 (author-artifacts) with the spec drafted but the agent files not yet written. No progress for 2 days. Not blocking any other workflow. Resume by completing the agent definition + enforcement script in `.copilot/agents/visual-reviewer.md` and `scripts/visual-check.sh`.
+
+# ─── Re-classified paused-and-superseded (2026-07-05) ────────────
+# The pause_note above was written based only on the contents of this
+# active/ directory (which had only handoff.yaml). It was incorrect:
+# the 6 artifacts listed in the handoff had ALREADY shipped to main via
+# other PRs that carried the in-progress work forward.
+superseded_at: "2026-07-05T01:35:00+00:00"
+superseded_note: |
+  Re-classified paused-and-superseded during wf-20260705-close-feat-056
+  pass. Evidence: every artifact in the handoff's `artifacts:` list is
+  already on main:
+
+    - .copilot/agents/visual-reviewer.md   7.3 KB — landed via PR #84 squash 737e534 (2026-07-02 22:43)
+    - scripts/uat-visual-check.sh          3.3 KB — landed via PR #84
+    - .copilot/workflows/uat-verification.md (Step 3.5 added) 9.7 KB — PR #84 + PR #87 squash fb01386
+    - docs/04-development/testing/visual-testing.md — PR #84 + PR #87
+    - .copilot/agents/business-analyst.md — pre-existing, untouched in this workflow
+    - .copilot/agents/uat-runner.md       — pre-existing, untouched in this workflow
+
+  PR #84's commit message explicitly states: "visual review (new Step 3.5
+  in uat-verification.md, carried forward from wf-20260702-feat-056's
+  in-progress branch)" — confirming the work was ported into PR #84
+  rather than waiting for this workflow to finish.
+
+  Branch `feature/uat-visual-056-visual-review` is stale: 0 commits ahead
+  of main, 72 behind. Its tip commit (e38d748, 2026-07-02 21:31)
+  predates PR #84 by ~1 hour.
+
+  Action taken: this directory moved from .copilot/tasks/active/ to
+  .copilot/tasks/archived/. workflow_status flipped from "paused" to
+  "archived". The original pause_note is retained above for the audit
+  trail; the superseded_note is the authoritative record.
+
+  No further work on FR-UAT-VISUAL-001 is needed. If a future audit
+  finds that PR #84/PR #87 did not actually cover everything the spec
+  required (e.g. Layer 3 LLM-vision was deferred rather than shipped),
+  open a new follow-up workflow rather than resuming this one.
