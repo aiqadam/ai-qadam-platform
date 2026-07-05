@@ -686,3 +686,78 @@ WRAPPER_EOF
   captured=$(extract_api_base_from_helper "" "")
   [[ "$captured" == *"http://localhost:3000/v1/internal/users/ensure-linked"* ]]
 }
+
+# ─── ISS-UAT-013-14: --reset BP-UAT-013 derives token_hash+token_prefix from manifest's token_plain ─
+# Directus's operator_invites collection requires token_hash + token_prefix
+# NOT NULL. The unconditional ensure_operator_invite() path computes both
+# at the call site. The --reset path (reset_domain_fixture at
+# scripts/uat-seed.sh lines 725-806) previously POSTed the manifest's
+# payload verbatim and so failed with HTTP 400 FAILED_VALIDATION, leaving
+# operator_invites empty after every --reset run. This regression test
+# proves the fix is in place: reset_domain_fixture MUST contain a
+# collection=operator_invites branch that reads .token_plain from the
+# fixture and merges {token_hash, token_prefix} into resolved_payload
+# using the sha256_hex helper, mirroring the reference implementation in
+# ensure_operator_invite (scripts/uat-seed.sh lines 500-501, 558-595).
+
+@test "ISS-UAT-013-14 structural: reset_domain_fixture derives token_hash + token_prefix from manifest token_plain (collection=operator_invites)" {
+  local script="$REPO_ROOT/scripts/uat-seed.sh"
+  # (a) The collection=operator_invites gate must exist inside reset_domain_fixture.
+  # We grep the function body by anchoring on the function header and reading
+  # the next ~120 lines (the function is ~80 lines in current source). A naive
+  # global grep would also catch any operator_invites mention in
+  # ensure_operator_invite, which we want to avoid — the fix lives in
+  # reset_domain_fixture, not the unconditional path.
+  local rdf_body
+  # Bash 3-compatible: read the function body via sed line-anchor.
+  # reset_domain_fixture opens at the function header (line ~725) and the
+  # next function opens at run_reset_for_bp (line ~841). Extract that slice.
+  rdf_body=$(sed -n '/^reset_domain_fixture() {/,/^}$/p' "$script")
+
+  # (a) Collection gate present.
+  [[ "$rdf_body" == *'[[ "$collection" == "operator_invites" ]]'* ]]
+
+  # (b) token_plain read via jq with .token_plain // empty idiom (mirrors
+  #     ensure_operator_invite's consumption shape).
+  [[ "$rdf_body" == *"jq -r '.token_plain // empty'"* ]]
+
+  # (c) SHA-256 derivation via the existing sha256_hex helper (matches the
+  #     unconditional reference implementation).
+  [[ "$rdf_body" == *"sha256_hex \"\$token_plain\""* ]]
+
+  # (d) token_prefix computed as the first 8 chars of token_plain (matches
+  #     the reference implementation byte-for-byte).
+  [[ "$rdf_body" == *'token_prefix="${token_plain:0:8}"'* ]]
+
+  # (e) jq-merge into resolved_payload uses --arg th / --arg tp typing
+  #     AND the {token_hash:$th, token_prefix:$tp} field shape.
+  [[ "$rdf_body" == *'--arg th "$token_hash"'* ]]
+  [[ "$rdf_body" == *'--arg tp "$token_prefix"'* ]]
+  [[ "$rdf_body" == *'. + {token_hash:$th, token_prefix:$tp}'* ]]
+}
+
+@test "ISS-UAT-013-14 behavioral: --reset BP-UAT-013 mock mode still exits 0 with exactly 4 operator_invites create lines" {
+  # Behavioral regression: the fix is silent in mock mode (no new log lines,
+  # per the silent-merge choice in 02-impact-analysis.md), so the existing
+  # FR-WORKFLOW-003 row 1 invariant continues to hold: --reset BP-UAT-013 in
+  # mock mode exits 0 and emits exactly 4 create lines for collection=operator_invites.
+  # If a future edit accidentally introduced noisy log lines for the new
+  # derivation block, this test would fail.
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-013 2>&1'
+  [ "$status" -eq 0 ]
+  local count
+  count=$(echo "$output" | grep -cE '\(mock, create collection=operator_invites\)' || true)
+  [ "$count" -eq 4 ]
+}
+
+@test "ISS-UAT-013-14 unconditional: pnpm uat:seed mock mode (no --reset) still provisions all 4 operator_invites" {
+  # Regression guard on AC-5: the unconditional ensure_operator_invite path
+  # must continue to provision all 4 fixtures byte-identically. The fix
+  # is scoped to --reset only; this test ensures the unconditional path
+  # is not accidentally regressed.
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" 2>&1'
+  [ "$status" -eq 0 ]
+  local count
+  count=$(echo "$output" | grep -cE 'operator_invite .*\(mock' || true)
+  [ "$count" -eq 4 ]
+}

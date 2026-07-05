@@ -772,6 +772,36 @@ reset_domain_fixture() {
     info "fixture ${id}: member_email '${member_email}' resolved to member=${member_id}"
   fi
 
+  # ISS-UAT-013-14 fix: derive token_hash + token_prefix from the manifest's
+  # token_plain field before the POST. Directus's operator_invites collection
+  # requires both fields NOT NULL (added by a schema change post-2026-07-03,
+  # after the last-successful --reset run at PR #108 / squash 69f2b3f).
+  # Mirrors the reference implementation in ensure_operator_invite() —
+  # scripts/uat-seed.sh lines 500-501 and 558-595 — which already does this
+  # on the unconditional path. Without this block, --reset BP-UAT-013's
+  # POST fails with HTTP 400 FAILED_VALIDATION (token_hash required +
+  # token_prefix required), leaving operator_invites empty and breaking
+  # BP-UAT-013 Steps 005/006 + Neg 002/003/005.
+  #
+  # Gated on collection=operator_invites ONLY. Other collections never had
+  # a token_hash requirement; broader gating would be over-engineering.
+  if [[ "$collection" == "operator_invites" ]]; then
+    local token_plain
+    token_plain=$(jq -r '.token_plain // empty' <<<"$fixture_json")
+    if [[ -n "$token_plain" ]]; then
+      local token_hash token_prefix
+      token_hash=$(sha256_hex "$token_plain")
+      token_prefix="${token_plain:0:8}"
+      resolved_payload=$(jq -c \
+        --arg th "$token_hash" \
+        --arg tp "$token_prefix" \
+        '. + {token_hash:$th, token_prefix:$tp}' \
+        <<<"$resolved_payload")
+    else
+      fail "reset_domain_fixture ${id}: collection=operator_invites but manifest has no .token_plain — cannot derive token_hash. Update scripts/uat-fixtures/<bp-uat>.json to declare token_plain per fixture."
+    fi
+  fi
+
   # Delete existing row(s) matching the lookup filter, if any.
   # `-g` disables curl's URL-bracket parsing (see directus_user_pk_by_email).
   local encoded_value existing_ids existing_id
