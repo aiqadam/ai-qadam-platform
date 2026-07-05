@@ -5,7 +5,7 @@ workflow_type: "requirement-development"
 workflow_version: "1.0"
 
 created_at: "2026-07-02T00:00:00Z"
-last_updated_at: "2026-07-02T00:00:00Z"
+last_updated_at: "2026-07-05T01:23:51+00:00"
 
 requirement_ref: "FR-UAT-VISUAL-001"
 requirement_text: "Introduce enforced visual analysis into the uat-verification workflow: a VisualReviewer agent that reads every screenshot, a mechanical enforcement script, and a three-layer visual testing strategy (pixel-diff baselines, computed-style design-system linting, LLM vision review)."
@@ -17,7 +17,7 @@ github_pr_url: ""
 
 current_step: 1
 current_step_name: "author-artifacts"
-workflow_status: "running"
+workflow_status: "paused"
 
 parent_link:
   parent_workflow_id: ""
@@ -74,3 +74,8 @@ needs_review:
   stopped_at_step_name: ""
   issue_ref: ""
   artifact_file: ".copilot/tasks/active/wf-20260702-feat-056/NEEDS_REVIEW.md"
+
+# ─── Paused by close-stalled-active-workflows.py ──────────────────
+paused_at: "2026-07-05T01:23:51+00:00"
+pause_note: |
+  Paused 2026-07-05 during wf-20260705-close-stalled-active cleanup. FR-UAT-VISUAL-001 (VisualReviewer agent + three-layer visual testing strategy) was at Step 1 (author-artifacts) with the spec drafted but the agent files not yet written. No progress for 2 days. Not blocking any other workflow. Resume by completing the agent definition + enforcement script in `.copilot/agents/visual-reviewer.md` and `scripts/visual-check.sh`.

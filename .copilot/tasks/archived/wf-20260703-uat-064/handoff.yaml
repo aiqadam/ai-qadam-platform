@@ -103,3 +103,9 @@ step_0_workspace_notes:
   docker_state_at_step_0: "Postgres(5433), Directus(8200), Mailpit(8025), Twenty(3010), Authentik(9000), Redis(6379), Minio(9100) — all Up+healthy. aiqadam-telegram-bot-api unhealthy but irrelevant to BP-UAT-001."
   api_state_at_step_0: "PID 9496 on :3000, CommandLine contains apps/api/dist/main (matches @aiqadam/api substring)."
   web_state_at_step_0: "PID 32536 on :4321, CommandLine contains astro.mjs dev (matches Astro).
+
+# ─── Archived by close-stalled-active-workflows.py ────────────────
+workflow_status: "archived"
+archived_at: "2026-07-05T01:23:51+00:00"
+archive_reason: |
+  Sub-workflow of wf-20260703-fix-064 (in completed/, merged via PR #89). Created to re-verify BP-UAT-001 AC-1/2/3 deferred from the parent. Those ACs were subsequently re-deferred to wf-20260704-fix-085 (now in completed/, merged via PR #104) and wf-20260704-fix-086 (in queued/, re-targeted at ISS-UAT-BRIDGE-002). The uat-064 sub-workflow is dead code; its parent ACs are owned by a different chain.
