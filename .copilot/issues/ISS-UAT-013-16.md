@@ -2,9 +2,40 @@
 
 **Severity:** blocker (UAT environment)
 **Module:** uat/seed
-**Status:** open
+**Status:** resolved
 **Date:** 2026-07-05
 **Discovered by:** wf-20260705-uat-110 (BP-UAT-013 re-verification Step 3 — Playwright run)
+**Resolved by:** wf-20260705-fix-114-bp-uat-013-fixture-lookup-unique — [PR #123 squash `b20a1ef`](https://github.com/tvolodi/aiqadam/pull/123), merged 2026-07-05T09:37:41Z
+
+## Resolution
+
+Applied Option A from the issue body (recommended, narrowest scope): changed each fixture's `lookup_field` from the non-unique `token_prefix` to the per-row-unique `token_hash`, and `lookup_value` from `"uat-onbo"` to `sha256(token_plain)`. `reset_domain_fixture()` already supports arbitrary `lookup_field` / `lookup_value` per fixture — no script changes needed. Bonus fix in the same PR: aligned `payload.email` from `@aiqadam.test` to `@example.com` (Directus's `is-email` validator rejects the @aiqadam.test TLD; the unconditional seed was already switched to @example.com in `wf-20260704-fix-086` / ISS-UAT-BRIDGE-002, but this manifest was not updated alongside).
+
+### Acceptance criteria
+
+- [x] **AC-1** verified: after `bash scripts/uat-seed.sh --reset BP-UAT-013`, Directus `operator_invites` query returned exactly 4 rows with display_names {valid, used, expired, no-user} and emails matching the seeded payloads.
+- [x] **AC-2** verified: `GET /v1/onboard/preview?token=uat-onboard-token` → HTTP 200 with `email: uat-operator@example.com`.
+- [x] **AC-3** verified: used → HTTP 410 `invite_consumed`; expired → HTTP 410 `invite_expired`; no-user → HTTP 200 with `email: uat-operator+no-user@example.com`.
+- [x] **AC-4** verified (mock mode): unconditional `pnpm uat:seed` still provisions all 4 operator_invites with correct per-row email + role_groups distribution (bats row 37).
+- [x] **AC-5** verified: 6 new bats rows (42-47) added to `scripts/tests/uat-seed.bats`. 47/47 total rows pass.
+  - Rows 42-45: per-fixture `lookup_field=token_hash` + `lookup_value` equals `sha256(token_plain)` computed live in the test.
+  - Row 46: cross-fixture uniqueness — all 4 `lookup_value`s are distinct.
+  - Row 47: cross-fixture `lookup_field` invariant — all 4 fixtures declare `collection=operator_invites` AND `lookup_field=token_hash`.
+
+### Honesty disclosures
+
+- **AC-2 email drift disclosure:** The issue body's AC-2 specifies `uat-operator@aiqadam.test`. The live seed and api use `uat-operator@example.com` since `wf-20260704-fix-086` / ISS-UAT-BRIDGE-002 (the @aiqadam.test TLD is rejected by Directus's `is-email` validator). The AC *intent* — 200 with payload matching the seeded row's email — is satisfied. This PR also updates the manifest's `payload.email` to align with the current seed. The issue body was stale documentation drift; the load-bearing invariant (response email matches stored email) is honored.
+- **Pre-fix manifest payload.email was broken:** Independently of the lookup_field bug, the manifest's `payload.email: uat-operator@aiqadam.test` would have failed Directus's `is-email` validator on POST (RFC 6761 reserves `.test` for testing; Directus's validator rejects it). This PR also aligns the manifest to `@example.com`. Without this change, AC-2 verification would have surfaced the email drift as a misleading "POST failed" error rather than a useful "email doesn't match" error.
+- **AC-4 verified in mock mode, not live:** Running the unconditional `pnpm uat:seed` against the live stack would mutate other BP-UAT fixtures (it provisions BP-UAT-001's member_consents rows too). The mock-mode run is the canonical regression for this invariant (bats row 37), and it covers exactly the path affected by this change (`ensure_operator_invite()` was untouched; the manifest's `payload.email` change applies to both reset and unconditional paths, and the unconditional path was already aligned to `@example.com` by `wf-20260704-fix-086`, so there's no live conditional risk).
+- **Follow-up not needed.** Once this PR lands, the next `wf-20260705-uat-110-bp-uat-013-verify` re-run (or its renamed successor) should re-run from scratch and confirm AC-2/5/6/7 now pass. No new blocker workflow is queued — the issue that this one was named to block is now unblocked.
+
+### Audit trail
+
+- Workflow artifacts: `.copilot/tasks/completed/wf-20260705-fix-114-bp-uat-013-fixture-lookup-unique/`
+- Branch: `fix/ISS-UAT-013-16-fixture-lookup-unique` (deleted after squash merge per `--delete-branch`)
+- Squash SHA: `b20a1eff14674944c5104ddcbc92c07ac2d701b5`
+- Counter: `.copilot/meta/next-workflow-id` bumped 110 → 111
+- Auto-merge: per AGENTS.md §6.2 + §6.3 user CI opt-out (PR squashed and merged at 2026-07-05 09:37:41 UTC).
 
 ## Summary
 
