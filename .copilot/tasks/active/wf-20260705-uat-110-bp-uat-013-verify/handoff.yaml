@@ -1,0 +1,135 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-uat-110-bp-uat-013-verify"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T13:12:00Z"
+last_updated_at: "2026-07-05T13:43:00Z"
+
+requirement_ref: "BP-UAT-013"
+requirement_text: |
+  Re-run UAT verification for BP-UAT-013 (Member signup and operator onboarding).
+  This is the continuation of wf-20260705-uat-100 (STOPPED at Step 2) and
+  wf-20260705-fix-103-uat-013-verify (queued, blocked on the two ISS fixes
+  which have now landed: PR #119 ISS-UAT-013-14 and PR #120 ISS-UAT-013-15).
+github_issue_url: ""
+
+branch: "uat/BP-UAT-013-verify"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/compare/uat/BP-UAT-013-verify?expand=1"
+
+current_step: 4
+current_step_name: "Triage Report"
+workflow_status: "in-progress"
+
+parent_link:
+  parent_workflow_id: "wf-20260705-fix-103-uat-013-verify"
+  parent_branch: "uat/BP-UAT-013-verify"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-05T13:12:00Z"
+  spawned_by_issue: ""
+  resolution_for_parent: "no-fix-architectural-conflict"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step1-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T13:13:00Z"
+    summary: "BP-UAT-013 script re-validated; doc byte-identical to prior validation; both prior blockers resolved."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/01-uat-script-validation.md"
+  step2-preflight:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T13:33:00Z"
+    summary: "All pre-flight checks green: Docker stack healthy, web/api/mailpit reachable with correct process identity, seed --reset BP-UAT-013 created 4 operator_invites fixtures."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/02-preflight.md"
+  step3-uat-run:
+    status: failed-escalate
+    attempt: 1
+    timestamp: "2026-07-05T13:38:00Z"
+    summary: "5/12 Playwright tests PASSED; 7 FAILED due to seed manifest bug (ISS-UAT-013-16) + UAT_API_URL env-var not loaded by Playwright config + RESEND_API_KEY unset (env gap). 2/7 ACs verified, 1/7 partial, 4/7 failed. Issues registered: ISS-UAT-013-16."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/03-uat-report.md"
+  step3.5-visual-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T13:43:00Z"
+    summary: "Visual review folded into Step 4 triage per workflow brief. 13 PNGs inventoried with verdicts; no MISMATCH or design_system:FAIL findings."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/02b-visual-review.md"
+  step4-triage:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T13:43:00Z"
+    summary: "Triage complete. 5/12 Playwright tests passed; 2/7 ACs verified, 1/7 partial, 4/7 failed. Single blocker ISS-UAT-013-16 covers seed bug; follow-up wf-20260705-fix-113 queued at queue_position 4. Three sub-gaps surfaced as honesty disclosures."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/03-uat-triage.md"
+
+agent_assignments:
+  business-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/01-uat-script-validation.md"
+    timestamp: "2026-07-05T13:13:00Z"
+  business-analyst-triage:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/03-uat-triage.md"
+    timestamp: "2026-07-05T13:43:00Z"
+  orchestrator:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/02-preflight.md"
+    timestamp: "2026-07-05T13:33:00Z"
+  uat-runner:
+    status: completed
+    step: 3
+    output_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/03-uat-report.md"
+    timestamp: "2026-07-05T13:38:00Z"
+    screenshots_dir: "apps/e2e/uat-results/BP-UAT-013"
+
+retry_counts: {}
+
+retry_limits:
+  business-analyst: 1
+  uat-runner: 2
+  visual-reviewer: 2
+
+issues_created: ["ISS-UAT-013-16"]
+issue_ref: "ISS-UAT-013-16"
+
+deferrals: []
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-013.md
+  - apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts
+  - scripts/uat-fixtures/BP-UAT-013.json
+  - .copilot/tasks/active/wf-20260705-uat-100/01-uat-script-validation.md
+  - .copilot/tasks/active/wf-20260705-uat-100/02-preflight.md
+  - .copilot/issues/ISS-UAT-013-14.md
+  - .copilot/issues/ISS-UAT-013-15.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260705-uat-110-bp-uat-013-verify/NEEDS_REVIEW.md"
+
+queue_position: 0
+blocked_by: []
+blocks: []
+
+honesty_disclosure:
+  - "AC verification starts from 0/7. Steps 001-006 + Neg 001-005 of BP-UAT-013 must run end-to-end against the local stack. The two prerequisite fixes (ISS-UAT-013-14 seed reset path, ISS-UAT-013-15 MSYS-aware curl) are merged to main. No further deferrals are pre-registered — every AC must be verified in this workflow or a follow-up queued before close."

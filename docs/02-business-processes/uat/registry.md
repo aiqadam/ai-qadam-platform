@@ -20,7 +20,7 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 | [BP-UAT-010](BP-UAT-010.md) | Event registration flow | [BP-UAT-010.spec.ts](../../../../apps/e2e/tests/uat/BP-UAT-010.spec.ts) | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+3 more |
 | [BP-UAT-011](BP-UAT-011.md) | QR check-in | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
 | [BP-UAT-012](BP-UAT-012.md) | Points engine and leaderboard | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts |
-| [BP-UAT-013](BP-UAT-013.md) | Member signup and operator onboarding | [BP-UAT-013-signup.spec.ts](../../../../apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts) | <br>smoke-lead-nurture.spec.ts<br>smoke-leads.spec.ts<br>smoke-onboarding.spec.ts<br>+1 more |
+| [BP-UAT-013](BP-UAT-013.md) | Member signup and operator onboarding | Implemented | 2026-07-02 | partial | [BP-UAT-013-signup.spec.ts](../../../../apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts) | <br>smoke-lead-nurture.spec.ts<br>smoke-leads.spec.ts<br>smoke-onboarding.spec.ts<br>+1 more |
 | [BP-UAT-014](BP-UAT-014.md) | Waitlist management | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
 | [BP-UAT-015](BP-UAT-015.md) | Registration cancellation | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts<br>smoke-event-regen-social-card.spec.ts<br>+4 more |
 | [BP-UAT-016](BP-UAT-016.md) | Member referral programme | — | <br>smoke-referrals.spec.ts<br>smoke-workspace-members.spec.ts |

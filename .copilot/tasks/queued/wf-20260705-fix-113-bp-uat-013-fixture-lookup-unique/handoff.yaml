@@ -1,0 +1,90 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-fix-113-bp-uat-013-fixture-lookup-unique"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T13:42:00Z"
+last_updated_at: "2026-07-05T13:42:00Z"
+
+requirement_ref: "ISS-UAT-013-16"
+requirement_text: |
+  Fix the BP-UAT-013 manifest lookup_field non-uniqueness bug. All 4 operator_invites
+  fixtures share `lookup_field: token_prefix` + `lookup_value: uat-onbo`, so
+  reset_domain_fixture's DELETE wipes each preceding CREATE. Only the LAST row
+  survives. Fix the manifest (Option A: per-fixture `lookup_field: token_hash`
+  with sha256 of token_plain) and add a bats regression row that asserts the
+  "exactly 4 rows + each token_hash round-trips" invariants.
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-013-16-bp-uat-013-fixture-lookup-unique"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260705-uat-110-bp-uat-013-verify"
+  parent_branch: "uat/BP-UAT-013-verify"
+  parent_paused_at_step: 3
+  parent_paused_at_gate: "step3-uat-run"
+  spawned_at: "2026-07-05T13:42:00Z"
+  spawned_by_issue: "ISS-UAT-013-16"
+  resolution_for_parent: "defer-until-followup-landed"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: "ISS-UAT-013-16"
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts:
+  business-analyst: 0
+  code-developer: 0
+  test-runner: 0
+
+retry_limits:
+  business-analyst: 1
+  code-developer: 2
+  test-runner: 2
+
+issues_created: []
+issue_ref: "ISS-UAT-013-16"
+
+deferrals: []
+
+expects_registry_update: false
+
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/ISS-UAT-013-16.md
+  - scripts/uat-fixtures/BP-UAT-013.json
+  - scripts/uat-seed.sh
+  - apps/api/src/modules/admin-invites/admin-invites.service.ts
+  - apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts
+  - scripts/tests/uat-seed.bats
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/queued/wf-20260705-fix-113-bp-uat-013-fixture-lookup-unique/NEEDS_REVIEW.md"
+
+queue_position: 4
+blocked_by: []
+blocks:
+  - wf-20260705-uat-110-bp-uat-013-verify
+
+honesty_disclosure:
+  - "This workflow is queued because wf-20260705-uat-110's Step 3 discovered that the BP-UAT-013 manifest's non-unique `lookup_field` causes --reset to leave only 1 row in Directus, blocking 5/7 ACs of BP-UAT-013. Without this fix, re-running BP-UAT-013 will fail the same way."
+  - "Once this workflow lands + re-runs successfully, the parent wf-20260705-uat-110 should be re-run from Step 3 (uat-runner) to verify all 7 ACs end-to-end against the live stack. That re-run is owned by the parent, not by this fix workflow."
