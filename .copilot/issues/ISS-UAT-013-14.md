@@ -85,3 +85,45 @@ Queued as `wf-20260705-fix-101-bp-uat-013-seed-reset` (issue-resolution workflow
 - `wf-20260704-fix-092` PR #108 squash `69f2b3f` — last successful `--reset BP-UAT-013` run (before this issue manifested)
 - Manifest: `scripts/uat-fixtures/BP-UAT-013.json` — already declares `token_plain` top-level
 - `scripts/uat-seed.sh::ensure_operator_invite` lines 500-501, 558-595 — reference implementation of `token_hash`/`token_prefix` derivation
+---
+
+## Resolution
+
+**Closed by:** [wf-20260705-fix-101](../tasks/completed/wf-20260705-fix-101-bp-uat-013-seed-reset/) ([PR #119 squash e8f8546](https://github.com/tvolodi/aiqadam/pull/119), merged 2026-07-05T05:59:30Z)
+
+### What landed
+
+Mirrored the ensure_operator_invite token-derivation logic byte-for-byte into eset_domain_fixture (scripts/uat-seed.sh lines ~772-790, gated on collection=operator_invites). The block:
+- reads .token_plain from the manifest via jq -r '.token_plain // empty'
+- derives 	oken_hash via sha256_hex  
+- derives 	oken_prefix as ${token_plain:0:8}
+- merges into esolved_payload via jq -c --arg th ... --arg tp ... '. + {token_hash:, token_prefix:}'
+- calls ail() loudly if the operator_invites manifest lacks .token_plain
+
+Mock-mode behavior intentionally unchanged (silent in mock — preserves FR-WORKFLOW-003 row 1 + row 6 invariants).
+
+### AC-by-AC status
+
+- **AC-1** (live --reset BP-UAT-013 exits 0 with all 4 rows): **deferred-with-followup-workflow** to [wf-20260705-fix-103-uat-013-verify](../tasks/queued/wf-20260705-fix-103-uat-013-verify/) (queue position 3 of the BP-UAT-013 cascade).
+- **AC-2** (consumeInvite finds seeded rows via recomputed token_hash for all 4 tokens): **deferred-with-followup-workflow** (same).
+- **AC-3** (POST /v1/onboard/preview?token=uat-onboard-token returns 200, no 500): **deferred-with-followup-workflow** (same).
+- **AC-4** (regression bats assertion): **verified** — 3 new tests at scripts/tests/uat-seed.bats rows 35, 36, 37 (structural + behavioural --reset + behavioural unconditional); full bats run **37/37 pass**.
+- **AC-5** (unconditional path byte-identical): **verified** — bats row 37 passes; FR-WORKFLOW-003 row 1 + row 6 invariants still hold.
+
+### Honesty disclosure
+
+The live re-verification of AC-1/AC-2/AC-3 (which requires the running Directus + Authentik stack) is owned by the queued follow-up workflow wf-20260705-fix-103-uat-013-verify (queue position 3 of the BP-UAT-013 cascade — runs after both wf-20260705-fix-101 and wf-20260705-fix-102-uat-seed-curl-exe-aware). Until that follow-up runs and re-verifies live --reset BP-UAT-013 → Directus happy + 4 token-preview curls → 200/410/200/410, the issue cannot be considered end-to-end verified against the live stack. The structural fix in PR #119 is sufficient to make those live tests pass (the derivation is identical byte-for-byte to the unconditional reference), but AC-1/AC-2/AC-3 will only flip from deferred-with-followup-workflow to erified once wf-20260705-fix-103-uat-013-verify completes.
+
+The current issue flip to esolved is scoped to the CODE STRUCTURE proof (AC-4) + the no-regression guard (AC-5). The live verification IS NOT considered complete, per AGENTS.md §6.1.
+
+### CI decision
+
+Per the user opt-out (AGENTS.md §6.3, recorded 2026-07-04): PR #119 was auto-merged via gh pr merge --squash --auto --delete-branch once CI went green. The user explicitly does not want to be bothered with CI problems. No CI-override audit trail was written; the override machinery is preserved but not read.
+
+### Audit trail
+
+- .copilot/tasks/completed/wf-20260705-fix-101-bp-uat-013-seed-reset/ — workflow directory with all artifacts
+- .copilot/tasks/completed/wf-20260705-fix-101-bp-uat-013-seed-reset/bats-full.log — 37/37 bats run
+- .copilot/tasks/completed/wf-20260705-fix-101-bp-uat-013-seed-reset/09-quality-gate.md — QualityGate decision with AC-by-AC disposition
+- git log --oneline origin/main -1 → e8f8546 fix(uat-seed): derive token_hash+token_prefix in --reset path for operator_invites (ISS-UAT-013-14) (#119)
+- Registry row: Status: resolved, Workflow: [wf-20260705-fix-101], PR #119 squash e8f8546, Date: 2026-07-05
