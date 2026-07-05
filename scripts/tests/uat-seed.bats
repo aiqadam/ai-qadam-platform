@@ -867,3 +867,109 @@ STUB
   grep -q 'command -v "$CURL_BIN"' "$REPO_ROOT/scripts/uat-seed.sh"
   grep -q 'Missing required curl binary' "$REPO_ROOT/scripts/uat-seed.sh"
 }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ISS-UAT-013-16: --reset BP-UAT-013 fixture manifest's lookup_field must be
+# token_hash (per-row unique sha256), NOT token_prefix (shared "uat-onbo"
+# across all 4 fixtures). The bug: reset_domain_fixture()'s DELETE matches
+# every existing row on each iteration, wiping each preceding CREATE — only
+# the LAST fixture's row survives. Fix: per-fixture lookup_value is now the
+# sha256 hex of token_plain (matching the unconditional ensure_operator_invite
+# idempotency key, scripts/uat-seed.sh lines 500-501 / 558-561).
+#
+# These tests are pure structural-grep regressions on
+# scripts/uat-fixtures/BP-UAT-013.json (the manifest) — they pin the
+# per-fixture lookup_field + lookup_value so any future edit that reverts
+# to the non-unique token_prefix or to a stale sha256 (e.g. after a token
+# rename) is caught at bats-run time, not at UAT-run time.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Helper: compute sha256 hex of a string in a portable way that matches
+# uat-seed.sh's sha256_hex() helper byte-for-byte (sha256sum on Linux,
+# shasum -a 256 on macOS). Used by the AC-5 tests below so they assert
+# the manifest's lookup_value matches what the live script would compute.
+manifest_sha256() {
+  if command -v sha256sum &>/dev/null; then
+    printf '%s' "$1" | sha256sum | awk '{print $1}'
+  else
+    printf '%s' "$1" | shasum -a 256 | awk '{print $1}'
+  fi
+}
+
+@test "ISS-UAT-013-16 structural: BP-UAT-013.json fixture 1 (uat-onboard-token) uses lookup_field=token_hash with sha256(token_plain)" {
+  local manifest="$REPO_ROOT/scripts/uat-fixtures/BP-UAT-013.json"
+  # (a) lookup_field MUST be "token_hash" — never "token_prefix".
+  local field
+  field=$(jq -r '.fixtures[] | select(.id=="uat-onboard-token") | .lookup_field' "$manifest")
+  [ "$field" = "token_hash" ]
+
+  # (b) lookup_value MUST equal sha256(uat-onboard-token).
+  local expected actual
+  expected=$(manifest_sha256 "uat-onboard-token")
+  actual=$(jq -r '.fixtures[] | select(.id=="uat-onboard-token") | .lookup_value' "$manifest")
+  [ "$actual" = "$expected" ]
+}
+
+@test "ISS-UAT-013-16 structural: BP-UAT-013.json fixture 2 (uat-onboard-used-token) uses lookup_field=token_hash with sha256(token_plain)" {
+  local manifest="$REPO_ROOT/scripts/uat-fixtures/BP-UAT-013.json"
+  local field expected actual
+  field=$(jq -r '.fixtures[] | select(.id=="uat-onboard-used-token") | .lookup_field' "$manifest")
+  [ "$field" = "token_hash" ]
+  expected=$(manifest_sha256 "uat-onboard-used-token")
+  actual=$(jq -r '.fixtures[] | select(.id=="uat-onboard-used-token") | .lookup_value' "$manifest")
+  [ "$actual" = "$expected" ]
+}
+
+@test "ISS-UAT-013-16 structural: BP-UAT-013.json fixture 3 (uat-onboard-expired-token) uses lookup_field=token_hash with sha256(token_plain)" {
+  local manifest="$REPO_ROOT/scripts/uat-fixtures/BP-UAT-013.json"
+  local field expected actual
+  field=$(jq -r '.fixtures[] | select(.id=="uat-onboard-expired-token") | .lookup_field' "$manifest")
+  [ "$field" = "token_hash" ]
+  expected=$(manifest_sha256 "uat-onboard-expired-token")
+  actual=$(jq -r '.fixtures[] | select(.id=="uat-onboard-expired-token") | .lookup_value' "$manifest")
+  [ "$actual" = "$expected" ]
+}
+
+@test "ISS-UAT-013-16 structural: BP-UAT-013.json fixture 4 (uat-onboard-no-user-token) uses lookup_field=token_hash with sha256(token_plain)" {
+  local manifest="$REPO_ROOT/scripts/uat-fixtures/BP-UAT-013.json"
+  local field expected actual
+  field=$(jq -r '.fixtures[] | select(.id=="uat-onboard-no-user-token") | .lookup_field' "$manifest")
+  [ "$field" = "token_hash" ]
+  expected=$(manifest_sha256 "uat-onboard-no-user-token")
+  actual=$(jq -r '.fixtures[] | select(.id=="uat-onboard-no-user-token") | .lookup_value' "$manifest")
+  [ "$actual" = "$expected" ]
+}
+
+@test "ISS-UAT-013-16 cross-fixture: all 4 BP-UAT-013 fixtures have DISTINCT lookup_value (per-row uniqueness invariant)" {
+  # Behavioral invariant that catches the original bug at the manifest
+  # level: if any two fixtures share the same lookup_value, the next
+  # fixture's reset_domain_fixture DELETE will wipe the previous
+  # fixture's CREATE — exactly the bug the live UAT run hit (only 1
+  # of 4 rows survived).
+  #
+  # Asserts: jq -r '.fixtures[].lookup_value' returns 4 lines, and
+  # `sort -u` also returns 4 lines. If a future edit silently makes any
+  # two fixtures collide, sort -u reduces the count and the test fails.
+  local manifest="$REPO_ROOT/scripts/uat-fixtures/BP-UAT-013.json"
+  local values unique_count total_count
+  values=$(jq -r '.fixtures[].lookup_value' "$manifest")
+  total_count=$(echo "$values" | wc -l)
+  unique_count=$(echo "$values" | sort -u | wc -l)
+  [ "$total_count" -eq 4 ]
+  [ "$unique_count" -eq 4 ]
+}
+
+@test "ISS-UAT-013-16 cross-fixture: all 4 BP-UAT-013 fixtures share collection=operator_invites AND lookup_field=token_hash" {
+  # Companion invariant: the lookup_field must be token_hash (the per-row
+  # unique key) across ALL fixtures — a partial revert (e.g. one fixture
+  # still on token_prefix) would still cause the wipe-preceding-CREATE bug
+  # for that fixture's iteration.
+  local manifest="$REPO_ROOT/scripts/uat-fixtures/BP-UAT-013.json"
+  local distinct_collections distinct_lookup_fields
+  distinct_collections=$(jq -r '.fixtures[].collection' "$manifest" | sort -u)
+  distinct_lookup_fields=$(jq -r '.fixtures[].lookup_field' "$manifest" | sort -u)
+  [ "$(echo "$distinct_collections" | wc -l)" -eq 1 ]
+  [ "$distinct_collections" = "operator_invites" ]
+  [ "$(echo "$distinct_lookup_fields" | wc -l)" -eq 1 ]
+  [ "$distinct_lookup_fields" = "token_hash" ]
+}

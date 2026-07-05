@@ -1,0 +1,69 @@
+workflow_id: wf-20260705-fix-114-bp-uat-013-fixture-lookup-unique
+workflow_type: issue-resolution
+branch: fix/ISS-UAT-013-16-fixture-lookup-unique
+base_branch: main
+issue_id: ISS-UAT-013-16
+issue_path: .copilot/issues/ISS-UAT-013-16.md
+created_at: 2026-07-05
+owner: Orchestrator
+severity: blocker
+module: uat/seed
+
+description: |
+  Resolve ISS-UAT-013-16 — `scripts/uat-fixtures/BP-UAT-013.json` declares
+  `lookup_field: "token_prefix"` + `lookup_value: "uat-onbo"` for all 4
+  fixtures (shared 8-char prefix). `reset_domain_fixture()`'s DELETE
+  matches every existing row on each iteration, wiping each preceding
+  CREATE — only the LAST fixture's row survives.
+
+  Recommended fix (Option A from issue body): change each fixture's
+  `lookup_field` to `"token_hash"` and `lookup_value` to the per-fixture
+  sha256 hex of its `token_plain`. `reset_domain_fixture` already supports
+  arbitrary lookup fields; no script change needed.
+
+acceptance_criteria:
+  - id: AC-1
+    description: |
+      After `pnpm uat:seed --reset BP-UAT-013`, `operator_invites` contains
+      exactly 4 rows matching the 4 fixture display names (valid / used /
+      expired / no-user). Verified live against the local stack.
+  - id: AC-2
+    description: |
+      `POST /v1/onboard/preview?token=uat-onboard-token` returns 200 with
+      payload matching the seeded row's email. Verified live.
+  - id: AC-3
+    description: |
+      Same AC-2 for `uat-onboard-used-token` (410), `uat-onboard-expired-token`
+      (410), `uat-onboard-no-user-token` (200 with the no-user email).
+      Verified live.
+  - id: AC-4
+    description: |
+      `pnpm uat:seed` (unconditional) still works byte-identically (no
+      regression to FR-WORKFLOW-003 row 1 / row 6 invariants).
+  - id: AC-5
+    description: |
+      Bats regression — append a row to `scripts/tests/uat-seed.bats`
+      asserting each fixture's `lookup_field: token_hash` and that
+      `lookup_value` equals `sha256(token_plain)` hex. Pins the manifest
+      so future edits that revert to `token_prefix` are caught.
+
+agent_chain:
+  - agent: CodeDeveloper
+    step: 02-code-development
+    output: 02-code-development.md
+  - agent: TestRunner
+    step: 03-test-execution
+    output: 03-test-results.md
+  - agent: SecurityReviewer
+    step: 04-security-review
+    output: 04-security-review.md
+  - agent: QualityGate
+    step: 09-quality-gate
+    output: 09-quality-gate.md
+
+related:
+  - ISS-UAT-013-14  # resolved by wf-20260705-fix-101 — the upstream token_hash/token_prefix derivation gap
+  - ISS-UAT-013-15  # resolved by wf-20260705-fix-105 — MSYS curl.exe-aware seed
+  - wf-20260705-uat-110-bp-uat-013-verify  # parent: BP-UAT-013 re-verification that exposed this gap
+
+honesty_disclosures: []
