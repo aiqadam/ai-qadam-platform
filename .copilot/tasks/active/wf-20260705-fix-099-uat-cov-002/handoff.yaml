@@ -1,0 +1,94 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-fix-099-uat-cov-002"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T00:00:00Z"
+last_updated_at: "2026-07-05T00:00:00Z"
+
+requirement_ref: "ISS-UAT-COV-002"
+requirement_text: "Author BP-UAT-019 covering the operator approvals queue (docs-only; scope narrowed after discovering the cabinet is an empty-shell v1 with no live approve/reject/flag surface)."
+github_issue_url: ""
+
+branch: "fix/ISS-UAT-COV-002-operator-approvals-uat-script"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/113"
+
+current_step: 9
+current_step_name: "update-issue-registry"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step1-issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T00:00:00Z"
+    summary: "Issue read; premise found factually incorrect against current code (empty-shell v1, no approve/reject/flag surface). Raised Concern/Evidence/Proposal to user per AGENTS.md §13; user selected narrowed-scope option."
+  step9-registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T00:00:00Z"
+    summary: "ISS-UAT-COV-002.md Status -> resolved, Resolution section appended. registry.md row updated to resolved. Docs-only change, no code/DB/security surface."
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-UAT-COV-002"
+
+deferrals:
+  - from_feature: "ISS-UAT-COV-002"
+    to_feature: "none-queued"
+    reason: "Approve/reject/flag UAT steps deferred with no follow-up workflow queued: no source has ready:true and no member-flagging feature exists anywhere in the codebase, so there is nothing yet for a follow-up workflow to verify. Documented as project-level out-of-scope-until-prerequisite-ships in BP-UAT-019.md 'Deferred Steps' section and ISS-UAT-COV-002.md 'Honesty disclosures'."
+    step: 4
+    timestamp: "2026-07-05T00:00:00Z"
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts:
+  - "docs/02-business-processes/uat/BP-UAT-019.md"
+  - "docs/02-business-processes/uat/registry.md"
+  - ".copilot/issues/ISS-UAT-COV-002.md"
+  - ".copilot/issues/registry.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/02-business-processes/operations/operator-approvals-queue.md
+  - docs/02-business-processes/uat/BP-UAT-template.md
+  - apps/api/src/modules/workspace/approvals.service.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260705-fix-099-uat-cov-002/NEEDS_REVIEW.md"
