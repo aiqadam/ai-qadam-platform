@@ -140,8 +140,14 @@ and invoke specialized subagents.
 Agent definitions live in `.copilot/agents/` (one file per agent: orchestrator,
 requirement-analyst, impact-analyzer, db-migration-author, code-developer,
 security-reviewer, test-strategist, test-designer, test-runner, doc-writer,
-quality-gate, business-analyst, uat-runner, visual-reviewer). Shared protocol
-(gate format, retry limits, finish script) is in `.copilot/schemas/protocol.md`.
+quality-gate, business-analyst, uat-runner, visual-reviewer, pr-steward). Shared
+protocol (gate format, retry limits, finish script) is in
+`.copilot/schemas/protocol.md`.
+
+The same 15 agents are also exposed as thin wrappers for other tools, all
+pointing back to `.copilot/agents/<name>.md` as the single source of truth:
+`.github/agents/*.agent.md` (GitHub Copilot) and `.kilo/agents/*.md` (Kilo
+Code). When adding or renaming an agent, update all three locations.
 
 **Agents CAN read images.** The Read tool renders PNG/JPG files natively.
 Any agent (especially visual-reviewer in uat-verification Step 3.5) that

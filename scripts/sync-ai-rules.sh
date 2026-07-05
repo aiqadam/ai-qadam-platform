@@ -10,10 +10,16 @@
 #   .cursor/rules/00-project.mdc
 #   .windsurfrules
 #   .clinerules
+#   .kilocode/rules/00-project.md
 #
 # Source files (edit these):
 #   AGENTS.md                         — shared rules for all tools
 #   scripts/ai-rules-addons/*.md      — tool-specific additions
+#
+# Note: Kilo Code also reads AGENTS.md natively at the project root. The
+# generated .kilocode/rules/00-project.md exists for discoverability inside
+# .kilocode/ and to carry the Kilo-specific addon — it is not required for
+# Kilo Code to pick up the shared rules.
 
 set -euo pipefail
 
@@ -27,7 +33,7 @@ if [[ ! -f "$AGENTS" ]]; then
   exit 1
 fi
 
-for addon in copilot cursor windsurf cline cursor-mdc-header; do
+for addon in copilot cursor windsurf cline kilocode cursor-mdc-header; do
   if [[ ! -f "$ADDONS/$addon.md" ]]; then
     echo "ERROR: addon file not found: $ADDONS/$addon.md" >&2
     exit 1
@@ -67,6 +73,7 @@ generate "$ROOT/.github/copilot-instructions.md" "copilot.md"
 generate "$ROOT/.cursorrules"                     "cursor.md"
 generate "$ROOT/.windsurfrules"                   "windsurf.md"
 generate "$ROOT/.clinerules"                      "cline.md"
+generate "$ROOT/.kilocode/rules/00-project.md"     "kilocode.md"
 
 # ── Generate Cursor v1 .mdc (frontmatter + body) ─────────────────────────────
 

@@ -15,10 +15,10 @@ alwaysApply: true
 # AGENTS.md — AI Agent Rules for AI Qadam Platform
 
 This is the **canonical rule file** for all AI coding assistants in this repository.
-It is read automatically by Claude Code and OpenAI Codex. All other tool-specific
-config files (`.cursorrules`, `.windsurfrules`, `.clinerules`,
-`.github/copilot-instructions.md`) are generated from this file — **edit this file,
-not the generated ones**.
+It is read automatically by Claude Code, OpenAI Codex, and Kilo Code. All other
+tool-specific config files (`.cursorrules`, `.windsurfrules`, `.clinerules`,
+`.github/copilot-instructions.md`, `.kilocode/rules/00-project.md`) are generated
+from this file — **edit this file, not the generated ones**.
 
 To regenerate tool configs after editing this file: `pnpm ai:sync`
 
