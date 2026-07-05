@@ -1,10 +1,11 @@
 # NEEDS_REVIEW — wf-20260705-uat-100 (BP-UAT-013 re-verification)
 
 **Workflow:** wf-20260705-uat-100 (`uat-verification`)
-**Branch:** `uat/BP-UAT-013-verify`
+**Branch:** `uat/BP-UAT-013-verify` (merged + deleted; squash SHA `bc04135`)
 **BP-UAT:** 013 (Member signup and operator onboarding)
 **Stopped at:** Step 2 (Pre-Flight) — `failed-escalate`
 **Date:** 2026-07-05
+**PR:** [#118 squash `bc04135`](https://github.com/tvolodi/aiqadam/pull/118) — merged 2026-07-05T05:36:06Z by `tvolodi` (squash, admin override, branch deleted)
 
 ---
 
@@ -146,3 +147,30 @@ follow-up workflow.
 - `test-curl.sh` / `test-curl2.sh` — minimal repro scripts proving bash curl returns 000 from inside the sandbox
 - `handoff.yaml` — workflow state, status `needs-review`
 - `NEEDS_REVIEW.md` — this file
+
+---
+
+## Post-merge (2026-07-05)
+
+The user authorized an explicit squash-merge with --admin override (per AGENTS.md §6.2 user opt-out from CI as a workflow gate, recorded 2026-07-04). PR #118 merged into main as squash commit c04135; remote branch uat/BP-UAT-013-verify deleted by GitHub; local branch force-deleted post-merge. Local task dir archived from ctive/ → completed/ per workflow-finish protocol. 
+ext-workflow-id bumped 101 → 104 to reserve IDs for the three queued follow-ups (wf-20260705-fix-101, wf-20260705-fix-102, wf-20260705-fix-103).
+
+### What still needs to happen for BP-UAT-013 verification to actually run
+
+1. Authorize wf-20260705-fix-101-bp-uat-013-seed-reset → fix eset_domain_fixture() to compute 	oken_hash/	oken_prefix from manifest's 	oken_plain before POSTing.
+2. Authorize wf-20260705-fix-102-uat-seed-curl-exe-aware → MSYS detection in seed script switches CURL_BIN=curl.exe.
+3. After 1 + 2 land, the actual BP-UAT-013 Playwright run still has to happen **from a native Windows terminal** (PowerShell or cmd), NOT from inside this agent's Git Bash MSYS sandbox — the sandbox bash localhost cannot reach the Windows host even after fix 2 ships, because fix 2 helps the uat-seed script itself but Playwright is launched differently.
+
+
+
+---
+
+## Post-merge (2026-07-05)
+
+The user authorized an explicit squash-merge with `--admin` override (per AGENTS.md §6.2 user opt-out from CI as a workflow gate, recorded 2026-07-04). PR #118 merged into main as squash commit `bc04135`; remote branch `uat/BP-UAT-013-verify` deleted by GitHub; local branch force-deleted post-merge. Local task dir archived from `active/` → `completed/` per workflow-finish protocol. `next-workflow-id` bumped 101 → 104 to reserve IDs for the three queued follow-ups (`wf-20260705-fix-101`, `wf-20260705-fix-102`, `wf-20260705-fix-103`).
+
+### What still needs to happen for BP-UAT-013 verification to actually run
+
+1. Authorize `wf-20260705-fix-101-bp-uat-013-seed-reset` → fix `reset_domain_fixture()` to compute `token_hash`/`token_prefix` from manifest's `token_plain` before POSTing.
+2. Authorize `wf-20260705-fix-102-uat-seed-curl-exe-aware` → MSYS detection in seed script switches `CURL_BIN=curl.exe`.
+3. After 1 + 2 land, the actual BP-UAT-013 Playwright run still has to happen **from a native Windows terminal** (PowerShell or cmd), NOT from inside this agent's Git Bash MSYS sandbox — the sandbox bash `localhost` cannot reach the Windows host even after fix 2 ships, because fix 2 helps the `uat-seed` script itself but Playwright is launched differently.

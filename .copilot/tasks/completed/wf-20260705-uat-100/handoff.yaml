@@ -16,10 +16,13 @@ github_issue_url: ""
 branch: "uat/BP-UAT-013-verify"
 base_branch: "main"
 github_pr_url: "https://github.com/tvolodi/aiqadam/pull/118"
+github_pr_merged_at: "2026-07-05T05:36:06Z"
+github_pr_merged_by: "tvolodi"
+github_pr_merge_sha: "bc04135"
 
 current_step: 2
 current_step_name: "Pre-Flight"
-workflow_status: "needs-review"
+workflow_status: "completed-failed-escalate"
 
 gate_results:
   step1-validation:
