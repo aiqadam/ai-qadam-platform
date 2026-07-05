@@ -1,0 +1,90 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-fix-102-uat-seed-curl-exe-aware"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T00:30:00Z"
+last_updated_at: "2026-07-05T00:30:00Z"
+
+requirement_ref: "ISS-UAT-013-15"
+requirement_text: |
+  Make scripts/uat-seed.sh's curl binary MSYS-aware: when running under
+  Git Bash / MSYS on Windows, use curl.exe (Windows native curl) instead
+  of /usr/bin/curl (GNU ELF) — the latter cannot reach Windows-host
+  localhost from this machine's Copilot-Chat terminal sandbox. The seed
+  script should detect MSYS at startup and switch CURL_BIN accordingly.
+github_issue_url: ".copilot/issues/ISS-UAT-013-15.md"
+
+branch: "fix/ISS-UAT-013-15-uat-seed-curl-exe-aware"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260705-uat-100"
+  parent_branch: "uat/BP-UAT-013-verify"
+  parent_paused_at_step: 2
+  parent_paused_at_gate: "step2-preflight"
+  spawned_at: "2026-07-05T00:30:00Z"
+  spawned_by_issue: "ISS-UAT-013-15"
+  resolution_for_parent: "fix-and-rebase"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  code-developer: 3
+  security-reviewer: 2
+  test-strategist: 2
+  test-designer: 3
+  test-runner: 3
+  doc-writer: 2
+  quality-gate: 3
+  pr-steward: 1
+
+issues_created: ["ISS-UAT-013-15"]
+issue_ref: "ISS-UAT-013-15"
+
+deferrals: []
+
+# Per AGENTS.md §6.1: changes scripts/uat-seed.sh + scripts/tests/uat-seed.bats +
+# (optionally) AGENTS.md §6.1 docs note. Registry unchanged.
+expects_registry_update: false
+
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - scripts/uat-seed.sh
+  - scripts/tests/uat-seed.bats
+  - AGENTS.md
+  - .claude/CLAUDE.md
+  - .copilot/tasks/active/wf-20260705-uat-100/02-preflight.md
+  - .copilot/issues/ISS-UAT-013-15.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: "ISS-UAT-013-15"
+  artifact_file: ".copilot/tasks/queued/wf-20260705-fix-102-uat-seed-curl-exe-aware/NEEDS_REVIEW.md"
+
+queue_position: 2
+blocked_by: []
+blocks: ["wf-20260705-fix-103-uat-013-verify"]
+honesty_disclosure:
+  - "This workflow exists because wf-20260705-uat-100's BP-UAT-013 re-verification pre-flight failed on the bash-curl-in-sandbox issue. The fix must land before wf-20260705-fix-103-uat-013-verify (the UAT re-run) is started from the user's terminal."

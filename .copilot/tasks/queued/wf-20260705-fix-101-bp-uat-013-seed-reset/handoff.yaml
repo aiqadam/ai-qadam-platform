@@ -1,0 +1,92 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-fix-101-bp-uat-013-seed-reset"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T00:30:00Z"
+last_updated_at: "2026-07-05T00:30:00Z"
+
+requirement_ref: "ISS-UAT-013-14"
+requirement_text: |
+  Fix scripts/uat-seed.sh's --reset <BP-UAT-NNN> code path so it recomputes
+  token_hash and token_prefix from the manifest's token_plain field before
+  POSTing to Directus (mirroring ensure_operator_invite's call-site
+  derivation at scripts/uat-seed.sh lines 500-501, 558-595). This restores
+  the FR-WORKFLOW-003 --reset contract for BP-UAT-013 and unblocks the
+  BP-UAT-013 UAT re-run (wf-20260705-fix-103-uat-013-verify).
+github_issue_url: ".copilot/issues/ISS-UAT-013-14.md"
+
+branch: "fix/ISS-UAT-013-14-bp-uat-013-seed-reset"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260705-uat-100"
+  parent_branch: "uat/BP-UAT-013-verify"
+  parent_paused_at_step: 2
+  parent_paused_at_gate: "step2-preflight"
+  spawned_at: "2026-07-05T00:30:00Z"
+  spawned_by_issue: "ISS-UAT-013-14"
+  resolution_for_parent: "fix-and-rebase"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  code-developer: 3
+  security-reviewer: 2
+  test-strategist: 2
+  test-designer: 3
+  test-runner: 3
+  doc-writer: 2
+  quality-gate: 3
+  pr-steward: 1
+
+issues_created: ["ISS-UAT-013-14"]
+issue_ref: "ISS-UAT-013-14"
+
+deferrals: []
+
+# Per AGENTS.md §6.1: this workflow changes scripts/uat-seed.sh + scripts/tests/uat-seed.bats,
+# not a registry state file. expects_registry_update stays false.
+expects_registry_update: false
+
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - scripts/uat-seed.sh
+  - scripts/uat-fixtures/BP-UAT-013.json
+  - scripts/tests/uat-seed.bats
+  - apps/api/src/modules/admin-invites/admin-invites.service.ts
+  - .copilot/tasks/active/wf-20260705-uat-100/02-preflight.md
+  - .copilot/issues/ISS-UAT-013-14.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: "ISS-UAT-013-14"
+  artifact_file: ".copilot/tasks/queued/wf-20260705-fix-101-bp-uat-013-seed-reset/NEEDS_REVIEW.md"
+
+# Queue position info (for ISS-UAT-013-14's Resolution section)
+queue_position: 1
+blocked_by: []
+blocks: ["wf-20260705-fix-103-uat-013-verify"]
+honesty_disclosure:
+  - "This workflow exists because wf-20260705-uat-100's BP-UAT-013 re-verification pre-flight failed on the --reset path. The fix must land before wf-20260705-fix-103-uat-013-verify (the UAT re-run) is started. The actual Playwright UAT run itself remains in the queued follow-up workflow, not this one."

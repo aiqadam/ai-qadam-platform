@@ -1,0 +1,120 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-uat-100"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T00:00:00Z"
+last_updated_at: "2026-07-05T00:00:00Z"
+
+# UAT verification does not have a "requirement_ref" — it verifies a business
+# process. The closest analogue is the UAT script code:
+requirement_ref: "BP-UAT-013"
+requirement_text: "Run UAT testing for BP-UAT-013 (Member signup and operator onboarding)."
+github_issue_url: ""
+
+branch: "uat/BP-UAT-013-verify"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/118"
+
+current_step: 2
+current_step_name: "Pre-Flight"
+workflow_status: "needs-review"
+
+gate_results:
+  step1-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T00:01:00Z"
+    summary: "BP-UAT-013 script complete, executable, manifest matches doc fixture table."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-100/01-uat-script-validation.md"
+  step2-preflight:
+    status: failed-escalate
+    attempt: 1
+    timestamp: "2026-07-05T00:25:00Z"
+    summary: "Pre-flight infrastructure probes PASS (web :4321, api :3001, mailpit :8025, Docker stack all healthy, process identities match). Seed failed: (a) --reset BP-UAT-013 manifests omit token_hash/token_prefix (Directus 400); (b) bash GNU curl in this sandbox cannot reach Windows-host localhost. Two distinct failures, neither is a product bug. Both registered as open issues and queued as follow-up workflows before this one closes per AGENTS.md §6.1."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-100/02-preflight.md"
+
+agent_assignments:
+  business-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260705-uat-100/01-uat-script-validation.md"
+    timestamp: "2026-07-05T00:01:00Z"
+
+# UAT workflow has no subworkflow nesting.
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+# UAT verification workflow has narrower retry budgets than
+# requirement-development / issue-resolution (no code/test agents).
+retry_counts: {}
+
+retry_limits:
+  business-analyst: 1
+  uat-runner: 2
+  visual-reviewer: 2
+
+issues_created:
+  - "ISS-UAT-013-14"
+  - "ISS-UAT-013-15"
+issue_ref: ""
+
+# Queued follow-up workflows (per AGENTS.md §6.1 — must be queued before parent closes)
+queued_follow_ups:
+  - workflow_id: "wf-20260705-fix-101-bp-uat-013-seed-reset"
+    queue_position: 1
+    owning_issue: "ISS-UAT-013-14"
+    blocks_parent_close: false
+  - workflow_id: "wf-20260705-fix-102-uat-seed-curl-exe-aware"
+    queue_position: 2
+    owning_issue: "ISS-UAT-013-15"
+    blocks_parent_close: false
+  - workflow_id: "wf-20260705-fix-103-uat-013-verify"
+    queue_position: 3
+    owning_issue: ""
+    blocks_parent_close: true
+    blocked_by:
+      - "wf-20260705-fix-101-bp-uat-013-seed-reset"
+      - "wf-20260705-fix-102-uat-seed-curl-exe-aware"
+
+deferrals: []
+
+# UAT verification does not introduce a new FR/ISS row; the registry update
+# happens in the UAT script registry (last_run/status/Run Status columns),
+# not requirements-registry.md.
+expects_registry_update: false
+
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-013.md
+  - docs/02-business-processes/uat/registry.md
+  - apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts
+  - scripts/uat-fixtures/BP-UAT-013.json
+  - docs/04-development/design-system/Design system for AI agents/readme.md
+
+needs_review:
+  reason: "Pre-flight failed on two seed/infra issues (ISS-UAT-013-14, ISS-UAT-013-15). No Playwright run occurred. Three follow-up workflows queued with explicit blocked-by relationships."
+  stopped_at_step: 2
+  stopped_at_step_name: "Pre-Flight"
+  issue_ref: "ISS-UAT-013-14,ISS-UAT-013-15"
+  artifact_file: ".copilot/tasks/active/wf-20260705-uat-100/NEEDS_REVIEW.md"

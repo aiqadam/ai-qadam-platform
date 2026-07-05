@@ -1,0 +1,109 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-fix-103-uat-013-verify"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T00:30:00Z"
+last_updated_at: "2026-07-05T00:30:00Z"
+
+requirement_ref: "BP-UAT-013"
+requirement_text: |
+  Re-run UAT testing for BP-UAT-013 (Member signup and operator onboarding).
+  This is the queued continuation of wf-20260705-uat-100 — Steps 1 (validation)
+  and 2 (pre-flight infrastructure probes) are already complete in
+  .copilot/tasks/active/wf-20260705-uat-100/. Steps 3+ (UATRunner live Playwright
+  run, VisualReviewer, BusinessAnalyst triage, Orchestrator commit/push/PR)
+  are deferred to this workflow and must run from the user's native terminal
+  (or any environment where the sandboxed bash-curl limitation does not apply).
+github_issue_url: ""
+
+branch: "uat/BP-UAT-013-verify"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 3
+current_step_name: "Execute UAT Script"
+workflow_status: "queued"
+
+# This UAT workflow inherits its parent (wf-20260705-uat-100) — the queued
+# subworkflow uses the same branch and task directory so artifacts flow
+# continuously into the PR.
+parent_link:
+  parent_workflow_id: "wf-20260705-uat-100"
+  parent_branch: "uat/BP-UAT-013-verify"
+  parent_paused_at_step: 2
+  parent_paused_at_gate: "step2-preflight"
+  spawned_at: "2026-07-05T00:30:00Z"
+  spawned_by_issue: ""
+  resolution_for_parent: "no-fix-architectural-conflict"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  step1-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-05T00:01:00Z"
+    summary: "BP-UAT-013 script complete, executable, manifest matches doc fixture table."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-100/01-uat-script-validation.md"
+  step2-preflight:
+    status: failed-escalate
+    attempt: 1
+    timestamp: "2026-07-05T00:25:00Z"
+    summary: "Pre-flight infrastructure probes (web :4321, api :3001, mailpit :8025, Docker stack) all PASS. Seed failed: (a) --reset BP-UAT-013 manifests omit token_hash/token_prefix; (b) bash GNU curl in this sandbox cannot reach Windows-host localhost."
+    output_file: ".copilot/tasks/active/wf-20260705-uat-100/02-preflight.md"
+
+agent_assignments:
+  business-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260705-uat-100/01-uat-script-validation.md"
+    timestamp: "2026-07-05T00:01:00Z"
+
+retry_counts: {}
+
+retry_limits:
+  business-analyst: 1
+  uat-runner: 2
+  visual-reviewer: 2
+
+issues_created: ["ISS-UAT-013-14", "ISS-UAT-013-15"]
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: false
+
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-013.md
+  - apps/e2e/tests/uat/BP-UAT-013-signup.spec.ts
+  - scripts/uat-fixtures/BP-UAT-013.json
+  - .copilot/tasks/active/wf-20260705-uat-100/01-uat-script-validation.md
+  - .copilot/tasks/active/wf-20260705-uat-100/02-preflight.md
+  - .copilot/issues/ISS-UAT-013-14.md
+  - .copilot/issues/ISS-UAT-013-15.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/queued/wf-20260705-fix-103-uat-013-verify/NEEDS_REVIEW.md"
+
+queue_position: 3
+blocked_by:
+  - wf-20260705-fix-101-bp-uat-013-seed-reset
+  - wf-20260705-fix-102-uat-seed-curl-exe-aware
+blocks: []
+honesty_disclosure:
+  - "This workflow CANNOT run until wf-20260705-fix-101 (seed reset path) AND wf-20260705-fix-102 (bash curl MSYS-awareness) BOTH land. The actual Playwright run must happen in a terminal where bash curl can reach Windows-host localhost (i.e. the user's native terminal, not this agent sandbox). All workflow inputs (Step 1 validation + Step 2 pre-flight) are pre-populated from wf-20260705-uat-100."
+  - "Per AGENTS.md §6.1: the AC-by-AC disposition will be recorded in 09-quality-gate.md when this workflow runs. The current 0/7 AC verification state is honest: Steps 001-004, 005/006, and Neg 001-005 all depend on either the api being reachable from bash OR the four operator_invites rows existing; neither precondition currently holds."
