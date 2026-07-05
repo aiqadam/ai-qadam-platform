@@ -5,7 +5,7 @@ status: Ready
 process_ref: "docs/03-requirements/FR-AUTH-001.md"
 environment: "http://localhost:4321"
 seed_required: true
-last_run: ""
+last_run: "2026-07-05"
 ---
 
 # BP-UAT-009 — Auth Sign-In and Sign-Out

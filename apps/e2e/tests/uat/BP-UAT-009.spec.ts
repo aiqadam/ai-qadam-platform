@@ -573,15 +573,25 @@ test.describe('BP-UAT-009 — negative scenarios', () => {
     // Workspace.tsx client-side redirects anon visitors via
     // window.location.replace(signInUrl()) inside a useEffect once
     // bootstrap resolves to 'anon' — so we wait for that navigation.
-    // The intent of this rewrite (see ISS-UAT-009-5 / wf-20260704-fix-080):
+    // The intent of the test rewrite (see ISS-UAT-009-5 / wf-20260704-fix-080):
     // capture the waitForURL outcome as a boolean instead of swallowing
     // the timeout with `.catch(() => {})`. Mirrors the Step 004 idiom at
     // line 302–310. Timeout is 20s, matching the sibling client-side
     // redirect budget used by Steps 002/003/006.
+    //
+    // Reach target: either the app's local `/api/v1/auth/login` proxy
+    // (Workspace.tsx->signInUrl() resolves this against the current
+    // origin `:4321`, then the proxy 302s to Authentik) or the Authentik
+    // URL `:9000/api/v1/auth/login`. We accept both end states because
+    // the user is in the OIDC flow by either URL.
+    const escapedAuthentik = AUTHENTIK_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const reachedSignIn = await page
-      .waitForURL(new RegExp(`^${BASE_URL}/(auth/sign-in|api/v1/auth/login)`), {
-        timeout: 20_000,
-      })
+      .waitForURL(
+        new RegExp(
+          `^(?:${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(auth/sign-in|api/v1/auth/login)|${escapedAuthentik})`,
+        ),
+        { timeout: 20_000 },
+      )
       .then(() => true)
       .catch(() => false);
 

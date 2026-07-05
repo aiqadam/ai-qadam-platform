@@ -1,0 +1,156 @@
+schema_version: "1.0"
+
+workflow_instance_id: wf-20260705-fix-108-uat-009-5
+workflow_type: issue-resolution
+workflow_version: "1.0"
+
+created_at: "2026-07-05T07:30:00Z"
+last_updated_at: "2026-07-05T07:30:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: ISS-UAT-009-5
+requirement_text: |
+  BP-UAT-009 Neg 001 (`/workspace` redirect) is flaky because the test races
+  the client-side `useEffect` redirect — `waitForURL` is wrapped in
+  `.catch(() => {})` so the soft-assert fires before the navigation completes.
+  Test-only fix shipped in wf-20260704-fix-080 (PR #102 squash 306a2aa). Per
+  the issue Resolution section, ISS-UAT-009-5 flips to `resolved` ONLY after
+  BOTH PRs land AND the 3× Neg 001 determinism check passes on the
+  post-wf-20260704-fix-081 stack.
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: fix/ISS-UAT-009-5-neg-001-determinism
+base_branch: main
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 0
+current_step_name: "init"
+workflow_status: "running"
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results: {}
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments: {}
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+# ─── Retry Limits (from workflow definition) ─────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+  test-runner: 3
+  security-reviewer: 2
+  uat-runner: 3
+  business-analyst: 2
+
+# ─── Deferrals (per AGENTS.md §6.1 honesty disclosure) ───────────────────────
+
+deferrals: []
+
+# ─── Honesty Disclosures ────────────────────────────────────────────────────
+
+honesty_disclosures: []
+
+# ─── Artifacts (output files written by step agents) ──────────────────────────
+
+artifacts:
+  - path: ".copilot/tasks/active/wf-20260705-fix-108-uat-009-5/01-pre-flight.md"
+    type: "pre-flight"
+    produced_by: "Orchestrator (direct — Step 2 of uat-verification pattern)"
+    produced_at_step: 2
+  - path: ".copilot/tasks/active/wf-20260705-fix-108-uat-009-5/02-verify-neg-001.md"
+    type: "live-verification"
+    produced_by: "Orchestrator (direct — 3× Playwright Neg 001 runs)"
+    produced_at_step: 3
+  - path: ".copilot/tasks/active/wf-20260705-fix-108-uat-009-5/03-quality-gate.md"
+    type: "quality-gate"
+    produced_by: "Orchestrator (QualityGate decision file)"
+    produced_at_step: 4
+
+# ─── Infrastructure Pre-Flight (required services for this workflow) ─────────
+
+required_services:
+  - name: apps/web
+    port: 4321
+    process_identity_substring: "@astrojs/node"
+    required_for: "Playwright UAT BASE_URL — apps/web"
+    expected_to_be_already_running: true   # web was already on 4321 (started by user prior session)
+    action_if_not: "pnpm --filter @aiqadam/web dev"
+  - name: apps/api (NestJS)
+    port: 3000
+    process_identity_substring: "@aiqadam/api"
+    required_for: "Pre-flight canonical 'api :3000 @aiqadam/api' check (per uat-verification Step 2 / ISS-UAT-013-2)"
+    expected_to_be_already_running: false
+    action_if_not: "pnpm --filter @aiqadam/api dev (after freeing :3000 from any foreign process squatting — see Honest Disclosure §1)"
+    note_for_neg_001_specifically: "Neg 001 itself is anon-only — no api traffic — but the workflow's pre-flight gate still requires api process-identity green per §6.1 production-readiness"
+
+# ─── Acceptance Criteria for this workflow ───────────────────────────────────
+
+acceptance_criteria:
+  - id: AC-1
+    description: "3× BP-UAT-009 Neg 001 Playwright runs each exit 0 on the post-wf-20260704-fix-081 stack (PR #102 + PR #103 merged)"
+    verification: "cd apps/e2e && pnpm exec playwright test --config=playwright.uat.config.ts --grep 'BP-UAT-009 — negative scenarios › Neg 001 — Protected page' (x3 consecutively)"
+    source: "ISS-UAT-009-5.md Resolution §in-progress 2026-07-04"
+  - id: AC-2
+    description: "apps/web on :4321 confirmed via process-identity pre-flight (apps/web astro dev — post-PR-#103 fix present in source)"
+    verification: "bash scripts/uat-preflight-check.sh web :4321 '@astrojs/node'"
+    source: "uat-verification Step 2 / ISS-UAT-013-2"
+  - id: AC-3
+    description: "apps/api (AI Qadam NestJS — not foreign ai-dala-next) confirmed on :3000 via process-identity pre-flight"
+    verification: "bash scripts/uat-preflight-check.sh api :3000 '@aiqadam/api'"
+    source: "uat-verification Step 2 / ISS-UAT-013-2"
+  - id: AC-4
+    description: "ISS-UAT-009-5.md Resolution section updated to declare AC-1 verified; registry.md row updated to 'resolved' with PR reference; BP-UAT-009.md last_run bumped"
+    verification: "git diff --stat on issue + registry + BP-UAT-009.md frontmatter"
+    source: "ISS-UAT-009-5.md Resolution; §6.1 production-readiness invariant"
+
+# ─── Step Plan ───────────────────────────────────────────────────────────────
+
+step_plan:
+  - step: 0
+    name: "init"
+    agent: "Orchestrator"
+    action: "create branch fix/ISS-UAT-009-5-neg-001-determinism; bump counter 107→108; create active dir + handoff.yaml"
+    status: completed
+  - step: 1
+    name: "issue-lookup"
+    agent: "Orchestrator (direct)"
+    action: "Confirm ISS-UAT-009-5 exists in .copilot/issues/registry.md; confirm both predecessor PRs #102 (306a2aa) and #103 (94baad8) are on main HEAD"
+    status: pending
+  - step: 2
+    name: "pre-flight"
+    agent: "Orchestrator (direct)"
+    action: "Free port 3000 (kill foreign ai-dala-next squat); start apps/api on :3000; run uat-preflight-check.sh for both web and api; write 01-pre-flight.md"
+    status: pending
+  - step: 3
+    name: "verify-neg-001"
+    agent: "Orchestrator (direct — runs playwright)"
+    action: "Run BP-UAT-009 Neg 001 three times consecutively; capture exit codes + log tails; write 02-verify-neg-001.md"
+    status: pending
+  - step: 4
+    name: "quality-gate"
+    agent: "Orchestrator"
+    action: "Compose 03-quality-gate.md with AC-by-AC disposition; if 3/3 green, update issue file Resolution section + registry row + BP-UAT-009.md last_run"
+    status: pending
+  - step: 5
+    name: "workflow-finish"
+    agent: "Orchestrator"
+    action: "git add + workflow-finish.sh (docs-only PR — no code change; opens PR with auto-merge per AGENTS.md §6.2); archive task dir"
+    status: pending

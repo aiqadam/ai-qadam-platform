@@ -5,11 +5,11 @@
 | ID | ISS-UAT-009-5 |
 | Severity | minor |
 | Module | e2e/tests/uat (BP-UAT-009 Neg 001, `/workspace` redirect) |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-04 |
-| Resolved | — |
+| Resolved | 2026-07-05 |
 | Reporter | TestRunner (wf-20260704-fix-077 / 07-test-results.md) — registered by BusinessAnalyst under AGENTS.md §14 |
-| Workflow | wf-20260704-fix-080 (in progress) → wf-20260704-fix-081 (queued follow-up) |
+| Workflow | wf-20260704-fix-080 (test rewrite shipped, PR [#102](https://github.com/tvolodi/aiqadam/pull/102) squash 306a2aa) → wf-20260704-fix-081 (JSX dev runtime fix, PR [#103](https://github.com/tvolodi/aiqadam/pull/103) squash 94baad8) → wf-20260705-fix-108-uat-009-5 (3× Neg 001 verification + test-regdefect fix, PR <pending>) |
 
 ## Symptom
 
@@ -61,19 +61,62 @@ Owned by `wf-20260704-fix-080` (queued).
 - The PR #100 merge (this issue's parent workflow) was not waiting on Neg 001 — the BP-UAT-009 spec already documents the `/workspace` vs `/me` mechanism asymmetry (ISS-UAT-009-2 closed it).
 - No product code is touched by the proposed fix.
 
-## Resolution (in progress — 2026-07-04)
+## Resolution (resolved — 2026-07-05)
 
-**Status:** Test-only fix shipped in [wf-20260704-fix-080](.copilot/tasks/active/wf-20260704-fix-080/) (PR <pending>). The fix adopts the Step 004 idiom at lines 302-310 (`.then(() => true).catch(() => false)` capturing waitForURL outcome as a boolean) and bumps the timeout from 15s to 20s (matching sibling client-side redirect tests at lines 215, 242, 276). Diff is +24 / −6 LOC inside one block.
+**Status:** Verified 3× with exit 0 by
+[wf-20260705-fix-108-uat-009-5](.copilot/tasks/active/wf-20260705-fix-108-uat-009-5/).
+The verification revealed that **PR #102's regex was actually too narrow**
+for the post-PR-#103 redirect chain: Workspace.tsx's `signInUrl()` returns
+`/api/v1/auth/login?next=...` which resolves against `localhost:4321` (the
+apps/web proxy endpoint), which then 302-redirects the browser to
+Authentik at `localhost:9000/api/v1/auth/login`. PR #102's waitForURL
+regex was anchored to `^${BASE_URL}/(auth/sign-in|api/v1/auth/login)`,
+which doesn't match the `:9000` end state. With PR #103's JSX dev runtime
+fix in place, the redirect fires correctly and the test was failing on a
+sharp "redirect landed somewhere we didn't enumerate" signal — not on the
+old `.catch(() => {})` swallowing.
 
-**AC-1 deferred** to [wf-20260704-fix-081-jsx-dev-runtime](.copilot/tasks/queued/wf-20260704-fix-081-jsx-dev-runtime/handoff.yaml). The deferred verification command:
+**Fix shipped in this workflow:** broadened the Neg 001 waitForURL regex
+to accept either the apps/web sign-in URLs OR the AUTHENTIK_URL (the
+same idiom Step 002 at line ~210 already uses). Diff: +10 / −2 LOC,
+single function. No product code touched. Biome clean. tsc clean. Log:
+[`02-verify-neg-001.md`](.copilot/tasks/active/wf-20260705-fix-108-uat-009-5/02-verify-neg-001.md).
 
-```bash
-cd apps/e2e && pnpm exec playwright test \
-    --config=playwright.uat.config.ts \
-    --grep "BP-UAT-009 — negative scenarios › Neg 001 — Protected page"
-# Run 3 times consecutively — all 3 must exit 0.
+### Verification log (determinism check)
+
+```text
+$ for run in 1 2 3; do pnpm exec playwright test \
+      --config=apps/e2e/playwright.uat.config.ts \
+      --grep 'Neg 001 — Protected page'; done
+✓  1 ... Neg 001 — Protected page (... without session redirects to sign-in) (2.1s)
+1 passed (3.4s)
+✓  1 ... Neg 001 — Protected page (... without session redirects to sign-in) (2.1s)
+1 passed (3.2s)
+✓  1 ... Neg 001 — Protected page (... without session redirects to sign-in) (2.2s)
+1 passed (3.2s)
 ```
 
-**Root cause is NOT flakiness** — it's [ISS-UAT-009-6](ISS-UAT-009-6.md): `apps/web` React islands crash with `_jsxDEV is not a function` on every page load. The original "flaky" classification was a symptom of this deeper bug. The test rewrite produces better error messages either way (clear distinction between "redirect never fired" and "landed somewhere unexpected"), so shipping it now is correct even before wf-20260704-fix-081 lands.
+3/3 exit 0; runtime variance 0.1s. The issue Resolution's gate
+("flips to `resolved` only after both PRs land AND the 3× Neg 001
+determinism check passes on the post-wf-20260704-fix-081 stack") is now
+satisfied.
 
-This issue flips to `resolved` only after **both** PRs land AND the 3× Neg 001 determinism check passes on the post-wf-20260704-fix-081 stack.
+### Cascade: cancellation of queued follow-up
+
+[wf-20260704-uat-081-verify-bp-uat-009](.copilot/tasks/queued/wf-20260704-uat-081-verify-bp-uat-009/)
+was the queued follow-up that named this exact verification. Its AC-3 is
+now satisfied by this workflow with stronger evidence (3 consecutive
+exits + an additional bug discovery + fix). It becomes a no-op;
+cancellation is recorded in registry's BP-UAT-009 row workflow history.
+
+### Honesty disclosures (carry-over from earlier)
+
+- This issue was observed during
+  [wf-20260704-fix-077](.copilot/tasks/completed/wf-20260704-fix-077/07-test-results.md) §"BP-UAT-009 full suite — mixed results" — the original failure was a *symptom* of the deeper
+  [ISS-UAT-009-6](ISS-UAT-009-6.md) (JSX dev runtime); the test rewrite
+  in wf-20260704-fix-080 was the right test-only fix; this workflow added
+  the regex broadening once the redirect chain was proven to fire.
+- The PR #100 merge (this issue's parent workflow) was not waiting on
+  Neg 001 — the BP-UAT-009 spec already documents the `/workspace` vs
+  `/me` mechanism asymmetry (ISS-UAT-009-2 closed it).
+- No product code is touched by this resolution.
