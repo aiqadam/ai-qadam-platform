@@ -565,6 +565,36 @@ Before adding ANY new dependency:
 - **If you're 70% confident in a solution, say "I think" not "this will work."**
 - **If you made an assumption to keep working, state the assumption in the PR.**
 - **If the user is wrong about something technical, tell them — respectfully but directly.**
+- **Chat reports are simple state. End every status report with one of:**
+  - `done.`
+  - `not done — <one-line reason>; owned by ISS-<id>.`
+  All evidence, AC-by-AC tables, queued-workflow IDs, SHA dumps, and audit-trail
+  detail belong **inside the issue file** (and the PR description when a PR is
+  opened). Chat is for the user — keep it short. See §15.
+
+---
+
+## 15. Simple-state chat reports (added 2026-07-05)
+
+**Chat output ends with `done.` or `not done — <reason>; owned by ISS-<id>`. Nothing else.**
+
+The user's signal-to-noise tolerance for agent reports is low. Detailed evidence
+(test counts, file diffs, queued-workflow IDs, merge SHAs, gate verdicts, AC-by-AC
+tables, "honesty disclosures") is useful but not for chat — it goes into:
+
+| Artifact | Where verbose detail lives |
+|---|---|
+| Issue file (`.copilot/issues/ISS-<id>.md`) | Acceptance criteria, verification status, evidence links, deferred-work ownership, honesty disclosures |
+| PR description | Refinements vs. issue body, risks, test summary, AC-by-AC table |
+| Workflow artifacts (`.copilot/tasks/<state>/<wf-id>/*.md`) | Step outputs, gate results, audit trail |
+| Registry row (`.copilot/issues/registry.md`) | One-line summary with PR link and SHA |
+
+What remains in chat: the task being attempted, blockers that need the user,
+and the final state line (`done.` or `not done — …; owned by ISS-<id>`).
+
+If the workflow ends not-done, register the new issue first (or point to an
+existing one), then report. The state line points at the issue; the issue file
+holds the why.
 
 ---
 
