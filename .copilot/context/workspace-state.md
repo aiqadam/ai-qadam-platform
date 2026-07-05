@@ -1,5 +1,13 @@
 # Workspace State
 
+**Last updated:** 2026-07-05 — `wf-20260705-fix-099-uat-cov-002` merged. [PR #113](https://github.com/tvolodi/aiqadam/pull/113) squash `25502b2` (ISS-UAT-COV-002 — docs-only. Issue as filed assumed a live approve/reject/flag-a-member flow on the operator approvals queue; reading `apps/api/src/modules/workspace/approvals.service.ts` showed the cabinet is actually an empty-shell v1 (all 3 sources `ready: false`, no approve endpoint, no member-flag concept anywhere in the codebase). Raised as a Concern/Evidence/Proposal to the user per AGENTS.md §13; user chose the narrowed-scope option. Authored `docs/02-business-processes/uat/BP-UAT-019.md` covering the real v1 contract — authenticated empty-state render, roadmap footer, auth gating for page + API — with the originally-envisioned approve/reject/flag steps documented as Deferred (no follow-up workflow queued: nothing exists yet for one to verify). Registry row added; ISS-UAT-COV-002 and its registry row flipped to `resolved`.)
+
+---
+
+---
+
+**Superseded entry, retained for delta-only history:**
+
 **Last updated:** 2026-07-04 — `wf-20260704-fix-095` merged. [PR #110](https://github.com/tvolodi/aiqadam/pull/110) squash `69b2bc6` (ISS-TEST-WEB-001 — root cause: `vitest ^2.1.8` (pinned in apps/web, apps/web-next, apps/api) bundles vite 5.x/6.x whose SSR transform is missing `__vite_ssr_exportName__` (added in vite v8). The workspace's hoisted `vite@8.1.0` defines that helper, so any cross-module `import` in a test crashed the suite load with `ReferenceError: __vite_ssr_exportName__ is not defined`, blocking ISS-UAT-013-13 AC-3 regression test. Fix: bump `vitest ^2.1.8` → `^4.1.9` in all three apps + `@vitest/coverage-v8 ^2.1.8` → `^4.1.9` in apps/api (vitest 4.1.9 declares peer `vite: ^6.0.0 || ^7.0.0 || ^8.0.0`, satisfied by vite 8.1.0); removed obsolete `transformMode: 'web'` from `apps/api/vitest.unit.config.ts` (option removed in vitest 3.0); wired `@vitejs/plugin-react@^5.2.0` as first plugin in `apps/web-next/vitest.config.ts` (mirroring PR #109 / ISS-CI-OVERRIDE-ebd184b storybook pattern) so `.tsx` test files parse under vite 8.1.0/rolldown. Regression test `apps/web/src/components/OnboardingForm.test.ts` 5/5 pass (was blocked pre-fix); apps/web 54/54; apps/web-next 923/923 across 33 files; apps/api unit-config 15/15; apps/api full Testcontainers 1251/1257 (6 pre-existing test-design bugs owned by `wf-20260704-fix-096-pre-existing-api-test-flakes` — none caused by this PR, they were masked by the `__vite_ssr_exportName__` block). biome 0 errors; astro check 0 errors. Counter bumped 96 → 97. Auto-merge per AGENTS.md §6.2 + §6.3 user CI opt-out. Predecessor `wf-20260704-fix-093` (PR #109 squash `255d2bb`).
 
 ---
