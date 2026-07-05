@@ -90,6 +90,7 @@ Queued as `wf-20260705-fix-102-uat-seed-curl-exe-aware` (issue-resolution workfl
 
 **Workflow:** wf-20260705-fix-105
 **PR:** [#120](https://github.com/tvolodi/aiqadam/pull/120)
+**Merged:** 2026-07-05 (squash SHA `f55ce74281510d5cb45270571e54181a185ded7f`)
 **Root cause:** `scripts/uat-seed.sh` invoked `curl` directly; under Git Bash MSYS on Windows, bash resolves `curl` to the MSYS2 GNU ELF binary (`/usr/bin/curl`), which cannot reach Windows-host `localhost:<port>` from this machine's Copilot-Chat `run_in_terminal` sandbox — only native `curl.exe` (in `System32`, on PATH from Git Bash) can.
 
 **Fix:** added an MSYS-aware `CURL_BIN` resolution block at the top of `scripts/uat-seed.sh` that mirrors the existing `scripts/uat-preflight-email.sh` precedent (`command -v curl.exe` form, which is strictly broader than the `uname` heuristic in the issue body — it also covers WSL bash). All 14 runtime `curl` invocations across 12 helper functions now route through `"$CURL_BIN"`. `check_deps()` was extended to also verify `$CURL_BIN` is on PATH with an actionable `fail "Missing required curl binary: $CURL_BIN"` message.
