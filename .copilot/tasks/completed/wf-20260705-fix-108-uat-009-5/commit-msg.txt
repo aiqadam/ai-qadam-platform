@@ -1,0 +1,9 @@
+chore(workflow): close-out wf-20260705-fix-108 (ISS-UAT-009-5 merged PR #121 squash 1dcd29df)
+
+- Move .copilot/tasks/active/wf-20260705-fix-108-uat-009-5/ → completed/
+- Back-fill PR #121 squash 1dcd29df into .copilot/issues/ISS-UAT-009-5.md + registry.md row
+- Cancel queued follow-up wf-20260704-uat-081-verify-bp-uat-009/ (its AC-3 is now satisfied with stronger evidence per the resolved issue)
+- Bump .copilot/meta/next-workflow-id 108 → 109
+
+PR-Steward/CI: not applicable (housekeeping only, no CI surface touched).
+Auto-merge per user CI opt-out (AGENTS.md §6.3 — never bothering with CI).

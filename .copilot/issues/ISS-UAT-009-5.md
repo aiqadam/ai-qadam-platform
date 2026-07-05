@@ -9,7 +9,7 @@
 | Reported | 2026-07-04 |
 | Resolved | 2026-07-05 |
 | Reporter | TestRunner (wf-20260704-fix-077 / 07-test-results.md) — registered by BusinessAnalyst under AGENTS.md §14 |
-| Workflow | wf-20260704-fix-080 (test rewrite shipped, PR [#102](https://github.com/tvolodi/aiqadam/pull/102) squash 306a2aa) → wf-20260704-fix-081 (JSX dev runtime fix, PR [#103](https://github.com/tvolodi/aiqadam/pull/103) squash 94baad8) → wf-20260705-fix-108-uat-009-5 (3× Neg 001 verification + test-regdefect fix, PR <pending>) |
+| Workflow | wf-20260704-fix-080 (test rewrite shipped, PR [#102](https://github.com/tvolodi/aiqadam/pull/102) squash 306a2aa) → wf-20260704-fix-081 (JSX dev runtime fix, PR [#103](https://github.com/tvolodi/aiqadam/pull/103) squash 94baad8) → wf-20260705-fix-108-uat-009-5 (3× Neg 001 verification + test-regex fix, PR [#121](https://github.com/tvolodi/aiqadam/pull/121) squash 1dcd29df) |
 
 ## Symptom
 
