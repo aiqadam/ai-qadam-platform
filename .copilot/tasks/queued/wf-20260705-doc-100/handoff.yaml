@@ -1,0 +1,111 @@
+# Handoff — wf-20260705-doc-100 (QUEUED, position TBD)
+# Owner: DOC-STATE-DRIFT-001 (synthetic; not a real issue — see 01-doc-scope.md)
+# Spawned by: PR #115 (chore(workflow): close 4 stalled active workflows) +
+#             PR #114 (chore(workflow): archive 17 stale active duplicates)
+#
+# AGENTS.md §6.1 requires a named, queued follow-up workflow before the parent
+# workflow closes. These two chore PRs each acknowledged "Docs updated if
+# behavior changed" as deferred; this file is the named follow-up that closes
+# the loop.
+#
+# Action: move this directory from `.copilot/tasks/queued/` to
+# `.copilot/tasks/active/` when the workflow starts; bump
+# `.copilot/meta/next-workflow-id` from 100 → 101 for the actual wf-id used
+# (this queued file may keep its current id for traceability, or be renamed
+# — see 01-doc-scope.md "Workflow ID policy").
+
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260705-doc-100"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-05T01:30:00Z"
+last_updated_at: "2026-07-05T01:30:00Z"
+
+requirement_ref: "DOC-STATE-DRIFT-001"
+requirement_text: |
+  Two chore PRs landed in rapid succession (PR #114 + PR #115) that
+  reorganized `.copilot/tasks/` directories without back-filling the
+  state artifacts that mirror those directories. The user-facing docs
+  (registry.md, workspace-state.md, ISS-<n>.md Resolution blocks) and
+  the ID counter (next-workflow-id) are now stale relative to the on-disk
+  reality.
+
+  This DocWriter workflow back-fills the four drift items so that future
+  agent sessions see a consistent view of:
+   1. `.copilot/issues/registry.md` — issue-to-PR-to-workflow mapping
+   2. `.copilot/context/workspace-state.md` — completed/queued/active summary
+   3. `.copilot/issues/ISS-<n>.md` — Resolution sections for the 17 archived issues
+   4. `.copilot/meta/next-workflow-id` — bump to reflect the 21 workflows closed
+
+  Detailed scope and per-item changes are in `01-doc-scope.md`.
+github_issue_url: ""
+
+branch: ""                       # created at Step 0 when workflow starts
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260705-chore-close-21-active"
+  parent_branch: "chore/close-4-stalled-active-workflows"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-05T01:30:00Z"
+  spawned_by_issue: "DOC-STATE-DRIFT-001"
+  resolution_for_parent: "fix-and-rebase"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments:
+  primary: "doc-writer"
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "DOC-STATE-DRIFT-001"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+artifacts: []
+
+context_refs:
+  - .copilot/issues/registry.md
+  - .copilot/context/workspace-state.md
+  - .copilot/meta/next-workflow-id
+  - .copilot/tasks/archived/
+  - .copilot/tasks/completed/
+  - .copilot/tasks/queued/
+  - .copilot/tasks/active/
+  - .copilot/tasks/queued/wf-20260705-doc-100/01-doc-scope.md
+  - .github/copilot-instructions.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260705-doc-100/NEEDS_REVIEW.md"
