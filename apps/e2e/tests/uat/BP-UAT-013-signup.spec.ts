@@ -202,10 +202,15 @@ test.describe('BP-UAT-013 — happy path', () => {
     await expect(emailInput).toBeVisible({ timeout: 15_000 });
 
     await emailInput.fill(LEAD_NEW);
-    await shot(page, 'step-001-lead-form-pre-submit');
 
+    // Check button enabled BEFORE taking a full-page screenshot. The screenshot
+    // call scrolls the Astro dev-mode page which can trigger an island re-render
+    // that resets form.email state — fill() runs before the button check so
+    // React state propagates before any screenshot-induced re-render.
     const submit = page.getByRole('button', { name: /send me a confirmation/i });
     await expect(submit).toBeEnabled();
+    await shot(page, 'step-001-lead-form-pre-submit');
+
     await submit.click();
 
     const successHeading = page.getByText(/check your inbox/i);
@@ -272,7 +277,9 @@ test.describe('BP-UAT-013 — happy path', () => {
     const emailInput = page.locator('form input[type="email"]');
     await expect(emailInput).toBeVisible({ timeout: 15_000 });
     await emailInput.fill(LEAD_NEW);
-    await page.getByRole('button', { name: /send me a confirmation/i }).click();
+    const idempotentSubmit = page.getByRole('button', { name: /send me a confirmation/i });
+    await expect(idempotentSubmit).toBeEnabled();
+    await idempotentSubmit.click();
 
     await expect(page.getByText(/check your inbox/i)).toBeVisible({ timeout: 15_000 });
     await shot(page, 'step-004-idempotent-lead-resubmit');
@@ -357,8 +364,15 @@ test.describe('BP-UAT-013 — negative scenarios', () => {
     });
 
     await emailInput.fill(LEAD_HONEYPOT);
+    // Wait for React to commit the email value to form state before setting the
+    // hidden honeypot field. setReactInputValue dispatches a change event whose
+    // setForm({...form, honeypot: v}) closure captures the latest React state —
+    // if we don't wait, the closure may see form.email==='' (stale) and reset it,
+    // leaving the button disabled.
+    const honeySubmit = page.getByRole('button', { name: /send me a confirmation/i });
+    await expect(honeySubmit).toBeEnabled({ timeout: 8_000 });
     await setReactInputValue(page, 'input[name="company"]', 'bot-value');
-    await page.getByRole('button', { name: /send me a confirmation/i }).click();
+    await honeySubmit.click();
 
     await expect(page.getByText(/check your inbox/i)).toBeVisible({ timeout: 15_000 });
     await shot(page, 'neg-001-honeypot-silent-discard');
@@ -542,7 +556,7 @@ test.describe('BP-UAT-013 — negative scenarios', () => {
       email?: string;
       display_name?: string | null;
     };
-    expect(previewBody.email).toBe('uat-operator+no-user@aiqadam.test');
+    expect(previewBody.email).toBe('uat-operator+no-user@example.com');
     expect(previewBody.display_name).toBe('UAT Operator (no-user)');
 
     // ── UI: form is in `auth_ready` phase. The welcome heading shows
