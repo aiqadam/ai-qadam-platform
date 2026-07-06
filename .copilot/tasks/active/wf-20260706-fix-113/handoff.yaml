@@ -1,0 +1,60 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260706-fix-113"
+workflow_type: "documentation"
+workflow_version: "1.0"
+
+created_at: "2026-07-06T00:00:00Z"
+last_updated_at: "2026-07-06T00:00:00Z"
+
+requirement_ref: "FR-WORKFLOW-004"
+requirement_text: "uat-runner.md (PR #125) left the pre-FR-004 Playwright-spec-authoring section (old Pre-Flight Checks / Execution / Output File / Gate Status Semantics) appended after the new agent-driven session instructions, directly contradicting them (e.g. line 17 'Does NOT author a Playwright spec' vs line 274 'Create a Playwright spec file'). Removed the leftover section and folded its still-useful Pre-Flight + Gate Status content into the new model. Synced the two thin wrapper files (.github/agents/uat-runner.agent.md, .kilo/agents/uat-runner.md) whose description front-matter still described the old Playwright-spec model."
+github_issue_url: ""
+
+branch: "fix/uat-runner-leftover-spec-instructions"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/126"
+
+current_step: 1
+current_step_name: "documentation-finalize"
+workflow_status: "running"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  documentation-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-06T00:00:00Z"
+    summary: "Removed contradictory leftover pre-FR-004 content from uat-runner.md; synced wrapper descriptions in .github/agents and .kilo/agents."
+
+agent_assignments: {}
+retry_counts: {}
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: false
+context_sync_commits: 0
+
+artifacts:
+  - .copilot/agents/uat-runner.md
+  - .github/agents/uat-runner.agent.md
+  - .kilo/agents/uat-runner.md
+
+context_refs:
+  - docs/04-development/architecture/uat-agent-architecture.md
+  - docs/03-requirements/FR-WORKFLOW-004.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""

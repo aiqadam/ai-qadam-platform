@@ -248,7 +248,7 @@ one or the other in Step 4 triage.]
 
 ## Pre-Flight Checks
 
-Before running any test, verify:
+Before starting a session, verify:
 
 ```bash
 # 1. Docker stack is up and healthy
@@ -263,116 +263,12 @@ curl -sf http://localhost:3000/health > /dev/null || echo "FAIL: api not reachab
 
 # 4. Run seed if script requires it
 # if seed_required: true in the UAT script:
-pnpm uat:seed
+pnpm uat:seed --reset <BP-UAT-NNN>   # or `pnpm uat:seed` if no manifest yet (FR-WORKFLOW-003)
 # If seed exits non-zero: failed-escalate (environment issue, not a test failure).
 ```
 
----
-
-## Execution
-
-Create a Playwright spec file for the UAT script at:
-`apps/e2e/tests/uat/<BP-UAT-NNN>.spec.ts`
-
-### Spec structure rules
-
-- One `test.describe` block per UAT script
-- One `test` per step in `steps[]` + one per scenario in `negative_scenarios[]`
-- After each significant action, call `page.screenshot({ path: ... })`
-- Screenshot path: `apps/e2e/uat-results/<BP-UAT-NNN>/<screenshot_label>.png`
-- Use `expect.soft()` for non-blocking assertions so later steps still run
-  even if an earlier one fails — this gives BusinessAnalyst a full picture
-  of the run rather than stopping at the first failure
-- The final `expect` in each test must be a hard assertion on the exit state
-- Screenshots must be **viewport screenshots** (never `fullPage: true`) so
-  they stay within the image-size limits of VisualReviewer's Read tool
-- After each step's screenshot, run the design-system assertion fixture
-  (`expect.soft` semantics): `await assertDesignSystem(page)` from
-  `apps/e2e/support/assert-design-system.ts` — deterministic token/style
-  checks; see `docs/04-development/testing/visual-testing.md` (Layer 1).
-  If the fixture does not exist yet, note that in the report; do NOT skip
-  the screenshot.
-
-### Screenshot naming
-
-`<BP-UAT-NNN>/<step-NNN>-<screenshot_label>.png`
-
-Example: `BP-UAT-001/step-003-registration-confirmed.png`
-
-### Negative scenario handling
-
-Negative scenarios test that the system correctly rejects or blocks invalid
-actions. Each negative scenario gets its own `test` block. The assertion is
-that the system shows the expected error state — a negative scenario that
-unexpectedly succeeds (no error shown) is a test failure.
-
-### Running the spec
-
-```bash
-BASE_URL=http://localhost:4321 pnpm --filter @aiqadam/e2e exec playwright test \
-  --config apps/e2e/playwright.uat.config.ts \
-  tests/uat/<BP-UAT-NNN>.spec.ts \
-  --reporter=list
-```
-
----
-
-## Output File
-
-**Write to:** `.copilot/tasks/active/<workflow-id>/02-uat-report.md`
-
-Required sections:
-
-```markdown
-## UAT Run Report — <BP-UAT-NNN>
-
-**Script:** docs/02-business-processes/uat/<BP-UAT-NNN>.md
-**Run date:** <ISO date>
-**Environment:** <BASE_URL>
-**Overall verdict:** passed | failed | partial
-
-### Pre-flight
-
-| Check | Result |
-|---|---|
-| Docker stack healthy | PASS / FAIL |
-| Web reachable | PASS / FAIL |
-| API reachable | PASS / FAIL |
-| Seed completed | PASS / FAIL / N/A |
-
-### Step Results
-
-| # | Label | Action | Expected | Actual | Screenshot | Result |
-|---|---|---|---|---|---|---|
-| 1 | sign-in-page-loaded | Navigate to /auth/sign-in | Sign-in form visible | Sign-in form visible | step-001-sign-in-page-loaded.png | PASS |
-
-### Negative Scenario Results
-
-| Scenario | Expected rejection | Actual | Screenshot | Result |
-|---|---|---|---|---|
-| register-without-auth | Redirect to sign-in | Redirected to /auth/sign-in | neg-001-no-auth-redirect.png | PASS |
-
-### Failures Detail
-
-For each FAIL row above — copy the expected and actual state verbatim.
-Include the screenshot path so BusinessAnalyst can inspect visually.
-
-| Step/Scenario | Expected | Actual | Screenshot |
-|---|---|---|---|
-
-### Summary
-
-<one paragraph: how many steps ran, how many passed, how many failed,
-any env issues encountered, confidence in results>
-
-## Gate Result
-
-gate_result:
-  status: passed | failed-retry | failed-escalate
-  summary: "<one sentence>"
-  findings:
-    - "<step label — what failed>"
-```
+(This duplicates the Orchestrator's Step 2 pre-flight in `uat-verification.md`;
+run it here too in case the agent is invoked standalone.)
 
 ---
 
@@ -380,11 +276,9 @@ gate_result:
 
 | Status | When |
 |---|---|
-| `passed` | All steps and negative scenarios ran; results (pass or fail) are recorded. Report is complete for BusinessAnalyst to triage. |
-| `failed-retry` | Spec file has a structural error (syntax, import) that prevents execution. Fix the spec, retry. |
-| `failed-escalate` | Pre-flight failed (Docker down, seed broken, app unreachable). Register env issue. BusinessAnalyst cannot triage without a run. |
+| `passed` | The session completed (all steps + negative scenarios ran, teardown recorded) and results — MATCH, MISMATCH, or PARTIAL — are logged. Report is complete for BusinessAnalyst to triage. A session with some MISMATCH verdicts is still `passed` here; BusinessAnalyst decides what the failures mean. |
+| `failed-retry` | A post-session gate script failed (`uat-navigation-check.sh`, `uat-visual-check.sh`, `uat-teardown-check.sh`) — e.g. an undeclared deep-link, a verdict with no same-step screenshot, or a missing teardown record. Fix and retry (max 2, per `uat-verification.md` Step 3). |
+| `failed-escalate` | Pre-flight failed (Docker down, seed broken, app unreachable) or the session hit a budget ceiling (`max_steps`/`max_screenshots`/`wall_clock`) before completing. Register env issue. BusinessAnalyst cannot triage without a completed run. |
 
-**Note:** `passed` here means the *run completed*, not that all test
-assertions passed. A run where some steps fail is still a `passed` gate —
-BusinessAnalyst decides what the failures mean. Only an incomplete run
-(pre-flight failure, spec crash) is a runner-level gate failure.
+Only an incomplete or gate-failing session is a runner-level gate failure —
+never the content of the visual verdicts themselves.
