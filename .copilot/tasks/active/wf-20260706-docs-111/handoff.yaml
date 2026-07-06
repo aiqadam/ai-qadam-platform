@@ -1,0 +1,66 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260706-docs-111"
+workflow_type: "documentation"
+workflow_version: "1.0"
+
+created_at: "2026-07-06T00:00:00Z"
+last_updated_at: "2026-07-06T00:00:00Z"
+
+requirement_ref: "FR-WORKFLOW-004"
+requirement_text: "Validation fixes to the agent-driven UAT architecture doc and FR-WORKFLOW-004: register the FR in requirements-registry, pin the pilot landing URL, mark to-be-created enforcement scripts, and record the AC-9 human-verification gap."
+github_issue_url: ""
+
+branch: "docs/uat-agent-arch-fr004"
+base_branch: "main"
+github_pr_url: "https://github.com/tvolodi/aiqadam/pull/124"
+
+current_step: 1
+current_step_name: "documentation-finalize"
+workflow_status: "running"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  documentation-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-06T00:00:00Z"
+    summary: "Both docs validated against the repo; four consistency fixes applied (registry rows, landing URL, script status markers, AC-9 gap section)."
+
+agent_assignments: {}
+retry_counts: {}
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+# Documentation-only follow-up: no new FR/ISS row is introduced by an
+# agent-gated step (the registry row for FR-WORKFLOW-004 is part of the
+# hand-authored diff itself), so the Step F.5 context-sync amendment must
+# be a no-op. Per handoff.schema.yaml this is the documented opt-out case.
+expects_registry_update: false
+context_sync_commits: 0
+
+artifacts:
+  - docs/03-requirements/FR-WORKFLOW-004.md
+  - docs/04-development/architecture/uat-agent-architecture.md
+  - docs/03-requirements/requirements-registry.md
+
+context_refs:
+  - docs/04-development/architecture/uat-agent-architecture.md
+  - docs/03-requirements/FR-WORKFLOW-004.md
+  - docs/04-development/testing/visual-testing.md
+  - docs/03-requirements/FR-WORKFLOW-003.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
