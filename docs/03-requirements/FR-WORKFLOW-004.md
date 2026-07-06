@@ -1,7 +1,7 @@
 ---
 code: FR-WORKFLOW-004
 name: Agent-driven UAT — live browser sessions that emulate a human tester
-status: Draft
+status: Implemented
 module: Workflow (WORKFLOW)
 phase: DevEx
 supersedes_execution_model_of:

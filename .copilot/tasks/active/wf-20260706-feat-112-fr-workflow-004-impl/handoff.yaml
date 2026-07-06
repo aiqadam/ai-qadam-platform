@@ -1,0 +1,33 @@
+workflow_id: wf-20260706-feat-112-fr-workflow-004-impl
+workflow_type: requirement-development
+branch: feat/FR-WORKFLOW-004-agent-uat-impl
+base_branch: main
+feature_id: FR-WORKFLOW-004
+feature_path: docs/03-requirements/FR-WORKFLOW-004.md
+created_at: 2026-07-06
+owner: Orchestrator
+
+description: |
+  Implement FR-WORKFLOW-004 — Agent-driven UAT live browser sessions.
+  Predecessors: FR-WORKFLOW-004.md + uat-agent-architecture.md authored by
+  wf-20260706-docs-111 (PR #124). This workflow ships the implementation
+  cluster defined in architecture doc §11 step 1:
+    - apps/e2e/support/uat-session-driver.ts (session driver)
+    - scripts/uat-navigation-check.sh (AC-2 / AC-10a)
+    - scripts/uat-teardown-check.sh (AC-6 / AC-10c)
+    - scripts/uat-visual-check.sh extended (AC-4 / AC-10b, session mode)
+    - .copilot/agents/uat-runner.md rewritten (drive session, not spec)
+    - .copilot/workflows/uat-verification.md Step 3+3.5 rewritten
+    - docs/04-development/testing/visual-testing.md relabeled (regression net)
+    - docs/02-business-processes/uat/BP-UAT-013.md pilot migration
+      (external_hops, expected_ui_state per step, teardown_policy)
+    - docs/03-requirements/FR-WORKFLOW-004.md status Draft → Implemented
+  No product code changes.
+
+acceptance_criteria_refs:
+  - AC-1 through AC-10 in FR-WORKFLOW-004.md
+
+related:
+  - FR-WORKFLOW-003
+  - wf-20260706-docs-111 (PR #124)
+  - ISS-UAT-013-6 (404-vs-410 class — the defect this model catches)

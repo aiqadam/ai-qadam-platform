@@ -29,9 +29,8 @@ corrupt real data.
 | 0.5 | Orchestrator (direct) | — | context drift check; blocking |
 | 1 | BusinessAnalyst | `01-uat-script-validation.md` | validate UAT script completeness |
 | 2 | Orchestrator (direct) | — | pre-flight: stack health + seed |
-| 3 | UATRunner | `02-uat-report.md` | execute UAT script, capture screenshots |
-| 3.5 | VisualReviewer | `02b-visual-review.md` | **open every screenshot**, verify vs expected state + design system |
-| 4 | BusinessAnalyst | `03-uat-triage.md` | triage report **and visual review**, register issues |
+| 3 | UATRunner | `02-uat-report.md` + run-scoped `session-log.md` + teardown | **agent-driven live browser session** (FR-WORKFLOW-004) |
+| 4 | BusinessAnalyst | `03-uat-triage.md` | triage report + visual findings (now embedded in session log) |
 | 5 | Orchestrator | — | update registry, commit, push, PR |
 
 ---
@@ -135,52 +134,57 @@ pnpm uat:seed
 
 ---
 
-### Step 3: Execute UAT Script (UATRunner)
+### Step 3: Drive UAT Session (UATRunner) — FR-WORKFLOW-004
+
+> **Rewritten 2026-07-06 for FR-WORKFLOW-004.** UATRunner no longer authors a
+> Playwright spec. It operates a live browser session—one human action at a
+> time—with visual judgment as the deciding verdict per step. See
+> `docs/04-development/architecture/uat-agent-architecture.md` for the model.
 
 **Inputs:**
-- `docs/02-business-processes/uat/<BP-UAT-NNN>.md`
+- `docs/02-business-processes/uat/<BP-UAT-NNN>.md` (with `external_hops`,
+  per-step `expected_ui_state`, `teardown_policy`, `session_budget` front-matter)
 - `01-uat-script-validation.md`
 
 **Output file:** `02-uat-report.md`
-**Screenshot dir:** `apps/e2e/uat-results/<BP-UAT-NNN>/`
+**Run-scoped evidence dir:** `apps/e2e/uat-results/<BP-UAT-NNN>/<workflow-id>/`
+  - `session-log.md` — ordered perceive/decide/act/judge transcript
+  - `step-NNN-<label>.png` — one viewport screenshot per meaningful action
+  - `teardown.md` — what was removed or retained (required; gate failure if absent)
 
-**Gate:**
-- `passed` (run completed, results recorded) → Step 4
-- `failed-retry` (spec syntax error) → fix spec, retry (max 2)
-- `failed-escalate` (pre-flight re-failed mid-run) → register issue, NEEDS_REVIEW
+**What UATRunner does:**
+1. Creates a `UATSessionDriver` (one persistent browser context for the whole session).
+2. Calls `driver.goto(landingUrl)` — the **only** permitted direct navigation.
+3. Loops through every step and negative scenario in the BP-UAT script:
+   - **Perceive:** `driver.screenshot()` + Read the PNG.
+   - **Decide:** from visible content, choose the next human action.
+   - **Act:** `driver.click()` / `driver.fill()` / `driver.check()` / `driver.externalHop()`.
+   - **Judge:** `driver.screenshot()` + Read; compare vs `expected_ui_state`; call `driver.logStep()` with full proof-of-look fields and verdict.
+4. Calls `driver.writeTeardown()` + `driver.close()`.
+5. Writes `02-uat-report.md`.
 
----
-
-### Step 3.5: Visual Review (VisualReviewer)
-
-Agent definition: `.copilot/agents/visual-reviewer.md`. Strategy rationale:
-`docs/04-development/testing/visual-testing.md`.
-
-**Inputs:**
-- `docs/02-business-processes/uat/<BP-UAT-NNN>.md` (expected_ui_state per step)
-- `02-uat-report.md` (step → screenshot mapping)
-- `apps/e2e/uat-results/<BP-UAT-NNN>/*.png` — **each PNG must be opened with
-  the Read tool**; the runtime renders images natively
-- `docs/04-development/design-system/Design system for AI agents/readme.md`
-
-**Output file:** `02b-visual-review.md` — one proof-of-look entry per PNG.
-
-**Mechanical enforcement (Orchestrator runs after the agent returns):**
+**Post-session gate (Orchestrator runs immediately after UATRunner returns):**
 
 ```bash
-bash scripts/uat-visual-check.sh <BP-UAT-NNN> \
-  .copilot/tasks/active/<workflow-id>/02b-visual-review.md
+# AC-10a: no undeclared deep-links in the action trace
+bash scripts/uat-navigation-check.sh \
+  apps/e2e/uat-results/<BP>/<workflow-id>/session-log.md \
+  docs/02-business-processes/uat/<BP-UAT-NNN>.md
+
+# AC-10b: screenshots present + all proof-of-look fields per verdict block
+bash scripts/uat-visual-check.sh --session-mode <BP> <workflow-id> \
+  apps/e2e/uat-results/<BP>/<workflow-id>/session-log.md
+
+# AC-10c: teardown.md present and names at least one state item
+bash scripts/uat-teardown-check.sh <BP> <workflow-id>
 ```
 
-Non-zero exit overrides the agent's self-reported gate to `failed-retry` —
-an agent cannot pass this step by claiming inability to view images or by
-reviewing a subset of screenshots.
+All three scripts exit 0 = proceed to Step 4.
 
 **Gate:**
-- `passed` (all screenshots reviewed; findings recorded) → Step 4
-- `failed-retry` (unreadable screenshot → re-run Step 3 capture; incomplete
-  review → redo review) — max 2
-- `failed-escalate` (screenshot dir missing/empty) → register issue, NEEDS_REVIEW
+- `passed` (session completed + all 3 enforcement scripts exit 0) → Step 4
+- `failed-retry` (enforcement script fails: undeclared deep-link, missing proof-of-look field, absent teardown) → fix and re-run session, max 2
+- `failed-escalate` (pre-flight re-failed mid-session; stack went unhealthy) → register env issue, NEEDS_REVIEW
 
 ---
 
@@ -188,11 +192,19 @@ reviewing a subset of screenshots.
 
 **Inputs:**
 - `02-uat-report.md`
-- `02b-visual-review.md` — visual findings are triaged with the same
-  weight as DOM-assertion failures; a step can PASS its DOM assertion and
-  still produce a UI-bug issue from a visual MISMATCH or design-system FAIL
+- `apps/e2e/uat-results/<BP-UAT-NNN>/<workflow-id>/session-log.md` (visual
+  findings embedded per-step; visual verdicts carry the same weight as
+  DOM-assertion failures. A step can PASS its DOM assertion and still produce
+  a UI-bug issue from a visual `MISMATCH`.)
 - `docs/02-business-processes/uat/registry.md`
 - `.copilot/issues/registry.md` (to get next ISS number)
+
+**AC-9 requirement (FR-WORKFLOW-004):** The triage MUST include an explicit
+statement of either:
+(a) the specific step + session-log entry where visual judgment caught something
+    a DOM assertion would have gotten wrong, OR
+(b) "No visual-vs-DOM divergence observed this run."
+A triage silent on AC-9 is incomplete.
 
 **Output file:** `03-uat-triage.md`
 
@@ -214,10 +226,11 @@ Update `docs/02-business-processes/uat/registry.md`:
 ### Step 5: Commit, Push, Create PR (Orchestrator, direct)
 
 Stage and commit:
-- All task artifacts (`01-uat-script-validation.md`, `02-uat-report.md`, `02b-visual-review.md`, `03-uat-triage.md`, `handoff.yaml`)
+- All task artifacts (`01-uat-script-validation.md`, `02-uat-report.md`, `03-uat-triage.md`, `handoff.yaml`)
 - Updated `docs/02-business-processes/uat/registry.md`
 - Updated `.copilot/issues/registry.md` + any new `ISS-<n>.md` files
-- Screenshot directory `apps/e2e/uat-results/<BP-UAT-NNN>/`
+- Run-scoped evidence directory `apps/e2e/uat-results/<BP-UAT-NNN>/<workflow-id>/`
+  (includes `session-log.md`, step screenshots, `teardown.md`)
 - Updated `apps/e2e/tests/uat/<BP-UAT-NNN>.spec.ts`
 
 Delegate to `scripts/workflow-finish.sh` per the **Workflow-Finish Protocol**
@@ -226,9 +239,10 @@ in `.copilot/schemas/protocol.md`.
 **Pre-push gate checks:**
 ```bash
 test -f 03-uat-triage.md && grep -q "status: passed" 03-uat-triage.md
-# Visual review must exist and be complete — re-run the mechanical check:
-bash scripts/uat-visual-check.sh <BP-UAT-NNN> \
-  .copilot/tasks/active/<workflow-id>/02b-visual-review.md
+# Post-session enforcement scripts must have been run (Orchestrator records results in 02-uat-report.md):
+grep -q 'Navigation check.*PASS' 02-uat-report.md
+grep -q 'Visual evidence check.*PASS' 02-uat-report.md
+grep -q 'Teardown check.*PASS' 02-uat-report.md
 ```
 (Security review and test results gates do not apply to UAT verification —
 this workflow has no code changes.)

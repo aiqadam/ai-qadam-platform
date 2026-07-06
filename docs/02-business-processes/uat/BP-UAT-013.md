@@ -6,6 +6,22 @@ process_ref: "docs/03-requirements/FR-USR-001.md"
 environment: "http://localhost:4321"
 seed_required: true
 last_run: "2026-07-02"
+# FR-WORKFLOW-004 pilot fields (added 2026-07-06)
+external_hops:
+  - url: "http://localhost:8025"
+    justification: "Mailpit mail catcher is on a different origin. Steps 002 and 003 require opening it to read the verification email sent to uat-lead-new@... — there is no UI path on the main app to reach the inbox."
+    steps: ["002", "003"]
+session_budget:
+  max_steps: 40
+  max_screenshots: 60
+  wall_clock_minutes: 20
+teardown_policy:
+  action: clean-up
+  removes:
+    - item: "lead row for uat-lead-new@... (created by Step 001)"
+      how: "DELETE via Directus admin or API; or pnpm uat:seed --reset BP-UAT-013 which resets operator_invites only — lead row must be deleted separately via the Directus items API"
+    - item: "operator_invites rows (consumed state from Step 006)"
+      how: "pnpm uat:seed --reset BP-UAT-013 — restores all 4 rows to their declared initial state"
 ---
 
 # BP-UAT-013 — Member Signup and Operator Onboarding
@@ -51,10 +67,10 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 | `id` | Fixture | Email | `display_name` | Description |
 |---|---|---|---|---|
-| `uat-onboard-token` | `uat-onboard-token` | `uat-operator@aiqadam.test` | `UAT Operator (valid)` | A valid, unused operator invite token. Exposed as `UAT_ONBOARD_TOKEN` in `.env.test`. |
-| `uat-onboard-used-token` | `uat-onboard-used-token` | `uat-operator@aiqadam.test` | `UAT Operator (used)` | An operator invite token that has already been accepted (`used_at` is set). Exposed as `UAT_ONBOARD_USED_TOKEN`. |
-| `uat-onboard-expired-token` | `uat-onboard-expired-token` | `uat-operator@aiqadam.test` | `UAT Operator (expired)` | An operator invite token with `expires_at` in the past. Exposed as `UAT_ONBOARD_EXPIRED_TOKEN`. |
-| `uat-onboard-no-user-token` | `uat-onboard-no-user-token` | `uat-operator+no-user@aiqadam.test` | `UAT Operator (no-user)` | An operator invite row whose email has no matching Authentik user; exercises the api's `invite_missing_authentik_user` (409) error path. Exposed as `UAT_ONBOARD_NO_USER_TOKEN`. |
+| `uat-onboard-token` | `uat-onboard-token` | `uat-operator@example.com` | `UAT Operator (valid)` | A valid, unused operator invite token. Exposed as `UAT_ONBOARD_TOKEN` in `.env.test`. |
+| `uat-onboard-used-token` | `uat-onboard-used-token` | `uat-operator@example.com` | `UAT Operator (used)` | An operator invite token that has already been accepted (`used_at` is set). Exposed as `UAT_ONBOARD_USED_TOKEN`. |
+| `uat-onboard-expired-token` | `uat-onboard-expired-token` | `uat-operator@example.com` | `UAT Operator (expired)` | An operator invite token with `expires_at` in the past. Exposed as `UAT_ONBOARD_EXPIRED_TOKEN`. |
+| `uat-onboard-no-user-token` | `uat-onboard-no-user-token` | `uat-operator+no-user@example.com` | `UAT Operator (no-user)` | An operator invite row whose email has no matching Authentik user; exercises the api's `invite_missing_authentik_user` (409) error path. Exposed as `UAT_ONBOARD_NO_USER_TOKEN`. |
 | `—` | Mail catcher | — | — | Local mail-catcher (e.g., Mailpit at `http://localhost:8025`) is running to capture outbound emails. |
 
 ## Steps

@@ -105,7 +105,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 61 | [FR-AUTH-007](FR-AUTH-007.md) | Linked identity surface | Planned | AUTH-002, AUTH-003, AUTH-005 |
 | 62 | [FR-WORKFLOW-001](FR-WORKFLOW-001.md) | Context drift guard for the agentic workflow layer | Shipped | — |
 | 63 | [FR-WORKFLOW-003](FR-WORKFLOW-003.md) | UAT fixture state reset — order-independent, re-entrant UAT runs | Shipped | WORKFLOW-002 (UAT infra, shipped) |
-| 64 | [FR-WORKFLOW-004](FR-WORKFLOW-004.md) | Agent-driven UAT — live browser sessions that emulate a human tester | Draft | WORKFLOW-003 (fixture reset — precondition) |
+| 64 | [FR-WORKFLOW-004](FR-WORKFLOW-004.md) | Agent-driven UAT — live browser sessions that emulate a human tester | Implemented | WORKFLOW-003 (fixture reset — precondition) |
 
 > **Note on CMS-004 / CMS-005:** both shipped in V1 against the existing `tg.dispatch.v1` notifier infrastructure (ADR-0034), not the planned aiogram bot (BOT-001). Their position above reflects this — they are independent of the BOT track.
 

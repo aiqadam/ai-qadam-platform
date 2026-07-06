@@ -1,10 +1,36 @@
 # Visual Testing Strategy — Human-less UAT with Visual Analysis
 
-**Status:** Accepted (2026-07-02)
+**Status:** Accepted (2026-07-02) — updated 2026-07-06 for FR-WORKFLOW-004
 **Owner:** senior technical officer
 **Implements:** FR-UAT-VISUAL-001 (workflow wf-20260702-feat-056)
 **Related:** `.copilot/workflows/uat-verification.md`,
-`.copilot/agents/visual-reviewer.md`, `scripts/uat-visual-check.sh`
+`.copilot/agents/visual-reviewer.md`, `scripts/uat-visual-check.sh`,
+`docs/04-development/architecture/uat-agent-architecture.md`
+
+---
+
+## FR-WORKFLOW-004 update (2026-07-06) — The Regression Net
+
+**FR-WORKFLOW-004 redefines "UAT" as agent-driven live browser sessions** where
+vision is the in-session, deciding verdict per step — not a downstream pass.
+This doc's Layer 1a/1b (Playwright pixel-diff + assertDesignSystem) and Layer 2
+(VisualReviewer) are re-homed in the division below. No spec assertions are
+deleted (AC-8).
+
+| Layer | New home | Runs when |
+|---|---|---|
+| 1a — `toHaveScreenshot` pixel-diff baselines | **Regression net** | per-PR / nightly, deterministic |
+| 1b — `assertDesignSystem` computed-style walk | **Regression net** | per-PR / nightly, deterministic |
+| 2 — VisualReviewer (LLM vision, post-run) | **Dissolved into the in-session Judge** — vision during the run, not after | every agent UAT session |
+| 3 — `uat-visual-check.sh` | **Kept + extended** (session mode, AC-10b) | every agent UAT session |
+
+**Regression net answers:** "did anything change vs. the approved baseline?"
+**Agent UAT answers:** "does a human's journey through this actually work and look right?"
+Neither replaces the other; they are complementary.
+
+The word "UAT" in workflow docs, agent definitions, and registries now refers
+only to the agent-driven session model (FR-WORKFLOW-004). The Playwright
+regression suite is referred to as the **regression net**.
 
 ---
 

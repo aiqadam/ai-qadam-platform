@@ -1,6 +1,6 @@
 # Agent-Driven UAT — Architecture
 
-**Status:** Draft (2026-07-06)
+**Status:** Accepted (2026-07-06)
 **Implements:** [FR-WORKFLOW-004](../../03-requirements/FR-WORKFLOW-004.md)
 **Supersedes execution model of:** `.copilot/agents/uat-runner.md`,
 `.copilot/workflows/uat-verification.md` (Step 3 / Step 3.5)

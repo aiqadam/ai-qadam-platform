@@ -10,5 +10,5 @@
     "types": ["node", "@playwright/test"],
     "noEmit": true
   },
-  "include": ["tests/**/*", "playwright.config.ts", "playwright.parity.config.ts"]
+  "include": ["tests/**/*", "support/**/*", "playwright.config.ts", "playwright.parity.config.ts"]
 }
