@@ -2,7 +2,7 @@
 
 **Severity:** minor
 **Module:** uat/seed
-**Status:** open
+**Status:** resolved
 **Date:** 2026-07-06
 **Discovered by:** wf-20260706-uat-114-bp-uat-013 (BP-UAT-013 Step 4 — BusinessAnalyst triage)
 
