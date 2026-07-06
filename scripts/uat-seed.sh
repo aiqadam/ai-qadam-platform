@@ -774,6 +774,13 @@ reset_domain_fixture() {
       return
     fi
     ok "fixture ${id} (mock, delete collection=${collection} lookup=${lookup_field}=${lookup_value})"
+    # ISS-UAT-013-17: emit authentik_user_id lookup signal for operator_invites
+    # so bats regression can assert the reset path performs the lookup (AC-3).
+    if [[ "$collection" == "operator_invites" ]]; then
+      local payload_email_mock
+      payload_email_mock=$(jq -r '.payload.email // empty' <<<"$fixture_json")
+      ok "fixture ${id} (mock, authentik_user_id lookup email=${payload_email_mock})"
+    fi
     ok "fixture ${id} (mock, create collection=${collection})"
     return
   fi
@@ -822,6 +829,24 @@ reset_domain_fixture() {
         --arg tp "$token_prefix" \
         '. + {token_hash:$th, token_prefix:$tp}' \
         <<<"$resolved_payload")
+      # ISS-UAT-013-17: look up Authentik user pk by email and merge as
+      # authentik_user_id. Mirrors ensure_operator_invite()'s pattern (line ~537).
+      # Empty result is allowed — the no-user fixture row intentionally has no
+      # matching Authentik user, exercising the api's invite_missing_authentik_user
+      # error path.
+      local payload_email_reset ak_url_reset ak_token_reset ak_user_pk_reset
+      payload_email_reset=$(jq -r '.email // empty' <<<"$resolved_payload")
+      ak_url_reset="${AK_URL:-http://localhost:9000}"
+      ak_token_reset="${AK_TOKEN:-}"
+      ak_user_pk_reset=""
+      if [[ -n "$ak_token_reset" && -n "$payload_email_reset" ]]; then
+        ak_user_pk_reset=$(user_pk_by_email "$ak_url_reset" "$ak_token_reset" "$payload_email_reset" 2>/dev/null || true)
+      fi
+      if [[ -n "$ak_user_pk_reset" ]]; then
+        resolved_payload=$(jq -c --argjson ak "$ak_user_pk_reset" \
+          '. + {authentik_user_id: $ak}' <<<"$resolved_payload")
+        info "fixture ${id}: authentik_user_id=${ak_user_pk_reset} for email=${payload_email_reset}"
+      fi
     else
       fail "reset_domain_fixture ${id}: collection=operator_invites but manifest has no .token_plain — cannot derive token_hash. Update scripts/uat-fixtures/<bp-uat>.json to declare token_plain per fixture."
     fi

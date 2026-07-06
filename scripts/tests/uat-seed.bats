@@ -973,3 +973,44 @@ manifest_sha256() {
   [ "$(echo "$distinct_lookup_fields" | wc -l)" -eq 1 ]
   [ "$distinct_lookup_fields" = "token_hash" ]
 }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ISS-UAT-013-17 — reset_domain_fixture() must look up and merge
+# authentik_user_id for operator_invites rows (wf-20260706-fix-115).
+# After the fix, --reset BP-UAT-013 calls user_pk_by_email() per fixture
+# and includes the resolved pk in the Directus POST payload so
+# consumeInvite() never sees authentik_user_id=null.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@test "ISS-UAT-013-17 AC-3: --reset BP-UAT-013 mock mode emits authentik_user_id lookup line for every operator_invites fixture" {
+  # AC-3: the mock output must contain one 'authentik_user_id lookup email=...'
+  # line per fixture (4 total) so a future refactor that drops the lookup
+  # step is caught. Each line format:
+  #   fixture <id> (mock, authentik_user_id lookup email=<email>)
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-013 2>&1'
+  [ "$status" -eq 0 ]
+  local count
+  count=$(echo "$output" | grep -cE 'fixture .* \(mock, authentik_user_id lookup email=' || true)
+  [ "$count" -eq 4 ]
+}
+
+@test "ISS-UAT-013-17 AC-3: lookup lines carry the correct email per fixture" {
+  # Strengthens the count test: the 3 valid-invite fixtures all share
+  # uat-operator@example.com; the no-user fixture is plus-addressed.
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-013 2>&1'
+  [ "$status" -eq 0 ]
+  local bare plus
+  bare=$(echo "$output" | grep -cE 'authentik_user_id lookup email=uat-operator@example\.com' || true)
+  plus=$(echo "$output" | grep -cE 'authentik_user_id lookup email=uat-operator[+]no-user@example\.com' || true)
+  [ "$bare" -eq 3 ]
+  [ "$plus" -eq 1 ]
+}
+
+@test "ISS-UAT-013-17 AC-3: user_pk_by_email structural presence in operator_invites reset block" {
+  # Structural regression: reset_domain_fixture() must contain a call to
+  # user_pk_by_email inside a collection=operator_invites guard so the
+  # live path actually performs the lookup. Guards against a refactor that
+  # keeps the mock signal but drops the live call.
+  grep -qE 'user_pk_by_email' "$REPO_ROOT/scripts/uat-seed.sh"
+  grep -qE 'authentik_user_id.*ak_user_pk_reset|ak_user_pk_reset.*authentik_user_id' "$REPO_ROOT/scripts/uat-seed.sh"
+}
