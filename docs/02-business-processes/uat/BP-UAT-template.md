@@ -6,6 +6,39 @@ process_ref: "docs/02-business-processes/operations/<runbook>.md"
 environment: "http://localhost:4321"
 seed_required: true    # true | false
 last_run: ""           # ISO date, filled by BusinessAnalyst after each run
+# FR-WORKFLOW-004 fields — required for every script migrated to the
+# agent-driven session model (see docs/04-development/architecture/
+# uat-agent-architecture.md). Omit only for scripts not yet migrated.
+external_hops:
+  # Every URL the session reaches by means OTHER than the single initial
+  # landing-page goto() or a click on visible UI must be declared here with
+  # a justification and the step/negative-scenario ids it covers. Typical
+  # cases: a mail catcher on a different origin, a link that arrives by
+  # email, a link a human hands the actor out-of-band (e.g. an admin-panel
+  # copy-paste that the product never emails). An UNDECLARED mid-session
+  # deep-link is a protocol violation (FR-WORKFLOW-004 AC-2) and fails the
+  # session gate — see uat-navigation-check.sh.
+  - url: "<url or url pattern>"
+    justification: "<why the UI cannot reach this by clicking>"
+    steps: ["<step-or-negative-id>", "..."]
+session_budget:
+  # Runaway-session guard-rails, not tuned numbers — override per script only
+  # if the v1 defaults (FR-WORKFLOW-004 §12.4) are clearly too small.
+  max_steps: 40
+  max_screenshots: 60
+  wall_clock_minutes: 20
+teardown_policy:
+  # Every session ends with an explicit clean-up or hand-off decision
+  # (FR-WORKFLOW-004 AC-6). A script with no teardown_policy fails BusinessAnalyst
+  # Step 1 validation.
+  action: clean-up       # clean-up | hand-off
+  removes:                # required when action: clean-up
+    - item: "<what this session's run creates or consumes>"
+      how: "<UI path if one exists, otherwise the seed/admin path used>"
+  # hands_off_to: "<downstream BP-UAT-NNN>"   # required when action: hand-off
+  # leaves:
+  #   - item: "<named state left behind>"
+  #     why: "<which downstream script consumes it>"
 ---
 
 # BP-UAT-NNN — <Process Name>
@@ -44,8 +77,24 @@ gain this same `id` column, positioned first.
 
 ## Steps
 
-Each step maps to one Playwright `test` block. `screenshot_label` becomes the
-filename: `apps/e2e/uat-results/BP-UAT-NNN/step-NNN-<label>.png`.
+Each step is one turn of the agent's perceive → decide → act → judge loop
+(FR-WORKFLOW-004 / `docs/04-development/architecture/uat-agent-architecture.md`
+§3) run in a single continuous browser session — **not** a Playwright `test`
+block per step. `screenshot_label` becomes the filename:
+`apps/e2e/uat-results/BP-UAT-NNN/<run-id>/step-NNN-<label>.png`.
+
+**Navigation:** exactly one `Navigate to <URL>` action is permitted for the
+whole session — the initial landing-page visit, normally Step 001. Every other
+"reach a new URL" action must be either (a) a UI action (click a visible link
+or button) or (b) a **declared external hop** listed in front-matter
+`external_hops` with a named justification. An undeclared mid-session
+deep-link fails the session gate (AC-2) — do not write a step whose Action is
+"Navigate to `<deep link>`" unless that URL is in `external_hops`.
+
+**Expected UI state:** write this as the literal judgment target the agent's
+Judge step compares the rendered screen against — name the specific banner
+text, heading, or element that must be visible, not a vague "success message
+appears (or equivalent)". Looseness here becomes an unreliable visual verdict.
 
 ### Step 001 — <Label>
 
@@ -53,9 +102,9 @@ filename: `apps/e2e/uat-results/BP-UAT-NNN/step-NNN-<label>.png`.
 
 **Precondition:** User is not signed in.
 
-**Action:** Navigate to `<path>`.
+**Action:** Navigate to `<landing-page-path>` — the session's one permitted direct navigation. (For any later step reaching a new URL: describe the UI action — "click the `<Label>` link/button" — or mark it a declared external hop per front-matter.)
 
-**Expected UI state:** `<what should be visible/readable on screen>`
+**Expected UI state:** `<the exact heading/banner/element text that must be visible — this is the Judge's comparison target, not a loose description>`
 
 **Screenshot label:** `step-001-<kebab-label>`
 
@@ -79,8 +128,9 @@ filename: `apps/e2e/uat-results/BP-UAT-NNN/step-NNN-<label>.png`.
 
 ## Negative Scenarios
 
-Each negative scenario gets its own Playwright `test` block. Screenshots go to
-`apps/e2e/uat-results/BP-UAT-NNN/neg-NNN-<label>.png`.
+Each negative scenario is judged in the same continuous session as the steps
+above — not a separate Playwright `test` block. Screenshots go to
+`apps/e2e/uat-results/BP-UAT-NNN/<run-id>/neg-NNN-<label>.png`.
 
 ### Negative 001 — <Label>
 
@@ -100,24 +150,29 @@ Each negative scenario gets its own Playwright `test` block. Screenshots go to
 
 ### Negative-scenario assertion rule (mandatory)
 
-**Negative scenarios must assert the API contract, not just the UI.**
+**The visual verdict is still the deciding judgment (FR-WORKFLOW-004 §3.4) —
+but negative scenarios additionally require an API-level corroboration.**
 When the user-facing component falls back to a generic error panel on
-**any** non-OK response (as `OnboardingForm` does with `<GonePanel>`),
-a UI-only assertion can be visually satisfied by a misconfigured proxy
-returning 404. Without an API-level assertion, the test silently passes
-against the wrong service.
-
-Always include, alongside any UI assertion for a negative scenario:
+**any** non-OK response (as `OnboardingForm` does with `<GonePanel>`), a
+visual MATCH alone is not sufficient evidence: a misconfigured proxy
+returning 404 renders identically to the real rejection (ISS-UAT-013-6).
+State explicitly, in the scenario's **Expected rejection** field, which API
+call and status code corroborates the visual verdict — record both in the
+step's logged verdict (`corroborating_evidence` field, per
+`uat-agent-architecture.md` §3.4).
 
 ```typescript
-// API-level disambiguation — the UI alone cannot distinguish a real
-// rejection from a coincidental 404. Do NOT remove.
-const apiRes = await page.request.get('<expected-call>');
-expect(apiRes.status(), '<why this status is the contract>').toBe(<expected>);
+// API-level corroboration — the rendered screen alone cannot distinguish a
+// real rejection from a coincidental 404. Record the result in the verdict's
+// corroborating_evidence field; do NOT let it silently substitute for the
+// visual comparison, and do NOT omit it for this class of negative scenario.
+const apiRes = await driver.page.request.get('<expected-call>');
+// apiRes.status() must equal <expected> — a mismatch here with a
+// visually-MATCHing screen is itself a finding worth logging.
 ```
 
-UI assertions are still useful for human-readable failure messages and
-screenshot evidence — but the API assertion is the source of truth.
+The screenshot and visual verdict remain the decision; the API check is
+what makes that decision trustworthy for this specific defect class.
 
 Additionally, **vacuous UI assertions are forbidden.** A test that only
 checks "no success panel" passes whether the action was rejected or

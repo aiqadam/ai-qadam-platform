@@ -6,11 +6,14 @@ process_ref: "docs/03-requirements/FR-USR-001.md"
 environment: "http://localhost:4321"
 seed_required: true
 last_run: "2026-07-02"
-# FR-WORKFLOW-004 pilot fields (added 2026-07-06)
+# FR-WORKFLOW-004 pilot fields (added 2026-07-06; extended 2026-07-06)
 external_hops:
   - url: "http://localhost:8025"
     justification: "Mailpit mail catcher is on a different origin. Steps 002 and 003 require opening it to read the verification email sent to uat-lead-new@... — there is no UI path on the main app to reach the inbox."
     steps: ["002", "003"]
+  - url: "http://localhost:4321/onboard?token=..."
+    justification: "Operator invite links are not emailed by the product (FR-ADM-005 §3: a Super Admin generates a one-time invite_url in the admin UI and hands it to the operator out-of-band — Slack, in person, etc.). There is no UI path on the main app that leads to /onboard?token=...; a real operator always arrives at this URL from outside the app, the same way a person pastes a link a colleague sent them. This hop covers Steps 005, 006 and Negatives 002, 003, 005."
+    steps: ["005", "006", "neg-002", "neg-003", "neg-005"]
 session_budget:
   max_steps: 40
   max_screenshots: 60
@@ -75,15 +78,24 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 ## Steps
 
+Per FR-WORKFLOW-004 §1/§4.2: exactly one `Navigate to <URL>` action is the
+plain landing-page visit (Step 001, using the session's single permitted
+`goto()`). Every other `Navigate to <URL>` action in this script is a
+**declared external hop** from the front-matter `external_hops` table — either
+opening the mail catcher on its own origin (Steps 002, 004) or arriving at an
+onboarding link the way a real operator would, pasted from outside the app
+(Steps 005/006, Negatives 002/003/005). None of these are the forbidden
+mid-session deep-link shortcut; each is named and justified in the front-matter.
+
 ### Step 001 — Submit lead capture form on homepage
 
 **AC ref:** AC-1
 
 **Precondition:** User is not signed in. Mail catcher is running.
 
-**Action:** Navigate to `http://localhost:4321`. Locate the lead capture form (embedded on the homepage). Fill **Email** with `uat-lead-new@aiqadam.test`. Click **Submit** (or equivalent CTA).
+**Action:** Navigate to `http://localhost:4321` — the session's one permitted direct navigation (the landing page). Locate the lead capture form embedded on the homepage. Fill the **Email** field with `uat-lead-new@aiqadam.test`. Click the **Submit** button.
 
-**Expected UI state:** Success message appears ("Check your inbox" or equivalent). No error banner. The form is cleared or shows a success state.
+**Expected UI state:** A success banner reading "Check your inbox" (or the exact copy currently shipped — record the literal rendered text in the visual verdict) appears. No error banner is visible. The form is either cleared or replaced by the success state.
 
 **Screenshot label:** `step-001-lead-form-submitted`
 
@@ -107,11 +119,11 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 **AC ref:** AC-2
 
-**Precondition:** Step 002 completed. Verification link extracted from the email.
+**Precondition:** Step 002 completed. Verification link visible in the opened email (Step 002's screen).
 
-**Action:** Click the verification link from the email (or navigate to the URL directly).
+**Action:** Click the verification link inside the opened email in the mail-catcher UI. Do NOT construct or navigate to the URL directly — the link must be clicked from the rendered email body, the way the lead actually receives and uses it.
 
-**Expected UI state:** Browser lands at `http://localhost:4321/leads/verified`. Page shows a success confirmation ("Your email is verified" or equivalent). No error.
+**Expected UI state:** Browser lands at `http://localhost:4321/leads/verified`. Page shows the heading "Your email is verified" (or the exact copy currently shipped — record the literal rendered text in the visual verdict). No error banner is visible.
 
 **Screenshot label:** `step-003-lead-verified`
 
@@ -121,25 +133,25 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 **AC ref:** AC-3
 
-**Precondition:** Step 001 completed. `uat-lead-new@aiqadam.test` is already in the system.
+**Precondition:** Step 003 completed. `uat-lead-new@aiqadam.test` is already in the system. Browser is on `/leads/verified` (Step 003's landing screen).
 
-**Action:** Navigate back to `http://localhost:4321`. Submit the lead form again with the same email `uat-lead-new@aiqadam.test`.
+**Action:** Click the site logo or a "Home"/brand-link in the header to return to `http://localhost:4321` — do NOT call a second `goto()`; the one-goto rule (FR-WORKFLOW-004 §1) permits exactly one direct navigation for the whole session, already used in Step 001. Submit the lead form again with the same email `uat-lead-new@aiqadam.test`.
 
-**Expected UI state:** Success message appears (same as Step 001 — the API returns 202 idempotently). Navigate to mail catcher — only one verify email exists for this address (no second email sent).
+**Expected UI state:** The same success message from Step 001 appears (the API returns 202 idempotently). Return to the mail-catcher UI (declared external hop, same as Step 002) — only one verify email exists for this address; no second email has arrived.
 
 **Screenshot label:** `step-004-idempotent-lead-resubmit`
 
 ---
 
-### Step 005 — Open operator onboarding link
+### Step 005 — Open operator onboarding link (declared external hop)
 
 **AC ref:** AC-5
 
 **Precondition:** `UAT_ONBOARD_TOKEN` is set. User is not signed in.
 
-**Action:** Navigate to `http://localhost:4321/onboard?token=<UAT_ONBOARD_TOKEN>`.
+**Action:** This is a **declared external hop** (see front-matter `external_hops`), not a mid-session deep-link shortcut: a real operator receives `http://localhost:4321/onboard?token=<UAT_ONBOARD_TOKEN>` from a Super Admin out-of-band (copy-pasted from the admin's one-time invite panel per FR-ADM-005 — the product has no email-delivery path for this URL). Navigate directly to it, the way the operator would paste the link into their browser.
 
-**Expected UI state:** Onboarding page loads. Invite details are visible (invitee email, invited-by name, role). A form to set password and accept AUP is present. A **Set password and accept** button (or equivalent) is visible. All three invite rows point to the seeded `uat-operator@aiqadam.test` Authentik user; rows are distinguished by token + `display_name` ("UAT Operator (valid/used/expired)").
+**Expected UI state:** Onboarding page loads. Invite details are visible: invitee email, invited-by name, role. A password field, an AUP-acceptance checkbox, and a **Set password and accept** button are all visible and enabled. The three happy-path invite rows (valid/used/expired) all resolve to the same seeded `uat-operator@aiqadam.test` Authentik user; this row's `display_name` reads "UAT Operator (valid)".
 
 **Screenshot label:** `step-005-onboard-page`
 
@@ -149,11 +161,11 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 **AC ref:** AC-5
 
-**Precondition:** Step 005 completed. The api will find the matching Authentik user (`uat-operator@aiqadam.test`) for the invite row — Step 006 should now succeed end-to-end.
+**Precondition:** Step 005 completed; browser is still on the onboarding form from Step 005 (same continuous session — no navigation needed to reach this step). The api will find the matching Authentik user (`uat-operator@aiqadam.test`) for the invite row.
 
-**Action:** Fill **Password** with `UAT_ONBOARD_PASSWORD` (a valid password meeting Authentik's policy). Check the AUP acceptance checkbox. Click **Set password and accept**.
+**Action:** Fill the **Password** field with `UAT_ONBOARD_PASSWORD` (a valid password meeting Authentik's policy). Check the AUP-acceptance checkbox. Click **Set password and accept**.
 
-**Expected UI state:** Onboarding completes successfully. Browser redirects to `/me` or a welcome page. The invite token is now marked as used.
+**Expected UI state:** A terminal success panel renders (the "✓ Your AI Qadam mailbox is ready" state, or the exact copy currently shipped — record the literal rendered text in the visual verdict) OR the browser redirects to `/me`. Record which of the two actually happens; both count as MATCH for AC-5 but the verdict reasoning must name which one occurred, since a divergence here is itself worth noting. The onboarding form is no longer mounted. The invite token is now marked as used (corroborate via `operator_invites.used_at` if inspectable; this corroboration is optional evidence, not the verdict).
 
 **Screenshot label:** `step-006-onboard-completed`
 
@@ -181,9 +193,11 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 **Precondition:** `UAT_ONBOARD_USED_TOKEN` is an already-accepted token.
 
-**Action:** Navigate to `http://localhost:4321/onboard?token=<UAT_ONBOARD_USED_TOKEN>`.
+**Action:** Declared external hop (same class as Step 005 — a used-invite link an operator might revisit or retry after a failed attempt): navigate directly to `http://localhost:4321/onboard?token=<UAT_ONBOARD_USED_TOKEN>`.
 
-**Expected rejection:** Page shows a 410 Gone error ("This invitation has already been used" or equivalent). The onboarding form is NOT shown.
+**Expected rejection:** Page shows a 410 Gone error. The rendered copy is the literal "This link can't be used" GonePanel text (record it verbatim in the visual verdict). The onboarding form (password field, AUP checkbox) is NOT mounted anywhere on screen.
+
+**UI-only assertion is insufficient (see BP-UAT-template.md "Negative-scenario assertion rule"):** `OnboardingForm`'s `GonePanel` renders identically on **any** non-OK API response, not just 410 — a misconfigured proxy returning 404 would look the same on screen (ISS-UAT-013-6). The visual verdict alone is not sufficient evidence for this scenario; corroborate with the API-level response code (`GET /api/v1/onboard/preview` must return exactly `410`) as supporting evidence recorded alongside the visual verdict.
 
 **Screenshot label:** `neg-002-used-token-410`
 
@@ -195,9 +209,11 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 **Precondition:** `UAT_ONBOARD_EXPIRED_TOKEN` has `expires_at` in the past.
 
-**Action:** Navigate to `http://localhost:4321/onboard?token=<UAT_ONBOARD_EXPIRED_TOKEN>`.
+**Action:** Declared external hop (same class as Negative 002): navigate directly to `http://localhost:4321/onboard?token=<UAT_ONBOARD_EXPIRED_TOKEN>`.
 
-**Expected rejection:** Page shows a 410 Gone error ("This invitation has expired" or equivalent). The onboarding form is NOT shown.
+**Expected rejection:** Page shows a 410 Gone error with the same literal "This link can't be used" GonePanel text as Negative 002. The onboarding form is NOT mounted.
+
+**Same corroboration requirement as Negative 002** — the visual mismatch class this guards against (ISS-UAT-013-6) is identical: confirm `GET /api/v1/onboard/preview` returns exactly `410`, not a coincidental 404.
 
 **Screenshot label:** `neg-003-expired-token-410`
 
@@ -223,7 +239,7 @@ its `id` cell is `—` (it is intentionally absent from the JSON manifest).
 
 **Precondition:** `UAT_ONBOARD_NO_USER_TOKEN` is set. The seeded `uat-onboard-no-user-token` row has email `uat-operator+no-user@aiqadam.test`, which intentionally has no matching Authentik user.
 
-**Action:** Navigate to `http://localhost:4321/onboard?token=<UAT_ONBOARD_NO_USER_TOKEN>`. The page should still load (preview succeeds) and render the welcome form. Fill the password, accept the AUP, and click **Set password and accept**.
+**Action:** Declared external hop (same class as Step 005): navigate directly to `http://localhost:4321/onboard?token=<UAT_ONBOARD_NO_USER_TOKEN>`. The page loads normally and renders the welcome form (the preview call succeeds — this token is valid and unused, only the downstream Authentik lookup will fail). Fill the password field, check the AUP-acceptance checkbox, and click **Set password and accept**.
 
 **Expected rejection:** The api's `POST /v1/onboard/accept` returns **HTTP 409 Conflict** with a structured error body containing `message: "invite_missing_authentik_user"` (see `apps/api/src/modules/admin-invites/admin-invites.service.ts`, `consumeInvite()`). The form stays mounted in the `auth_error` phase and renders an inline `<code>invite_missing_authentik_user</code>` indicator under the password input. The GonePanel ("This link can't be used") must NOT render — that is reserved for 410. The "✓ Your AI Qadam mailbox is ready" terminal panel must NOT render. No mailbox is provisioned.
 
