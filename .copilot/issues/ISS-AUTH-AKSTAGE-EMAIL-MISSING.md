@@ -12,6 +12,7 @@
 | Blocks | ISS-USR-PWRESET-001 |
 | Closed | 2026-07-07 |
 | Closing workflow | `wf-20260707-fix-117-authentik-recovery-flow` |
+| Closed in PR | [#131](https://github.com/tvolodi/aiqadam/pull/131) squash `c4ec5a0` |
 
 ## Symptom
 

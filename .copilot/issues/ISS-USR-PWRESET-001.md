@@ -9,6 +9,10 @@
 | Reported | 2026-07-07 |
 | Reporter | User (chat: "I don't remember my password. I can't restore it.") |
 | Affected surface | `apps/web` (apps/web-next too) — sign-in / `/me` |
+| PR | [#131](https://github.com/tvolodi/aiqadam/pull/131) |
+| Squash SHA | `c4ec5a040f43c48d66cf4e34ea5cc1bfd1a32934` |
+| Merged at | 2026-07-07T04:26:30Z |
+| Workflow | wf-20260707-fix-117 (squashed into PR #131) |
 
 ## Symptom
 
