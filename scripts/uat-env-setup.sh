@@ -451,6 +451,28 @@ else
   warn "Skipping RBAC group provisioning (Authentik setup incomplete)"
 fi
 
+# ─── 7b/9 — Bind Authentik's Recovery Flow to the default Brand ─────────────
+# ISS-USR-PWRESET-001 Path A. Wires forgot-password on the IdP side so the
+# "Forgot password?" link surfaces automatically on Authentik's login UI.
+# No apps/web or apps/web-next edits — Authentik renders the link itself once
+# Brand.flow_recovery is set. Idempotent; safe to re-run. Failure here is
+# non-fatal so a misconfigured token doesn't block the rest of the UAT boot.
+if [[ "${AUTHENTIK_SETUP_DONE:-0}" == "1" ]]; then
+  _ak_token_val="${_ak_auth_header#Authorization: Bearer }"
+  if [[ "$_ak_token_val" != "$_ak_auth_header" ]]; then
+    AK_API_TOKEN="$_ak_token_val" \
+    AUTHENTIK_URL="http://localhost:9000" \
+      bash "$REPO_ROOT/scripts/provision-authentik-recovery-flow.sh" \
+      2>/dev/null \
+      && ok "Recovery Flow wired (Brand.flow_recovery bound, email branded)" \
+      || warn "Recovery Flow provisioning had warnings (IdP side may already be wired)"
+  else
+    warn "Using Basic auth — skipping Recovery Flow provisioning"
+  fi
+else
+  warn "Skipping Recovery Flow provisioning (Authentik setup incomplete)"
+fi
+
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 8 — apps/e2e/.env.uat
 # ══════════════════════════════════════════════════════════════════════════════

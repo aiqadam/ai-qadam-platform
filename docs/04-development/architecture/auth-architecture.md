@@ -333,9 +333,18 @@ is a TODO; document this trade-off when first rotating.)
   Expose a link `https://auth.aiqadam.org/if/user/#/settings` from `/me`.
   Authentik handles its own UI; the user comes back without our session
   changing.
-- **Forgot password** is Authentik's "Recovery Flow" — already a
-  configurable feature. Brand the recovery email template in Authentik
-  admin → Brand → "Recovery email".
+- **Forgot password** is wired via Authentik's Recovery Flow. The flow
+  is enabled in `infrastructure/authentik/` provisioning via
+  [`scripts/provision-authentik-recovery-flow.sh`](../../../scripts/provision-authentik-recovery-flow.sh),
+  which is invoked at UAT env-setup STEP 7b/9. The recovery email
+  subject is branded to `'Reset your AI Qadam password'`. The flow
+  resolves at `${AUTHENTIK_URL}/if/flow/recovery/`; Authentik's login
+  UI automatically renders the "Forgot password?" link once
+  `Brand.flow_recovery` is bound — no `apps/web` or `apps/web-next`
+  edit required. Member-facing docs:
+  [`BP-USR-PWRESET.md`](../02-business-processes/uat/BP-USR-PWRESET.md).
+  Member-facing runbook:
+  [`member-password-reset.md`](../02-business-processes/operations/member-password-reset.md).
 
 ### 6.7 Add per-country / per-resource RBAC (the planned next step)
 

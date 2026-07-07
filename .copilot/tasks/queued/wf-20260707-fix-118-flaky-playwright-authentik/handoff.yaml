@@ -1,0 +1,169 @@
+schema_version: "1.0"
+
+# ─── Identity ────────────────────────────────────────────────────────────────
+
+workflow_instance_id: "wf-20260707-fix-118-flaky-playwright-authentik"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-07T00:00:00Z"
+last_updated_at: "2026-07-07T00:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-USR-PWRESET-001"
+requirement_text: >
+  Re-verify the BP-USR-PWRESET-001 deferred ACs (AC-3 and AC-5) by
+  fixing the pre-existing Authentik 2024.12.3 Playwright timing flake
+  that currently affects every Authentik-backed spec (BP-UAT-009 1/9,
+  BP-USR-PWRESET 0/6 on the same stack). Root cause hypothesis: Lit
+  web-component hydration delay on the test stack. Verification: update
+  selectors/hydration wait in BP-UAT-009 and BP-USR-PWRESET in one PR,
+  re-run both, confirm both ≥ previous pass count + 1 (BP-UAT-009 → 9/9,
+  BP-USR-PWRESET → 6/6), flip ISS-USR-PWRESET-001 to resolved.
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: ""
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 0
+current_step_name: ""
+workflow_status: "queued"
+
+# ─── Subworkflow Link ────────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: "wf-20260707-fix-117-authentik-recovery-flow"
+  parent_branch: "fix/ISS-USR-PWRESET-001-authentik-recovery-flow"
+  parent_paused_at_step: 8
+  parent_paused_at_gate: "step-8-test-runner"
+  spawned_at: "2026-07-07T00:00:00Z"
+  spawned_by_issue: "ISS-USR-PWRESET-001"
+  resolution_for_parent: "fix-and-rebase"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Step Plan ───────────────────────────────────────────────────────────────
+
+steps_plan:
+  - id: 0
+    name: "pre-flight"
+    agent: orchestrator
+    goal: "Clean tree on main, fetch origin, increment counter to 119"
+    gate: "scripts/check-workflow-state.sh --base origin/main"
+    output_files: ["00-pre-flight.md"]
+  - id: 1
+    name: "issue-lookup"
+    agent: orchestrator
+    goal: "Read ISS-USR-PWRESET-001 + 07-test-results.md; confirm scope"
+    gate: "issue status still in-progress"
+    output_files: ["01-issue-lookup.md"]
+  - id: 2
+    name: "impact-analysis"
+    agent: impact-analyzer
+    goal: "Map flake scope: BP-UAT-009 + BP-USR-PWRESET + any other Authentik-Lit backed spec"
+    gate: "impact passed"
+    output_files: ["02-impact-analysis.md"]
+  - id: 3
+    name: "diagnose"
+    agent: test-runner
+    goal: "Run BP-UAT-009 alone in isolation; capture network trace + page screenshots at 5s/10s/15s; confirm Lit hydration is the root cause (or escalate)"
+    gate: "diagnose complete"
+    output_files: ["03-diagnose.md"]
+  - id: 4
+    name: "fix"
+    agent: code-developer
+    goal: "Update selectors / hydration waits in BP-UAT-009 + BP-USR-PWRESET to handle Authentik 2024.12.3 Lit hydration delay"
+    gate: "code review passed"
+    output_files: ["04-fix-summary.md"]
+  - id: 5
+    name: "security-review"
+    agent: security-reviewer
+    goal: "Confirm selector/wait changes do not weaken any auth-tenant isolation invariant"
+    gate: "security passed"
+    output_files: ["05-security-review.md"]
+  - id: 6
+    name: "test-strategy"
+    agent: test-strategist
+    goal: "Plan verification: BP-UAT-009 9/9 + BP-USR-PWRESET 6/6 + bats 7/7 still green"
+    gate: "strategy passed"
+    output_files: ["06-test-strategy.md"]
+  - id: 7
+    name: "test-design"
+    agent: test-designer
+    goal: "Add a regression bats-style check for hydration timing OR an explicit `waitForFunction` call in spec helpers"
+    gate: "design passed"
+    output_files: ["07-test-design.md"]
+  - id: 8
+    name: "test-runner"
+    agent: test-runner
+    goal: "Execute test plan, capture AC-by-AC disposition"
+    gate: "all targeted tests pass"
+    output_files: ["08-test-results.md"]
+  - id: 9
+    name: "doc-update"
+    agent: doc-writer
+    goal: "Update docs/04-development/testing/visual-testing.md (or equivalent) with the Authentik 2024.12.3 Lit hydration guidance"
+    gate: "docs landed"
+    output_files: ["09-doc-update.md"]
+  - id: 10
+    name: "quality-gate"
+    agent: quality-gate
+    goal: "Final AC-by-AC verdict; mark ISS-USR-PWRESET-001 resolved"
+    gate: "quality passed"
+    output_files: ["10-quality-gate.md"]
+  - id: 11
+    name: "finish"
+    agent: orchestrator
+    goal: "workflow-finish.sh — push branch, open PR, auto-merge per §6.3 user opt-out, archive task dir"
+    gate: "PR merged"
+    output_files: ["11-finish.md"]
+
+# ─── Required Reading ────────────────────────────────────────────────────────
+
+required_reading:
+  - ".copilot/issues/ISS-USR-PWRESET-001.md"
+  - ".copilot/issues/ISS-AUTH-AKSTAGE-EMAIL-MISSING.md"
+  - ".copilot/tasks/active/wf-20260707-fix-117-authentik-recovery-flow/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260707-fix-117-authentik-recovery-flow/03-code-summary.md"
+  - "apps/e2e/tests/uat/BP-UAT-009.spec.ts"
+  - "apps/e2e/tests/uat/BP-USR-PWRESET.spec.ts"
+  - "scripts/provision-authentik-recovery-flow.sh"
+
+# ─── Acceptance Criteria ─────────────────────────────────────────────────────
+
+acceptance_criteria:
+  - id: "AC-3"
+    text: "Submitting the recovery form sends an email to the user's registered address (verified via Mailpit)"
+    verified_by: "Playwright BP-USR-PWRESET Step 002 + Step 004"
+  - id: "AC-5"
+    text: "User can complete the recovery flow end-to-end and sign in with the new password"
+    verified_by: "Playwright BP-USR-PWRESET Step 002 + Step 005"
+  - id: "AC-NEW"
+    text: "BP-UAT-009 returns to 9/9 (regression baseline restored)"
+    verified_by: "pnpm --filter e2e exec playwright test apps/e2e/tests/uat/BP-UAT-009.spec.ts"
+
+# ─── Honesty Disclosure ──────────────────────────────────────────────────────
+
+honesty_disclosure: >
+  This workflow is the QUEUED follow-up that wf-20260707-fix-117 named
+  in its 07-test-results.md and in the ISS-USR-PWRESET-001 Resolution
+  section. Until THIS workflow's verification step passes,
+  ISS-USR-PWRESET-001 MUST remain in-progress. Do not mark the parent
+  issue resolved based on the parent's own deferred verification.
+
+# ─── User Decisions ──────────────────────────────────────────────────────────
+
+user_decisions:
+  scope: "fix Playwright timing flake for both BP-UAT-009 and BP-USR-PWRESET in one PR"
+  rollback: "revert fix branch; bats coverage protects against permanent regression"
+  ci_override_policy: "per AGENTS.md §6.3 user opt-out — orchestrator may bypass CI with --admin when failure is pre-existing on origin/main"
