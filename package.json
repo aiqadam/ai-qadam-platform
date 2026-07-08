@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "description": "AI Qadam — multi-tenant community platform for AI engineers across Central Asia.",
-  "homepage": "https://github.com/viktordrukker/aiqadam",
+  "homepage": "https://github.com/aiqadam/ai-qadam-platform",
   "repository": {
     "type": "git",
-    "url": "https://github.com/viktordrukker/aiqadam.git"
+    "url": "https://github.com/aiqadam/ai-qadam-platform.git"
   },
   "license": "UNLICENSED",
   "type": "module",
