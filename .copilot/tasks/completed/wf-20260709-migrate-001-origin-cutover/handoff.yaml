@@ -2,7 +2,20 @@ workflow_id: wf-20260709-migrate-001-origin-cutover
 workflow_type: infra/git-origin-cutover
 status: completed
 started_at: "2026-07-09T00:14:21+05:00"
-completed_at: "2026-07-09T00:55:00+05:00"
+completed_at: "2026-07-09T00:58:00+05:00"
+final_prs:
+  - number: 1
+    title: "chore(license): re-add MIT LICENSE preserved from upstream initial commit"
+    squash_sha: "0c35225"
+    url: "https://github.com/aiqadam/ai-qadam-platform/pull/1"
+  - number: 2
+    title: "chore(repo): point package.json at the new canonical origin"
+    squash_sha: "f1d7352"
+    url: "https://github.com/aiqadam/ai-qadam-platform/pull/2"
+  - number: 3
+    title: "chore(archive): register ISS-MIGRATE-001 + archive wf-20260709-migrate-001-origin-cutover"
+    squash_sha: "a8cb98b"
+    url: "https://github.com/aiqadam/ai-qadam-platform/pull/3"
 steps_plan:
   - id: 1
     name: preflight
