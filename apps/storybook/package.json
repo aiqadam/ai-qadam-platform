@@ -29,7 +29,7 @@
   "devDependencies": {
     "@aiqadam/tsconfig": "workspace:*",
     "@storybook/addon-essentials": "^8.4.7",
-    "@storybook/addon-themes": "^8.4.7",
+    "@storybook/addon-themes": "^10.4.6",
     "@storybook/blocks": "^8.4.7",
     "@storybook/manager-api": "^8.4.7",
     "@storybook/react": "^8.4.7",
