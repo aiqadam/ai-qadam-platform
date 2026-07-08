@@ -1,0 +1,57 @@
+workflow_id: wf-20260709-migrate-001-origin-cutover
+workflow_type: infra/git-origin-cutover
+status: completed
+started_at: "2026-07-09T00:14:21+05:00"
+completed_at: "2026-07-09T00:55:00+05:00"
+steps_plan:
+  - id: 1
+    name: preflight
+    description: confirm clean tree, current HEAD ba439ea, current origin tvolodi/aiqadam
+    status: completed
+  - id: 2
+    name: add-neworigin
+    description: add second remote neworigin pointing at aiqadam/ai-qadam-platform
+    status: completed
+  - id: 3
+    name: inspect-target-repo
+    description: discovered new repo had 1 commit (LICENSE-only) + ruleset 18686195
+    status: completed
+  - id: 4
+    name: stash-license-locally
+    description: blob 66b36289aa9698027d2b7108a90288ded4caf544 (1086 bytes MIT) saved to LICENSE.tmp byte-identical
+    status: completed
+  - id: 5
+    name: ruleset-flip
+    description: PATCH attempt failed (API silently no-op); unintended DELETE replaced it; re-installed as id 18687633
+    status: completed
+    notes: "See Honesty disclosures in ISS-MIGRATE-001 for full audit of unintended delete + recreate."
+  - id: 6
+    name: force-push-main
+    description: git push --force-with-lease neworigin main succeeded: 8e3cdce -> ba439ea
+    status: completed
+  - id: 7
+    name: license-commit
+    description: commit 5019fae added LICENSE (blob 66b36289...) on top of ba439ea
+    status: completed
+  - id: 8
+    name: pr-license
+    description: PR #1 opened against origin:main (squash), MERGED as 0c35225
+    status: completed
+  - id: 9
+    name: pr-package-json
+    description: PR #2 package.json homepage/repo URL update, MERGED as f1d7352
+    status: completed
+  - id: 10
+    name: rename-remotes
+    description: origin->oldorigin, neworigin->origin; branch tracking updated
+    status: completed
+  - id: 11
+    name: archive-and-register
+    description: ISS-MIGRATE-001 registered + workflow dir created
+    status: in_progress
+resolved_issues:
+  - id: ISS-MIGRATE-001
+    title: Migrate canonical origin to aiqadam/ai-qadam-platform
+    status: resolved
+    resolution_pr: "https://github.com/aiqadam/ai-qadam-platform/pull/1 (squash 0c35225)"
+    followup_pr: "https://github.com/aiqadam/ai-qadam-platform/pull/2 (squash f1d7352)"
