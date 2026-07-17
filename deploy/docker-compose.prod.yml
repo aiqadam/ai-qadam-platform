@@ -4,13 +4,21 @@
 # only on the host (/opt/apps/aiqadam-prod/deploy/docker-compose.prod.yml,
 # hand-authored during ai-qadam-infra tasks T-0111/T-0112); this repo now
 # owns it — see docker-compose.qa.yml's header for the full rationale.
+# postgres/oidc-stub/api's shape below (mounts, healthchecks, env,
+# depends_on) is copied verbatim from that working original — only
+# web-next is new.
 #
 # This host also runs a pre-existing, unrelated Penpot stack (own compose
 # project, own containers) — do not touch it from here. See
 # docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md.
 #
-# Four services, all on host networking (matches existing infra
-# convention):
+# deploy.sh runs `docker compose -p aiqadam-prod -f
+# deploy/docker-compose.prod.yml up -d --build` from $APP_DIR
+# ($APP_DIR = /opt/apps/aiqadam-prod). Compose resolves relative paths
+# against the directory containing this file (deploy/) — see
+# docker-compose.qa.yml's header for how this was confirmed.
+#
+# Four services, all on host networking:
 #   - postgres: dedicated aiqadam_prod database, NOT shared with QA.
 #   - oidc-stub: static OIDC discovery stub (see docker-compose.qa.yml).
 #   - api: apps/api, built from apps/api/Dockerfile. Was previously the
@@ -20,52 +28,71 @@
 #   - web-next: apps/web-next (the target frontend per ADR-0038).
 #
 # nginx (deploy/nginx/aiqadam.org.conf) routes '/' to web-next:4322 and
-# '/v1' + '/health' to api:3000 — see that file for the split.
+# '/health' + '/v1/*' to api:3115 — see that file for the split.
 
 name: aiqadam-prod
 
 services:
   postgres:
     image: postgres:16
+    container_name: aiqadam-prod-postgres-1
     restart: unless-stopped
-    network_mode: host
-    env_file:
-      - .env
+    environment:
+      POSTGRES_DB: aiqadam_prod
+      POSTGRES_USER: aiqadam_prod
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGPORT: "3114"
     volumes:
       - aiqadam_prod_pgdata:/var/lib/postgresql/data
-    # -p 3114: host networking means the container's postgres listens
-    # directly on the host's port space, not 5432 — 3114 avoids clashing
-    # with Penpot's own postgres:15 container on this same host.
-    command: ["postgres", "-p", "3114"]
+    ports:
+      - "127.0.0.1:3114:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiqadam_prod -d aiqadam_prod"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    network_mode: host
 
   oidc-stub:
     image: nginx:alpine
+    container_name: aiqadam-prod-oidc-stub-1
     restart: unless-stopped
-    network_mode: host
     volumes:
-      - ./oidc-stub.conf:/etc/nginx/conf.d/default.conf:ro
-    # Binds 127.0.0.1:9998 per the nginx config mounted above. See
-    # docker-compose.qa.yml's equivalent comment: oidc-stub.conf is not
-    # included in this repo yet — the host's existing, working copy
-    # should be left in place until deliberately migrated.
+      - ./oidc-stub/openid-configuration.json:/usr/share/nginx/html/.well-known/openid-configuration:ro
+      - ./oidc-stub/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9998/.well-known/openid-configuration"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    network_mode: host
 
   api:
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
+    image: aiqadam-prod-api:latest
+    container_name: aiqadam-prod-api-1
     restart: unless-stopped
-    network_mode: host
-    depends_on:
-      - postgres
     env_file:
       - .env
-    environment:
-      PORT: "3115"
+    depends_on:
+      oidc-stub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3115/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    network_mode: host
 
   web-next:
     build:
       context: ..
       dockerfile: apps/web-next/Dockerfile
+    image: aiqadam-prod-web-next:latest
+    container_name: aiqadam-prod-web-next-1
     restart: unless-stopped
     network_mode: host
     environment:
