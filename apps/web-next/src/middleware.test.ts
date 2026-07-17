@@ -37,7 +37,7 @@ interface SsrAuth {
 // ─── Local re-implementation of hasRefresh check ─────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MockFetch = ReturnType<typeof vi.fn<any>>;
+type MockFetch = ReturnType<typeof vi.fn<(...args: any[]) => any>>;
 
 function hasRefresh(cookieHeader: string): boolean {
   return (

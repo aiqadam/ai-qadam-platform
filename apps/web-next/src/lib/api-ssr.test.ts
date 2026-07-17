@@ -88,7 +88,7 @@ function _makeMockReq(url = '/', headers: Record<string, string> = {}): Request 
 // ─── Local re-implementation of get() + apiBase() ─────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MockFetch = ReturnType<typeof vi.fn<any>>;
+type MockFetch = ReturnType<typeof vi.fn<(...args: any[]) => any>>;
 
 function apiBase(env?: { INTERNAL_API_URL?: string | undefined }): string {
   return env?.INTERNAL_API_URL ?? DEFAULT_INTERNAL_API_URL;
