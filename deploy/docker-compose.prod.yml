@@ -1,0 +1,81 @@
+# deploy/docker-compose.prod.yml — pro-data-tech-prod (95.46.211.224, aiqadam.org).
+#
+# Source of truth for the prod compose stack. Previously this file existed
+# only on the host (/opt/apps/aiqadam-prod/deploy/docker-compose.prod.yml,
+# hand-authored during ai-qadam-infra tasks T-0111/T-0112); this repo now
+# owns it — see docker-compose.qa.yml's header for the full rationale.
+#
+# This host also runs a pre-existing, unrelated Penpot stack (own compose
+# project, own containers) — do not touch it from here. See
+# docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md.
+#
+# Four services, all on host networking (matches existing infra
+# convention):
+#   - postgres: dedicated aiqadam_prod database, NOT shared with QA.
+#   - oidc-stub: static OIDC discovery stub (see docker-compose.qa.yml).
+#   - api: apps/api, built from apps/api/Dockerfile. Was previously the
+#     ONLY app service here (deliberate scope decision) — nginx proxied
+#     '/' straight to it, which is why bare GET / 404'd. web-next below
+#     fixes that.
+#   - web-next: apps/web-next (the target frontend per ADR-0038).
+#
+# nginx (deploy/nginx/aiqadam.org.conf) routes '/' to web-next:4322 and
+# '/v1' + '/health' to api:3000 — see that file for the split.
+
+name: aiqadam-prod
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - aiqadam_prod_pgdata:/var/lib/postgresql/data
+    # -p 3114: host networking means the container's postgres listens
+    # directly on the host's port space, not 5432 — 3114 avoids clashing
+    # with Penpot's own postgres:15 container on this same host.
+    command: ["postgres", "-p", "3114"]
+
+  oidc-stub:
+    image: nginx:alpine
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./oidc-stub.conf:/etc/nginx/conf.d/default.conf:ro
+    # Binds 127.0.0.1:9998 per the nginx config mounted above. See
+    # docker-compose.qa.yml's equivalent comment: oidc-stub.conf is not
+    # included in this repo yet — the host's existing, working copy
+    # should be left in place until deliberately migrated.
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      PORT: "3115"
+
+  web-next:
+    build:
+      context: ..
+      dockerfile: apps/web-next/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      HOST: "127.0.0.1"
+      PORT: "4322"
+      # Public origin, not a Docker-internal alias. NOTE: no /v1 suffix
+      # — see docker-compose.qa.yml's equivalent comment.
+      INTERNAL_API_URL: "https://aiqadam.org"
+
+volumes:
+  aiqadam_prod_pgdata:
+    name: aiqadam-prod_aiqadam_prod_pgdata

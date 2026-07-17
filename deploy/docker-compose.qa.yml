@@ -1,0 +1,79 @@
+# deploy/docker-compose.qa.yml — pro-data-tech-qa (95.46.211.230, qa-uz.aiqadam.org).
+#
+# Source of truth for the QA compose stack. Previously this file existed
+# only on the host (/opt/apps/aiqadam-qa/deploy/docker-compose.qa.yml,
+# hand-authored during ai-qadam-infra tasks T-0110/T-0112); this repo now
+# owns it so app-repo changes (adding a service, changing routing) don't
+# require a separate infra-side session to hand-edit the host copy.
+#
+# deploy.sh (see docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md)
+# runs `docker compose -f deploy/docker-compose.qa.yml up -d --build` from
+# this checkout after every deploy — so this file IS what's running.
+#
+# Three services, all on host networking (matches existing infra
+# convention — see the runbook and ai-qadam-infra landscape docs):
+#   - oidc-stub: static OIDC discovery stub, satisfies apps/api's boot-time
+#     Issuer.discover() call. Real OIDC login is out of scope for QA.
+#   - api: apps/api, built from apps/api/Dockerfile. Was previously the
+#     ONLY service here (deliberate scope decision during initial infra
+#     setup) — nginx proxied '/' straight to it, which is why bare GET /
+#     404'd. web-next below fixes that.
+#   - web-next: apps/web-next (the target frontend per ADR-0038), built
+#     from apps/web-next/Dockerfile. Talks to the API over the public
+#     origin (https://qa-uz.aiqadam.org/v1/...), same pattern as the
+#     existing infrastructure/web-next/docker-compose.yml stack, since
+#     host networking here has no private Docker DNS between services.
+#
+# nginx (deploy/nginx/qa-uz.aiqadam.org.conf) routes '/' to web-next:4322
+# and '/v1' to api:3000 — see that file for the split.
+
+name: aiqadam-qa
+
+services:
+  oidc-stub:
+    image: nginx:alpine
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./oidc-stub.conf:/etc/nginx/conf.d/default.conf:ro
+    # Binds 127.0.0.1:9999 per the nginx config mounted above — host
+    # networking means the bind address is controlled inside that file,
+    # not by a compose ports: mapping.
+    #
+    # oidc-stub.conf itself is NOT included in this repo (yet) — it was
+    # hand-authored directly on the host during ai-qadam-infra task T-0110
+    # and already works. Bringing it into this repo risks a content
+    # mismatch against whatever OIDC_ISSUER_URL the host .env actually
+    # points at. deploy.sh should continue to use the host's existing
+    # deploy/oidc-stub.conf file (not overwritten by this repo's deploy)
+    # until it's deliberately migrated in a follow-up with the real
+    # discovery-document contents confirmed first.
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      PORT: "3113"
+
+  web-next:
+    build:
+      context: ..
+      dockerfile: apps/web-next/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      HOST: "127.0.0.1"
+      PORT: "4322"
+      # Public origin, not a Docker-internal alias — host networking
+      # means every service binds directly on the host's loopback, so
+      # this is just another loopback port from web-next's perspective.
+      # Mirrors infrastructure/web-next/docker-compose.yml's rationale.
+      # NOTE: no /v1 suffix — apps/web-next/src/lib/api-ssr.ts appends
+      # '/v1/...' itself; INTERNAL_API_URL is the bare origin.
+      INTERNAL_API_URL: "https://qa-uz.aiqadam.org"

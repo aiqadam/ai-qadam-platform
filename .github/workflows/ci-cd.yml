@@ -47,6 +47,8 @@ jobs:
         run: pnpm test
       - name: Build api Docker image (verification only, not pushed)
         run: docker build -f apps/api/Dockerfile -t aiqadam-api:ci-${{ github.sha }} .
+      - name: Build web-next Docker image (verification only, not pushed)
+        run: docker build -f apps/web-next/Dockerfile -t aiqadam-web-next:ci-${{ github.sha }} .
 
   deploy-qa:
     name: deploy-qa
@@ -70,7 +72,7 @@ jobs:
           ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
             -i ~/.ssh/qa_deploy_key -o IdentitiesOnly=yes \
             deploy@95.46.211.230 "deploy:${{ github.sha }}"
-      - name: Health check
+      - name: Health check (api)
         run: |
           for i in 1 2 3 4 5; do
             code=$(curl -s -o /dev/null -w '%{http_code}' https://qa-uz.aiqadam.org/health)
@@ -78,6 +80,15 @@ jobs:
             sleep 10
           done
           echo "QA health check failed after deploy" >&2
+          exit 1
+      - name: Health check (frontend)
+        run: |
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://qa-uz.aiqadam.org/)
+            if [ "$code" = "200" ]; then echo "healthy"; exit 0; fi
+            sleep 10
+          done
+          echo "QA frontend health check failed after deploy" >&2
           exit 1
       - name: Clean up key material
         if: always()
@@ -112,7 +123,7 @@ jobs:
           ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
             -i ~/.ssh/prod_deploy_key -o IdentitiesOnly=yes \
             deploy@95.46.211.224 "deploy:${{ inputs.git_ref }}"
-      - name: Health check
+      - name: Health check (api)
         run: |
           for i in 1 2 3 4 5; do
             code=$(curl -s -o /dev/null -w '%{http_code}' https://aiqadam.org/health)
@@ -120,6 +131,15 @@ jobs:
             sleep 10
           done
           echo "Prod health check failed after deploy" >&2
+          exit 1
+      - name: Health check (frontend)
+        run: |
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://aiqadam.org/)
+            if [ "$code" = "200" ]; then echo "healthy"; exit 0; fi
+            sleep 10
+          done
+          echo "Prod frontend health check failed after deploy" >&2
           exit 1
       - name: Clean up key material
         if: always()

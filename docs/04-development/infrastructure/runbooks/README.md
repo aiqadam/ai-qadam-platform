@@ -102,6 +102,8 @@ Why split: runbooks answer "what do I do when this breaks". The operator playboo
 - [`restic-backups.md`](restic-backups.md) — daily backup operations, restore drill, key rotation (per ADR-0017).
 - [`observability.md`](observability.md) — Loki + Uptime Kuma + Plausible custom-event operations (per Sprint 0.4).
 - [`supply-chain.md`](../../security/runbooks/supply-chain.md) — pnpm audit + Trivy + Dependabot triage (per Sprint 0.3).
+- [`pro-data-tech-cicd.md`](pro-data-tech-cicd.md) — CI/CD deploy pipeline to pro-data.tech QA + prod (forced-command SSH `deploy.sh` contract).
+- [`pro-data-tech-frontend-rollout.md`](pro-data-tech-frontend-rollout.md) — one-time nginx vhost swap to route `apps/web-next` on the pro-data.tech hosts (was API-only).
 
 ### Authentication + auth-adjacent (mixed ownership)
 - [`authentik-local-bootstrap.md`](authentik-local-bootstrap.md) — Authentik provider setup against a local instance.
