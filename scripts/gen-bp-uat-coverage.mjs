@@ -29,8 +29,8 @@
  * BETWEEN the `Scripts` heading and the `Status legend` heading.
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 

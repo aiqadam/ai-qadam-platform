@@ -184,7 +184,6 @@ describe('TgConfigService — key missing', () => {
     // identity won't match across re-imports — compare on status + body
     // instead, which is what the wire contract guarantees.
     const stashed = process.env.TG_CONFIG_ENCRYPTION_KEY;
-    // biome-ignore lint/performance/noDelete: needed to truly unset process.env entry
     delete process.env.TG_CONFIG_ENCRYPTION_KEY;
     try {
       vi.resetModules();

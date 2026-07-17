@@ -63,8 +63,6 @@ const __dirname = path.dirname(__filename);
 
 const BASE_URL = process.env.UAT_BASE_URL ?? process.env.BASE_URL ?? 'http://localhost:4321';
 const API_URL = process.env.UAT_API_URL ?? process.env.API_URL ?? 'http://localhost:3001';
-const UAT_OPERATOR_EMAIL = process.env.UAT_OPERATOR_EMAIL ?? 'uat-operator@aiqadam.test';
-const UAT_OPERATOR_PASSWORD = process.env.UAT_OPERATOR_PASSWORD ?? '';
 const UAT_MEMBER_EMAIL = process.env.UAT_MEMBER_EMAIL ?? 'uat-member@aiqadam.test';
 const UAT_MEMBER_PASSWORD = process.env.UAT_MEMBER_PASSWORD ?? '';
 
@@ -98,20 +96,6 @@ async function apiGet(request: APIRequestContext, path: string): Promise<{ statu
   return { status: res.status(), body };
 }
 
-async function findEventBySlug(page: Page, slugSubstring: string): Promise<string | null> {
-  // List events from the public events index; return the first whose slug
-  // contains the given substring.
-  await page.goto(`${BASE_URL}/events`);
-  await hideDevToolbar(page);
-  await page.waitForLoadState('networkidle');
-  const candidates = await page.locator('a[href^="/events/"]').all();
-  for (const c of candidates) {
-    const href = await c.getAttribute('href');
-    if (href && href.includes(slugSubstring)) return href;
-  }
-  return null;
-}
-
 // ─────────────────────────── AC-5 — Anon sees Sign-in CTA ───────────────────────────
 
 test('AC-5: Anon visitor sees "Sign in to register" CTA, not the register button', async ({ page }) => {
@@ -134,7 +118,7 @@ test('AC-5: Anon visitor sees "Sign in to register" CTA, not the register button
 test.describe('Member-side flow (requires UAT_MEMBER_PASSWORD)', () => {
   test.skip(!UAT_MEMBER_PASSWORD, 'UAT_MEMBER_PASSWORD not set; skipping member-side AC-1..AC-4, AC-6, AC-7.');
 
-  test('AC-1: Member registers for an open event; status=confirmed row created', async ({ page, request }) => {
+  test('AC-1: Member registers for an open event; status=confirmed row created', async ({ page }) => {
     // Sign in via Authentik OIDC.
     await page.goto(`${BASE_URL}/auth/sign-in?next=${encodeURIComponent('/events/uat-event-open-uz')}`);
     await hideDevToolbar(page);
@@ -176,7 +160,7 @@ test.describe('Member-side flow (requires UAT_MEMBER_PASSWORD)', () => {
     expect(result.status).toBeLessThan(300);
   });
 
-  test('AC-4: Re-registering is idempotent (no duplicate row)', async ({ page, request }) => {
+  test('AC-4: Re-registering is idempotent (no duplicate row)', async ({ page }) => {
     // Visit the same event again. Register button is replaced by "You're
     // registered" state — clicking it is a no-op.
     await page.goto(`${BASE_URL}/events/uat-event-open-uz`);

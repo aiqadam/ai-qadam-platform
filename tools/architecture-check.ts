@@ -289,7 +289,6 @@ if (STAGED_MODE) {
 }
 
 if (violations.length === 0) {
-  // biome-ignore lint/suspicious/noConsoleLog: intentional CLI output
   console.log(
     `✓ arch:check passed (${filesToCheck.length} file(s) scanned, mode=${STAGED_MODE ? 'staged' : 'full'}).`,
   );

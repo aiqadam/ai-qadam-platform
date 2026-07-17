@@ -97,7 +97,6 @@ describe('TelegramAuthGuard — degraded mode (no DB, no env)', () => {
 
   beforeEach(() => {
     stashed = process.env.TELEGRAM_BOT_SERVICE_TOKEN;
-    // biome-ignore lint/performance/noDelete: needed to truly unset process.env entry
     delete process.env.TELEGRAM_BOT_SERVICE_TOKEN;
     vi.resetModules();
   });

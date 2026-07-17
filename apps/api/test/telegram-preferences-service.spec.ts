@@ -188,7 +188,6 @@ describe('TelegramPreferencesService.patch', () => {
   it('rejects invalid language with allowed list (400)', async () => {
     const svc = new TelegramPreferencesService(fakeDirectus({}));
     try {
-      // biome-ignore lint/suspicious/noExplicitAny: testing runtime rejection of invalid input
       await svc.patch('mem-1', { language: 'klingon' as any });
       throw new Error('expected to throw');
     } catch (e) {
