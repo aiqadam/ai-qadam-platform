@@ -145,6 +145,54 @@ Don't let Claude Code commit and push without your review. The `--dangerously-sk
 
 ---
 
+## Commit → push → PR → merge → verify QA
+
+This is the step-by-step sequence for landing a change and confirming it actually
+reached QA — use it any time "done" means more than "merged," i.e. whenever the
+change needs to be observably live before you consider the task closed.
+
+**Two independent deploy pipelines exist** — see
+[`docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md`](infrastructure/runbooks/pro-data-tech-cicd.md)
+for the full picture. This section documents the **pro-data.tech** pipeline
+(`.github/workflows/ci-cd.yml`, QA host `qa-uz.aiqadam.org`). The Coolify pipeline
+(`.github/workflows/deploy.yml`, ADR-0002) still runs independently on every push to
+`main` — don't assume merging a PR only triggers one of them.
+
+1. **Commit.** Conventional Commits format per above. Keep the tree clean before
+   opening a branch (Clean-Tree Invariant, see `.copilot/` workflow rules if running
+   as Orchestrator).
+2. **Push** the branch to `origin`.
+3. **Create PR.** Use the PR description template above. Wait for the `build` job in
+   `ci-cd.yml` (lint/typecheck/test/build) — it's a **hard gate**: if it fails, no
+   deploy happens on merge, by design. Fix and re-push; don't bypass it.
+4. **Accept / merge PR.** Squash and merge per the merge strategy above. Merging to
+   `main` auto-triggers `deploy-qa` in `ci-cd.yml` (separately from whatever
+   `deploy.yml`/Coolify also does on the same push).
+5. **Check that the application landed on QA:**
+   - Watch the run: `gh run list --repo aiqadam/ai-qadam-platform --workflow=ci-cd.yml`
+     — this is the primary signal. A green `deploy-qa` job means `deploy.sh` completed
+     on the host.
+   - Health check: `curl -s -o /dev/null -w '%{http_code}' https://qa-uz.aiqadam.org/health`
+     should return `200` within ~30s of the run finishing.
+   - **Commit-level confirmation is not currently self-serve.** There is no read-only
+     "what's deployed" endpoint — confirming the exact SHA landed requires SSHing to
+     the host as the `tvolodi` operator account and reading
+     `/opt/apps/aiqadam-qa/deploy/.last-deployed-commit`, which this repo's agents
+     don't hold credentials for. Treat the health check + green Action run as
+     sufficient evidence unless something looks wrong; if it does, escalate to the
+     `tvolodi` operator rather than trying to work around the missing read path.
+
+**If CI is broken and blocking this loop:** fix the failing check on the PR branch
+and re-push — do not merge around a failing `build` job, and do not take this
+workflow to the infra repo to route around it. Diagnosing and fixing `ci-cd.yml`
+itself, the `build` job's checks, or app-side lint/type/test failures all belong in
+*this* repo, since this repo owns `ci-cd.yml` and everything upstream of the SSH
+call into `deploy.sh`. Only the host side (`deploy.sh`'s installation, SSH keys,
+`deploy` user permissions) is out of this repo's hands — see the runbook's
+"Ownership boundary" section before assuming something needs an infra-repo change.
+
+---
+
 ## Testing workflow
 
 ### Before pushing
