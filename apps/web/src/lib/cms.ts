@@ -131,7 +131,6 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat mapper; each field's `?? null` adds 1 to score. Extract into a const FIELD_MAP if this grows further.
 function toApiEvent(row: CmsEventRow, registeredCount = 0): ApiEvent {
   const heroImageUrl = row.hero_image ? `${BASE}/assets/${row.hero_image}` : null;
   return {
