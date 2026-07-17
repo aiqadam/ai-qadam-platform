@@ -1,0 +1,46 @@
+# Docker build context exclusions.
+#
+# None of the apps/*/Dockerfiles had a .dockerignore before this — every
+# `docker build ... .` sent the ENTIRE repo (including node_modules,
+# .git, dist/, build artifacts) as build context. Worse than the size
+# cost: `COPY apps/<app> apps/<app>` in each Dockerfile copies a local
+# node_modules straight into the image AFTER the container's own `pnpm
+# install` already ran, silently overwriting the correctly-linked
+# in-container install with whatever happens to be on the build
+# machine's disk (wrong platform's native bindings, stale symlinks,
+# missing packages). Confirmed reproducing this exact failure locally
+# for apps/web-next's astro binary — builds fine from a clean checkout
+# (e.g. a fresh CI runner), breaks silently on any machine with a local
+# node_modules already installed.
+
+node_modules
+**/node_modules
+
+.git
+.github
+
+# Build output — Dockerfiles build fresh, never consume host-built dist/.
+dist
+**/dist
+apps/*/dist
+apps/storybook/storybook-static
+
+# Test artifacts / local-only state.
+apps/e2e/uat-results
+apps/e2e/test-results
+apps/e2e/playwright-report
+coverage
+**/coverage
+
+# Editor / tool directories not needed at build time.
+.vscode
+.idea
+.kilo
+.kilocode
+.copilot
+.claude
+
+# Env files — never bake secrets into an image; Dockerfiles that need
+# runtime env get it via `environment:`/`env_file:` in compose, not COPY.
+.env
+.env.*
