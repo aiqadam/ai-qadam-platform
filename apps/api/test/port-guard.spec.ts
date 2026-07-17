@@ -24,11 +24,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock node:child_process so the OS probe is hermetic. We re-mock per
 // test via mockResolvedValueOnce / mockImplementationOnce as needed.
+//
+// port-guard.ts calls `promisify(execFile)` at module load, then invokes
+// the result with (cmd, args, options) — no callback. Node's promisify
+// normally appends its own (err, result) callback and settles its
+// returned promise when that callback fires. A plain `vi.fn()` mock
+// resolves its own promise directly and never calls that callback, so
+// promisify's wrapper hangs until the test times out. Setting
+// `[promisify.custom]` on the mock makes `promisify()` return the mock
+// itself instead of building a callback-adapter around it, so
+// mockResolvedValueOnce/mockRejectedValueOnce work as expected. The
+// `promisify` import is done inside the factory (not at top level)
+// because vi.mock factories are hoisted above all imports.
 vi.mock('node:child_process', async () => {
-  const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+  const [actual, { promisify }] = await Promise.all([
+    vi.importActual<typeof import('node:child_process')>('node:child_process'),
+    vi.importActual<typeof import('node:util')>('node:util'),
+  ]);
+  const mockExecFile = vi.fn();
+  Object.assign(mockExecFile, { [promisify.custom]: mockExecFile });
   return {
     ...actual,
-    execFile: vi.fn(),
+    execFile: mockExecFile,
   };
 });
 
@@ -132,9 +149,9 @@ describe('assertPortAvailable', () => {
       expect(mockedExecFile).toHaveBeenCalledTimes(2);
       // First call: netstat with -ano -p TCP.
       expect(mockedExecFile.mock.calls[0]?.[0]).toBe('netstat');
-      // Second call: tasklist with PID filter.
+      // Second call: tasklist with PID filter (e.g. '/FI', 'PID eq 5008').
       const tasklistArgs = mockedExecFile.mock.calls[1]?.[1] as string[] | undefined;
-      expect(tasklistArgs).toContain('5008');
+      expect(tasklistArgs?.some((arg) => arg.includes('5008'))).toBe(true);
     } finally {
       await holder.release();
     }
