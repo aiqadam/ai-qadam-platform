@@ -28,6 +28,7 @@ const NON_TENANT_LABELS = new Set([
   'admin',
   'api',
   'localhost',
+  'qa', // qa.aiqadam.org — environment label, not a tenant code
 ]);
 
 export function tenantFromHost(host: string | undefined): string | null {
