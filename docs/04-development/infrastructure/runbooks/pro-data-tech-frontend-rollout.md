@@ -20,18 +20,36 @@ third compose service on both hosts, and routes `/` to it via nginx.
 
 - [ ] The PR adding `deploy/docker-compose.{qa,prod}.yml` (with the `web-next`
       service), `deploy/nginx/*.conf`, and `.dockerignore` has merged to `main`.
-- [ ] A `deploy-qa` (and, separately, an approved `deploy-prod`) run has
-      completed successfully per `pro-data-tech-cicd.md` — this means the
-      host's checkout at `/opt/apps/aiqadam-<env>/` already has the new
-      compose file and nginx configs, and `docker compose up -d --build` has
-      already built and started the `web-next` container.
-- [ ] `/opt/apps/aiqadam-<env>/deploy/oidc-stub.conf` exists on the host
-      (hand-authored during T-0110/T-0111, not tracked by this repo — a
-      `git fetch`/`checkout` cycle does not remove untracked files, so this
-      should already be true; verify anyway before proceeding).
-- [ ] Operator has `sudo` SSH access to the host as `tvolodi` (not the
+- [ ] **One-time per host, before the FIRST deploy after that PR merges:**
+      `deploy/docker-compose.<env>.yml` already exists on the host as an
+      **untracked** file (hand-authored during T-0110/T-0111, at the exact
+      path this repo now tracks). `git checkout` in `deploy.sh` refuses to
+      overwrite an untracked file and aborts — **this actually happened**
+      on the first real deploy after `deploy/docker-compose.qa.yml` merged
+      (`deploy-qa` run failed with `error: The following untracked working
+      tree files would be overwritten by checkout`). Fix, run once per host
+      as `tvolodi`:
+      ```bash
+      mv /opt/apps/aiqadam-<env>/deploy/docker-compose.<env>.yml \
+         /opt/apps/aiqadam-<env>/deploy/docker-compose.<env>.yml.pre-repo-tracked.bak
+      ```
+      No `sudo` needed — the file is owned by `tvolodi`. This does not
+      delete anything (`.bak` suffix) and does not require re-triggering
+      immediately; the next `deploy-qa`/`deploy-prod` run (or a re-run of
+      the failed job) picks up the repo's tracked version cleanly once this
+      is done.
+- [ ] `deploy/oidc-stub/nginx.conf` and `deploy/oidc-stub/openid-configuration.json`
+      exist on the host (hand-authored during T-0110/T-0111 as a
+      **directory**, not a single `oidc-stub.conf` file — confirmed via
+      `docker inspect <oidc-stub-container> --format '{{json .Mounts}}'`
+      on both hosts). Not tracked by this repo; a `git fetch`/`checkout`
+      cycle does not remove untracked files, so this should already be
+      true — verify anyway before the first deploy on a host.
+- [ ] Operator has SSH access to the host as `tvolodi` (not the
       forced-command-restricted `deploy` CI user, which cannot run `nginx`
-      or `systemctl` commands).
+      or `systemctl` commands, or read/write outside what `deploy.sh` does).
+      `tvolodi` is in the `sudo` group; `sudo` is needed for the nginx steps
+      below but not for the untracked-file move above.
 
 ## Steps
 
@@ -136,8 +154,32 @@ Step 1-4 or this rollback.
 
 ## Common failure modes
 
-*(Empty at time of writing — this section grows from real incidents per the
-runbooks README's "Live document" policy.)*
+### `error: The following untracked working tree files would be overwritten by checkout`
+
+**Symptom:** `deploy-qa`/`deploy-prod` job fails at the "Trigger deploy.sh"
+step, in ~5-10 seconds (before any Docker build starts). Log shows
+`deploy.sh` was invoked, then immediately: `error: The following untracked
+working tree files would be overwritten by checkout: deploy/docker-compose.<env>.yml`.
+
+**Root cause:** this is the exact "Pre-conditions" collision above,
+encountered for real on the first deploy after `deploy/docker-compose.qa.yml`
+merged to `main` — the fix hadn't been applied on the host yet at that
+point. `git checkout --detach` in `deploy.sh` refuses to silently clobber
+an untracked file sitting at a path the incoming commit wants to place a
+tracked file.
+
+**Fix:** run the one-time `mv ... .pre-repo-tracked.bak` command from
+"Pre-conditions" above on the affected host, then re-run the failed
+GitHub Actions job (or push a new commit / trigger `workflow_dispatch`
+again). No data is lost — the host's original hand-authored file is
+preserved under the `.bak` name, and the repo's version (which is what
+you want running going forward) takes over on the next successful run.
+
+**Prevention for the next tracked-file migration:** if this repo starts
+tracking another previously-host-only file, check first via
+`ssh tvolodi@<host> "ls -la /opt/apps/aiqadam-<env>/deploy/<path>"` whether
+an untracked file already exists at that path, and move it aside as part
+of the same rollout — don't wait for `deploy.sh` to hit the wall.
 
 ## References
 
