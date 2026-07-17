@@ -154,14 +154,22 @@ describe('AuthController.telegramExchange (POST /v1/auth/telegram/exchange)', ()
     // The actual rate-limit enforcement is owned by @nestjs/throttler; here
     // we verify the decorator is correctly applied so a refactor that removes
     // it is caught immediately.
-    const THROTTLER_METADATA_KEY = 'THROTTLER:THROTTLE';
-    const metadata: Record<string, { limit: number; ttl: number }> | undefined =
-      Reflect.getMetadata(THROTTLER_METADATA_KEY, AuthController.prototype.telegramExchange);
+    //
+    // @nestjs/throttler@6 stores each field under its own per-name key
+    // (THROTTLER_LIMIT + name, THROTTLER_TTL + name, ...) via separate
+    // Reflect.defineMetadata calls — not a single THROTTLER:THROTTLE key
+    // holding a nested { default: { limit, ttl } } object.
+    const limit: number | undefined = Reflect.getMetadata(
+      'THROTTLER:LIMITdefault',
+      AuthController.prototype.telegramExchange,
+    );
+    const ttl: number | undefined = Reflect.getMetadata(
+      'THROTTLER:TTLdefault',
+      AuthController.prototype.telegramExchange,
+    );
 
-    expect(metadata).toBeDefined();
-    const defaultConfig = metadata?.default;
-    expect(defaultConfig?.limit).toBe(5);
-    expect(defaultConfig?.ttl).toBe(900_000);
+    expect(limit).toBe(5);
+    expect(ttl).toBe(900_000);
   });
 });
 
