@@ -97,6 +97,7 @@ Why split: runbooks answer "what do I do when this breaks". The operator playboo
 ### Infrastructure (Agent-Infra)
 - [`coolify-bootstrap.md`](coolify-bootstrap.md) — full Coolify install on a fresh Ubuntu VM (~90 min).
 - [`coolify-app-stacks.md`](coolify-app-stacks.md) — deploying app stacks on top of Coolify.
+- [`pro-data-tech-cicd.md`](pro-data-tech-cicd.md) — CI/CD deploy to the pro-data.tech QA/prod hosts via `ci-cd.yml` + forced-command `deploy.sh` (a second, ADR-less deployment target alongside Coolify — see the runbook's own warning banner).
 - [`docker-iptables-and-ufw.md`](docker-iptables-and-ufw.md) — networking interaction between Docker and UFW (per ADR-0008).
 - [`restic-backups.md`](restic-backups.md) — daily backup operations, restore drill, key rotation (per ADR-0017).
 - [`observability.md`](observability.md) — Loki + Uptime Kuma + Plausible custom-event operations (per Sprint 0.4).
