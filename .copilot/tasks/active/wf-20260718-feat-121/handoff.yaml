@@ -21,7 +21,7 @@ github_issue_url: ""
 
 branch: "feature/UAT-QA-121-qa-environment-uat-mode"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/compare/feature/UAT-QA-121-qa-environment-uat-mode?expand=1"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
 
