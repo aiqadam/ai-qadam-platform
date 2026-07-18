@@ -193,6 +193,50 @@ call into `deploy.sh`. Only the host side (`deploy.sh`'s installation, SSH keys,
 
 ---
 
+## Issue intake
+
+**GitHub Issues on `aiqadam/ai-qadam-platform` is the channel for incoming bug
+reports** — testers, operators, or anyone using the deployed app files a
+GitHub Issue when they find a problem. No `.copilot`/agent access is needed
+to report one; it's a plain GitHub Issue, same as any other project.
+
+The loop from report to close:
+
+1. **Tester finds a bug → opens a GitHub Issue.** Title + a description of
+   what happened, expected vs. actual, and (if applicable) which environment
+   (QA / prod) and URL. No special format required — the resolution workflow
+   below extracts what it needs from the issue's title/body.
+2. **Someone (usually the project operator) says "resolve #<n>"** (or
+   "resolve ISS-<n>" if it's already been triaged locally) to trigger an
+   agent running the `issue-resolution` workflow
+   (`.copilot/workflows/issue-resolution.md`).
+3. **The agent copies the GitHub issue into the local working record** —
+   `.copilot/issues/ISS-<n>.md` + a row in `registry.md` — via
+   `gh issue view <n> --json title,body,url,labels`. This is Step 1 of the
+   workflow; see that file for the exact mechanics. The local file is where
+   the actual engineering trail lives (root cause, impact analysis, attempts,
+   the regression test written to prove the fix) — GitHub only sees the
+   issue's original report and, later, its closure.
+4. **The existing dev → test → CI → PR → merge pipeline runs, unchanged** —
+   everything from "Commit → push → PR → merge → verify QA" above applies
+   exactly as written; issue-sourced fixes aren't a special case there.
+5. **Once the fix is confirmed merged to `main`,** the agent closes the
+   GitHub issue with a comment linking the merged PR and the local
+   `ISS-<n>.md` record. This is the terminal, tester-visible signal — the
+   agent does not close the issue any earlier (e.g. right after the PR
+   opens), only after merge is verified.
+6. **The tester re-verifies** the fix live (QA or prod, per where it landed)
+   and either leaves the issue closed or reopens it with what's still wrong.
+   Reopening restarts the loop at step 2 for the same issue — it does not
+   create a second `ISS-<n>` file for the same GitHub issue number.
+
+From the workflow's own perspective this changes very little: one `gh issue
+view` call at intake, one `gh issue close` call at the very end. The
+impact-analysis → code → security-review → tests → PR steps in between are
+exactly what they were before GitHub Issues existed as the front door.
+
+---
+
 ## Testing workflow
 
 ### Before pushing

@@ -7,7 +7,7 @@
 
 ## Overview
 
-Resolves a registered issue: identifies root cause, implements a fix, verifies it resolves the issue, and updates the issue registry.
+Resolves a registered issue: identifies root cause, implements a fix, verifies it resolves the issue, and updates the issue registry. Issues reported by testers/users arrive as GitHub Issues (`aiqadam/ai-qadam-platform`) — see `docs/04-development/workflow.md` §"Issue intake". The local `.copilot/issues/ISS-<n>.md` file remains this workflow's working record throughout resolution (impact analysis, attempts, root cause, fix) regardless of where the issue originated; the GitHub issue is closed as the final, tester-visible signal once the fix is confirmed merged to `main`.
 
 **Retry limits, gate status values, counter semantics:** see
 `.copilot/schemas/protocol.md` and `handoff.yaml.retry_limits`.
@@ -74,11 +74,33 @@ follow the existing numbering and are unaffected.
 
 **Agent:** Orchestrator (direct)
 
-1. Read `.copilot/issues/registry.md`
-2. Search for issues with the same module or symptom keywords
-3. If similar issue found: read `ISS-<n>.md` and append current occurrence
-4. If no similar issue: create `ISS-<n>.md`, register in `registry.md`
-5. Set `issue_ref` in `handoff.yaml`
+**Issue intake is GitHub-first.** GitHub Issues in this repo
+(`aiqadam/ai-qadam-platform`) is the channel testers/users use to report
+bugs — see `docs/04-development/issue-tracking.md` for the full policy.
+This workflow starts when a human says "resolve ISS-<n>" (an already-local
+issue) **or** "resolve #<gh-n>" / "resolve <github-issue-url>" (a GitHub
+issue not yet mirrored locally).
+
+1. **If given a GitHub issue number/URL not yet in `registry.md`:**
+   ```bash
+   gh issue view <gh-n> --repo aiqadam/ai-qadam-platform --json number,title,body,url,labels,createdAt
+   ```
+   Create `.copilot/issues/ISS-<n>.md` from that data (title → the file's
+   H1 and Symptom section; body → Symptom detail; assign the next `ISS-<n>`
+   per this repo's existing numbering — GitHub issue numbers and `ISS-<n>`
+   numbers are independent id spaces, do not conflate them). Set a
+   `GitHub-Issue:` field in the header table to the issue URL — this is
+   the only new field; every other field/section is unchanged from the
+   existing template.
+2. Read `.copilot/issues/registry.md`
+3. Search for issues with the same module or symptom keywords
+4. If similar local issue found: read `ISS-<n>.md` and append current
+   occurrence (still true regardless of GitHub origin)
+5. If no similar issue and not sourced from GitHub in step 1: create
+   `ISS-<n>.md` from scratch, register in `registry.md` (unchanged —
+   covers issues found by the Orchestrator itself, not tester-reported)
+6. Set `issue_ref` in `handoff.yaml`. If sourced from GitHub, also set
+   `handoff.yaml.github_issue_url`.
 
 **Output file:** `01-issue-lookup.md`
 
@@ -314,6 +336,8 @@ is `auto` OR the user has merged manually.
    - `grep -q '| resolved |' .copilot/issues/registry.md` (in the correct row)
    - `git status --porcelain` is empty (clean tree)
    - `git status -sb` shows `[up to date with 'origin/main']`
+   - If `handoff.yaml.github_issue_url` is set: after step 6 below,
+     `gh issue view <gh-n> --json state --jq .state` returns `CLOSED`.
 
    If ANY check fails: set `workflow_status: needs-review`, record the
    specific failure in `handoff.yaml.needs_review.reason`, stop. Do not
@@ -332,13 +356,30 @@ is `auto` OR the user has merged manually.
    Strict-no-direct-main projects can skip this step and treat `active/`
    vs `completed/` as advisory.
 
+6. **Close the GitHub issue (only if `handoff.yaml.github_issue_url` is
+   set — i.e. this issue originated from GitHub intake in Step 1):**
+   ```bash
+   gh issue close <gh-n> --repo aiqadam/ai-qadam-platform \
+     --comment "Resolved by <wf-id>, merged in PR #<N> (<merge-sha>). See .copilot/issues/ISS-<n>.md for the full technical record."
+   ```
+   This is the terminal state a tester watches for — do not close earlier
+   than this (Step 9's status flip is branch-local and pre-merge; closing
+   the GitHub issue is reserved for confirmed-on-`main`, same honesty rule
+   as the rest of this step). If the tester's re-verification fails, they
+   reopen the issue (`gh issue reopen`) — this restarts intake at Step 1
+   for the same `ISS-<n>` (append a new occurrence, do not create a new
+   `ISS-<n>` file for the same GitHub issue number).
+
 **Gate:**
 - `passed` → workflow complete. Clean-tree invariant restored. Issue is
-  genuinely `resolved` on `main`.
-- `failed-retry` → verification mismatch (e.g., status not flipped on main).
-  Re-pull, re-check. Max 2 retries.
-- `needs-review` → merge failed, verification failed after retries, or
-  auto-merge was rejected. Surface to user.
+  genuinely `resolved` on `main`, and closed on GitHub if it originated
+  there.
+- `failed-retry` → verification mismatch (e.g., status not flipped on main,
+  or `gh issue close` failed). Re-pull, re-check. Max 2 retries.
+- `needs-review` → merge failed, verification failed after retries,
+  auto-merge was rejected, or the GitHub issue close call failed after
+  retries (do not silently skip it — a merged fix with a still-open
+  GitHub issue is exactly the drift this workflow exists to prevent).
 
 ---
 

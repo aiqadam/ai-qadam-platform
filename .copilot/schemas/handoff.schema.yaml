@@ -35,7 +35,10 @@ last_updated_at: ""               # ISO 8601, updated after every step
 
 requirement_ref: ""               # FEAT-<MODULE>-<N> or ISS-<n>
 requirement_text: ""              # Raw input text (1–2 sentences)
-github_issue_url: ""              # Optional: GitHub issue URL if pre-created
+github_issue_url: ""              # Set when the issue originated as a GitHub
+                                  # Issue (tester-reported) — see
+                                  # issue-resolution.md Step 1. Closed at
+                                  # Step 12.5 once the fix is merged.
 
 # ─── Git State ───────────────────────────────────────────────────────────────
 
