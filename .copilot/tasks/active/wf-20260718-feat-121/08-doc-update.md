@@ -1,0 +1,37 @@
+# Documentation Update — wf-20260718-feat-121
+
+## Documents Updated
+
+| Document | Section | Change Description |
+|---|---|---|
+| `docs/03-requirements/FR-WORKFLOW-005.md` | Whole file (new) | Created the FR file — did not exist before this workflow, since the workflow both formalizes and implements FR-WORKFLOW-005 in one pass. Frontmatter: `code: FR-WORKFLOW-005`, `name`, `status: Implemented`, `module: Workflow (WORKFLOW)`, `phase: DevEx`, `relates_to` (FR-WORKFLOW-003, FR-WORKFLOW-004, uat-runner.md, uat-verification.md). Body: `## Description` condensed from `01-requirement-validation.md`'s "Formalized Requirement" section (not pasted verbatim); `## Acceptance criteria` — the 7 ACs from the same file, reformatted as checklist items in FR-WORKFLOW-004.md's AC style (bold AC-N title + prose, `[x]` since already implemented); `## Out of scope (v1)` carried over from the requirement-validation doc, including the explicit BP-UAT-*.md frontmatter exclusion; `## Implementation` — new-content summary of what shipped (new script + bats suite, doc updates to uat-runner.md/uat-verification.md, additive `uat_target` schema field), pointing to `03-code-summary.md` / `07-test-results.md` for full detail rather than duplicating them. |
+| `docs/03-requirements/requirements-registry.md` | Line 37, Workflow module index row | Appended `· [005](FR-WORKFLOW-005.md)` after `[004](FR-WORKFLOW-004.md)`. |
+| `docs/03-requirements/requirements-registry.md` | FR implementation order table, new row after the FR-WORKFLOW-004 row | Added `| 65 | [FR-WORKFLOW-005](FR-WORKFLOW-005.md) | Read-only QA target mode for agent-driven UAT sessions | Shipped | WORKFLOW-004 (agent-driven session model — this FR adds the target axis) |`. Confirmed 65 is the correct next row number by reading the table directly: row 64 (FR-WORKFLOW-004) is immediately followed by the `> **Note on CMS-004 / CMS-005:**` blockquote — there is no row 65 already in use, and no row was skipped. |
+
+## Documents Not Updated
+
+| Document | Reason |
+|---|---|
+| `docs/04-development/architecture/architecture.md` | Task instructions explicitly excluded this: impact analysis confirmed no module-boundary change. Independently verified — this FR touches only `.copilot/` workflow/agent docs, a new `scripts/*.sh` + `scripts/tests/*.bats` pair, and `handoff.schema.yaml`; no `apps/api/`, `apps/web*/`, or `packages/shared-types/` file changed, so no architecture-doc-governed boundary is affected. |
+| `docs/04-development/security/security.md` | Task instructions explicitly excluded this: SecurityReviewer found no new security rule, only a verification of an existing-pattern guarantee (QA mode is read-only, structurally enforced by the pre-flight script never invoking `pnpm uat:seed`). No new rule to codify. |
+| New ADR under `docs/04-development/architecture/` (ADRs section) | No architecture decision is being established or reversed beyond what FR-WORKFLOW-004 already established (agent-driven session model, perceive/decide/act/judge). FR-WORKFLOW-005 is an additive amendment (adds a `target` axis to an existing model), not a new architectural decision — matches both `01-requirement-validation.md`'s own framing ("small, additive amendment... not a new independent mechanism") and the doc-writer mandate to add ADRs only for new/reversed architecture decisions. |
+| `docs/02-business-processes/uat/registry.md` | Considered per the task's explicit prompt. This file is a single cross-BP-UAT index (script name, process ref, status, last run, spec/smoke-overlap columns) — it carries no per-BP-UAT `environment:`/target metadata of its own; that field lives only inside each `BP-UAT-*.md` file's frontmatter (confirmed by reading `BP-UAT-013.md`'s frontmatter, which hardcodes `environment: "http://localhost:4321"`). FR-WORKFLOW-005's `target` is chosen at workflow invocation time, not declared per BP-UAT script (per `01-requirement-validation.md` decision 2: "general infrastructure... usable by any BP-UAT script that opts in at invocation time, not wired to one specific script"), and per its explicit out-of-scope list this FR does not touch `docs/02-business-processes/uat/*.md`. No update needed or in scope. |
+| Individual `BP-UAT-*.md` files (e.g. `BP-UAT-013.md`'s `environment:` frontmatter field) | Same reasoning as above — `target` is an invocation-time selector, not a per-script declaration. Editing any BP-UAT script's frontmatter to add a `qa` variant would exceed this FR's scope (confirmed explicitly out of scope in `01-requirement-validation.md` and restated in the new FR's own "Out of scope" section). |
+| `packages/shared-types/README.md` | No new shared-types schema — this FR's schema change is to `.copilot/schemas/handoff.schema.yaml` (workflow tooling), not `packages/shared-types`. |
+| `docs/runbooks/<slug>.md` | No new operational runbook scenario — the QA deployment topology runbook (`pro-data-tech-frontend-rollout.md`) already exists and is only referenced, not modified, by this FR. |
+| `docs/api/` | No API endpoint changed — this FR touches no `apps/api/` code. |
+| `docs/04-development/standards.md` | No new coding convention introduced beyond following the existing `uat-preflight-check.sh` idiom, which is not a new pattern requiring documentation — it's reuse of an established one. |
+
+## Gate Result
+
+```yaml
+gate_result:
+  status: passed
+  summary: "Created docs/03-requirements/FR-WORKFLOW-005.md (status: Implemented) grounded in 01-requirement-validation.md, 03-code-summary.md, and the verified diff; updated requirements-registry.md's Workflow module index (line 37) and added implementation-order row 65 (Status: Shipped), confirming 65 is genuinely the next free row by reading the table directly. Confirmed docs/02-business-processes/uat/registry.md and BP-UAT-*.md frontmatter are correctly out of scope: target is an invocation-time selector, not per-script metadata. No ADR, architecture.md, or security.md edit made per explicit task instruction and independent verification that neither applies."
+  findings:
+    - "FR-WORKFLOW-005.md body is condensed from the requirement-validation doc's Formalized Requirement section, not pasted verbatim; the 7 ACs are reformatted into FR-WORKFLOW-004.md's checklist AC style for consistency with the existing sibling FR."
+    - "Registry row 65 confirmed as the correct next number by direct inspection: row 64 (FR-WORKFLOW-004) is the last row before the CMS-004/CMS-005 note blockquote."
+    - "docs/02-business-processes/uat/registry.md carries no per-BP-UAT environment/target metadata (confirmed by reading its columns and BP-UAT-013.md's frontmatter, which hardcodes environment: http://localhost:4321 at the individual-script level) — consistent with the requirement-validation doc's explicit-out-of-scope list, so left untouched."
+    - "Pre-existing staleness noted but not fixed: requirements-registry.md's 'All 61 FR files' summary line (line 41) was already inaccurate before this workflow (the table had 64 rows pre-edit, now 65) — out of scope for this task's specific instructions (only line 37 and the new row after line 108 were requested) and not something this FR's diff caused, so left unaltered per the doc-writer rule against changing unaffected content."
+    - "No ADR created, and architecture.md/security.md not touched, per explicit task instruction and independent confirmation: no module-boundary change, no new security rule, only a verified existing-pattern guarantee."
+```

@@ -156,6 +156,27 @@ expects_registry_update: false
 #   by scripts/workflow-finish.sh when applicable.
 context_sync_commits: 0
 
+# ─── UAT Target (FR-WORKFLOW-005) ────────────────────────────────────────────
+# uat_target:
+#   local → uat-verification / UATRunner drive the session against
+#           http://localhost:4321, run the Docker/localhost-curl pre-flight,
+#           and seed/reset per FR-WORKFLOW-003 as usual (byte-identical to
+#           pre-FR-WORKFLOW-005 behavior).
+#   qa    → drive the session against https://qa.aiqadam.org, run
+#           scripts/uat-qa-preflight-check.sh (HTTPS reachability of
+#           qa.aiqadam.org + auth.qa.aiqadam.org) instead of the
+#           Docker/localhost checks, and unconditionally skip all
+#           seed/reset invocations — QA is read-only for this workflow.
+#   Any other value (prod, aiqadam.org, www.aiqadam.org, the production
+#   host, etc.) is rejected at Step 0 with failed-escalate before any
+#   browser session starts — see uat-verification.md "Scope Constraints".
+# Only meaningful for workflow_type: uat-verification; ignored by other
+# workflow types.
+# Default when absent: "local" (opt-out for backwards compatibility —
+# in-flight/historical task directories that predate this field continue
+# to resolve to today's only behavior).
+uat_target: "local"
+
 # ─── Artifacts ───────────────────────────────────────────────────────────────
 
 artifacts: []

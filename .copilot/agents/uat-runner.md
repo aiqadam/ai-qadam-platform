@@ -60,11 +60,22 @@ JUDGE:    capture the resulting screen; Read it; compare against the step's
 
 ## Session setup
 
+**`landingUrl` resolution (FR-WORKFLOW-005).** Before `UATSessionDriver.create()`
+is called, resolve `landingUrl` from `uat_target` (read from `handoff.yaml` —
+see `.copilot/schemas/handoff.schema.yaml`; defaults to `local` when absent):
+
 ```typescript
 import { UATSessionDriver } from '../support/uat-session-driver.ts';
 
 const WORKFLOW_ID = '<workflow-id>';   // from handoff.yaml
 const BP_UAT     = 'BP-UAT-013';      // from the validated script
+
+// AC-2 / AC-5: landingUrl's source is explicit and keyed on uat_target.
+const UAT_TARGET = handoff.uat_target ?? 'local';   // 'local' | 'qa'
+const landingUrl =
+  UAT_TARGET === 'qa'
+    ? 'https://qa.aiqadam.org'
+    : 'http://localhost:4321';
 
 const driver = await UATSessionDriver.create({
   bpUat:   BP_UAT,
@@ -72,6 +83,9 @@ const driver = await UATSessionDriver.create({
   budget:  { maxSteps: 40, maxScreenshots: 60, wallClockMinutes: 20 },
   // Override from BP-UAT front-matter session_budget if declared.
 });
+// driver.goto(landingUrl) is the first and only direct navigation — see
+// "Navigation rules" below. Record the resolved target in the session log's
+// opening metadata block and in 02-uat-report.md's **Environment:** field.
 ```
 
 ---
@@ -248,7 +262,10 @@ one or the other in Step 4 triage.]
 
 ## Pre-Flight Checks
 
-Before starting a session, verify:
+Before starting a session, verify — branch on `uat_target` (`local` | `qa`,
+read from `handoff.yaml`, defaults to `local`).
+
+### `target: local` (default — unchanged from pre-FR-WORKFLOW-005 behavior)
 
 ```bash
 # 1. Docker stack is up and healthy
@@ -265,6 +282,23 @@ curl -sf http://localhost:3000/health > /dev/null || echo "FAIL: api not reachab
 # if seed_required: true in the UAT script:
 pnpm uat:seed --reset <BP-UAT-NNN>   # or `pnpm uat:seed` if no manifest yet (FR-WORKFLOW-003)
 # If seed exits non-zero: failed-escalate (environment issue, not a test failure).
+```
+
+### `target: qa` (FR-WORKFLOW-005 — read-only)
+
+```bash
+# Docker/localhost checks above do NOT apply — there is no local process to
+# check. Run the QA reachability pre-flight instead:
+bash scripts/uat-qa-preflight-check.sh
+# Checks HTTPS reachability of https://qa.aiqadam.org and
+# https://auth.qa.aiqadam.org (2xx/3xx required from both). Non-zero exit:
+# failed-escalate (environment issue, not a test failure).
+
+# AC-3c: seed/reset is NEVER invoked for target: qa. Do not run
+# `pnpm uat:seed` (with or without --reset) against QA under any
+# circumstance — QA UAT sessions read and interact with whatever state
+# already exists on the deployment. This is out of scope for
+# FR-WORKFLOW-005 (candidate for a separate future FR).
 ```
 
 (This duplicates the Orchestrator's Step 2 pre-flight in `uat-verification.md`;

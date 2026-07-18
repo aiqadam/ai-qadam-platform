@@ -12,7 +12,8 @@ environment with visual evidence (screenshots). Fully autonomous — no human
 gates mid-workflow. Produces a pass/fail verdict per business process and
 registers issues for any failures.
 
-This workflow runs against a local stack (`localhost`). It NEVER targets
+This workflow runs against `local` (default) or `qa` (FR-WORKFLOW-005,
+explicit opt-in, read-only — see "Scope Constraints"). It NEVER targets
 production — UAT writes state (registrations, approvals, etc.) that would
 corrupt real data.
 
@@ -51,7 +52,15 @@ git checkout -b uat/<BP-UAT-NNN>-<slug>
 Read and increment `.copilot/meta/next-workflow-id`. Create task directory and
 `handoff.yaml`. Set `workflow_type: uat-verification`.
 
-**Gate:** Branch exists → proceed.
+**Target selection (FR-WORKFLOW-005):** `uat_target` is read from the workflow
+invocation (or defaults to `local` when not specified) and validated against
+the allowlist `local`, `qa` at this step. Any other value (including `prod`,
+`aiqadam.org`, `www.aiqadam.org`, or the production host) is rejected
+immediately with `failed-escalate` — see "Scope Constraints" below. Record
+the validated value in `handoff.yaml`'s `uat_target` field
+(`.copilot/schemas/handoff.schema.yaml`).
+
+**Gate:** Branch exists and `uat_target` is a valid allowlisted value → proceed.
 
 ---
 
@@ -91,7 +100,10 @@ backend without any visible error. Use `scripts/uat-preflight-check.sh` to
 confirm the PID listening on the port has a CommandLine matching the
 expected service.
 
-Orchestrator runs these checks directly — no subagent:
+Orchestrator runs these checks directly — no subagent. Branch on `uat_target`
+(read from `handoff.yaml`, set at Step 0):
+
+#### `target: local` (default — unchanged from pre-FR-WORKFLOW-005 behavior)
 
 ```bash
 # 1. Docker stack
@@ -124,13 +136,36 @@ pnpm uat:seed
 # localhost guard tripped; both are env issues, not product bugs.
 ```
 
+#### `target: qa` (FR-WORKFLOW-005 — read-only)
+
+```bash
+# Docker/localhost checks above do NOT apply — there is no local process to
+# check or identify. Run the QA reachability pre-flight script instead:
+bash scripts/uat-qa-preflight-check.sh
+# Checks HTTPS reachability (2xx/3xx required) of:
+#   https://qa.aiqadam.org        (app under test / session landing URL)
+#   https://auth.qa.aiqadam.org   (Authentik IdP subdomain)
+# Non-zero exit: failed-escalate (env issue). The script's own output names
+# which host failed.
+
+# AC-3c: seed/reset is NEVER invoked for target: qa. Do not run
+# `pnpm uat:seed` (with or without --reset) — QA UAT sessions read and
+# interact with whatever state already exists on the deployment. This is
+# out of scope for FR-WORKFLOW-005 (candidate for a separate future FR).
+# scripts/uat-qa-preflight-check.sh contains no invocation of the
+# fixture-seeding pnpm script anywhere in its source (structural guard,
+# not just documentation — see scripts/tests/uat-qa-preflight-check.bats).
+```
+
 **Gate:**
 - All checks pass → Step 3
 - Any check fails → register env issue in `.copilot/issues/`, `failed-escalate`.
-  On a process-identity mismatch, the message includes the foreign PID and
-  CommandLine so the operator can stop the conflicting process.
-  A non-zero exit from `pnpm uat:seed --reset <BP-UAT-NNN>` is
+  On a `target: local` process-identity mismatch, the message includes the
+  foreign PID and CommandLine so the operator can stop the conflicting
+  process. A non-zero exit from `pnpm uat:seed --reset <BP-UAT-NNN>` is
   `failed-escalate` under this same rule.
+  On a `target: qa` reachability failure, `scripts/uat-qa-preflight-check.sh`
+  names the unreachable host(s) in its `failed-escalate` message.
 
 ---
 
@@ -265,7 +300,18 @@ If workflow was interrupted:
 
 ## Scope Constraints
 
-- **Never target production.** `environment` in the UAT script must be `localhost`.
+- **Target allowlist (FR-WORKFLOW-005).** Three distinct states — do not use
+  "localhost" as a synonym for "non-production"; QA is non-production but is
+  not localhost:
+  - `local` (default) — `http://localhost:4321`, Docker/localhost pre-flight,
+    seed/reset permitted per FR-WORKFLOW-003.
+  - `qa` (explicit opt-in via `uat_target: qa`) — `https://qa.aiqadam.org`,
+    HTTPS reachability pre-flight (`scripts/uat-qa-preflight-check.sh`),
+    seed/reset **never** invoked (read-only).
+  - **Everything else is hard-blocked.** Any `uat_target` value other than
+    `local` or `qa` — including any variant resolving to `aiqadam.org`,
+    `www.aiqadam.org`, the production host, or `prod` — is rejected at
+    Step 0 with `failed-escalate` before any browser session starts.
 - **Screenshots are evidence, not decorations.** Every step must have one,
   and every screenshot must be *opened and reviewed* by VisualReviewer
   (Step 3.5). A workflow that captures screenshots nobody looks at has not
