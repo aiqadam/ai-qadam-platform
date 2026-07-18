@@ -147,6 +147,14 @@ left stale.
 | `issue-resolution` | `.copilot/issues/ISS-<n>.md` (Status field) | `.copilot/issues/registry.md` (Status column) | `resolved` |
 | `requirement-development` | `docs/03-requirements/FR-<CODE>.md` (status frontmatter) | `docs/03-requirements/requirements-registry.md` (Status column) | `Implemented` / `Shipped` |
 
+**GitHub-issue-sourced `issue-resolution` runs** (`handoff.yaml.github_issue_url`
+set) have a third, separate terminal action — closing the GitHub issue —
+performed at Step 12.5, strictly after this pair's atomic pre-merge flip and
+after the merge itself is confirmed. It is not part of this atomic pair (it
+cannot be, since it isn't a file in the git diff) and is not a substitute
+for it — both this table's checks and the GitHub-close still apply. See
+`issue-resolution.md` Step 12.5.
+
 ### Atomicity rule
 
 The two edits in a pair MUST be staged in the same `git add` and committed

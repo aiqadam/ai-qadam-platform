@@ -185,7 +185,10 @@ echo $((current + 1)) > .copilot/meta/next-workflow-id
 
 ## Issue Registration
 
-When a step exhausts retries or a failure requires escalation:
+When a step exhausts retries or a failure requires escalation (this is
+**internally-discovered** issue registration — for tester-reported bugs
+arriving via GitHub Issues, see `issue-resolution.md` Step 1 and
+`docs/04-development/workflow.md` §"Issue intake" instead):
 
 1. Read `.copilot/issues/registry.md` — search for similar issues by keyword/feature area
 2. If a similar issue exists: read `ISS-<n>.md` and append the current occurrence
