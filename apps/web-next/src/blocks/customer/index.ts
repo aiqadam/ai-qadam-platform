@@ -21,3 +21,4 @@ export { default as SponsorWall } from './SponsorWall.astro';
 export { CsatForm } from './CsatForm';
 export { FormRenderer, FormRendererIsland } from './FormRenderer';
 export { LeadCaptureForm } from './LeadCaptureForm';
+export { SignUpForm } from './SignUpForm';

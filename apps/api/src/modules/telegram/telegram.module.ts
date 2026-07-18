@@ -39,13 +39,17 @@ import { TG_GET_ME, TgConfigService, realGetMe } from './tg-config.service';
 //
 // Importing AuthModule directly here creates an unresolvable cycle:
 //
-//   AuthModule → LeadsModule → InteractionsModule → TelegramModule → AuthModule
+//   AuthModule → InteractionsModule → TelegramModule → AuthModule
+//   (also reachable via AuthModule → LeadsModule → InteractionsModule)
 //
 // AuthModule needs LeadsModule for the lead-to-member upgrade in the
-// OIDC callback; LeadsModule needs InteractionsModule to dispatch the
-// welcome email; InteractionsModule needs TelegramModule for the
-// channel adapter; and TelegramModule (this file) needs AuthModule
-// for AuthGuard on the admin surface.
+// OIDC callback, and (as of ISS-USR-REG-001's retry pass) InteractionsModule
+// directly too, to email self-registration recovery links instead of
+// exposing them in the /v1/auth/register response (see
+// registration.service.ts's "Location-header enumeration fix"); either
+// route into InteractionsModule needs TelegramModule for the channel
+// adapter; and TelegramModule (this file) needs AuthModule for AuthGuard
+// on the admin surface.
 //
 // The first attempt (PR #187, reverted via #202) imported AuthModule
 // without forwardRef and crashed the API at boot with

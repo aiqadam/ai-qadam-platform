@@ -14,8 +14,11 @@ import {
 } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
+import { z } from 'zod';
 import { env } from '../../config/env';
+import { emailField } from '../../lib/email-schema';
 import { track } from '../../lib/ops-events';
+import { passwordField } from '../../lib/password-schema';
 import { InternalAuthGuard } from '../internal/internal-auth.guard';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { LeadsService } from '../leads/leads.service';
@@ -29,12 +32,40 @@ import {
   RefreshTokenReplayError,
   RefreshTokenService,
 } from './refresh-token.service';
+import { RegistrationService } from './registration.service';
 import {
   TelegramAuthService,
   telegramWidgetPayloadSchema,
   upsertTempUserBodySchema,
 } from './telegram-auth.service';
 import type { UpsertTempUserResult } from './telegram-auth.service';
+
+// POST /v1/auth/register body — inline schema, matching this codebase's
+// established convention (packages/shared-types is an empty, unused
+// placeholder; every sibling endpoint defines its Zod schema inline —
+// see leads.controller.ts's createSchema).
+const registerSchema = z.object({
+  email: emailField(200),
+  // Length floor (12) matches the existing precedent at
+  // admin-invites.service.ts's consumeInvite (password.length < 12), PLUS
+  // a small weak/common-password rejection (retry pass — SecurityReviewer
+  // MAJOR-3: length-only is a real weakening on a genuinely PUBLIC
+  // endpoint, unlike admin-invites' operator-invited flow). See
+  // lib/password-schema.ts for the full reasoning and the blocklist.
+  password: passwordField(12),
+  // Matches the VALID_COUNTRIES set duplicated in dashboard.controller.ts
+  // and audit-events.controller.ts — "chapter" = country tenant, no new
+  // entity (ISS-USR-REG-001 scope decision #1).
+  country: z.enum(['uz', 'kz', 'tj', 'xx']),
+  displayName: z.string().trim().min(1).max(100),
+  // Anti-spam honeypot. Named `company` on the wire (NOT `honeypot`) —
+  // retry pass, SecurityReviewer MAJOR-2: a literal `honeypot` field name
+  // is trivially recognizable by bots that inspect field names before
+  // filling. Matches LeadCaptureForm.tsx's exact convention (same
+  // innocuous name, same hidden-field treatment). Zod key name and HTML
+  // `name=` attribute must agree on the wire — see SignUpForm.tsx.
+  company: z.string().optional(), // must be empty — anti-spam, mirrors leads.controller.ts
+});
 
 // COOKIES — see docs/04-development/architecture/auth-architecture.md §"Cookies"
 //
@@ -102,6 +133,7 @@ export class AuthController {
     private readonly directusBridge: DirectusUsersBridgeService,
     private readonly leads: LeadsService,
     private readonly telegramAuth: TelegramAuthService,
+    private readonly registration: RegistrationService,
   ) {}
 
   // GET /v1/auth/login?next=/somewhere — top-level browser navigation, NOT
@@ -379,6 +411,58 @@ export class AuthController {
     res.redirect(HttpStatus.FOUND, recoveryUrl);
   }
 
+  // POST /v1/auth/register — public endpoint (no AuthGuard; there is no
+  // user yet). ISS-USR-REG-001 self-registration: email/password/country
+  // → full member account (Authentik user + password + aiqadam-member
+  // group + Directus country write).
+  //
+  // Retry-pass fix (SecurityReviewer MAJOR-1 — see registration.service.ts's
+  // "Location-header enumeration fix" module doc for full reasoning): the
+  // response is now the SAME literal redirect — `Location: /v1/auth/login`
+  // — for genuine success, duplicate-email, AND honeypot alike.
+  // RegistrationService.register() always resolves to that same
+  // RegisterResult; on genuine success it separately EMAILS the real
+  // Authentik one-time login URL to the registrant rather than ever
+  // putting it in this response's Location header. This closes a
+  // scripted-client email-enumeration oracle: previously a real
+  // registration redirected to a distinguishable, unique Authentik URL
+  // while duplicate/honeypot redirected to the literal '/v1/auth/login'
+  // string, which a `fetch(..., { redirect: 'manual' })` client could
+  // read in one request per candidate email.
+  //
+  // Rate-limited: 5 requests per 15 minutes per IP (security.md
+  // §Rate limiting — same policy as telegram/exchange above).
+  @Post('register')
+  @HttpCode(HttpStatus.FOUND)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  async register(
+    @Body() body: unknown,
+    @Res({ passthrough: false }) res: Response,
+  ): Promise<void> {
+    const parsed = registerSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    // Honeypot: bot-trap short-circuit. Return the exact same
+    // redirect-response shape as a real registration — never distinguish
+    // bot-trapped from accepted (mirrors leads.controller.ts:53-55). The
+    // field is named `company` on the wire (see registerSchema below) to
+    // match LeadCaptureForm.tsx's established, bot-inconspicuous naming.
+    if (parsed.data.company && parsed.data.company.length > 0) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.redirect(HttpStatus.FOUND, '/v1/auth/login');
+      return;
+    }
+    const { recoveryUrl } = await this.registration.register({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      country: parsed.data.country,
+      displayName: parsed.data.displayName,
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(HttpStatus.FOUND, recoveryUrl);
+  }
 }
 
 // `next` must be a same-origin relative path (begins with / but not //)
