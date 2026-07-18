@@ -22,7 +22,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/28"
 
 branch: "fix/ISS-USR-REG-001-self-registration"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/31"
 merge_mode: "auto"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
