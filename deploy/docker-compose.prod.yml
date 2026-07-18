@@ -102,6 +102,11 @@ services:
       # Public origin, not a Docker-internal alias. NOTE: no /v1 suffix
       # — see docker-compose.qa.yml's equivalent comment.
       INTERNAL_API_URL: "https://aiqadam.org"
+      # See docker-compose.qa.yml's equivalent comment — cms.ts's
+      # default (http://directus:8055) doesn't resolve under
+      # network_mode: host and hangs ~10s per request before falling
+      # back. Directus is out of scope for this environment by design.
+      INTERNAL_DIRECTUS_URL: "http://127.0.0.1:1"
 
 volumes:
   aiqadam_prod_pgdata:
