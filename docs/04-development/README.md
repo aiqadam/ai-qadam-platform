@@ -6,6 +6,7 @@ How we build and run the platform. Code standards and workflow, architecture, an
 
 - [STANDARDS.md — Code Standards](standards.md)
 - [WORKFLOW.md — How we work](workflow.md)
+- [GitHub access — what's required to operate this repo's workflow](github-access.md)
 
 ## Architecture
 

@@ -9,6 +9,9 @@ Process discipline matters more than tools. This document is the canonical workf
 ### Branching
 
 - **`main`** — always deployable. Protected: no direct pushes, PR required, CI must pass.
+  (Enforced via a GitHub repository ruleset, not classic branch protection —
+  see [github-access.md](github-access.md) §4 for the distinction and how
+  to check it programmatically.)
 - **`feature/<short-name>`** — new features (`feature/event-registration`, `feature/leaderboard`).
 - **`fix/<short-name>`** — bug fixes (`fix/qr-token-expiry`).
 - **`chore/<short-name>`** — maintenance (`chore/upgrade-drizzle`).
