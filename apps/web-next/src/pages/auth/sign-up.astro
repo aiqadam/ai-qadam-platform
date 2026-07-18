@@ -1,0 +1,46 @@
+---
+// @generated-from gen:page
+// slug: auth/sign-up
+//
+// /auth/sign-up — public AI-Qadam-branded self-registration entry point.
+// ISS-USR-REG-001.
+//
+// Unlike sign-in.astro (bare SSR redirect to Authentik's generic hosted
+// form), this page hosts real markup: a custom sign-up form collecting
+// email/password/displayName/country, POSTing natively to
+// /api/v1/auth/register (see SignUpForm.tsx for why this must be a real
+// browser form submission, not a fetch-based apiClient call).
+//
+// SSR-only (no prerender) so an already-signed-in visitor can be bounced
+// straight to /me without rendering the form.
+
+export const prerender = false;
+
+import { PageHead } from '../../blocks/common';
+import { SignUpForm } from '../../blocks/customer';
+import Layout from '../../layouts/Layout.astro';
+
+// Already signed in? No point showing a sign-up form.
+if (Astro.locals.auth) {
+  return Astro.redirect('/me', 302);
+}
+---
+
+<Layout title="Sign up · AI Qadam" description="Create your AI Qadam member account.">
+  <PageHead slot="head" title="Sign up · AI Qadam" description="Create your AI Qadam member account." />
+  <main class="mx-auto max-w-md px-6 py-12">
+    <div class="mb-8 text-center">
+      <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground">
+        Join AI Qadam
+      </h1>
+      <p class="mt-2 text-sm text-muted-foreground">
+        Register as a member to unlock event registration, the leaderboard, and badges.
+      </p>
+    </div>
+    <SignUpForm client:load />
+    <p class="mt-4 text-center text-[13px] text-muted-foreground">
+      Already have an account?{' '}
+      <a href="/auth/sign-in" class="text-primary hover:underline">Sign in</a>
+    </p>
+  </main>
+</Layout>

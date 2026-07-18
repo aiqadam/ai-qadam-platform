@@ -1,0 +1,227 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260718-fix-122"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-18T10:31:17Z"
+last_updated_at: "2026-07-18T11:46:47Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-USR-REG-001"
+requirement_text: >
+  Implement AI-Qadam-branded self-registration: a sign-up page collecting
+  email/password + country (chapter=country per scoping decision),
+  provisioning a full member account (role: member, is_temporary: false)
+  via Authentik and setting country_preference. Scope clarified with the
+  reporter in GitHub issue #28 comments before implementation.
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/28"
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-USR-REG-001-self-registration"
+base_branch: "main"
+github_pr_url: ""
+merge_mode: "auto"
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 10
+current_step_name: "quality-gate"
+workflow_status: "running"
+
+# ─── Subworkflow Link ──────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T10:35:00Z"
+    summary: "GitHub issue #28 mirrored to ISS-USR-REG-001.md with pre-clarified scope. No duplicate found in registry.md."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T10:45:00Z"
+    summary: "New POST /v1/auth/register on existing AuthController; new RegistrationService; no DB migration needed. Novel risk flagged: orphaned-account partial-failure handling."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T11:05:00Z"
+    summary: "Backend (RegistrationService + auth.controller.ts endpoint) and frontend (sign-up.astro + SignUpForm.tsx) implemented across two CodeDeveloper passes."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/03-code-summary.md"
+  security-review:
+    status: failed-retry
+    attempt: 1
+    timestamp: "2026-07-18T11:10:00Z"
+    summary: "3 MAJOR findings: Location-header email-enumeration oracle, honeypot field named literally 'honeypot', length-only password policy on a public endpoint. Orchestrator corrected initial mislabeled 'passed' status per the agent's own documented gate semantics (no MAJOR findings permitted for passed)."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/04-security-review.md"
+  code-development-retry:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-18T11:20:00Z"
+    summary: "Fixed all 3 MAJOR findings: recovery link now emailed out-of-band (InteractionsService) instead of returned in the HTTP response; honeypot renamed to 'company'; added password-schema.ts weak-password rejection."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/03-code-summary.md"
+  security-review-retry:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-18T11:28:00Z"
+    summary: "Independent re-review confirmed all 3 MAJOR findings genuinely closed by direct code trace, no new issues introduced. Zero BLOCKER, zero MAJOR."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T11:33:00Z"
+    summary: "Rubric score 3 (below Testcontainers threshold); mocked-unit tier confirmed sufficient, matching AdminInvitesService precedent (zero direct Drizzle access)."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T11:33:00Z"
+    summary: "apps/api/test/registration-service.spec.ts written (8 tests) mirroring admin-invites-service.spec.ts's mock structure. Happy-path test explicitly framed as the mandatory issue-resolution regression test and MAJOR-1 guard."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/06-test-design.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T11:40:00Z"
+    summary: "Honesty correction to test-design's claimed 0-failure full-suite run: independently re-ran twice, found 1 pre-existing/unrelated flake (users.spec.ts:65, timestamp race, untouched by this branch, already tracked in workspace-state.md). Orchestrator closed an additional flagged gap by adding password-schema.spec.ts (9 tests)."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/07-test-results.md"
+  registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T11:44:00Z"
+    summary: "Atomic status flip: ISS-USR-REG-001.md and registry.md both set to resolved; handoff.yaml issue_resolution field set."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/09-registry-update.md"
+  quality-gate:
+    status: failed-retry
+    attempt: 1
+    timestamp: "2026-07-18T11:45:00Z"
+    summary: "One gap found: handoff.yaml's own gate_results/agent_assignments/current_step were not retroactively populated despite 9 passed step files existing. No code/security/test defect. Fixed directly by Orchestrator; re-running QualityGate."
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/10-quality-gate.md"
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/01-issue-lookup.md"
+    timestamp: "2026-07-18T10:35:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/02-impact-analysis.md"
+    timestamp: "2026-07-18T10:45:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/03-code-summary.md"
+    timestamp: "2026-07-18T11:20:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/04-security-review.md"
+    timestamp: "2026-07-18T11:28:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/06-test-strategy.md"
+    timestamp: "2026-07-18T11:33:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/06-test-design.md"
+    timestamp: "2026-07-18T11:33:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/07-test-results.md"
+    timestamp: "2026-07-18T11:40:00Z"
+  orchestrator-registry-update:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/09-registry-update.md"
+    timestamp: "2026-07-18T11:44:00Z"
+  quality-gate:
+    status: in_progress
+    step: 10
+    output_file: ".copilot/tasks/active/wf-20260718-fix-122/10-quality-gate.md"
+    timestamp: "2026-07-18T11:45:00Z"
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+# ─── Retry Limits ─────────────────────────────────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: "ISS-USR-REG-001"
+issue_resolution: "resolved"
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard ──────────────────────────────────────────────────────
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts: []
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/security/security.md
+  - docs/03-requirements/FR-AUTH-001.md
+  - docs/03-requirements/FR-AUTH-002.md
+  - docs/03-requirements/FR-USR-001.md
+  - apps/api/src/modules/users/
+  - apps/api/src/modules/leads/
+  - apps/api/src/modules/tenants/
+  - apps/web-next/src/blocks/
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260718-fix-122/NEEDS_REVIEW.md"
