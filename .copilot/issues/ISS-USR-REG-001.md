@@ -83,7 +83,7 @@ covers self-registration. Related-but-distinct FRs in
 ## Resolution
 
 - **Workflow:** wf-20260718-fix-122
-- **PR:** `<pending>` — back-filled at Step 12 after `gh pr create`.
+- **PR:** [#31](https://github.com/aiqadam/ai-qadam-platform/pull/31)
 - **Root cause:** No self-registration surface existed — the platform relied
   entirely on Authentik's generic hosted sign-up form (no AI-Qadam branding,
   no country/chapter selection, no explicit member-role provisioning path)
@@ -122,4 +122,4 @@ covers self-registration. Related-but-distinct FRs in
   behavior: asserts the resolved result is the literal `/v1/auth/login`
   string, never the real Authentik recovery URL. `apps/api/test/password-schema.spec.ts`
   (9 tests) covers the MAJOR-3 password-policy fix.
-- **Merged:** `<pending>` — Step 12.5 back-fills the merge SHA.
+- **Merged:** squash commit `dd5ceef` on `main` (PR #31, 2026-07-18).
