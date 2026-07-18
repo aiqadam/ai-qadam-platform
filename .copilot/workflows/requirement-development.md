@@ -386,15 +386,47 @@ start: "Auto-merge this PR when CI passes, or will you review it yourself?"
    If ANY check fails: `workflow_status: needs-review`, record specific
    failure, stop. Do not "fix" main's state — surface the discrepancy.
 
-4. **Move task dir `active/` → `completed/`:**
+4. **Move task dir `active/` → `completed/`** and add the
+   `.copilot/context/workspace-state.md` close-out entry:
    ```bash
    git mv .copilot/tasks/active/<wf-id> .copilot/tasks/completed/<wf-id>
+   # ... edit workspace-state.md to prepend the new entry ...
+   git add .copilot/tasks/completed/<wf-id> .copilot/context/workspace-state.md
    git commit -m "chore(workflow): archive <wf-id> (FR-<CODE> shipped)"
    git push origin main
    ```
 
-   Permitted direct-to-main commit, archive-move only. Strict-no-direct-main
-   projects may skip this step and treat `active/` vs `completed/` as advisory.
+   **Branch protection note (confirmed 2026-07-18, `aiqadam/ai-qadam-platform`):**
+   `main` is covered by an active **repository ruleset** (not classic
+   branch protection — `gh api repos/<org>/<repo>/branches/main/protection`
+   returns 404 even when this ruleset is enforcing; check
+   `gh api repos/<org>/<repo>/rulesets` or
+   `gh api repos/<org>/<repo>/rules/branches/main` instead) requiring
+   `pull_request` — the direct `git push origin main` above WILL be
+   rejected (`GH013: Changes must be made through a pull request`). Route
+   through a small close-out PR instead:
+   ```bash
+   git checkout -b chore/<wf-id>-archive-close-out
+   # (the git mv + workspace-state.md edit + commit above happen on this branch)
+   git push -u origin chore/<wf-id>-archive-close-out
+   gh pr create --title "chore(workflow): archive <wf-id> (FR-<CODE> shipped)" \
+     --base main --body "Close-out for FR-<CODE> (PR #<N>, merged): archives the task directory and adds the workspace-state.md summary entry."
+   gh pr merge --squash --auto --delete-branch
+   ```
+   **Poll `gh pr view <close-out-PR-N> --json state` until `state == MERGED`
+   (max 5 min, 15s interval) before declaring the workflow complete** —
+   `--auto` merges asynchronously once checks pass; do not treat "the merge
+   command returned" as "the merge happened," same rule as the main PR
+   merge earlier in this step.
+
+   This close-out PR is doc-only (no code) — expect it to merge quickly.
+   If a future repo instance genuinely allows direct pushes to `main`,
+   simplify back to the direct commit — verify via
+   `gh api repos/<org>/<repo>/rulesets` (do NOT rely on `git push --dry-run`,
+   which does not reliably reproduce a ruleset rejection; see the parallel
+   note in `issue-resolution.md` Step 12.5). Strict-no-direct-main projects
+   may skip this step entirely and treat `active/` vs `completed/` as
+   advisory.
 
 **Gate:**
 - `passed` → workflow complete. Clean-tree invariant restored. FR is

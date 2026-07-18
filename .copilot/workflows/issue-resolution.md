@@ -92,6 +92,28 @@ issue not yet mirrored locally).
    `GitHub-Issue:` field in the header table to the issue URL — this is
    the only new field; every other field/section is unchanged from the
    existing template.
+
+   **Post a back-reference comment on the GitHub issue immediately** (not
+   deferred to close-out) naming the local tracking ID, e.g.:
+   ```bash
+   gh issue comment <gh-n> --repo aiqadam/ai-qadam-platform \
+     --body "Tracked internally as \`ISS-<n>\` (\`.copilot/issues/ISS-<n>.md\`)."
+   ```
+   Reason: a human (or a future agent) reading the GitHub issue mid-flight —
+   before the workflow finishes — has no way to find the internal record
+   otherwise. If the issue's scope is ambiguous and needs clarification
+   (see below), fold the back-reference into that same comment rather than
+   posting twice.
+
+   **If the raw issue lacks clear acceptance criteria** (a one-paragraph
+   user story with undefined terms, no explicit scope boundary, etc.):
+   resolve the ambiguity with the user in chat *before* ImpactAnalyzer or
+   CodeDeveloper run, then post the resulting scope decisions as a GitHub
+   issue comment — this makes the decision durable and reviewable instead
+   of living only in the chat transcript, and gives the local `ISS-<n>.md`
+   file's own "Scope clarification" section something concrete to cite.
+   Do not silently assume scope and proceed straight to implementation
+   when the issue is this underspecified.
 2. Read `.copilot/issues/registry.md`
 3. Search for issues with the same module or symptom keywords
 4. If similar local issue found: read `ISS-<n>.md` and append current
@@ -320,16 +342,44 @@ is `auto` OR the user has merged manually.
    git pull --rebase origin main
    ```
 
-3. **Back-fill merge SHA in `ISS-<n>.md`:** rewrite the `Merged:` placeholder
-   to the squash-commit SHA on main. Commit on main:
-   `docs(issues): back-fill merge SHA for ISS-<n>`.
+3. **Back-fill merge SHA + PR URL in `ISS-<n>.md`:** rewrite the `Merged:`
+   and `PR:` placeholders with the real squash-commit SHA and PR URL.
 
-   **§6 note:** This is a metadata-only documentation back-fill on `main`
-   after the substantive PR has already merged. It is permitted because the
-   substantive change arrived via PR; this commit only records history that
-   already happened. If the user prefers strict no-direct-main, this step
-   can be deferred to the next workflow's PR — but then `ISS-<n>.md` carries
-   a `<pending>` SHA indefinitely.
+   **Branch protection note (confirmed 2026-07-18, `aiqadam/ai-qadam-platform`):**
+   `main` is covered by an active **repository ruleset** (not classic
+   branch protection — `gh api repos/<org>/<repo>/branches/main/protection`
+   returns 404 "Branch not protected" even when this ruleset is active and
+   enforcing; check `gh api repos/<org>/<repo>/rulesets` instead, or just
+   `gh api repos/<org>/<repo>/rules/branches/main` to see the effective
+   rules for `main` specifically) requiring `pull_request` — direct
+   `git push origin main` WILL be rejected
+   (`GH013: Changes must be made through a pull request`). `git push
+   --dry-run` does NOT reliably reproduce this (rulesets are evaluated
+   server-side on the real push, not necessarily on a dry-run) — route
+   through a PR by default rather than probing first:
+   ```bash
+   git checkout -b chore/<wf-id>-archive-close-out
+   git add .copilot/issues/ISS-<n>.md
+   git commit -m "docs(issues): back-fill merge SHA + PR URL for ISS-<n>"
+   git push -u origin chore/<wf-id>-archive-close-out
+   gh pr create --title "chore(workflow): archive <wf-id> (ISS-<n> resolved)" \
+     --base main --body "Close-out for ISS-<n> (PR #<N>, merged): back-fills the merge SHA/PR URL placeholders and archives the task directory (see step 5 below — combine both changes in this one close-out PR)."
+   gh pr merge --squash --auto --delete-branch
+   ```
+   **Poll `gh pr view <close-out-PR-N> --json state` until `state == MERGED`
+   (max 5 min, 15s interval) before proceeding** — `--auto` merges
+   asynchronously once checks pass; do not treat "the merge command
+   returned" as "the merge happened," same rule as the main PR merge in
+   step 1 of this section. Only after `MERGED` is confirmed should step 6
+   (close the GitHub issue) and the workflow's own "complete" declaration
+   proceed.
+
+   This close-out PR is itself a metadata-only documentation change (no
+   code) — it is fine and expected for it to skip most of the standard
+   review ceremony; just wait for it to merge before declaring the workflow
+   complete. If this repo instance somehow DOES allow direct pushes to
+   `main` (verify — do not assume), a direct commit is fine and simpler;
+   this fallback exists for the common case where it doesn't.
 
 4. **Verify the status flip landed on main:**
    - `grep -q 'Status | resolved' .copilot/issues/ISS-<n>.md`
@@ -343,25 +393,36 @@ is `auto` OR the user has merged manually.
    specific failure in `handoff.yaml.needs_review.reason`, stop. Do not
    attempt to "fix" main's state — surface the discrepancy to the user.
 
-5. **Move task dir `active/` → `completed/`:**
+5. **Move task dir `active/` → `completed/`** and add the
+   `.copilot/context/workspace-state.md` close-out entry (see that file's
+   own existing entries for the expected format/level of detail):
    ```bash
    git mv .copilot/tasks/active/<wf-id> .copilot/tasks/completed/<wf-id>
+   # ... edit workspace-state.md to prepend the new entry ...
+   git add .copilot/tasks/completed/<wf-id> .copilot/context/workspace-state.md
    git commit -m "chore(workflow): archive <wf-id> (ISS-<n> resolved)"
-   git push origin main
    ```
+   **Combine this commit with step 3's back-fill commit on the SAME
+   close-out branch/PR** (`chore/<wf-id>-archive-close-out`) rather than
+   opening two separate PRs — both are workflow-bookkeeping, both are
+   doc-only, no reason to split them. Push and merge that one PR per the
+   branch-protection note in step 3 above.
 
-   This is the one direct-to-main commit permitted by this protocol, and
-   only for the archive move. Reason: the archive is a workflow-bookkeeping
-   operation that cannot ride the just-merged PR (the PR is already merged).
-   Strict-no-direct-main projects can skip this step and treat `active/`
-   vs `completed/` as advisory.
+   Historically this repo allowed a direct-to-main commit for the archive
+   move (`git push origin main`). As of 2026-07-18 that is blocked by
+   branch protection — route through the close-out PR described in step 3
+   instead. If a future repo instance genuinely allows direct pushes,
+   simplify back to a direct commit; verify first, don't assume either way.
 
 6. **Close the GitHub issue (only if `handoff.yaml.github_issue_url` is
    set — i.e. this issue originated from GitHub intake in Step 1):**
    ```bash
    gh issue close <gh-n> --repo aiqadam/ai-qadam-platform \
-     --comment "Resolved by <wf-id>, merged in PR #<N> (<merge-sha>). See .copilot/issues/ISS-<n>.md for the full technical record."
+     --comment "Resolved via PR #<N> (squash \`<merge-sha>\`). Tracked internally as \`ISS-<n>\` (.copilot/issues/ISS-<n>.md, wf-id: <wf-id>). <one-paragraph plain-language summary of what shipped, for the reporter — not a repeat of the internal changelog>"
    ```
+   The closing comment MUST name the local `ISS-<n>` ID and file path even
+   if Step 1 already posted a back-reference — the closing comment is what
+   the reporter most likely reads, and it should be self-sufficient.
    This is the terminal state a tester watches for — do not close earlier
    than this (Step 9's status flip is branch-local and pre-merge; closing
    the GitHub issue is reserved for confirmed-on-`main`, same honesty rule
