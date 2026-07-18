@@ -1,0 +1,128 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260718-feat-124"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-18T15:32:56Z"
+last_updated_at: "2026-07-18T15:32:56Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: ""
+requirement_text: >
+  Write a standalone, machine-agnostic checklist (docs/04-development/github-access.md)
+  of what's required to operate this repo's GitHub workflow automation:
+  gh CLI scopes, gh default-repo drift awareness, git push transport,
+  main-branch ruleset awareness, GitHub Projects status (not used),
+  CI secrets (separate concern), and the GITHUB_TOKEN fallback. Requested
+  directly by the user as a standardization/onboarding doc, distinct from
+  .claude/CLAUDE.md's per-machine troubleshooting narrative.
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "docs/WORKFLOW-007-github-access-checklist"
+base_branch: "main"
+github_pr_url: ""
+merge_mode: "auto"
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 9
+current_step_name: "quality-gate"
+workflow_status: "running"
+
+# ─── Subworkflow Link ──────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T15:20:00Z"
+    summary: "Small, standalone docs addition — no FR number assigned (below the threshold that warrants one; pure documentation, no process/behavior change to any agent or workflow file, unlike FR-WORKFLOW-006)."
+    output_file: "docs/04-development/github-access.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T15:30:00Z"
+    summary: "Wrote docs/04-development/github-access.md directly. Verified every factual claim against actual repo/gh state (gh auth status scopes, grep of every gh subcommand used in .copilot/+scripts/, confirmed no GitHub Projects usage anywhere, confirmed CI secrets list from .github/workflows/*.yml, confirmed ruleset-vs-classic-branch-protection distinction from the prior FR-WORKFLOW-006 workflow). Added cross-links from docs/04-development/README.md, workflow.md, and .claude/CLAUDE.md."
+    output_file: "docs/04-development/github-access.md"
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  orchestrator-direct:
+    status: completed
+    step: 1
+    output_file: "docs/04-development/github-access.md"
+    timestamp: "2026-07-18T15:32:56Z"
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+# ─── Retry Limits ─────────────────────────────────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: ""
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard ──────────────────────────────────────────────────────
+
+expects_registry_update: false
+
+context_sync_commits: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts:
+  - "docs/04-development/github-access.md"
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - .claude/CLAUDE.md
+  - docs/04-development/workflow.md
+  - docs/04-development/README.md
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260718-feat-124/NEEDS_REVIEW.md"

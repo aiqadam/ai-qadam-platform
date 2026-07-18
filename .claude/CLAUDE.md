@@ -60,6 +60,13 @@ invoke it with the prefix or it falsely reports an invocation error
 
 ## Git credentials (RESOLVED 2026-06-29 via Quest: ISS-UAT-013-4 workflow)
 
+**For the full, machine-agnostic checklist of what's required to operate
+this repo's GitHub workflow at all** (gh scopes, ruleset awareness,
+GitHub Projects status, CI secrets, the `GITHUB_TOKEN` fallback), see
+[`docs/04-development/github-access.md`](../docs/04-development/github-access.md).
+This section below documents the specific troubleshooting history and
+current working setup on individual developer machines — read both.
+
 ### Symptom
 `workflow-finish.sh` (and any `git push`) repeatedly prompted for `Username` and
 `Password for 'https://tvolodi@github.com'`. Tiring — every workflow blocked on
