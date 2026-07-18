@@ -27,7 +27,7 @@ github_issue_url: ""
 
 branch: "feature/WORKFLOW-006-session-friction-fixes"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/33"
 merge_mode: "auto"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
