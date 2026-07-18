@@ -95,3 +95,16 @@ services:
       # NOTE: no /v1 suffix — apps/web-next/src/lib/api-ssr.ts appends
       # '/v1/...' itself; INTERNAL_API_URL is the bare origin.
       INTERNAL_API_URL: "https://qa-uz.aiqadam.org"
+      # apps/web-next/src/lib/cms.ts defaults to http://directus:8055
+      # (a Docker Compose service-name alias) when unset. There is no
+      # Docker network here (network_mode: host has no service-name
+      # DNS), so that default hostname doesn't resolve — Node's fetch
+      # then hangs for ~10s per request during DNS/connect resolution
+      # before cms.ts's try/catch falls back to defaults, making every
+      # page load (which calls fetchSiteSettings) take 10+ seconds and
+      # nginx's proxy_pass time out (499) before a response arrives.
+      # Directus is out of scope for this environment by design (see
+      # ai-qadam-infra T-0110's scope decision) — point at a loopback
+      # port nothing listens on so the connection is refused in
+      # ~1ms (confirmed on-host) instead of hanging on DNS.
+      INTERNAL_DIRECTUS_URL: "http://127.0.0.1:1"
