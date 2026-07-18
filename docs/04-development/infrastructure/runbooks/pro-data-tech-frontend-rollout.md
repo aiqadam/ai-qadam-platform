@@ -11,10 +11,33 @@ after that (fully automatic once this runbook's Step 2 has run once per host).
 Both hosts were deliberately set up API-only (`ai-qadam-infra` tasks
 T-0110/T-0111): `deploy/docker-compose.{qa,prod}.yml` had 2-3 services (api,
 oidc-stub, [postgres on prod]) and nginx proxied `/` straight to the API —
-which is why `GET https://qa-uz.aiqadam.org/` (and `https://aiqadam.org/`)
-returned a bare 404 instead of a front page. This runbook adds `web-next`
-(built from `apps/web-next/Dockerfile`, the ADR-0038 target frontend) as a
-third compose service on both hosts, and routes `/` to it via nginx.
+which is why `GET https://qa.aiqadam.org/` (and `https://aiqadam.org/`)
+returned a bare 404 instead of a front page. This runbook originally added
+just `web-next` (built from `apps/web-next/Dockerfile`, the ADR-0038 target
+frontend); QA has since (2026-07-18) also gained real `redis`,
+`authentik-server`, `authentik-worker`, and `directus` services — see
+"QA is now fully provisioned" below. `oidc-stub` remains present but
+deprecated until confirmed fully unused.
+
+## QA is now fully provisioned (2026-07-18)
+
+QA booted with schema-valid placeholder `OIDC_ISSUER_URL`/`DIRECTUS_TOKEN`
+env vars (T-0110's scope decision) — the API ran, but ~85 of the
+requirements marked "Shipped" in `requirements-registry.md` are
+Directus-backed, and login never worked (the placeholder OIDC issuer was a
+loopback-only stub). QA now runs real Authentik (`auth.qa.aiqadam.org`,
+its own subdomain — **not** a `/auth/` path prefix under `qa.aiqadam.org`,
+see "Common failure modes" below for why that was tried first and didn't
+work) and real Directus (`127.0.0.1:3119`, schema populated via
+`infrastructure/directus/bootstrap.sh` + `flows-bootstrap.sh`). The OAuth2
+Application/Provider inside Authentik (slug `aiqadam-qa`) was created via
+its REST API (`/api/v3/providers/oauth2/`, `/api/v3/core/applications/`) —
+there is currently no idempotent script for this step (unlike
+`bootstrap.sh` for Directus); if the Authentik database is ever wiped, this
+needs to be redone by hand or a provisioning script written first.
+**Prod does not yet have this** — `deploy/docker-compose.prod.yml` has the
+same four services defined, but they've never been brought up or
+registered there. Repeat this section's steps for prod when ready.
 
 ## Pre-conditions
 
@@ -77,8 +100,8 @@ routing (not yet updated at this point).
 QA:
 
 ```bash
-sudo cp /etc/nginx/sites-available/qa-uz.aiqadam.org \
-        /etc/nginx/sites-available/qa-uz.aiqadam.org.pre-web-next.bak
+sudo cp /etc/nginx/sites-available/qa.aiqadam.org \
+        /etc/nginx/sites-available/qa.aiqadam.org.pre-web-next.bak
 ```
 
 Prod:
@@ -93,8 +116,8 @@ sudo cp /etc/nginx/sites-available/aiqadam.org \
 QA:
 
 ```bash
-sudo cp /opt/apps/aiqadam-qa/deploy/nginx/qa-uz.aiqadam.org.conf \
-        /etc/nginx/sites-available/qa-uz.aiqadam.org
+sudo cp /opt/apps/aiqadam-qa/deploy/nginx/qa.aiqadam.org.conf \
+        /etc/nginx/sites-available/qa.aiqadam.org
 ```
 
 Prod:
@@ -123,8 +146,8 @@ config and re-run `nginx -t` before reloading.
 ## Verification
 
 ```bash
-curl -I https://qa-uz.aiqadam.org/         # expect 200 (was 404)
-curl -I https://qa-uz.aiqadam.org/health   # expect 200 (unchanged)
+curl -I https://qa.aiqadam.org/         # expect 200 (was 404)
+curl -I https://qa.aiqadam.org/health   # expect 200 (unchanged)
 curl -I https://aiqadam.org/               # expect 200 (was 404)
 curl -I https://aiqadam.org/health         # expect 200 (unchanged)
 curl -I https://penpot.aiqadam.org/        # expect 200 (prod only — unregressed)
@@ -181,6 +204,30 @@ tracking another previously-host-only file, check first via
 an untracked file already exists at that path, and move it aside as part
 of the same rollout — don't wait for `deploy.sh` to hit the wall.
 
+### Authentik behind a reverse-proxy path prefix 404s on every OIDC redirect
+
+**Symptom:** `apps/api` boots fine (its own `Issuer.discover()` call to the
+issuer URL succeeds), but the actual browser login redirect
+(`GET /v1/auth/login` → `302` → Authentik) 404s. `curl -I` on the
+`Location` header's URL directly also returns `404`.
+
+**Root cause:** Authentik's `/.well-known/openid-configuration` document
+self-reports `authorization_endpoint`/`token_endpoint`/etc. as bare paths
+off its own root (e.g. `/application/o/authorize/`) — it has no concept of
+being reverse-proxied under a path prefix like `/auth/`. If nginx routes
+`https://qa.aiqadam.org/auth/` → Authentik, every URL in the discovery
+document is still `https://qa.aiqadam.org/application/o/...` (missing the
+`/auth` prefix nginx expects), so following any of them 404s at nginx
+before ever reaching Authentik.
+
+**Fix applied:** don't use a path prefix for Authentik — give it its own
+subdomain (`auth.qa.aiqadam.org`) with its own nginx `server` block routing
+`/` → `authentik-server`. Authentik then serves from its own root exactly
+as it expects to, and every self-reported URL resolves correctly. See
+`deploy/nginx/qa.aiqadam.org.conf`'s two `server` blocks for the working
+pattern (one per hostname, sharing the same cert since it covers both
+via SAN).
+
 ## References
 
 - [`pro-data-tech-cicd.md`](pro-data-tech-cicd.md) — the base CI/CD pipeline
@@ -188,5 +235,5 @@ of the same rollout — don't wait for `deploy.sh` to hit the wall.
 - [ADR-0038](../../../adr/0038-web-4-layer-architecture.md) — why
   `apps/web-next` (not `apps/web`) is the target frontend.
 - `deploy/docker-compose.qa.yml`, `deploy/docker-compose.prod.yml`,
-  `deploy/nginx/qa-uz.aiqadam.org.conf`, `deploy/nginx/aiqadam.org.conf` —
+  `deploy/nginx/qa.aiqadam.org.conf`, `deploy/nginx/aiqadam.org.conf` —
   the actual tracked config this runbook deploys.
