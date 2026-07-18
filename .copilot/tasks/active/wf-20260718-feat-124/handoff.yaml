@@ -24,7 +24,7 @@ github_issue_url: ""
 
 branch: "docs/WORKFLOW-007-github-access-checklist"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/35"
 merge_mode: "auto"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
