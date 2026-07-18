@@ -154,7 +154,7 @@ change needs to be observably live before you consider the task closed.
 **Two independent deploy pipelines exist** — see
 [`docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md`](infrastructure/runbooks/pro-data-tech-cicd.md)
 for the full picture. This section documents the **pro-data.tech** pipeline
-(`.github/workflows/ci-cd.yml`, QA host `qa-uz.aiqadam.org`). The Coolify pipeline
+(`.github/workflows/ci-cd.yml`, QA host `qa.aiqadam.org`). The Coolify pipeline
 (`.github/workflows/deploy.yml`, ADR-0002) still runs independently on every push to
 `main` — don't assume merging a PR only triggers one of them.
 
@@ -172,7 +172,7 @@ for the full picture. This section documents the **pro-data.tech** pipeline
    - Watch the run: `gh run list --repo aiqadam/ai-qadam-platform --workflow=ci-cd.yml`
      — this is the primary signal. A green `deploy-qa` job means `deploy.sh` completed
      on the host.
-   - Health check: `curl -s -o /dev/null -w '%{http_code}' https://qa-uz.aiqadam.org/health`
+   - Health check: `curl -s -o /dev/null -w '%{http_code}' https://qa.aiqadam.org/health`
      should return `200` within ~30s of the run finishing.
    - **Commit-level confirmation is not currently self-serve.** There is no read-only
      "what's deployed" endpoint — confirming the exact SHA landed requires SSHing to

@@ -1,4 +1,4 @@
-# deploy/docker-compose.qa.yml — pro-data-tech-qa (95.46.211.230, qa-uz.aiqadam.org).
+# deploy/docker-compose.qa.yml — pro-data-tech-qa (95.46.211.230, qa.aiqadam.org).
 #
 # Source of truth for the QA compose stack. Previously this file existed
 # only on the host (/opt/apps/aiqadam-qa/deploy/docker-compose.qa.yml,
@@ -44,11 +44,11 @@
 #     GET / 404'd. web-next below fixes that.
 #   - web-next: apps/web-next (the target frontend per ADR-0038), built
 #     from apps/web-next/Dockerfile. Talks to the API over the public
-#     origin (https://qa-uz.aiqadam.org/v1/...), same pattern as the
+#     origin (https://qa.aiqadam.org/v1/...), same pattern as the
 #     existing infrastructure/web-next/docker-compose.yml stack, since
 #     host networking here has no private Docker DNS between services.
 #
-# nginx (deploy/nginx/qa-uz.aiqadam.org.conf) routes '/' to web-next:4322
+# nginx (deploy/nginx/qa.aiqadam.org.conf) routes '/' to web-next:4322
 # and '/health' + '/v1/*' to api:3113 — see that file for the split.
 
 name: aiqadam-qa
@@ -103,9 +103,9 @@ services:
       AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
       # Host networking: bind the internal port to a QA-specific port so it
       # doesn't collide with anything else on this host (dev's default 9000
-      # is unused here — nginx will proxy auth.qa-uz.aiqadam.org -> this
-      # port once the vhost is added; see the frontend-rollout-style runbook
-      # for this OIDC rollout).
+      # is unused here). nginx (deploy/nginx/qa.aiqadam.org.conf) proxies
+      # auth.qa.aiqadam.org -> this port, on its own dedicated subdomain
+      # (not a path prefix — see that file's header comment for why).
       AUTHENTIK_LISTEN__HTTP: "127.0.0.1:3117"
       AUTHENTIK_LISTEN__HTTPS: "127.0.0.1:3118"
     volumes:
@@ -164,7 +164,7 @@ services:
       TELEMETRY: "false"
       EXTENSIONS_AUTO_RELOAD: "true"
       CORS_ENABLED: "true"
-      CORS_ORIGIN: "https://qa-uz.aiqadam.org"
+      CORS_ORIGIN: "https://qa.aiqadam.org"
       PORT: "3119"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3119/server/health"]
@@ -200,16 +200,21 @@ services:
       # WEB_BASE_URL, OIDC_CLIENT_ID/SECRET, DATABASE_URL) as before.
       REDIS_URL: "redis://127.0.0.1:3116"
       DIRECTUS_URL: "http://127.0.0.1:3119"
-      # MUST be the public hostname, not a loopback address: Authentik's
+      # MUST be a real public hostname, not a loopback address: Authentik's
       # discovery document reports authorization_endpoint based on the
       # Host header of the request that fetched /.well-known/... — if this
       # were 127.0.0.1, the SAME bug as the old oidc-stub reproduces with a
       # real server (browser redirected to an address only the host can
-      # reach). nginx (deploy/nginx/qa-uz.aiqadam.org.conf) proxies
-      # /auth/* on the public domain to authentik-server:3117 so this
-      # resolves correctly from both the container (Issuer.discover, at
-      # boot) and the browser (the actual login redirect).
-      OIDC_ISSUER_URL: "https://qa-uz.aiqadam.org/auth/application/o/aiqadam-qa/"
+      # reach). Uses its OWN subdomain (auth.qa.aiqadam.org), not a path
+      # prefix under qa.aiqadam.org — Authentik's self-reported endpoint
+      # URLs don't account for a reverse-proxy path prefix (confirmed:
+      # tried /auth/ first, every redirect 404'd because Authentik reports
+      # bare /application/o/... paths with no way to inject the prefix).
+      # A dedicated subdomain sidesteps this: Authentik serves from its
+      # own root exactly as it expects to. See
+      # deploy/nginx/qa.aiqadam.org.conf for the matching nginx server
+      # block.
+      OIDC_ISSUER_URL: "https://auth.qa.aiqadam.org/application/o/aiqadam-qa/"
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3113/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
@@ -235,7 +240,7 @@ services:
       # Mirrors infrastructure/web-next/docker-compose.yml's rationale.
       # NOTE: no /v1 suffix — apps/web-next/src/lib/api-ssr.ts appends
       # '/v1/...' itself; INTERNAL_API_URL is the bare origin.
-      INTERNAL_API_URL: "https://qa-uz.aiqadam.org"
+      INTERNAL_API_URL: "https://qa.aiqadam.org"
       # Directus is now real (see the `directus` service above) — this
       # used to point at a deliberately-unreachable loopback port because
       # Directus was out of scope for QA (ai-qadam-infra T-0110's original

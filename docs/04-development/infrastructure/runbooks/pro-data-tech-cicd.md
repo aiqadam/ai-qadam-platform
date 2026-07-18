@@ -3,6 +3,7 @@
 **Audience:** Agent-Infra (or whoever owns `.github/workflows/ci-cd.yml` and `deploy.sh` going forward), and anyone debugging a failed `deploy-qa`/`deploy-prod` GitHub Actions run.
 **Pre-reading:** [ADR-0002](../../../adr/0002-deployment-target.md) (the *other* deployment target — read the "Two deployment targets" note below before assuming this is the only pipeline). No ADR exists yet for the pro-data.tech target; writing one is recommended follow-up, see References.
 **Procedure source:** built 2026-07-17 by the `ai-qadam-infra` management repo (external, host/secrets-owning), tasks T-0110–T-0113. This runbook is a handoff snapshot, not the source of truth for host state — see "Ownership boundary" below.
+**Update (2026-07-18, this repo, not ai-qadam-infra):** the QA hostname changed from `qa-uz.aiqadam.org` to `qa.aiqadam.org` after fixing the root cause that originally forced the `-uz` workaround (a 2-character-hostname-label tenant-routing bug in `apps/api`, see `apps/api/src/modules/tenants/tenant.middleware.ts`'s `NON_TENANT_LABELS`). QA also now runs real Authentik + Directus (`auth.qa.aiqadam.org`), not the placeholder stubs this document describes below — see `pro-data-tech-frontend-rollout.md` for the current, maintained state. The architecture/commands below are preserved as a historical snapshot of the 2026-07-17 hand-off; do not treat hostnames or "API-only" claims below as current.
 
 ## Architecture in one paragraph
 

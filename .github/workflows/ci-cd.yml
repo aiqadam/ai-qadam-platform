@@ -75,7 +75,7 @@ jobs:
       - name: Health check (api)
         run: |
           for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' https://qa-uz.aiqadam.org/health)
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://qa.aiqadam.org/health)
             if [ "$code" = "200" ]; then echo "healthy"; exit 0; fi
             sleep 10
           done
@@ -84,7 +84,7 @@ jobs:
       - name: Health check (frontend)
         run: |
           for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' https://qa-uz.aiqadam.org/)
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://qa.aiqadam.org/)
             if [ "$code" = "200" ]; then echo "healthy"; exit 0; fi
             sleep 10
           done
