@@ -234,14 +234,26 @@ The PRSteward performs, in order, **without prompts**:
    ```bash
    git checkout main
    git pull --rebase origin main
+   git checkout -b chore/pr-steward-auto-register-<class-label>
    git add .copilot/issues/ISS-CI-OVERRIDE-<prefix>.md \
            .copilot/issues/registry.md \
            .copilot/tasks/queued/wf-<id>/ \
            .copilot/meta/ci-override-counters.json \
            .copilot/meta/next-workflow-id
    git commit -m "chore(pr-steward): auto-register <class-label> (counter 1/5)"
-   git push origin main
+   git push -u origin chore/pr-steward-auto-register-<class-label>
+   gh pr create --title "chore(pr-steward): auto-register <class-label>" \
+     --base main --body "Auto-registers CI-override failure class <class-label> (ISS-CI-OVERRIDE-<prefix>) per AGENTS.md §6.3. Doc/state-only — no code change."
+   gh pr merge --squash --auto --delete-branch
    ```
+   **Branch protection note (see `.claude/CLAUDE.md` "Origin migrated"
+   section and `.copilot/schemas/protocol.md`'s atomicity-rule section):**
+   `main` on `aiqadam/ai-qadam-platform` is covered by an active repository
+   ruleset requiring `pull_request` — the direct `git push origin main`
+   this step previously described will be rejected
+   (`GH013: Changes must be made through a pull request`). Route through
+   the small PR shown above instead, same pattern as the Orchestrator's
+   own workflow close-out procedure.
 
 After Step 7, the class is registered, owned, queued, and the
 counter is at 1. The PRSteward proceeds with Step 4 of the
@@ -291,9 +303,11 @@ passed steps 1-4. The PRSteward:
    `owned_by_issue`. Amend the `Workflow` column to include the
    most recent overriding workflow and the counter, e.g.
    `wf-20260703-fix-070 (3/5)`. Commit this update as part of the
-   workflow's own archive commit (Step 11.5 #4), not on the PR
-   branch (the PR should not touch registry state for *its own*
-   override — the Orchestrator commits it on main after merge).
+   workflow's own archive close-out (Step 11.5 #4 of
+   `requirement-development.md` / Step 12.5 #5 of `issue-resolution.md`),
+   not on the PR branch (the PR should not touch registry state for *its
+   own* override) — follow that step's documented PR-routing procedure,
+   not a direct commit to `main`.
 
 4. **Update handoff.yaml.**
 

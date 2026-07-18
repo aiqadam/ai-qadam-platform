@@ -1,0 +1,144 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260718-feat-123"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-18T12:15:00Z"
+last_updated_at: "2026-07-18T12:32:05Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "FR-WORKFLOW-006"
+requirement_text: >
+  Fix five pieces of session friction discovered during the two prior
+  workflows this session: (1) GitHub issues have no back-reference to
+  their local ISS-<n> tracking file until close-out; (2) issue-resolution
+  workflow has no documented scope-clarification procedure; (3) the
+  documented direct-to-main archive-close-out commit is blocked by an
+  active repository ruleset; (4) gh's cached default-repo can silently
+  drift from the actual git remote; (5) Git Bash/MSYS mangles
+  `git show <ref>:<path>`; (6) a gate agent can self-report `passed`
+  while its own findings list contradicts that, with no protocol check
+  to catch it.
+github_issue_url: ""
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "feature/WORKFLOW-006-session-friction-fixes"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/33"
+merge_mode: "auto"
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 9
+current_step_name: "quality-gate"
+workflow_status: "running"
+
+# ─── Subworkflow Link ──────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T12:16:00Z"
+    summary: "FR-WORKFLOW-006 formalized directly by Orchestrator — bundling 6 small, unrelated doc-only friction fixes discovered firsthand in the prior two workflows this session, per explicit user request to bundle."
+    output_file: "docs/03-requirements/FR-WORKFLOW-006.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-18T12:25:00Z"
+    summary: "All 6 fixes applied directly by Orchestrator across issue-resolution.md, requirement-development.md, protocol.md, pr-steward.md, CLAUDE.md. No product code — pure .copilot/ + .claude/ workflow-tooling docs."
+    output_file: "docs/03-requirements/FR-WORKFLOW-006.md"
+  self-review:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-18T12:31:00Z"
+    summary: "8-angle /code-review-style pass at medium effort found and fixed 2 real factual errors (branch-protection check used wrong API endpoint; git push --dry-run doesn't reliably reproduce a ruleset rejection) plus 3 real cross-file consistency gaps (pr-steward.md had the same unfixed direct-push bug; requirement-development.md still referenced the retracted dry-run check; both close-out procedures merged --auto without polling for MERGED before declaring done). All fixed. See FR-WORKFLOW-006.md 'Review notes' section."
+    output_file: "docs/03-requirements/FR-WORKFLOW-006.md"
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  orchestrator-direct:
+    status: completed
+    step: 1
+    output_file: "docs/03-requirements/FR-WORKFLOW-006.md"
+    timestamp: "2026-07-18T12:32:05Z"
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+# ─── Retry Limits ─────────────────────────────────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: ""
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals:
+  - from_feature: "FR-WORKFLOW-006"
+    to_feature: "FR-WORKFLOW-007 (candidate, not yet created)"
+    reason: "Centralizing the close-out PR procedure into scripts/workflow-finish.sh (a bookkeeping-only mode) instead of three near-identical inline bash blocks — architecturally cleaner but a real script change deserving its own scoped workflow, not bundled into this docs-only fix."
+    step: 1
+    timestamp: "2026-07-18T12:30:00Z"
+
+# ─── Context Drift Guard ──────────────────────────────────────────────────────
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts:
+  - "docs/03-requirements/FR-WORKFLOW-006.md"
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - .copilot/workflows/issue-resolution.md
+  - .copilot/workflows/requirement-development.md
+  - .copilot/schemas/protocol.md
+  - .copilot/agents/pr-steward.md
+  - .claude/CLAUDE.md
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260718-feat-123/NEEDS_REVIEW.md"

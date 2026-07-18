@@ -23,6 +23,29 @@ gate_result:
   deferred_reason: "<one sentence>"   # when status == deferred
 ```
 
+### Self-consistency check (Orchestrator MUST verify, not just trust)
+
+Before advancing on any agent's gate result, the Orchestrator MUST check
+that `status` actually matches what the agent's own `findings`/BLOCKER/MAJOR
+sections report — do not advance on a `status` field alone. **Observed
+failure mode (2026-07-18, wf-20260718-fix-122):** SecurityReviewer listed 3
+MAJOR findings in its own output but self-reported `gate_result.status:
+passed` — a direct contradiction of its own agent definition's documented
+semantics (`passed` requires **zero** BLOCKER or MAJOR findings). This is
+an easy mistake for an agent to make (it correctly judged nothing was
+BLOCKER-severity and rounded that up to "passed" instead of the correct
+`failed-retry`), and it will recur with any agent whose gate has more than
+two possible outcomes.
+
+**Concretely:** before treating a `passed` result as real, count the
+BLOCKER/MAJOR findings (or equivalent status-gating criteria) the output
+file itself lists. If any exist and the agent's own gate-semantics table
+says they should preclude `passed`, correct the `status` field in place
+(cite the specific rule from the agent's `.md` file being violated), retry
+the affected step, and note the correction in the workflow's own tracking
+— do not silently accept a self-reported `passed` that contradicts the
+same file's findings.
+
 ---
 
 ## Gate Status Values
@@ -161,8 +184,20 @@ The two edits in a pair MUST be staged in the same `git add` and committed
 together on the feature branch. They are part of the same PR as the code,
 so when the PR merges the status flip lands on `main` simultaneously with
 the code. **No separate post-merge status commit is permitted** (preserves
-AGENTS.md §6). The only permitted direct-to-main commit is the task-dir
-archive move in Step 11.5/12.5.
+AGENTS.md §6). The task-dir archive move + workspace-state.md close-out
+entry in Step 11.5/12.5 is workflow-bookkeeping, not a substantive change,
+and is the one class of edit exempt from this rule — but as of 2026-07-18
+`main` on `aiqadam/ai-qadam-platform` is covered by an active repository
+ruleset (id `18687633`, requiring `pull_request` — note this does NOT show
+up via `gh api repos/<org>/<repo>/branches/main/protection`, which only
+sees classic branch protection and 404s even when a ruleset is active;
+check `gh api repos/<org>/<repo>/rulesets` instead) that requires even
+this workflow-bookkeeping edit to arrive via a (small, doc-only) PR rather
+than a direct push; see the
+close-out procedure in `issue-resolution.md` Step 12.5 / `requirement-development.md`
+Step 11.5 for the exact PR-routing steps. Do not assume a direct
+`git push origin main` will succeed — verify or route through a PR by
+default.
 
 ### QualityGate enforcement
 

@@ -45,6 +45,19 @@ apply on top of `AGENTS.md` Section 6:
   explicit confirmation.
 - **Prefer `pnpm`** over `npm` or `yarn` for all package operations in this repo.
 
+### Git Bash / MSYS mangles `git show <ref>:<path>` (recorded 2026-07-18)
+
+Git Bash (MSYS) auto-converts path-like arguments before the command
+runs, corrupting `git show <ref>:<path>` refs (e.g.
+`origin/main:.copilot/context/workspace-state.md` → garbage) into a
+`fatal: ambiguous argument` error that looks like a real bug but isn't.
+
+**Fix:** prefix with `MSYS_NO_PATHCONV=1`, e.g.
+`MSYS_NO_PATHCONV=1 bash scripts/check-workflow-state.sh --base "origin/main"`.
+That script (Step 0.5 of every workflow) hits this internally — always
+invoke it with the prefix or it falsely reports an invocation error
+(exit 2) unrelated to actual drift.
+
 ## Git credentials (RESOLVED 2026-06-29 via Quest: ISS-UAT-013-4 workflow)
 
 ### Symptom
@@ -91,7 +104,10 @@ The key on disk belongs to a different machine.
 
 This machine's actual working configuration is:
 
-- `git remote get-url origin` → `https://github.com/tvolodi/aiqadam.git` (HTTPS).
+- `git remote get-url origin` → `https://github.com/aiqadam/ai-qadam-platform.git`
+  (HTTPS; migrated from `https://github.com/tvolodi/aiqadam.git` per
+  `ISS-MIGRATE-001` — see the "Origin migrated" subsection below for the
+  `gh` default-repo gotcha this caused).
 - `git config --global credential.helper` → `manager` plus
   `credential.https://github.com.helper=!gh auth git-credential`.
 - `gh auth status` shows logged-in to `github.com` account `tvolodi` with
@@ -106,6 +122,34 @@ If `gh auth status` ever shows "not logged in" on this machine, run
 `gh auth login --hostname github.com --git-protocol https --scopes repo,workflow`
 interactively (the user types the PAT) — that's the only auth path that's
 known to work here.
+
+### `gh`'s cached default-repo can silently drift from `git remote` (recorded 2026-07-18)
+
+Since the origin migration (`ISS-MIGRATE-001`), `git remote get-url origin`
+correctly resolves to `aiqadam/ai-qadam-platform` — but `gh`'s own
+*default-repo resolution* (used internally by `gh pr create`, `gh issue view`,
+etc. when no `--repo` flag is given) can independently resolve to the OLD
+`tvolodi/aiqadam` repo even when `git remote -v` is already correct. This
+caused `gh pr create` inside `scripts/workflow-finish.sh` to fail with a
+confusing, non-obvious error (`No commits between main and <branch>` — a
+symptom of `gh` targeting the wrong repo, not an actual problem with the
+branch), silently falling back to a compare-URL instead of a real PR.
+
+**Symptom check:** `gh repo view --json owner,name` — if `owner.login` is
+`tvolodi` instead of `aiqadam`, this is happening.
+
+**Fix:**
+```bash
+gh repo set-default aiqadam/ai-qadam-platform
+```
+Run this once per fresh terminal/session if `gh pr create` fails
+mysteriously despite `git push` having succeeded. After the fix,
+`gh repo view` should report `owner.login: aiqadam`, `name: ai-qadam-platform`.
+
+If `workflow-finish.sh` reports "Could not create PR automatically" and
+falls back to a compare-URL, check this FIRST before assuming a real PR
+API failure — it has been the actual root cause both times this has
+happened in an agent session so far.
 
 ---
 
