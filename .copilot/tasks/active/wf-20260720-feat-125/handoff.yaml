@@ -1,0 +1,9 @@
+workflow_id: wf-20260720-feat-125
+workflow_type: requirement-development
+status: in-progress
+issue_ref: "GitHub #38"
+branch: feature/auth-125-register-nav-button
+title: "Bring registration form to main screen (nav Register button)"
+started: "2026-07-20"
+
+gate_results: {}
