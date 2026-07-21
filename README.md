@@ -14,6 +14,18 @@ AI Qadam serves three jobs for a regional community of AI engineers, ML practiti
 
 See [`docs/01-business/project.md`](docs/01-business/project.md) for full product context.
 
+## Quick start from tvolodi as of 2026-07-21
+
+1. Clone the repo
+1. Start Docker Desktop (or Docker Engine on Linux)
+1. Say your agents to read this file and set up the development environment for you
+1. Select Orchestrator agent and ask him to implement / resolve issue from local requirements / issue registry, or give him an URL to an issue in GitHub repo.
+1. Check Orchestrator has finished his work: update local repo (pull), new branch, develop, commit, push, and create a PR for you.
+1. On PR acceptance, the development has to go to QA instance: qa.aiqadam.org.
+1. After QA approval, the development has to be deployed to production: aiqadam.org. Use GitHub Actions workflow for deployment. 
+
+Note: how to manually develop this project I don't know.
+
 ## Operating context
 
 **AI agent rules** live in two places:
@@ -223,7 +235,7 @@ Coolify admin: `https://coolify.aiqadam.org`.
 
 ## Contributing
 
-Private repository. Internal contributors follow [`docs/04-development/workflow.md`](docs/04-development/workflow.md) — short branches, conventional commits, ≤400-line PRs, every change reviewed.
+Public repository. Internal contributors follow [`docs/04-development/workflow.md`](docs/04-development/workflow.md) — short branches, conventional commits, ≤400-line PRs, every change reviewed.
 
 ## License
 
