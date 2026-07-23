@@ -18,6 +18,21 @@ export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],
+  // GH-41: Astro's checkOrigin middleware constructs the request URL using
+  // the raw socket protocol (http, since Nginx→Astro is unencrypted), while
+  // the browser Origin header carries the public https:// scheme. This makes
+  // Astro's same-origin check fail for all POST form submissions on QA/prod.
+  // Configuring allowedDomains enables #applyForwardedHeaders(), which reads
+  // the X-Forwarded-Proto: https header Nginx already forwards and patches
+  // url.origin to https:// before checkOrigin runs. CSRF protection stays ON.
+  security: {
+    checkOrigin: true,
+    allowedDomains: [
+      { hostname: 'qa.aiqadam.org' },
+      { hostname: 'aiqadam.org' },
+      { hostname: 'next.aiqadam.org' },
+    ],
+  },
   vite: {
     plugins: [tailwindcss()],
     server: {
