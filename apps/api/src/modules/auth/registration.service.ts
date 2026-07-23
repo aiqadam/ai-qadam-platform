@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { AuthentikClient, AuthentikError } from '../admin-invites/authentik.client';
+import { AuthentikClient } from '../admin-invites/authentik.client';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
 import { InteractionsService } from '../interactions/interactions.service';
@@ -128,7 +128,25 @@ export class RegistrationService {
     // registered: an existing account (active OR a disabled orphan, see
     // module doc above) gets the SAME success response shape as a fresh
     // registration. We do not touch the existing account in any way.
-    const existing = await this.authentik.getUserByEmail(input.email);
+    //
+    // ISS-USR-REG-002: no Authentik user has been created yet at this
+    // point, so an unexpected failure here (e.g. Authentik unreachable or
+    // unauthorized) has no orphan to clean up — just log and fail closed
+    // with the same generic error Steps 3/4 already use. Previously this
+    // call had no try/catch at all, so any AuthentikError (which extends
+    // plain Error, not HttpException) fell through to NestJS's default
+    // filter as a bare, undiagnosable 500.
+    let existing: Awaited<ReturnType<AuthentikClient['getUserByEmail']>>;
+    try {
+      existing = await this.authentik.getUserByEmail(input.email);
+    } catch (err) {
+      this.logger.log({
+        event: 'registration.duplicate_check_failed',
+        email: input.email,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+      throw new BadRequestException('registration_failed');
+    }
     if (existing) {
       this.logger.log({
         event: 'registration.duplicate_email',
@@ -137,7 +155,13 @@ export class RegistrationService {
       return this.fakeSuccessResult();
     }
 
-    // Step 3 — create the Authentik user (no password yet).
+    // Step 3 — create the Authentik user (no password yet). Convert ANY
+    // failure (4xx, 5xx, or a raw network/transport error) to the same
+    // generic BadRequestException — no Authentik user exists yet if this
+    // step itself is what failed, so there is no orphan to clean up.
+    // (Previously only 4xx AuthentikErrors were converted; 5xx and network
+    // errors rethrew unhandled, reaching NestJS's default filter as a bare
+    // 500 — the same class of bug as Steps 2/5/8.)
     const username = this.deriveUsername(input.email);
     const akUser = await this.authentik
       .createUser({
@@ -147,13 +171,15 @@ export class RegistrationService {
         attributes: {},
       })
       .catch((err: unknown) => {
-        if (err instanceof AuthentikError && err.status >= 400 && err.status < 500) {
-          // Generic — do not surface Authentik's internal reason (could
-          // leak account-existence info via a different code path, e.g.
-          // a race with another request for the same email).
-          throw new BadRequestException('registration_failed');
-        }
-        throw err;
+        // Generic — do not surface Authentik's internal reason (could
+        // leak account-existence info via a different code path, e.g.
+        // a race with another request for the same email).
+        this.logger.log({
+          event: 'registration.create_user_failed',
+          email: input.email,
+          reason: err instanceof Error ? err.message : String(err),
+        });
+        throw new BadRequestException('registration_failed');
       });
 
     // Step 4 — set the submitted password. THIS is the partial-failure
@@ -182,11 +208,37 @@ export class RegistrationService {
 
     // Step 5 — resolve + assign the baseline member group. Mirrors
     // admin-invites.service.ts's exact two-call sequence.
-    const resolvedGroups = await this.authentik.resolveGroupNames([MEMBER_GROUP]);
-    await this.authentik.setUserGroups(
-      akUser.pk,
-      resolvedGroups.map((g) => g.pk),
-    );
+    //
+    // ISS-USR-REG-002: at this point akUser + password already exist in
+    // Authentik (Steps 3/4 succeeded), so a failure here is the same
+    // partial-failure class as Step 4's orphaned-account case — apply the
+    // same mitigation (best-effort disableUser + structured log) before
+    // throwing the same generic error, so a group-assignment failure
+    // doesn't leave a fully-active, ungrouped account silently reachable.
+    try {
+      const resolvedGroups = await this.authentik.resolveGroupNames([MEMBER_GROUP]);
+      await this.authentik.setUserGroups(
+        akUser.pk,
+        resolvedGroups.map((g) => g.pk),
+      );
+    } catch (err) {
+      await this.authentik.disableUser(akUser.pk).catch((disableErr: unknown) => {
+        // Disabling the orphan is best-effort — even if it fails, the
+        // structured log below is the real safety net.
+        this.logger.warn(
+          `registration: failed to disable orphaned Authentik user pk=${akUser.pk} after group-assignment failure: ${
+            disableErr instanceof Error ? disableErr.message : String(disableErr)
+          }`,
+        );
+      });
+      this.logger.log({
+        event: 'registration.orphaned_account',
+        authentik_user_id: akUser.pk,
+        email: input.email,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+      throw new BadRequestException('registration_failed');
+    }
 
     // Step 6 — get-or-create the Directus member row (no platform.users
     // row exists yet at this point — it's created lazily on first OIDC
@@ -231,13 +283,34 @@ export class RegistrationService {
     // returning it to the controller (see "Location-header enumeration
     // fix" module doc above). Best-effort: a mail-provider blip must not
     // fail a registration that has already fully succeeded in Authentik.
-    const recoveryUrl = await this.authentik.createRecoveryLink(akUser.pk);
-    await this.dispatchWelcomeEmail({
-      directusUserId,
-      email: input.email,
-      displayName: input.displayName,
-      recoveryUrl,
-    });
+    //
+    // ISS-USR-REG-002: registration has ALREADY FULLY SUCCEEDED by this
+    // point (user created, password set, group assigned, Directus linked,
+    // country written) — per this module's own stated policy, a failure
+    // minting the recovery link must not fail a registration that already
+    // succeeded. Log loudly (same "stranded, operator must intervene
+    // manually via Authentik" precedent dispatchWelcomeEmail's own
+    // no-directusUserId branch already establishes) and still return
+    // success — the registrant just won't get a working welcome-email
+    // link automatically.
+    let recoveryUrl: string | null = null;
+    try {
+      recoveryUrl = await this.authentik.createRecoveryLink(akUser.pk);
+    } catch (err) {
+      this.logger.warn(
+        `registration: failed to mint recovery link for authentik_user_id=${akUser.pk} email=${input.email} — welcome email not sent, operator must mint one manually via Authentik: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    if (recoveryUrl) {
+      await this.dispatchWelcomeEmail({
+        directusUserId,
+        email: input.email,
+        displayName: input.displayName,
+        recoveryUrl,
+      });
+    }
     return this.fakeSuccessResult();
   }
 

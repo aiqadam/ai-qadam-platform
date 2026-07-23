@@ -1,5 +1,6 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthentikError } from '../src/modules/admin-invites/authentik.client';
 import type { AuthentikClient, AuthentikUser } from '../src/modules/admin-invites/authentik.client';
 import { RegistrationService } from '../src/modules/auth/registration.service';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
@@ -260,6 +261,138 @@ describe('register — email dispatch failure is non-fatal', () => {
     // Assert — best-effort .catch()-wrapped dispatch does not fail the
     // already-successful registration.
     expect(result).toEqual({ recoveryUrl: '/v1/auth/login' });
+  });
+});
+
+// ─── Regression tests (ISS-USR-REG-002 — Steps 2/3/5/8 error-handling) ─────
+//
+// Before this fix, RegistrationService.register() had three fully
+// unguarded external call sites (Steps 2, 5, 8) plus a partially-guarded
+// one (Step 3, only 4xx AuthentikErrors converted). AuthentikError extends
+// plain Error, not HttpException, so any of these thrown uncaught fell
+// through to NestJS's default exception filter as a bare, undiagnosable
+// 500. Each test below pins the NEW behavior specifically (exact exception
+// class, exact message, exact mock call counts) so it would fail against
+// the pre-fix code — see 06-test-strategy.md for the rubric/mapping.
+
+describe('register — duplicate-check failure (Step 2 regression, ISS-USR-REG-002)', () => {
+  it('converts a getUserByEmail failure to a generic registration_failed error without attempting to create anything', async () => {
+    // Arrange — Authentik unreachable/unauthorized during the duplicate check.
+    authentik.getUserByEmail.mockRejectedValueOnce(new AuthentikError(401, '/core/users/', 'unauthorized'));
+
+    // Act
+    const rejection = svc.register(VALID_INPUT).catch((err: unknown) => err);
+
+    // Assert — converted to the same generic, non-leaking error Steps 3/4/5 use.
+    const err = await rejection;
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as BadRequestException).message).toBe('registration_failed');
+
+    // Assert — no Authentik user was ever attempted (nothing to clean up;
+    // no Authentik user exists yet at Step 2, unlike the Step 4/5 orphan cases).
+    expect(authentik.createUser).not.toHaveBeenCalled();
+    expect(authentik.setPassword).not.toHaveBeenCalled();
+    expect(directusBridge.ensureLinkedByEmail).not.toHaveBeenCalled();
+    expect(interactions.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('register — create-user failure widened to non-4xx errors (Step 3 regression, ISS-USR-REG-002)', () => {
+  it('converts a 5xx AuthentikError from createUser to BadRequestException instead of rethrowing the raw error', async () => {
+    // Arrange — before this fix, only 4xx AuthentikErrors were converted;
+    // a 5xx rethrew unhandled straight past this catch.
+    authentik.createUser.mockRejectedValueOnce(new AuthentikError(503, '/core/users/', 'upstream unavailable'));
+
+    // Act
+    const rejection = svc.register(VALID_INPUT).catch((err: unknown) => err);
+
+    // Assert — the rejection IS a BadRequestException, not the raw AuthentikError.
+    const err = await rejection;
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect(err).not.toBeInstanceOf(AuthentikError);
+    expect((err as BadRequestException).message).toBe('registration_failed');
+
+    // Assert — no further provisioning was attempted.
+    expect(authentik.setPassword).not.toHaveBeenCalled();
+    expect(authentik.setUserGroups).not.toHaveBeenCalled();
+  });
+
+  it('converts a raw network TypeError from createUser to BadRequestException instead of rethrowing the raw error', async () => {
+    // Arrange — a plain transport failure (e.g. fetch failed), not an AuthentikError at all.
+    authentik.createUser.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+    // Act
+    const rejection = svc.register(VALID_INPUT).catch((err: unknown) => err);
+
+    // Assert — still converted, not leaked as a raw TypeError.
+    const err = await rejection;
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as BadRequestException).message).toBe('registration_failed');
+  });
+});
+
+describe('register — group-assignment failure orphan mitigation (Step 5 regression, ISS-USR-REG-002)', () => {
+  it('disables the orphan and throws a generic failure when resolveGroupNames fails, with no further side effects', async () => {
+    // Arrange — createUser + setPassword already succeeded (see beforeEach);
+    // the group-resolution call itself now fails.
+    authentik.resolveGroupNames.mockRejectedValueOnce(new AuthentikError(503, '/core/groups/', 'transient'));
+
+    // Act
+    const rejection = svc.register(VALID_INPUT).catch((err: unknown) => err);
+
+    // Assert
+    const err = await rejection;
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as BadRequestException).message).toBe('registration_failed');
+
+    // Assert — the orphan (already has a password by this point) was disabled.
+    expect(authentik.disableUser).toHaveBeenCalledWith(AK_USER.pk);
+
+    // Assert — no partial provisioning beyond the failed group assignment.
+    expect(directusBridge.ensureLinkedByEmail).not.toHaveBeenCalled();
+    expect(interactions.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('disables the orphan and throws a generic failure when setUserGroups fails, with no further side effects', async () => {
+    // Arrange — resolveGroupNames succeeds, but assigning the resolved groups fails.
+    authentik.setUserGroups.mockRejectedValueOnce(new AuthentikError(500, '/core/users/4242/groups/', 'boom'));
+
+    // Act
+    const rejection = svc.register(VALID_INPUT).catch((err: unknown) => err);
+
+    // Assert
+    const err = await rejection;
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as BadRequestException).message).toBe('registration_failed');
+
+    // Assert — the orphan was disabled using the pk returned by createUser.
+    expect(authentik.disableUser).toHaveBeenCalledWith(AK_USER.pk);
+    expect(directusBridge.ensureLinkedByEmail).not.toHaveBeenCalled();
+    expect(interactions.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('register — recovery-link mint failure is non-fatal (Step 8 regression, ISS-USR-REG-002)', () => {
+  it('still resolves successfully and skips the welcome email when createRecoveryLink fails', async () => {
+    // Arrange — everything up through the Directus/country write succeeds
+    // (see beforeEach); only the recovery-link mint fails.
+    authentik.createRecoveryLink.mockRejectedValueOnce(new AuthentikError(503, '/core/users/4242/recovery/', 'down'));
+
+    // Act
+    const result = await svc.register(VALID_INPUT);
+
+    // Assert — registration, having already fully succeeded in Authentik +
+    // Directus by this point, must not be failed over a recovery-link blip.
+    expect(result).toEqual({ recoveryUrl: '/v1/auth/login' });
+
+    // Assert — welcome email was never dispatched (recoveryUrl stayed null).
+    expect(interactions.dispatch).not.toHaveBeenCalled();
+
+    // Assert — everything prior to the recovery-link mint did complete.
+    expect(authentik.setUserGroups).toHaveBeenCalledTimes(1);
+    expect(directus.patch).toHaveBeenCalledWith('/users/directus-uuid-of-new-member', {
+      country: VALID_INPUT.country,
+    });
   });
 });
 
