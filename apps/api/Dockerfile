@@ -30,7 +30,16 @@ COPY packages/tsconfig/package.json packages/tsconfig/package.json
 # the build environment injects. Coolify's BuildKit deploy passes the
 # runtime envs as ARGs, including NODE_ENV=production, which would
 # otherwise make pnpm skip devDeps and break the nest build below.
-RUN pnpm install --frozen-lockfile --prod=false
+#
+# ISS-INFRA-001: the pnpm store is mounted as a BuildKit cache (not copied
+# into the image layer/overlay) — on hosts where the overlayfs storage
+# driver has poor small-file performance, materializing pnpm's
+# content-addressable store through the regular COPY/RUN layer mechanism
+# made `pnpm deploy` below take 90+ minutes without completing; the same
+# command against a bind-mounted (non-overlay) filesystem took ~20s. The
+# cache mount sidesteps the overlay entirely for the store's writes.
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prod=false
 
 # Now copy the rest of the source the API needs to compile.
 COPY tsconfig.json ./
@@ -38,10 +47,12 @@ COPY packages packages
 COPY apps/api apps/api
 
 # Build NestJS → apps/api/dist
-RUN pnpm --filter @aiqadam/api build
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm --filter @aiqadam/api build
 
 # Produce a self-contained prod-only deploy at /out.
-RUN pnpm --filter @aiqadam/api deploy --prod /out
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm --filter @aiqadam/api deploy --prod /out
 
 
 # Stage 2 — runtime. Tiny image: Node + the deployed app.
