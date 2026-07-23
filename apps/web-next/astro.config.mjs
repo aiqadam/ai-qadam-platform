@@ -25,12 +25,15 @@ export default defineConfig({
   // Configuring allowedDomains enables #applyForwardedHeaders(), which reads
   // the X-Forwarded-Proto: https header Nginx already forwards and patches
   // url.origin to https:// before checkOrigin runs. CSRF protection stays ON.
+  //
+  // *.aiqadam.org covers every current and future tenant subdomain
+  // (kz.aiqadam.org, uz.aiqadam.org, qa.aiqadam.org, next.aiqadam.org, …).
+  // The apex aiqadam.org is listed separately — * only matches one label.
   security: {
     checkOrigin: true,
     allowedDomains: [
-      { hostname: 'qa.aiqadam.org' },
+      { hostname: '*.aiqadam.org' },
       { hostname: 'aiqadam.org' },
-      { hostname: 'next.aiqadam.org' },
     ],
   },
   vite: {
