@@ -1,5 +1,9 @@
 # Workspace State
 
+**Last updated:** 2026-07-23 — `wf-20260723-fix-126` MERGED (PR [#42](https://github.com/aiqadam/ai-qadam-platform/pull/42), squash `d0536ac`). GitHub issue #41 resolved: registration form `POST /api/v1/auth/register` returned 403 "Cross-site POST form submissions are forbidden" on `qa.aiqadam.org`. Root cause: Astro's `checkOrigin` middleware compared `url.origin: http://qa.aiqadam.org` (Astro built URL with HTTP since Nginx→Astro connection is unencrypted) against `Origin: https://qa.aiqadam.org` from the browser — scheme mismatch. Fix: added `security.allowedDomains` to `apps/web-next/astro.config.mjs` with the three deployment hostnames. This enables `#applyForwardedHeaders()` which reads the `X-Forwarded-Proto: https` header Nginx already forwards and patches `url.origin` to `https://` before `checkOrigin` runs. CSRF protection remains ON (`checkOrigin: true` unchanged). Counter bumped 126 → 127.
+
+---
+
 **Last updated:** 2026-07-20 — `wf-20260720-feat-125` MERGED (PR [#39](https://github.com/aiqadam/ai-qadam-platform/pull/39), squash `77e21ed`). GitHub issue #38 resolved: anonymous users now see a **Register** button in the top-nav auth cluster (`AppNav.astro`) alongside the existing Sign-in CTA. Clicking Register navigates to `/auth/sign-up` (the custom-branded self-registration page shipped in ISS-USR-REG-001). Change is purely additive — outline-style secondary button, Sign-in remains primary CTA. `docs/04-development/architecture/blocks.md` `<AppNav>` entry updated per ADR-0038 §Locks #4 (pre-commit arch:check enforced). Counter bumped 125 → 126.
 
 ---

@@ -1,0 +1,36 @@
+workflow_id: wf-20260723-fix-126
+workflow_type: issue-resolution
+issue_ref: GH-41
+branch: fix/GH-41-astro-checkorigin-proxy
+status: in-progress
+created: 2026-07-23
+
+issue:
+  title: "Error on submit of registration form"
+  url: https://github.com/aiqadam/ai-qadam-platform/issues/41
+  body: |
+    As a user, i am trying to register in Kazakhstan chapter / tenant of the platform.
+    On submit have this:
+    URL: https://qa.aiqadam.org/api/v1/auth/register
+    Cross-site POST form submissions are forbidden
+
+root_cause: |
+  Astro's checkOrigin middleware compares:
+  - request.headers.get("origin") = "https://qa.aiqadam.org" (from browser)
+  - url.origin = "http://qa.aiqadam.org" (Astro builds URL using socket.encrypted=false since Nginx→Astro is HTTP)
+  Scheme mismatch (https vs http) → 403 "Cross-site POST form submissions are forbidden".
+
+  Nginx forwards X-Forwarded-Proto: https but Astro only honors it when
+  security.allowedDomains is configured (non-empty). Without allowedDomains,
+  #applyForwardedHeaders() is never called.
+
+fix:
+  file: apps/web-next/astro.config.mjs
+  change: Add security.allowedDomains with the deployment domains (qa.aiqadam.org, aiqadam.org)
+  security_impact: CSRF protection stays ON; Astro trusts X-Forwarded-Proto from controlled nginx proxy
+
+acceptance_criteria:
+  - ac1: POST to /api/v1/auth/register from https://qa.aiqadam.org returns 302 (success) not 403
+  - ac2: No regressions on existing form submissions or API proxy routes
+
+gate_results: {}
