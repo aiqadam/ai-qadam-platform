@@ -1,0 +1,56 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260723-fix-128-deploy-qa-permission-fix"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-23T00:00:00Z"
+last_updated_at: "2026-07-23T00:00:00Z"
+
+requirement_ref: ""
+requirement_text: >-
+  deploy-qa CI job fails on every push to main since the run following
+  PR #44 (af30beb) with `error: unable to unlink old 'package.json':
+  Permission denied` / `error: unable to unlink old 'pnpm-lock.yaml':
+  Permission denied` on the QA deploy host (deploy@95.46.211.230). QA is
+  currently pinned to PR #44's code, not current main tip. This blocks
+  live verification of ISS-USR-REG-002 (wf-20260723-fix-127) and any
+  future fix from actually reaching QA.
+github_issue_url: ""
+
+branch: ""
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "not-started"
+workflow_status: "queued"
+
+queue_position: 1
+
+parent_link:
+  parent_workflow_id: "wf-20260723-fix-127"
+  parent_branch: "fix/ISS-USR-REG-002-register-500"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-23T00:00:00Z"
+  spawned_by_issue: "ISS-USR-REG-002"
+  resolution_for_parent: ""
+
+notes: >-
+  Queued as the named follow-up for ISS-USR-REG-002's AC-4 (deferred,
+  per AGENTS.md §6.1). Verification steps once picked up: (1) SSH or
+  request repo-owner access to inspect deploy@95.46.211.230's file
+  ownership/permissions on the deploy target directory (likely a
+  uid/gid mismatch after the "remove Coolify" change in PR #45 changed
+  how the deploy script runs); (2) fix the permission issue (chown/chmod
+  or adjust the deploy script's user context); (3) re-run `gh workflow
+  run ci-cd` or push a no-op commit to confirm deploy-qa succeeds; (4)
+  once QA is running current main, re-run the live Playwright repro from
+  ISS-USR-REG-002 against https://qa.aiqadam.org/auth/sign-up and confirm
+  POST /v1/auth/register returns 302 instead of 500 (or, if the root
+  cause was AUTHENTIK_ADMIN_TOKEN misconfiguration, confirm that gets
+  fixed too — this may require a second, separate follow-up if the token
+  issue is not something the deploy fix alone resolves); (5) back-fill
+  ISS-USR-REG-002's Resolution section and GitHub issue #50 with the live
+  confirmation result.

@@ -1,0 +1,89 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260723-fix-127"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-23T00:00:00Z"
+last_updated_at: "2026-07-23T00:00:00Z"
+
+requirement_ref: "ISS-USR-REG-002"
+requirement_text: "POST /v1/auth/register returns 500 Internal Server Error on QA with a well-formed request body."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/50"
+
+branch: "fix/ISS-USR-REG-002-register-500"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/51"
+
+current_step: 12
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-USR-REG-002"
+
+deferrals: []
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+uat_target: "local"
+
+artifacts:
+  - ".copilot/issues/ISS-USR-REG-002.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/09-registry-update.md"
+  - ".copilot/tasks/active/wf-20260723-fix-127/11-quality-gate.md"
+
+context_refs:
+  - "docs/04-development/architecture/architecture.md"
+  - "docs/04-development/standards.md"
+  - "apps/api/src/modules/auth/registration.service.ts"
+  - "apps/api/src/modules/auth/auth.controller.ts"
+  - "apps/api/src/modules/admin-invites/authentik.client.ts"
+  - "apps/api/src/modules/directus/directus-users-bridge.service.ts"
+  - "apps/api/src/modules/directus/directus.client.ts"
+  - "apps/api/src/modules/interactions/interactions.service.ts"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
