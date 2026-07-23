@@ -18,7 +18,7 @@ for why ADRs stay here rather than being distributed across the doc layers.
 |---|---|---|
 | [0001](0001-docs-live-in-claude-folder.md) | Operating documentation lives in `.claude/` | Superseded by [0039](0039-five-layer-doc-architecture.md) |
 | [0002](0002-deployment-target.md) | Deployment target — single host on hyperapp.cloud | Accepted |
-| [0007](0007-coolify-orchestration.md) | Coolify as the orchestration layer | Accepted |
+| [0007](0007-coolify-orchestration.md) | Coolify as the orchestration layer | Superseded 2026-07-23 |
 | [0008](0008-docker-port-publishing-policy.md) | Docker port publishing must bind 127.0.0.1 | Accepted |
 | [0009](0009-email-stack-saas-exception.md) | Email stack SaaS exception (Cloudflare + Resend) | Accepted |
 | [0010](0010-inbound-email-cloudflare-workers.md) | Inbound email via Cloudflare Email Workers | Accepted (design) |

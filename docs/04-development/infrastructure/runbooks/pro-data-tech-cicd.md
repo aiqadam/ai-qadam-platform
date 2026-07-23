@@ -28,23 +28,14 @@ workflow_dispatch (git_ref input, human-approved via "production" environment)
                                                           (same deploy.sh contract)
 ```
 
-## ⚠️ Two deployment targets exist — read this before touching anything
-
-This repo already has an accepted deployment architecture: [ADR-0002](../../../adr/0002-deployment-target.md) — single host `aiqadam-web` (`212.20.151.29`, hyperapp.cloud, Coolify-orchestrated) — with its own runbooks (`coolify-bootstrap.md`, `coolify-app-stacks.md`) and its own live GitHub Actions pipeline, `.github/workflows/deploy.yml`, which still fires on every push to `main` via `COOLIFY_TOKEN`.
-
-**The pro-data.tech pipeline documented here is a second, independent deployment target that this repo has no ADR for.** It was stood up entirely from the infra-management side (see "Ownership boundary" below) in response to an out-of-band request, without — as far as this runbook's author can tell from the repo at hand-off time — a corresponding architectural decision on the app-repo side about why a second target exists, which one is authoritative, or whether Coolify is being phased out.
-
-**Do not assume either pipeline is deprecated.** Both are live and both will run on every push to `main` unless someone changes that. If you are Agent-Infra (or the person who owns this repo's deploy architecture) and you are reading this for the first time, the immediate next step is almost certainly: **write an ADR reconciling the two targets** (which one is production-authoritative, whether pro-data.tech is a QA-only target long-term or a planned Coolify replacement, what happens to `deploy.yml` once that's decided) before building further on either one. See References.
-
 ## File inventory
 
 ### In this repo (`aiqadam/ai-qadam-platform`)
 
 | Path | Purpose |
 |---|---|
-| `.github/workflows/ci-cd.yml` | The pipeline itself — `build`/`deploy-qa`/`deploy-prod` jobs. Added on branch `add-ci-cd-workflow`, [PR #15](https://github.com/aiqadam/ai-qadam-platform/pull/15) — **status at hand-off: OPEN, NOT MERGED.** Merging is what makes `deploy-qa` fire for real; until then this file exists only on that branch. |
-| `.github/workflows/deploy.yml` | The *other* pipeline (Coolify/hyperapp.cloud, ADR-0002). Untouched by this work. Still live. |
-| `.github/workflows/ci.yml` | Pre-existing CI, deliberately advisory-only (`continue-on-error: true` on all jobs) per an earlier decision recorded 2026-06-29/07-03 in this repo's own history — untouched, not to be confused with `ci-cd.yml`'s own hard-fail `build` job, which is a separate, independent gate. |
+| `.github/workflows/ci-cd.yml` | The canonical pipeline — `build`/`deploy-qa`/`deploy-prod` jobs. Merged 2026-07-17, active. |
+| `.github/workflows/ci.yml` | Advisory-only CI (`continue-on-error: true` on all jobs). Not a deploy gate. |
 
 ### On each host (`pro-data-tech-qa` / `pro-data-tech-prod`, both under `/opt/apps/aiqadam-<env>/`)
 

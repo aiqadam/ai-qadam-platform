@@ -114,7 +114,8 @@ When external reviewers join:
 
 After merge:
 - Branch is auto-deleted.
-- Coolify deploys to staging (when staging exists; for now, deploys directly to prod with feature flags).
+- `ci-cd.yml` auto-deploys to QA (`qa.aiqadam.org`) on every merge to `main`.
+- Production deploy is manual (`workflow_dispatch` with a commit SHA).
 
 ---
 
@@ -154,12 +155,10 @@ This is the step-by-step sequence for landing a change and confirming it actuall
 reached QA — use it any time "done" means more than "merged," i.e. whenever the
 change needs to be observably live before you consider the task closed.
 
-**Two independent deploy pipelines exist** — see
+The deploy pipeline is `.github/workflows/ci-cd.yml` — see
 [`docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md`](infrastructure/runbooks/pro-data-tech-cicd.md)
-for the full picture. This section documents the **pro-data.tech** pipeline
-(`.github/workflows/ci-cd.yml`, QA host `qa.aiqadam.org`). The Coolify pipeline
-(`.github/workflows/deploy.yml`, ADR-0002) still runs independently on every push to
-`main` — don't assume merging a PR only triggers one of them.
+for full architecture. QA host `qa.aiqadam.org` is deployed automatically on every
+merge to `main`; production deploy is a manual `workflow_dispatch`.
 
 1. **Commit.** Conventional Commits format per above. Keep the tree clean before
    opening a branch (Clean-Tree Invariant, see `.copilot/` workflow rules if running
@@ -169,8 +168,7 @@ for the full picture. This section documents the **pro-data.tech** pipeline
    `ci-cd.yml` (lint/typecheck/test/build) — it's a **hard gate**: if it fails, no
    deploy happens on merge, by design. Fix and re-push; don't bypass it.
 4. **Accept / merge PR.** Squash and merge per the merge strategy above. Merging to
-   `main` auto-triggers `deploy-qa` in `ci-cd.yml` (separately from whatever
-   `deploy.yml`/Coolify also does on the same push).
+   `main` auto-triggers `deploy-qa` in `ci-cd.yml`.
 5. **Check that the application landed on QA:**
    - Watch the run: `gh run list --repo aiqadam/ai-qadam-platform --workflow=ci-cd.yml`
      — this is the primary signal. A green `deploy-qa` job means `deploy.sh` completed

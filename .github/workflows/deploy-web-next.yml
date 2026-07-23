@@ -1,23 +1,17 @@
 name: deploy-web-next
 
-# Auto-deploy the two non-Coolify compose stacks on every push to main:
-#   - next.aiqadam.org   (apps/web-next/)
-#   - design.aiqadam.org (apps/storybook/)
+# Auto-deploy the two SSH-managed compose stacks on every push to main:
+#   - next.aiqadam.org   (apps/web-next/)   — build-aside preview host
+#   - design.aiqadam.org (apps/storybook/)  — design reference
 #
-# Why this is separate from deploy.yml: deploy.yml drives Coolify-managed
-# apps via the Coolify REST API. These two stacks are intentionally NOT
-# Coolify-managed (see infrastructure/web-next/docker-compose.yml header
-# for the rationale — Coolify's auto-gen Traefik labels are destructive
-# to forwardauth-gated sub-apps). So we rsync the repo into prod over
-# SSH and run docker compose directly.
-#
-# This workflow mirrors the manual deploy dance PR-0c and PR-0d had to
-# do — only now it runs unattended on every merge to main. See
-# infrastructure/web-next/deploy.sh for what runs on the host.
+# Deployment method: rsync the repo source to the host, then call
+# infrastructure/web-next/deploy.sh on the host via SSH. The host
+# (212.20.151.29 / aiqadam-web) runs these stacks directly via
+# docker compose — no orchestration layer involved.
 #
 # Secrets required:
 #   - WEB_NEXT_DEPLOY_KEY         — ed25519 private key, authorized as
-#                                   aiqadam-admin@aiqadam-prod
+#                                   aiqadam-admin@212.20.151.29
 #   - WEB_NEXT_DEPLOY_KNOWN_HOSTS — pinned host keys for 212.20.151.29
 
 on:
