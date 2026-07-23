@@ -186,7 +186,7 @@ Boundaries:
 
 ### Storage
 
-- **Production secrets in environment variables**, set in Coolify.
+- **Production secrets in environment variables**, set on the host in `deploy/.env` (never committed).
 - **Never in code.** Never in git. `.env` is gitignored.
 - **`.env.example` checked in** with placeholder values to show structure.
 
@@ -376,20 +376,16 @@ The canonical dependency policy (download thresholds, license rules, commercial-
 ### Server
 
 - **SSH:** key-based auth only, no password login, no root login.
-- **Firewall:** only required ports open (22 SSH, 80/443 HTTP/S, plus Coolify ports).
+- **Firewall:** only required ports open (22 SSH, 80/443 HTTP/S).
 - **Automatic security updates** for OS packages.
 - **fail2ban** for brute-force protection on SSH.
-
-### Coolify
-
-- **Coolify admin behind auth.**
-- **Coolify network internal** — services communicate within Docker network, not over public internet.
-- **Database not exposed publicly.** Postgres listens on internal network only.
+- **Docker network internal** — services communicate within Docker network, not over public internet.
+- **Database not exposed publicly.** Postgres listens on loopback only.
 
 ### TLS
 
-- **Let's Encrypt** via Coolify/Traefik.
-- **Auto-renewal verified** with monitoring.
+- **Let's Encrypt / certbot** for HTTPS.
+- **Auto-renewal** via systemd timer or cron.
 - **Wildcard certificate** for `*.aiqadam.org` to support tenant subdomains.
 
 ---

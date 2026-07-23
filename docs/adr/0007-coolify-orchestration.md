@@ -1,7 +1,15 @@
 # ADR-0007: Coolify as the orchestration layer
 
 ## Status
-Accepted, 2026-05-14
+Superseded, 2026-07-23
+
+**Superseded by:** migration to plain Docker Compose + Nginx + GitHub Actions SSH deploy
+(`ci-cd.yml` → `deploy.sh` forced-command pattern). Coolify removed from CI/CD and
+infrastructure on 2026-07-23 after repeated CI interference and agent session drift.
+The hyperapp.cloud VM (`212.20.151.29`) and its Coolify install remain on the host
+but are no longer part of the active deployment pipeline.
+
+Original status: Accepted, 2026-05-14
 
 ## Context
 Per [ADR-0002](0002-deployment-target.md) we run a single host. We need to orchestrate ~10 Docker stacks on it: Postgres, Redis, MinIO, Authentik, NestJS API, Astro web, Directus CMS, BullMQ workers, Telegram bot, observability stack (later), plus Twenty CRM in Phase 1 week 9.

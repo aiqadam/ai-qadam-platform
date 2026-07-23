@@ -62,9 +62,9 @@ Any deviation requires user approval.
 - **Secrets:** environment variables, never in code
 
 ### Infrastructure
-- **Orchestration:** Coolify (Docker-based PaaS)
-- **Reverse proxy:** Traefik (managed by Coolify)
-- **CI/CD:** GitHub Actions → Coolify webhooks
+- **Orchestration:** Docker Compose (direct, no PaaS layer)
+- **Reverse proxy:** Nginx
+- **CI/CD:** GitHub Actions → SSH `deploy.sh` forced command
 - **Monitoring:** Grafana + Loki + Prometheus + Uptime Kuma
 - **Backups:** restic to Cloudflare R2 (free tier)
 

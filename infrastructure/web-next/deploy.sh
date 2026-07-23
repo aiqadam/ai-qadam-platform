@@ -50,9 +50,8 @@ if ! sudo cmp -s "${REPO_COMPOSE}" "${COMPOSE_FILE}"; then
 fi
 
 # Build + restart. --build forces a rebuild of the application image
-# from the new source; --no-deps because these stacks don't depend on
-# anything in compose (the only network they share, `coolify`, is
-# external and managed elsewhere).
+# from the new source; --no-deps because these stacks have no compose
+# service dependencies on each other.
 cd "${STACK_DIR}"
 sudo docker compose up -d --build
 

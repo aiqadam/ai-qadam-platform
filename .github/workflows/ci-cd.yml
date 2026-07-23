@@ -1,10 +1,9 @@
 name: ci-cd
 
-# Independent of deploy.yml (Coolify) and ci.yml (advisory-only CI) —
-# neither of those files is modified or referenced by this workflow.
-# This workflow's own `build` job is a hard gate for ITS OWN
-# deploy-qa/deploy-prod jobs only; it does not affect ci.yml's
-# continue-on-error posture or deploy.yml's Coolify pipeline.
+# Canonical CI/CD pipeline.
+# build → deploy-qa (auto on main) → deploy-prod (manual workflow_dispatch).
+# This workflow's `build` job is the hard gate for deploy-qa/deploy-prod
+# and does not affect ci.yml's advisory-only continue-on-error posture.
 
 on:
   push:
