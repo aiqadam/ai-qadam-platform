@@ -31,7 +31,7 @@
     "@tiptap/extension-code-block-lowlight": "^2.11.5",
     "@tiptap/extension-link": "^2.11.5",
     "@tiptap/react": "^2.11.5",
-    "@tiptap/starter-kit": "^2.11.5",
+    "@tiptap/starter-kit": "^3.28.0",
     "@zxing/browser": "^0.1.5",
     "astro": "^7.0.2",
     "class-variance-authority": "^0.7.1",
