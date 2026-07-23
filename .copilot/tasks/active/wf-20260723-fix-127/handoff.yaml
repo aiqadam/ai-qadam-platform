@@ -13,7 +13,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/50"
 
 branch: "fix/ISS-USR-REG-002-register-500"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/51"
 
 current_step: 12
 current_step_name: "commit-push-pr"
