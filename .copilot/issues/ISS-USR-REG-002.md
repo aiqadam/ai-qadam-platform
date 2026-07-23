@@ -88,7 +88,7 @@ issue) before this issue can be verified as fixed on a live QA deploy.
 ## Resolution
 
 - **Workflow:** wf-20260723-fix-127
-- **PR:** `<pending>` — back-filled after `gh pr create` in Step 12.
+- **PR:** [#51](https://github.com/aiqadam/ai-qadam-platform/pull/51)
 - **Root cause:** `RegistrationService.register()`
   (`apps/api/src/modules/auth/registration.service.ts`) had three external
   Authentik-API call sites with zero try/catch (`getUserByEmail` at Step
@@ -141,7 +141,7 @@ issue) before this issue can be verified as fixed on a live QA deploy.
   new tests specifically assert `instanceof BadRequestException` (and,
   for Step 3, `not.toBeInstanceOf(AuthentikError)`), which fails against
   the pre-fix code and passes after.
-- **Merged:** `<pending>` — Step 12.5 back-fills the actual merge SHA.
+- **Merged:** squash commit `e3edfa7` on `main` (PR #51, 2026-07-23).
 - **Deferred / follow-up:** Live verification on QA itself is blocked by
   a separate, already-tracked issue — `deploy-qa` CI has failed on every
   push to `main` since PR #45 (permission-denied unlinking
