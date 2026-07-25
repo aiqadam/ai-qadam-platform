@@ -4,8 +4,17 @@ name: smoke
 # See docs/01-business/community-platform-roadmap.md §2.5 + §7.5.
 #
 # Runs Playwright tests against production (read-only assertions only).
-# A separate workflow (Sprint 0.11 — smoke-production-probe.yml) runs every
-# 30 min for continuous production health monitoring.
+# Doubles as the Sprint 0.11 production health probe via the schedule
+# trigger below (every 30 min) — there is no separate probe workflow file.
+#
+# ISS-CI-SMOKE-001 (2026-07-26): after the ISS-MIGRATE-001 repo migration
+# (2026-07-08 → aiqadam/ai-qadam-platform), GitHub's registered trigger set
+# for this workflow desynced from this file's actual `on:` block — the API
+# reported "Workflow does not have 'workflow_dispatch' trigger" even though
+# it's declared below, and pull_request/schedule runs silently never fired
+# (only phantom zero-job "push" failures showed up, since push is NOT a
+# trigger here). Re-parsing was only triggered by a push that touches this
+# file, hence this comment update.
 
 on:
   pull_request:
