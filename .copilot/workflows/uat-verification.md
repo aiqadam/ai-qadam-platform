@@ -245,11 +245,21 @@ A triage silent on AC-9 is incomplete.
 
 For each failed step or scenario:
 1. Classify failure (UI / data / flow / env)
-2. Create `.copilot/issues/ISS-<n>.md`
+2. Create `.copilot/issues/ISS-<n>.md`, setting its `Business-Process`
+   field to this run's `<BP-UAT-NNN>` (see `.copilot/schemas/protocol.md`
+   "Business-Process Linkage & Post-Merge UAT") — a UAT-discovered issue is
+   process-related by construction, so this field is never `—` here.
 3. Add to `.copilot/issues/registry.md`
 
 Update `docs/02-business-processes/uat/registry.md`:
 - `last_run`, `status`, `issues` columns for this BP-UAT
+
+Update `docs/02-business-processes/uat/<BP-UAT-NNN>.md` frontmatter:
+- Append each newly created `ISS-<n>` to `linked_issues` (the reverse link
+  — see `BP-UAT-template.md`). If this run was itself triggered by the
+  post-merge UAT step of another workflow (i.e. it was spawned because an
+  `ISS-<n>`/`FR-<CODE>` named this BP-UAT in its own `Business-Process`
+  field), append that originating id too if not already present.
 
 **Gate:**
 - `passed` → Step 5 (even if issues were registered — triage completed is the gate)

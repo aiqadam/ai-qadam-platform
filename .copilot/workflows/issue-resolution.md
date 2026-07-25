@@ -12,8 +12,12 @@ Resolves a registered issue: identifies root cause, implements a fix, verifies i
 **Retry limits, gate status values, counter semantics:** see
 `.copilot/schemas/protocol.md` and `handoff.yaml.retry_limits`.
 
-Steps 3, 5, 8, 9, 10, 11, 12, 13 reuse `requirement-development.md` definitions
-verbatim. The only differences are flagged inline below.
+Steps 3, 5, 8, 9, 10, 11, 12 reuse `requirement-development.md` definitions
+verbatim. The only differences are flagged inline below. Step 13 (post-merge
+UAT re-verification) is new to this workflow — see below; the equivalent
+step in `requirement-development.md` is numbered 13 there too, but the two
+are defined independently since their gate outcomes differ slightly (issue
+Resolution section vs. FR file).
 
 ---
 
@@ -123,6 +127,13 @@ issue not yet mirrored locally).
    covers issues found by the Orchestrator itself, not tester-reported)
 6. Set `issue_ref` in `handoff.yaml`. If sourced from GitHub, also set
    `handoff.yaml.github_issue_url`.
+7. **Set the `Business-Process` field** in `ISS-<n>.md`'s header table —
+   see `.copilot/schemas/protocol.md` "Business-Process Linkage &
+   Post-Merge UAT". Cross-reference `docs/02-business-processes/uat/registry.md`
+   by affected module/surface to find the matching `BP-UAT-NNN` code(s); use
+   `—` when the issue is genuinely not process-related (infra, CI, workflow
+   tooling). This field drives the mandatory post-merge UAT re-verification
+   at Step 13.
 
 **Output file:** `01-issue-lookup.md`
 
@@ -226,6 +237,10 @@ file unchanged is a Step 9 failure — do not advance.
 - In the header field table, set `Status` to `resolved`.
 - Set `Resolved` to today's ISO date (e.g. `2026-06-29`).
 - Set `Workflow` to the current workflow id (e.g. `wf-20260629-fix-034`).
+- Confirm `Business-Process` (set at Step 1) is still accurate given the
+  final diff — code review sometimes narrows or widens the affected
+  surface versus the original triage guess. Update it if the fix ended up
+  touching a different or additional BP-UAT surface than assumed at intake.
 - Append a `## Resolution` section with:
   - **Workflow:** `<wf-id>`
   - **PR:** `https://github.com/<org>/<repo>/pull/<N>` — placeholder `<pending>`
@@ -432,7 +447,8 @@ is `auto` OR the user has merged manually.
    `ISS-<n>` file for the same GitHub issue number).
 
 **Gate:**
-- `passed` → workflow complete. Clean-tree invariant restored. Issue is
+- `passed` → proceed to Step 13 (below) if `Business-Process` is non-empty,
+  otherwise workflow complete. Clean-tree invariant restored. Issue is
   genuinely `resolved` on `main`, and closed on GitHub if it originated
   there.
 - `failed-retry` → verification mismatch (e.g., status not flipped on main,
@@ -441,6 +457,33 @@ is `auto` OR the user has merged manually.
   auto-merge was rejected, or the GitHub issue close call failed after
   retries (do not silently skip it — a merged fix with a still-open
   GitHub issue is exactly the drift this workflow exists to prevent).
+
+---
+
+### Step 13: Post-Merge UAT Re-Verification (conditional, Orchestrator)
+
+**Condition:** `ISS-<n>.md`'s `Business-Process` field (Step 1/9) names one
+or more `BP-UAT-NNN` codes. Skip entirely (workflow complete) when it is `—`.
+
+**Full procedure:** `.copilot/schemas/protocol.md` "Business-Process
+Linkage & Post-Merge UAT". Summary: for each linked `BP-UAT-NNN`, spawn
+`uat-verification` (`.copilot/workflows/uat-verification.md`) against
+`uat_target: local` in this same session, before declaring this
+issue-resolution workflow complete — the merged fix is not done until the
+business process it belongs to is confirmed still working end-to-end, not
+just the narrow regression test from Step 6/7. Record each run in
+`handoff.yaml.post_merge_uat_runs[]`.
+
+**Gate:**
+- All linked BP-UATs pass clean → note the pass(es) in `ISS-<n>.md`'s
+  Resolution section, workflow complete.
+- One or more triaged a new issue → issue registered normally; this
+  workflow still completes, but the Resolution section MUST name the new
+  finding(s) and state whether they're believed related to this fix.
+- A `uat-verification` run itself hit `failed-escalate` (environment, not
+  product) → register the env issue per that workflow's own rules, disclose
+  the deferral in `ISS-<n>.md`'s Resolution section per AGENTS.md §6.1,
+  workflow completes with the disclosure recorded (not silently).
 
 ---
 
