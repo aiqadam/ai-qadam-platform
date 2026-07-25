@@ -178,6 +178,19 @@ export function SignUpForm(): ReactElement {
   // on its own. `success` phase is set defensively but will typically
   // never render, since a successful submit navigates the browser away
   // before React re-renders.
+  //
+  // ISS-USR-REG-003: setPhase('submitting') must NOT run synchronously
+  // in this handler. It flips disabled={true} on every field, and per
+  // the WHATWG form-submission algorithm disabled controls are excluded
+  // from the entry list — but React's commit for that re-render can land
+  // (and did, live on QA) before the browser finishes constructing the
+  // native submission's body, silently stripping every real field except
+  // the one no code disables (the honeypot). Deferring the state update
+  // to a macrotask lets the current submit event finish first — the
+  // browser has already captured the entry list by the time this runs,
+  // so disabling the fields afterward is purely cosmetic (prevents a
+  // resubmit click) and can no longer race the submission it's meant to
+  // follow, not precede.
   const onSubmit = (e: FormEvent<HTMLFormElement>): void => {
     const validationError = validate(form);
     if (validationError) {
@@ -186,8 +199,10 @@ export function SignUpForm(): ReactElement {
       setErrorMsg(validationError);
       return;
     }
-    setPhase('submitting');
-    setErrorMsg('');
+    setTimeout(() => {
+      setPhase('submitting');
+      setErrorMsg('');
+    }, 0);
     // No preventDefault — let the browser submit natively and follow the
     // redirect chain: /api/v1/auth/register → 302 → Authentik one-time
     // login → /v1/auth/callback → signed-in session.
