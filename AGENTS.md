@@ -428,29 +428,80 @@ the following are true:
    is merged with green CI for that class, OR when the owning issue is
    closed.
 
-### When override is NOT allowed (safety gates, agent MUST stop)
+### When the failure is introduced by this PR (added 2026-07-25, routed to a fix-it agent, not a stop)
+
+**This case no longer hard-stops.** Previously, rule 1 failing (the
+PR's own diff appears in the failing job's error trace) sent the
+PRSteward straight to escalation. Per the user's standing instruction
+("Accept PR. Validate CI/CD is OK... if CI/CD is red then the
+corresponding agent has to resolve it"), the PRSteward instead **routes
+the failure to the agent that owns the affected surface**, has it fix
+the failure on the same branch, and re-runs CI — escalation is now the
+*fallback after a bounded number of fix attempts*, not the first move.
+
+1. **Classify the failing job** and dispatch to the owning agent:
+   - `ci` (lint/typecheck/test/build) → **CodeDeveloper** (the same
+     agent that authored the PR's code, since it already has the
+     context) for lint/typecheck/build failures; **TestRunner** for
+     test failures.
+   - `ci-cd` build/deploy steps (e.g. a broken Dockerfile) →
+     **CodeDeveloper**, since these are ordinary source-file fixes
+     (Dockerfiles, workflow YAML) with no special agent yet defined —
+     see the open question below.
+   - `supply-chain` / `pnpm audit` on a **direct** dependency the PR
+     added → **SecurityReviewer** (do not let CodeDeveloper silently
+     downgrade or override a real advisory).
+   - Anything not covered by an existing agent → Orchestrator handles
+     it directly, the same as any other agent-less workflow step.
+2. **Bounded retry.** The dispatched agent gets up to **2 attempts**
+   (mirrors the `code-developer` retry limit in the Retry Limits
+   table) to push a fix to the same branch and get the job green.
+   Each attempt is a normal commit + push; CI re-runs automatically.
+3. **If still red after 2 attempts:** stop and escalate exactly as
+   before — write `NEEDS_REVIEW.md`, set `workflow_status:
+   needs-review`, and tell the user which job, which attempts were
+   made, and why they didn't work. This is the only path back to a
+   human for an introduced-by-this-PR failure.
+4. **Audit trail:** each fix attempt is recorded in `handoff.yaml`
+   under `gate_results.step11.4-pr-steward.introduced_failure_fixes:`
+   as a list of `{attempt, agent, job, commit_sha, outcome}` entries,
+   same spirit as the override audit trail below.
+
+**Open question, not yet resolved:** whether Dockerfile/CI-config
+fixes deserve their own specialized agent (e.g. `BuildEngineer`)
+instead of overloading CodeDeveloper, which is scoped to application
+code. Revisit if Dockerfile-class failures become frequent enough
+that CodeDeveloper's lack of infra-specific context (BuildKit
+mechanics, layer/cache semantics — see ISS-INFRA-001) causes repeated
+failed attempts.
+
+### When override/fix is NOT allowed (safety gates, agent MUST stop)
 
 The PRSteward MUST stop and surface to the user (write
 `NEEDS_REVIEW.md`, set `workflow_status: needs-review`) **only** when:
 
-- **The failure is introduced by this PR's diff (rule 1 fails).** The
-  PR's own code is producing the failure — a real bug in the PR, not a
-  pre-existing issue. The user must decide whether to fix or abandon.
-- **The counter has hit the limit (rule 3 fails).** The same class has
-  been overridden 5 times in a row — the queued follow-up workflow
-  has not produced a fix. The user must decide whether to escalate
-  the queued workflow, raise the limit, or accept the failure.
+- **The counter has hit the limit (rule 3 fails).** The same
+  pre-existing-failure class has been overridden 5 times in a row —
+  the queued follow-up workflow has not produced a fix. The user must
+  decide whether to escalate the queued workflow, raise the limit, or
+  accept the failure.
+- **An introduced-by-this-PR failure survives 2 fix attempts** (see
+  above) — this is the only way an introduced failure still reaches
+  the user.
 - **The failure is a `gitleaks` secret-scan hit (rule 4 absolute —
-  secrets in the diff are never overridden, per §6.2 safety gate #4).**
+  secrets in the diff are never overridden or auto-fixed, per §6.2
+  safety gate #4).** No agent attempts to "fix" a secret leak by
+  editing it out silently — this always stops.
 - **The failure is in a security-checked job** (`architecture-check`,
   `pnpm audit` for direct dependencies added by this PR, or any
   gitleaks / trivy result) — even pre-existing ones are individually
-  escalated, not overridden.
+  escalated, not overridden or auto-fixed.
 
 **All other failure-handling paths are autonomous.** New failure
 classes, missing queued workflows (auto-queued), counter ticks
-(0/5, 1/5, 2/5, 3/5, 4/5) — none of these stop the PRSteward. The
-user is not asked.
+(0/5, 1/5, 2/5, 3/5, 4/5), and introduced-by-this-PR failures within
+their 2-attempt budget — none of these stop the PRSteward. The user
+is not asked.
 
 ### Audit trail (mandatory)
 
