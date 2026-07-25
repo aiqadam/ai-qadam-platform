@@ -23,7 +23,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/58"
 
 branch: "fix/ISS-USR-REG-003-signup-fields-disabled-race"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/59"
 
 current_step: 2
 current_step_name: "verified"
