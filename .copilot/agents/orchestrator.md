@@ -255,7 +255,11 @@ and flag this for investigation. The user MUST always receive the PR URL.
 After the PR is open and CI is green, the Orchestrator's default behavior is
 to merge autonomously and verify the status flip landed on main. See
 `requirement-development.md` Step 11.5 / `issue-resolution.md` Step 12.5 for
-the full procedure.
+the full procedure. Both workflows then have a conditional Step 13
+(post-merge UAT re-verification) that runs when the source `FR`/`ISS` file
+names a linked `BP-UAT-NNN` in its `Business-Process` field — see
+`.copilot/schemas/protocol.md` "Business-Process Linkage & Post-Merge UAT".
+Do not report the workflow complete before Step 13 resolves when it applies.
 
 **Merge mode (`handoff.yaml.merge_mode`):**
 

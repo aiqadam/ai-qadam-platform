@@ -6,6 +6,13 @@ process_ref: "docs/02-business-processes/operations/<runbook>.md"
 environment: "http://localhost:4321"
 seed_required: true    # true | false
 last_run: ""           # ISO date, filled by BusinessAnalyst after each run
+linked_issues: []      # ISS-<n> / FR-<CODE> ids that declared this BP-UAT in
+                        # their Business-Process field (protocol.md
+                        # "Business-Process Linkage & Post-Merge UAT").
+                        # Reverse of this file's own process_ref — kept in
+                        # sync by BusinessAnalyst (uat-verification.md Step 4)
+                        # and by the post-merge UAT step in issue-resolution.md
+                        # / requirement-development.md. Append, don't replace.
 # FR-WORKFLOW-004 fields — required for every script migrated to the
 # agent-driven session model (see docs/04-development/architecture/
 # uat-agent-architecture.md). Omit only for scripts not yet migrated.

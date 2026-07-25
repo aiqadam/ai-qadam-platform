@@ -294,6 +294,19 @@ If a workflow ends with the issue still showing `Status: resolved` while any
 AC has unverified deferral without a queued follow-up, that is a workflow
 violation and must be reported.
 
+### Business-process linkage and post-merge UAT (added 2026-07-25)
+
+The application implements business processes, not an unconnected pile of
+requirements. Every issue and requirement declares which `BP-UAT-NNN`
+process(es) (`docs/02-business-processes/uat/`) its changed surface
+belongs to, and `issue-resolution`/`requirement-development` automatically
+re-run that BP-UAT's live verification against `local` right after
+merging — a regression test proving the specific defect is fixed is not
+the same as proof the end-to-end business process still works. This is a
+concrete instance of the "no deferred tests" principle above, extended
+from unit/integration scope to process scope. Authoritative definition:
+`.copilot/schemas/protocol.md` "Business-Process Linkage & Post-Merge UAT".
+
 ### Shell-script HTTP client binary selection (added 2026-07-05, ISS-UAT-013-15)
 
 `scripts/uat-*.sh` (and any other shell-script HTTP client in the repo)

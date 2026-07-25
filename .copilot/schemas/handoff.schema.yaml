@@ -177,6 +177,24 @@ context_sync_commits: 0
 # to resolve to today's only behavior).
 uat_target: "local"
 
+# ─── Business-Process Linkage & Post-Merge UAT (added 2026-07-25) ────────────
+# See .copilot/schemas/protocol.md "Business-Process Linkage & Post-Merge UAT"
+# for the full procedure. business_process mirrors the Business-Process field
+# (issue-resolution) / business_process frontmatter (requirement-development)
+# set on the source ISS-<n>.md / FR-<CODE>.md file at Step 1 — copied here so
+# the post-merge step (issue-resolution.md Step 13 / requirement-development.md
+# Step 13) doesn't need to re-read the source file to know whether it applies.
+business_process: []              # ["BP-UAT-013", "BP-UAT-009"] or [] when "—"
+
+# post_merge_uat_runs:
+#   - bp_uat_code: BP-UAT-013
+#     uat_workflow_id: wf-20260725-uat-133
+#     outcome: passed | issues-found | failed-escalate
+#     pr_url: https://github.com/.../pull/...
+#     issues_found: []            # ISS-<n> ids, when outcome == issues-found
+
+post_merge_uat_runs: []
+
 # ─── Artifacts ───────────────────────────────────────────────────────────────
 
 artifacts: []

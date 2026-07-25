@@ -268,6 +268,20 @@ On merge to `main`:
 2. **Full E2E test suite**
 3. **Deploy to production** via Coolify webhook (once staging environment exists, deploy there first, run smoke tests, then prod)
 
+### Business-process re-verification (added 2026-07-25)
+
+The application implements business processes (documented as `BP-UAT-NNN`
+scripts under `docs/02-business-processes/uat/`), not an unconnected pile
+of requirements. A unit or regression test proves a specific issue/FR's own
+defect is fixed — it does not prove the end-to-end process that surface
+belongs to still works. So every issue and requirement declares which
+`BP-UAT-NNN` process(es) it touches (`Business-Process` field), and the
+agentic workflows (`.copilot/workflows/issue-resolution.md` /
+`requirement-development.md`) automatically re-run that BP-UAT's live
+verification against `local` right after merging, before considering the
+work done. See `.copilot/schemas/protocol.md` "Business-Process Linkage &
+Post-Merge UAT" for the full mechanism.
+
 ---
 
 ## Release workflow

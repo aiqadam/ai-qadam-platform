@@ -38,6 +38,7 @@ The workflow uses two parallel numbering schemes. **Step numbers** drive flow;
 | 10 | QualityGate | `09-quality-gate.md` | includes status-consistency check (FEAT-WORKFLOW-003) |
 | 11 | Orchestrator | — | commit/push/PR via `scripts/workflow-finish.sh` |
 | 11.5 | Orchestrator (direct) | — | merge + verify + archive (FEAT-WORKFLOW-003) |
+| 13 | Orchestrator (direct) | — | post-merge UAT re-verification, conditional (added 2026-07-25) |
 
 ---
 
@@ -114,6 +115,15 @@ prefixes (01–09) follow the existing numbering and are unaffected.
 - `docs/04-development/architecture/architecture.md`
 
 **Output file:** `01-requirement-validation.md`
+
+**Additional required output:** RequirementAnalyst sets the `business_process`
+frontmatter field on the new/updated `FR-<CODE>.md` — see
+`.copilot/schemas/protocol.md` "Business-Process Linkage & Post-Merge UAT".
+Cross-reference `docs/02-business-processes/uat/registry.md` by the
+requirement's module/surface to find matching `BP-UAT-NNN` code(s); use `—`
+only when the requirement is genuinely not process-related (rare for a
+product requirement — most FRs implement or extend a business process).
+This field drives the mandatory post-merge UAT re-verification at Step 13.
 
 **Gate:**
 - `passed` → Step 2
@@ -282,6 +292,9 @@ See `.copilot/agents/orchestrator.md §Infrastructure Pre-Flight`.
    - Update `docs/03-requirements/requirements-registry.md` — change the
      Status column for that FR in the implementation order table from
      current value to `Shipped`.
+   - Confirm `business_process` (set at Step 1) still matches the final
+     diff's actual surface — implementation sometimes narrows or widens the
+     affected BP-UAT(s) versus the original intake guess. Update it if so.
 2. Other doc updates per DocWriter's standard table (architecture, ADRs,
    runbooks, etc.) as needed.
 
@@ -429,10 +442,41 @@ start: "Auto-merge this PR when CI passes, or will you review it yourself?"
    advisory.
 
 **Gate:**
-- `passed` → workflow complete. Clean-tree invariant restored. FR is
+- `passed` → proceed to Step 13 (below) if `business_process` is non-empty,
+  otherwise workflow complete. Clean-tree invariant restored. FR is
   genuinely `Shipped` on `main`.
 - `failed-retry` → verification mismatch. Re-pull, re-check. Max 2 retries.
 - `needs-review` → merge failed, verification failed, or auto-merge rejected.
+
+---
+
+### Step 13: Post-Merge UAT Re-Verification (conditional, Orchestrator)
+
+**Condition:** `FR-<CODE>.md`'s `business_process` frontmatter (Step 1/9)
+names one or more `BP-UAT-NNN` codes. Skip entirely (workflow complete)
+when it is `—`.
+
+**Full procedure:** `.copilot/schemas/protocol.md` "Business-Process
+Linkage & Post-Merge UAT". Summary: for each linked `BP-UAT-NNN`, spawn
+`uat-verification` (`.copilot/workflows/uat-verification.md`) against
+`uat_target: local` in this same session, before declaring this
+requirement-development workflow complete — a newly shipped feature is not
+done until the business process it belongs to (including this feature) is
+confirmed working end-to-end, not just its own unit/integration tests from
+Step 8. Record each run in `handoff.yaml.post_merge_uat_runs[]`.
+
+**Gate:**
+- All linked BP-UATs pass clean → note the pass(es) in `FR-<CODE>.md`,
+  workflow complete.
+- One or more triaged a new issue → issue registered normally; this
+  workflow still completes, but note the new finding(s) in `FR-<CODE>.md`
+  and state whether they're believed related to this feature.
+- A `uat-verification` run itself hit `failed-escalate` (environment, not
+  product) → register the env issue per that workflow's own rules, disclose
+  the deferral in `FR-<CODE>.md` per AGENTS.md §6.1, workflow completes
+  with the disclosure recorded (not silently).
+
+---
 
 ## Failure Recovery
 
