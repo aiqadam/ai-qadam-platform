@@ -29,12 +29,27 @@ COPY apps/web-next apps/web-next
 # globals.css imports design-system tokens + components + portal.css.
 COPY design-system design-system
 
-RUN pnpm --filter @aiqadam/web-next build
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm --filter @aiqadam/web-next build
 
-# Produce a self-contained prod-only deploy at /out (same pattern as
-# apps/web). Astro's @astrojs/node standalone needs astro itself plus
-# @astrojs/node + react/react-dom as runtime deps.
-RUN pnpm --filter @aiqadam/web-next deploy --prod /out
+# Produce a self-contained prod-only deploy. Astro's @astrojs/node
+# standalone needs astro itself plus @astrojs/node + react/react-dom as
+# runtime deps. `pnpm deploy --prod` writes its own hardlinked
+# node_modules tree — on hosts where BuildKit's overlayfs storage driver
+# has poor small-file performance (pro-data-tech-qa; see ISS-INFRA-001,
+# same root cause, same fix, originally applied to apps/api/Dockerfile
+# only), this step is pathologically slow if written straight into the
+# overlay-backed layer. Deploy into a cache mount instead, then `cp -a`
+# the finished tree into a plain layer at /out in one operation. The
+# final copy's destination must stay named /out — see ISS-INFRA-001.md
+# for why renaming it is riskier than it looks (pnpm's node_modules/.bin/*
+# shims bake the deploy target's absolute path into NODE_PATH).
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    --mount=type=cache,id=web-next-deploy-out,target=/out-cache \
+    rm -rf /out-cache/out \
+    && pnpm --filter @aiqadam/web-next deploy --prod /out-cache/out \
+    && rm -rf /out \
+    && cp -a /out-cache/out /out
 
 
 # Stage 2 — runtime. Tiny Node image running the standalone server.
