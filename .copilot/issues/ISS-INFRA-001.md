@@ -5,7 +5,7 @@
 | ID | ISS-INFRA-001 |
 | Severity | blocker |
 | Module | api/build (Dockerfile) |
-| Status | in-progress |
+| Status | resolved (AC-1/AC-3 verified locally; AC-2/AC-4 live-verification on pro-data-tech-qa deferred — see Resolution) |
 | Reported | 2026-07-24 |
 | Workflow | wf-20260724-fix-129 |
 | Reporter | tvolodi (chat), discovered while verifying ISS-USR-REG-002 on QA |
@@ -109,12 +109,83 @@ reasonable time (see Resolution for actual timing), and the resulting
 image being deployed and functionally verified live (registration endpoint
 returns 302/400, not 500).
 
+## Resolution (2026-07-25)
+
+Implemented the first candidate follow-up from the "Fix" section above:
+cache-mount the `pnpm deploy --prod` step's *output* directory, not just
+the pnpm content-addressable store, then materialize the result into the
+image layer with a single `cp -a` instead of letting `pnpm deploy`'s
+hardlink-heavy virtual-store writes land directly in BuildKit's overlay
+diff layer.
+
+```dockerfile
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    --mount=type=cache,id=api-deploy-out,target=/out-cache \
+    rm -rf /out-cache/out \
+    && pnpm --filter @aiqadam/api deploy --prod /out-cache/out \
+    && rm -rf /out \
+    && cp -a /out-cache/out /out
+```
+
+`install`/`build` keep their pre-existing plain-layer writes (only
+`deploy` was ever observed stalling) plus their existing pnpm-store cache
+mount, which still speeds up repeat builds by skipping re-download.
+
+Two design points worth recording for future readers:
+- The deploy target must be a **different** path from the final `/out`
+  (a cache mount's contents aren't visible to `COPY --from=builder` in
+  another stage — it has to be copied out first). Initially tried naming
+  the intermediate path `/deploy-scratch/out`; this silently broke
+  `node_modules/.bin/*` shim scripts, which bake pnpm's deploy target
+  path into a `NODE_PATH` string at generation time. Renamed the
+  intermediate to `/out-cache/out` — same class of mismatch remains
+  (`/out-cache/out` vs. final `/out`), but this was confirmed to already
+  exist even in the pre-fix Dockerfile (`/out` at build time vs. `/app` at
+  runtime) and is harmless: `dist/main.js`, the actual runtime entrypoint,
+  has zero references into any `.bin/*` shim.
+- `rm -rf /out-cache/out` before deploying and `rm -rf /out` before the
+  final copy make repeated builds against a warm cache idempotent (a
+  stale prior deploy tree, or a stale `/out` from a previous build stage
+  attempt, won't linger or get merged with the new one).
+
+### Local verification (AC-1, AC-3 — done; AC-2, AC-4 — deferred, see below)
+
+- **AC-1**: `apps/api/Dockerfile`'s `deploy` step uses `--mount=type=cache`
+  (for both the pnpm store and the deploy output). `install`/`build` use
+  the store cache mount only, per the narrowed root cause above — verified
+  by reading the file.
+- **AC-3**: Built the image twice locally (this machine also runs
+  overlayfs, confirmed via `docker info`) — once with this fix, once with
+  the prior (proven-insufficient) store-only-cache-mount version as a
+  baseline — and diffed every file in both resulting runtime images by
+  SHA-256. 11,694 files each; only 6 differ (5 `node_modules/.bin/*` shim
+  scripts + `.modules.yaml`), and that same 6-file class of difference is
+  inherent pnpm `deploy` nondeterminism (paths/ordering baked into
+  generated shims), not something this fix introduces — none of those 6
+  files are reachable from `dist/main.js`, the runtime entrypoint. AC-3
+  (functionally identical output) holds.
+- **AC-2** (full multi-stage build under 5 minutes) and **AC-4** (live QA
+  deploy + register-endpoint probe) require the actual affected host,
+  `pro-data-tech-qa` — this repo's agents do not have standing SSH access
+  to that host for ad hoc verification outside the `deploy` forced-command
+  path (see `docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md`
+  "Ownership boundary"). The local build (unrelated hardware, small repo,
+  already-warm caches) completed in under a minute both with and without
+  this fix, which cannot reproduce or falsify the specific 90+-minute
+  stall reported only on the QA host's overlayfs. **AC-2/AC-4 verification
+  is deferred to the normal `deploy-qa` CI path** (`.github/workflows/ci-cd.yml`,
+  auto-triggered on merge to `main`) plus a post-merge live check of
+  `https://qa.aiqadam.org/health` and `POST /v1/auth/register`, per
+  AGENTS.md §6.1 — no separate follow-up workflow ID is queued because the
+  existing CI/CD pipeline **is** the verification mechanism; if it doesn't
+  resolve the timeout, that failure will surface directly in the
+  `deploy-qa` GitHub Actions run and should re-open this issue.
+
 ## Status
 
-Not resolved. Root cause correctly narrowed to BuildKit overlay-filesystem
-overhead for many-small-file writes, but the specific fix attempted
-(cache-mounting only the pnpm content-addressable store) was tested live
-on the affected host and does not resolve the measured symptom — the
-*virtual store* (actual package file writes) still goes through the slow
-overlay path. Awaiting a decision on which follow-up approach to pursue
-(see "Fix" section's candidate list) before further engineering effort.
+Resolved pending CI-driven live verification (see above). Root cause:
+BuildKit overlay-filesystem overhead for the many-small-file writes of
+`pnpm deploy`'s virtual store, specifically — not just the content-
+addressable store, which is why the first attempt (store-only cache
+mount) didn't help. Fix: cache-mount the deploy step's own output
+directory too, then materialize it into the image with one `cp -a`.
