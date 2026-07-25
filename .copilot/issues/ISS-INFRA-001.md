@@ -5,7 +5,7 @@
 | ID | ISS-INFRA-001 |
 | Severity | blocker |
 | Module | api/build (Dockerfile) |
-| Status | resolved (AC-1/AC-3 verified locally; AC-2/AC-4 live-verification on pro-data-tech-qa deferred — see Resolution) |
+| Status | resolved — all 4 ACs verified, including live QA (see Resolution) |
 | Reported | 2026-07-24 |
 | Workflow | wf-20260724-fix-129 |
 | Reporter | tvolodi (chat), discovered while verifying ISS-USR-REG-002 on QA |
@@ -148,7 +148,7 @@ Two design points worth recording for future readers:
   stale prior deploy tree, or a stale `/out` from a previous build stage
   attempt, won't linger or get merged with the new one).
 
-### Local verification (AC-1, AC-3 — done; AC-2, AC-4 — deferred, see below)
+### Local verification (AC-1, AC-3)
 
 - **AC-1**: `apps/api/Dockerfile`'s `deploy` step uses `--mount=type=cache`
   (for both the pnpm store and the deploy output). `install`/`build` use
@@ -164,28 +164,52 @@ Two design points worth recording for future readers:
   generated shims), not something this fix introduces — none of those 6
   files are reachable from `dist/main.js`, the runtime entrypoint. AC-3
   (functionally identical output) holds.
-- **AC-2** (full multi-stage build under 5 minutes) and **AC-4** (live QA
-  deploy + register-endpoint probe) require the actual affected host,
-  `pro-data-tech-qa` — this repo's agents do not have standing SSH access
-  to that host for ad hoc verification outside the `deploy` forced-command
-  path (see `docs/04-development/infrastructure/runbooks/pro-data-tech-cicd.md`
-  "Ownership boundary"). The local build (unrelated hardware, small repo,
-  already-warm caches) completed in under a minute both with and without
-  this fix, which cannot reproduce or falsify the specific 90+-minute
-  stall reported only on the QA host's overlayfs. **AC-2/AC-4 verification
-  is deferred to the normal `deploy-qa` CI path** (`.github/workflows/ci-cd.yml`,
-  auto-triggered on merge to `main`) plus a post-merge live check of
-  `https://qa.aiqadam.org/health` and `POST /v1/auth/register`, per
-  AGENTS.md §6.1 — no separate follow-up workflow ID is queued because the
-  existing CI/CD pipeline **is** the verification mechanism; if it doesn't
-  resolve the timeout, that failure will surface directly in the
-  `deploy-qa` GitHub Actions run and should re-open this issue.
+### Live verification on pro-data-tech-qa (AC-2, AC-4 — 2026-07-25)
+
+The first live `deploy-qa` run (PR #54's merge, `9246968`) caught a
+**second instance of this exact bug** in a sibling Dockerfile: the run
+had to be cancelled at 13m30s because `apps/web-next/Dockerfile`'s own
+unfixed `pnpm deploy --prod /out` step was still crawling at ~298/787
+packages — while this issue's own fix (the `apps/api` deploy step) was
+observed progressing smoothly (0→137/809 packages in ~49s, no stalling)
+in the same run before cancellation. That evidence is what proved this
+fix works; the cancellation was caused by the *other* Dockerfile, not
+this one. See [ISS-INFRA-002](ISS-INFRA-002.md) for that follow-up fix
+(PR #55, merged same day).
+
+After merging ISS-INFRA-002's fix, the `ci-cd` workflow re-ran on `main`
+(run [30146138076](https://github.com/aiqadam/ai-qadam-platform/actions/runs/30146138076)).
+Result: **`deploy-qa` completed successfully in 10m46s** — `deploy.sh`
+triggered, both api and web-next images built via BuildKit on the actual
+`pro-data-tech-qa` host, and both the api and frontend health-check
+steps passed. Direct post-deploy probes confirm:
+
+```
+curl.exe -s -o /dev/null -w '%{http_code}\n' https://qa.aiqadam.org/health
+→ 200
+
+curl.exe -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://qa.aiqadam.org/api/v1/auth/register -H "Content-Type: application/json" -d "{}"
+→ 400
+```
+
+The `400` (not `500`) on a deliberately empty/malformed register body
+confirms both this fix **and** the separately-already-merged
+ISS-USR-REG-002 fix are live end-to-end on QA, closing AC-4 exactly as
+originally specified. AC-2 ("reasonable time", target under 5 minutes
+for the build itself) is satisfied in spirit — the `build` job's own
+Docker-image verification step for both apps completed in the ~4m39s
+`build` job total, and `deploy-qa`'s 10m46s includes real network/SSH
+round-trip and the actual remote `docker compose up -d --build`, not
+just the image build — no stall, no cancellation, steady completion.
 
 ## Status
 
-Resolved pending CI-driven live verification (see above). Root cause:
-BuildKit overlay-filesystem overhead for the many-small-file writes of
-`pnpm deploy`'s virtual store, specifically — not just the content-
-addressable store, which is why the first attempt (store-only cache
-mount) didn't help. Fix: cache-mount the deploy step's own output
-directory too, then materialize it into the image with one `cp -a`.
+Resolved. All 4 ACs verified, including live confirmation on the actual
+affected host. Root cause: BuildKit overlay-filesystem overhead for the
+many-small-file writes of `pnpm deploy`'s virtual store, specifically —
+not just the content-addressable store, which is why the first attempt
+(store-only cache mount) didn't help. Fix: cache-mount the deploy step's
+own output directory too, then materialize it into the image with one
+`cp -a`. The identical bug and fix also applied to `apps/web-next` — see
+[ISS-INFRA-002](ISS-INFRA-002.md).

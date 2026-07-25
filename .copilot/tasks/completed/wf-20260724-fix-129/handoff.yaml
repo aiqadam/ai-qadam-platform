@@ -17,7 +17,7 @@ github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/54"
 
 current_step: 6
 current_step_name: "code-developer"
-workflow_status: "running"
+workflow_status: "completed"
 
 merge_mode: "auto"
 

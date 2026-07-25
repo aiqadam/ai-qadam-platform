@@ -5,7 +5,7 @@
 | ID | ISS-INFRA-002 |
 | Severity | blocker |
 | Module | web-next/build (Dockerfile) |
-| Status | resolved (AC-1/AC-2 verified locally; AC-3 live deploy-qa completion pending — see Resolution) |
+| Status | resolved — all 3 ACs verified, including live QA (see Resolution) |
 | Reported | 2026-07-25 |
 | Workflow | wf-20260725-fix-130 |
 | Reporter | tvolodi (chat), discovered live during ISS-INFRA-001's `deploy-qa` verification run |
@@ -71,16 +71,23 @@ findings. Per the standing `AGENTS.md §6.3` CI opt-out, this override was
 applied silently (no audit-trail entry in the counter file, per the
 user's explicit instruction not to be bothered with CI noise).
 
-AC-3 (a full `deploy-qa` run completing without cancellation) is being
-confirmed live as this resolution is written — see
-`ISS-INFRA-001.md`'s Resolution section for the evidence that motivated
-this fix (the api deploy step, fixed by ISS-INFRA-001, progressed
-smoothly in the same run that caught web-next stalling).
+### Live verification (AC-3 — 2026-07-25)
+
+The `ci-cd` run triggered by this PR's merge
+([30146138076](https://github.com/aiqadam/ai-qadam-platform/actions/runs/30146138076))
+completed `deploy-qa` successfully in **10m46s**, with no cancellation —
+both api and web-next images built on `pro-data-tech-qa` via BuildKit,
+both health-check steps passed. Direct post-deploy probes:
+`https://qa.aiqadam.org/health` → `200`,
+`POST https://qa.aiqadam.org/api/v1/auth/register` (empty body) → `400`.
+See `ISS-INFRA-001.md`'s Resolution section for the full evidence chain —
+that issue's fix (the api deploy step) was already proven smooth in the
+first, cancelled run; this run confirms web-next's fix closes the loop.
 
 ## Status
 
-Resolved. AC-1/AC-2 verified locally (SHA-256 diff of 28,068 runtime-image
-files vs. baseline — same nondeterminism-only-differs class as
-ISS-INFRA-001, plus a randomly-generated Astro session key, no functional
-difference). AC-3 verification is the live `deploy-qa` run triggered by
-this PR's merge.
+Resolved. All 3 ACs verified: AC-1/AC-2 locally (SHA-256 diff of 28,068
+runtime-image files vs. baseline — same nondeterminism-only-differs class
+as ISS-INFRA-001, plus a randomly-generated Astro session key, no
+functional difference), AC-3 live on `pro-data-tech-qa` (10m46s
+completion, both health checks green).
