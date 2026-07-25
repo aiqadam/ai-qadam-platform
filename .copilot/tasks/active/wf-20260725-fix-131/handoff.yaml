@@ -1,0 +1,60 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260725-fix-131"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-25T05:45:00Z"
+last_updated_at: "2026-07-25T05:45:00Z"
+
+requirement_ref: "ISS-WF-CI-002"
+requirement_text: "AGENTS.md §6.3 had no fix-it path for CI failures introduced by a PR's own diff — only escalation"
+github_issue_url: ""
+
+branch: "chore/ISS-WF-CI-002-pr-introduced-failure-routing"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/56"
+
+current_step: 12
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-WF-CI-002"
+
+deferrals: []
+
+expects_registry_update: true
