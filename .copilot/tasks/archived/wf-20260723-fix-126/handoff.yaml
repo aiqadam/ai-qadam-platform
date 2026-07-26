@@ -2,8 +2,14 @@ workflow_id: wf-20260723-fix-126
 workflow_type: issue-resolution
 issue_ref: GH-41
 branch: fix/GH-41-astro-checkorigin-proxy
-status: in-progress
+status: completed
 created: 2026-07-23
+# Merged 2026-07-23 as squash `d0536ac` (PR #42). Status corrected from
+# `in-progress` and directory archived by wf-20260726-docs-132 — the
+# close-out archive step was skipped when this workflow merged.
+completed: "2026-07-23"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/42"
+merge_commit: "d0536ac"
 
 issue:
   title: "Error on submit of registration form"
