@@ -1,8 +1,21 @@
 # ADR-0038: Web architecture — 4-layer block composition (LOCKED)
 
 ## Status
-Proposed, 2026-05-25.
-Target: Accepted in the next decision batch (2026-06-01 weekly review).
+Accepted, 2026-07-27.
+
+**Status corrected 2026-07-27** (`wf-20260727-docs-133`). This ADR sat at
+`Proposed` for two months while being fully in force: `tools/architecture-check.ts`
+exists solely to enforce it ("*tools/architecture-check.ts — ADR-0038
+enforcement*"), runs as a pre-commit hook and as the `architecture-check` CI job,
+and fails the build citing §Locks #1/#2/#3 by name. `deploy/docker-compose.prod.yml`
+builds `apps/web-next` as "the target frontend per ADR-0038", and
+`docs/04-development/architecture/blocks.md` is maintained as its catalogue.
+
+`Proposed` told agents the decision was still open for debate. It was not —
+the build rejects code that violates it.
+
+Original status: Proposed, 2026-05-25 (target: Accepted in the 2026-06-01
+decision batch — the batch review appears never to have recorded the flip).
 
 > Drafted with Viktor 2026-05-25 after the Topic 1 race-condition fix
 > (PR #389) surfaced a deeper architectural rot: 33 React islands had
