@@ -41,8 +41,9 @@ cluster (containing `platform`, `authentik`, `directus`). The dump lands at
 `/var/backups/aiqadam/db-dumps/<utc-ts>/shared-pg-all.sql.gz` and is pushed to
 the Cloudflare R2 restic repo with tag `aiqadam-db-hourly`. The daily filesystem
 backup (`aiqadam-baseline`) re-dumps the DB as a pre-hook and additionally
-captures `$APP_DIR`, `/etc/letsencrypt`, `/etc/iptables`, `/etc/ssh/sshd_config.d`,
-and `/etc/fail2ban`. Backrest at https://ops.aiqadam.org provides a web UI over
+captures `$APP_DIR`, `/etc/nginx/sites-available` (the live vhosts, which are
+edited on the host and are *not* inside `$APP_DIR`), `/etc/letsencrypt`,
+`/etc/iptables`, `/etc/ssh/sshd_config.d`, and `/etc/fail2ban`. Backrest at https://ops.aiqadam.org provides a web UI over
 the same repo, but the CLI on the host is the authoritative recovery path.
 
 The Postgres container is discovered at runtime (`aiqadam-<env>-postgres-1`, then

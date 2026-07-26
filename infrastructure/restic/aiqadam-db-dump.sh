@@ -65,9 +65,20 @@ docker exec "${PG_CONTAINER}" \
   | gzip > "${DUMP_DIR}/shared-pg-all.sql.gz"
 
 # Fail loudly on an empty/broken dump rather than shipping a useless
-# snapshot to R2 — a 20-byte gzip header is not a backup.
-if [ ! -s "${DUMP_DIR}/shared-pg-all.sql.gz" ]; then
-  echo "ERROR: pg_dumpall produced an empty dump — refusing to back up." >&2
+# snapshot to R2.
+#
+# NOTE: a plain `[ -s file ]` test is NOT sufficient here. gzip emits a
+# ~20-byte header even when its stdin is empty, so a failed pg_dumpall
+# still produces a "non-empty" file. `set -o pipefail` should already
+# abort the run in that case; this is the defence-in-depth check behind
+# it, so it must actually be able to fire. Decompress and look for a
+# statement pg_dumpall always emits.
+if ! gzip -t "${DUMP_DIR}/shared-pg-all.sql.gz" 2>/dev/null; then
+  echo "ERROR: dump is not valid gzip (truncated or corrupt) — refusing to back up." >&2
+  exit 1
+fi
+if ! zcat "${DUMP_DIR}/shared-pg-all.sql.gz" | head -100 | grep -q 'ROLE\|DATABASE\|CREATE'; then
+  echo "ERROR: dump decompresses but contains no SQL — refusing to back up." >&2
   exit 1
 fi
 

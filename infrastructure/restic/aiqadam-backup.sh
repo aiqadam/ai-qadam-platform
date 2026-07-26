@@ -71,8 +71,16 @@ docker exec "${PG_CONTAINER}" \
   pg_dumpall -U postgres --clean --if-exists \
   | gzip > "${DUMP_DIR}/shared-pg-all.sql.gz"
 
-if [ ! -s "${DUMP_DIR}/shared-pg-all.sql.gz" ]; then
-  echo "ERROR: pg_dumpall produced an empty dump — refusing to back up." >&2
+# A plain `[ -s file ]` test is NOT sufficient: gzip emits a ~20-byte
+# header even for empty stdin, so a failed pg_dumpall still yields a
+# "non-empty" file. Verify the dump decompresses and contains SQL.
+# Keep in sync with the identical guard in aiqadam-db-dump.sh.
+if ! gzip -t "${DUMP_DIR}/shared-pg-all.sql.gz" 2>/dev/null; then
+  echo "ERROR: dump is not valid gzip (truncated or corrupt) — refusing to back up." >&2
+  exit 1
+fi
+if ! zcat "${DUMP_DIR}/shared-pg-all.sql.gz" | head -100 | grep -q 'ROLE\|DATABASE\|CREATE'; then
+  echo "ERROR: dump decompresses but contains no SQL — refusing to back up." >&2
   exit 1
 fi
 
@@ -102,6 +110,10 @@ ls -1dt "${DB_DUMP_ROOT}"/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
 PATHS=(
   /opt/apps/aiqadam-prod   # $APP_DIR on prod: repo checkout, .env, compose
   /opt/apps/aiqadam-qa     # $APP_DIR on QA
+  /etc/nginx/sites-available # live vhosts — edited in place on the host,
+                             # NOT served from $APP_DIR (see
+                             # pro-data-tech-frontend-rollout.md); without
+                             # this the reverse-proxy config is unrecoverable
   /etc/letsencrypt         # TLS certs + renewal state
   /etc/iptables            # firewall rules incl. DOCKER-USER lockdown
   /etc/ssh/sshd_config.d   # sshd hardening drop-in
