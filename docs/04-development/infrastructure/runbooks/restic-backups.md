@@ -167,7 +167,7 @@ CI does NOT perform a real restore — the passphrase never leaves the host. The
 
 ### Alerting on drill failure
 
-When the drill fails on the host, the `result=fail` Plausible event lets the F-S0.11 cron probe pick up the regression on its next run (the workflow at `.github/workflows/smoke-schedule.yml` queries Plausible for ops events). If a drill hasn't passed in > 35 days, that's a real alert — open an issue with label `restore-drill-failure` and follow this runbook's "Common failure modes" section to triage.
+When the drill fails on the host, it still emits a `result=fail` Plausible event — visible directly in `/workspace/analytics`, so it's not lost. **The F-S0.11 cron probe that used to pick this up automatically no longer exists** (`.github/workflows/smoke-schedule.yml` was removed 2026-07-26 — see `apps/e2e/README.md`'s "History" section): there is currently no automated alert wired to this event. Check the analytics dashboard manually, or watch for the drill's own `MAX_SNAPSHOT_AGE_DAYS` staleness check. If a drill hasn't passed in > 35 days, that's a real alert — open an issue with label `restore-drill-failure` and follow this runbook's "Common failure modes" section to triage.
 
 ### Quarterly extension (per SECURITY.md)
 

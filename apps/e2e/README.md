@@ -8,7 +8,7 @@
 
 ## What this is
 
-Playwright tests that run on every PR (via [`.github/workflows/smoke-pr.yml`](../../.github/workflows/smoke-pr.yml)) AND every 30 minutes against production (via [`.github/workflows/smoke-schedule.yml`](../../.github/workflows/smoke-schedule.yml)).
+Playwright tests that run on every PR via [`.github/workflows/smoke-pr.yml`](../../.github/workflows/smoke-pr.yml), against production.
 
 - **Target by default:** `https://aiqadam.org` (production). Read-only assertions only — no writes, no destructive ops.
 - **Override target:** `BASE_URL=http://localhost:4321 pnpm test:e2e` to test against local dev.
@@ -55,11 +55,15 @@ BASE_URL=http://localhost:4321 pnpm test:e2e
 
 ## CI integration
 
-Two workflows (split by trigger type to work around a GitHub Actions bug — see `smoke-pr.yml`'s header comment):
+**`.github/workflows/smoke-pr.yml`** — `pull_request` trigger only. Validates the PR's behavior against current prod. No `push`-to-`main` trigger.
 
-1. **`.github/workflows/smoke-pr.yml`** — `pull_request` trigger. Validates the PR's behavior against current prod. No `push`-to-`main` trigger (deliberately removed — it raced the Coolify auto-deploy the same push initiated).
+### History: the Sprint 0.11 scheduled prod-probe (removed 2026-07-26)
 
-2. **`.github/workflows/smoke-schedule.yml`** — `schedule` trigger (every 30 min). Sprint 0.11 production health probe. Opens/comments/closes a GitHub issue labelled `prod-probe-failure` on failure/recovery.
+There used to be a second workflow, `smoke-schedule.yml`, running this same suite on a 30-minute cron against prod as a standing health probe (opening/closing a `prod-probe-failure` GitHub issue on failure/recovery). It was removed because:
+
+- It predated [PR #45](https://github.com/aiqadam/ai-qadam-platform/pull/45) ("remove Coolify, fix SSH deploy secrets," 2026-07-23), which replaced Coolify's async auto-deploy (the original reason smoke avoided running on `push`) with an SSH-triggered `deploy.sh` that already runs a post-deploy health check inline (`ci-cd.yml`'s `deploy-qa`/`deploy-prod` jobs poll `/health` right after deploying). The deploy-race problem this cron was partly working around no longer exists.
+- It never actually worked — a GitHub Actions platform bug (documented in the git history of `smoke-pr.yml`'s header comment) stuck its trigger registration for months, so in practice it produced zero real scheduled runs and no useful signal.
+- Non-deploy prod breakage (cert expiry, upstream dependency outage) is a real gap this leaves open. If that risk needs covering again, prefer a dedicated lightweight uptime/health monitor (e.g. Gatus, already used elsewhere in `infrastructure/gatus/`) over a full Playwright suite on a blind polling interval.
 
 ## Adding scenarios
 
