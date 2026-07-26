@@ -84,5 +84,5 @@ configured_at are unaffected by either rotation.
 ## See also
 
 - [ADR-0034 §Addendum 2026-05-22](../../../adr/0034-telegram-bot-and-sender.md#addendum-2026-05-22-r2-encryption-at-rest-for-tg_config)
-- [Coolify app stacks](coolify-app-stacks.md) — for the pre-deployment migration pattern that runs `0013_tg_config.sql` on deploy.
+- [`_archive/coolify-app-stacks.md`](_archive/coolify-app-stacks.md) — ⛔ archived. The pre-deployment migration pattern it describes ran under Coolify; see `.github/workflows/ci-cd.yml` for how deploys work now (ADR-0040).
 - The bot repo's [docs/deploy-coolify.md](https://github.com/viktordrukker/aiqadam-telegram-bot/blob/main/docs/deploy-coolify.md) — what env the bot expects to see after a token rotation.

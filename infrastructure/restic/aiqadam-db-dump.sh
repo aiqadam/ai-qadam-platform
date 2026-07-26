@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# F-OPS1-a · hourly DB-only snapshots for fast Coolify/Directus
-# rollback. Pairs with aiqadam-backup.sh (daily full-system); this
-# script ONLY dumps the Postgres clusters and runs a focused restic
-# backup of just the dump dir, tagged `aiqadam-db-hourly`.
+# F-OPS1-a · hourly DB-only snapshots for fast rollback. Pairs with
+# aiqadam-backup.sh (daily full-system); this script ONLY dumps the
+# Postgres cluster and runs a focused restic backup of just the dump
+# dir, tagged `aiqadam-db-hourly`.
+#
+# 2026-07-27 (wf-20260727-fix-134): de-Coolified. This script used to
+# `docker exec coolify-db pg_dump …` unconditionally. After Coolify was
+# removed (ADR-0007, PR #45) and the hyperapp.cloud host was
+# decommissioned (ADR-0040), that container no longer exists — and
+# because the script runs under `set -euo pipefail`, the failed
+# `docker exec` aborted the run BEFORE `restic backup`, so the hourly
+# DB snapshot silently stopped producing anything at all. The Coolify
+# dump is now gone and the container discovery matches the hosts we
+# actually run (see CONTAINER discovery below).
 #
 # Why a separate script: dumping the cluster takes ~5s; the full
 # filesystem backup takes minutes. Hourly cadence for DB only is
@@ -27,21 +37,48 @@ DUMP_DIR="${DB_DUMP_ROOT}/${DUMP_TS}"
 mkdir -p "${DUMP_DIR}"
 chmod 700 "${DB_DUMP_ROOT}" "${DUMP_DIR}"
 
-SHARED_PG_CONTAINER="$(docker ps --filter 'ancestor=pgvector/pgvector:pg16' --format '{{.Names}}' | head -1 || true)"
-if [ -z "${SHARED_PG_CONTAINER}" ]; then
-  SHARED_PG_CONTAINER="rmh626agrz1uiv8cyny47rbb"
+# Container discovery, most-specific first:
+#   1. PG_CONTAINER env override (set it in /etc/restic/r2.env to pin).
+#   2. The deploy/docker-compose.{qa,prod}.yml container_name convention
+#      (`aiqadam-<env>-postgres-1`) on the pro-data.tech hosts.
+#   3. Any running container built from a postgres image, as a fallback.
+# The old `pgvector/pgvector:pg16` filter and its hard-coded Coolify
+# container-ID fallback (`rmh626agrz1uiv8cyny47rbb`) are gone — neither
+# exists on the hosts described by ADR-0040.
+PG_CONTAINER="${PG_CONTAINER:-}"
+if [ -z "${PG_CONTAINER}" ]; then
+  PG_CONTAINER="$(docker ps --filter 'name=^/aiqadam-.*-postgres-1$' \
+    --format '{{.Names}}' | head -1 || true)"
+fi
+if [ -z "${PG_CONTAINER}" ]; then
+  PG_CONTAINER="$(docker ps --filter 'ancestor=postgres:16' \
+    --format '{{.Names}}' | head -1 || true)"
+fi
+if [ -z "${PG_CONTAINER}" ]; then
+  echo "ERROR: no Postgres container found. Set PG_CONTAINER in /etc/restic/r2.env." >&2
+  exit 1
 fi
 
-docker exec "${SHARED_PG_CONTAINER}" \
+echo "Dumping Postgres from container: ${PG_CONTAINER}"
+docker exec "${PG_CONTAINER}" \
   pg_dumpall -U postgres --clean --if-exists \
   | gzip > "${DUMP_DIR}/shared-pg-all.sql.gz"
 
-docker exec coolify-db \
-  pg_dump -U coolify -d coolify --clean --if-exists \
-  | gzip > "${DUMP_DIR}/coolify.sql.gz"
+# Fail loudly on an empty/broken dump rather than shipping a useless
+# snapshot to R2 — a 20-byte gzip header is not a backup.
+if [ ! -s "${DUMP_DIR}/shared-pg-all.sql.gz" ]; then
+  echo "ERROR: pg_dumpall produced an empty dump — refusing to back up." >&2
+  exit 1
+fi
 
 chmod 600 "${DUMP_DIR}"/*.sql.gz
 
+# NOTE: `--host=aiqadam-web` is a restic *snapshot label*, not a
+# hostname that gets resolved or connected to. It is deliberately kept
+# at the old value even though the `aiqadam-web` VM is gone (ADR-0040):
+# changing it would split the repo's snapshot history in two and break
+# `restic forget`'s retention grouping for every pre-existing snapshot.
+# Treat it as an opaque series identifier.
 restic backup \
   --tag=aiqadam-db-hourly \
   --host=aiqadam-web \

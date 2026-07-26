@@ -44,26 +44,43 @@ DUMP_DIR="${DB_DUMP_ROOT}/${DUMP_TS}"
 mkdir -p "${DUMP_DIR}"
 chmod 700 "${DB_DUMP_ROOT}" "${DUMP_DIR}"
 
-# Resolve the shared Postgres container by image (pgvector-based).
-SHARED_PG_CONTAINER="$(docker ps --filter 'ancestor=pgvector/pgvector:pg16' --format '{{.Names}}' | head -1 || true)"
-if [ -z "${SHARED_PG_CONTAINER}" ]; then
-  # Fallback to current well-known name; if Coolify renamed it,
-  # operator updates the runbook.
-  SHARED_PG_CONTAINER="rmh626agrz1uiv8cyny47rbb"
+# Resolve the Postgres container. Kept byte-identical to the discovery
+# in aiqadam-db-dump.sh — if you change one, change both.
+#   1. PG_CONTAINER env override (pin it in /etc/restic/r2.env).
+#   2. deploy/docker-compose.{qa,prod}.yml naming (`aiqadam-<env>-postgres-1`).
+#   3. Any running postgres:16 container.
+PG_CONTAINER="${PG_CONTAINER:-}"
+if [ -z "${PG_CONTAINER}" ]; then
+  PG_CONTAINER="$(docker ps --filter 'name=^/aiqadam-.*-postgres-1$' \
+    --format '{{.Names}}' | head -1 || true)"
+fi
+if [ -z "${PG_CONTAINER}" ]; then
+  PG_CONTAINER="$(docker ps --filter 'ancestor=postgres:16' \
+    --format '{{.Names}}' | head -1 || true)"
+fi
+if [ -z "${PG_CONTAINER}" ]; then
+  echo "ERROR: no Postgres container found. Set PG_CONTAINER in /etc/restic/r2.env." >&2
+  exit 1
 fi
 
 # pg_dumpall captures every DB in the cluster + globals (roles,
 # tablespaces). Compressed in-stream to avoid a temp file the size
 # of the cluster.
-echo "[pg_dumpall] shared cluster via ${SHARED_PG_CONTAINER}"
-docker exec "${SHARED_PG_CONTAINER}" \
+echo "[pg_dumpall] cluster via ${PG_CONTAINER}"
+docker exec "${PG_CONTAINER}" \
   pg_dumpall -U postgres --clean --if-exists \
   | gzip > "${DUMP_DIR}/shared-pg-all.sql.gz"
 
-echo "[pg_dump] coolify DB via coolify-db"
-docker exec coolify-db \
-  pg_dump -U coolify -d coolify --clean --if-exists \
-  | gzip > "${DUMP_DIR}/coolify.sql.gz"
+if [ ! -s "${DUMP_DIR}/shared-pg-all.sql.gz" ]; then
+  echo "ERROR: pg_dumpall produced an empty dump — refusing to back up." >&2
+  exit 1
+fi
+
+# The `pg_dump coolify` step that lived here is gone (2026-07-27,
+# wf-20260727-fix-134). Coolify was removed in PR #45 (ADR-0007) and its
+# host decommissioned (ADR-0040); `docker exec coolify-db` failed under
+# `set -euo pipefail` and aborted this script before `restic backup`
+# ever ran — so the daily snapshot silently stopped being taken.
 
 # Mode 600 on every dump (creds were in pg_dumpall output for roles).
 chmod 600 "${DUMP_DIR}"/*.sql.gz
@@ -73,12 +90,23 @@ ls -1dt "${DB_DUMP_ROOT}"/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
 
 # ──────────── filesystem snapshot ─────────────────────────────────────
 
+# 2026-07-27 (wf-20260727-fix-134): `/data/coolify` removed — the
+# directory does not exist on the ADR-0040 hosts, so every run logged
+# "WARN: skipping missing path" and captured no application state at
+# all. Replaced with the compose/nginx state that actually defines the
+# deployment now. Keep in sync with REQUIRED_PATHS in
+# aiqadam-restore-drill.sh.
+# $APP_DIR per deploy/docker-compose.{qa,prod}.yml headers. Both are
+# listed so one script works on either host; the missing-path loop below
+# skips whichever is absent.
 PATHS=(
-  /data/coolify             # Coolify state, configs, deploy keys, certs, .env
-  /etc/iptables             # firewall rules incl. DOCKER-USER lockdown
-  /etc/ssh/sshd_config.d    # sshd hardening drop-in
-  /etc/fail2ban             # fail2ban config incl. Docker-bridge whitelist
-  /var/backups/aiqadam      # F-OPS1-a: pg_dump output
+  /opt/apps/aiqadam-prod   # $APP_DIR on prod: repo checkout, .env, compose
+  /opt/apps/aiqadam-qa     # $APP_DIR on QA
+  /etc/letsencrypt         # TLS certs + renewal state
+  /etc/iptables            # firewall rules incl. DOCKER-USER lockdown
+  /etc/ssh/sshd_config.d   # sshd hardening drop-in
+  /etc/fail2ban            # fail2ban config incl. Docker-bridge whitelist
+  /var/backups/aiqadam     # F-OPS1-a: pg_dump output
 )
 
 ARGS=()
@@ -94,10 +122,9 @@ restic backup \
   --tag=aiqadam-baseline \
   --host=aiqadam-web \
   --exclude-caches \
-  --exclude='/data/coolify/source/upgrade-*.log' \
-  --exclude='/data/coolify/source/installation-*.log' \
-  --exclude='/data/coolify/proxy/logs' \
-  --exclude='/data/coolify/source/storage/logs' \
+  --exclude='**/node_modules' \
+  --exclude='**/.git' \
+  --exclude='**/dist' \
   "${ARGS[@]}"
 
 restic forget \

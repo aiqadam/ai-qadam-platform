@@ -61,7 +61,7 @@ Open sub-decisions resolved by this ADR:
 The "Production deployment — deferred" section in `ARCHITECTURE.md`. That section is rewritten as "Production deployment — active" and points here.
 
 ## References
-- [Runbook: Coolify bootstrap](../04-development/infrastructure/runbooks/coolify-bootstrap.md) — the actual setup steps performed on this host.
+- [Runbook: Coolify bootstrap](../04-development/infrastructure/runbooks/_archive/coolify-bootstrap.md) — ⛔ archived; the setup steps performed on this (now decommissioned) host.
 - [ADR-0007](0007-coolify-orchestration.md) — orchestration choice.
 - [ADR-0008](0008-docker-port-publishing-policy.md) — Docker port-publishing policy.
 - [ADR-0009](0009-email-stack-saas-exception.md) — email stack (rules out self-hosted on this PTR).

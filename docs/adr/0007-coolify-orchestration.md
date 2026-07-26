@@ -52,10 +52,10 @@ Considered alternatives:
 - ⚠️ **Coolify v4 evolves between minor versions.** Upgrades require care — read changelogs before pulling the latest.
 - ⚠️ **`/data/coolify/source/.env` holds Coolify's encryption keys** for stored secrets. Backup rigorously (off-site, password manager) — losing it means losing access to all Coolify-stored env vars and deploy keys.
 - ⚠️ **Coolify is run by a small team.** If it stagnated or pivoted, we'd migrate. The migration cost is bounded — the underlying Compose files transfer to plain `docker compose` or another orchestrator.
-- 📝 **First-run admin port (8000) is initially world-reachable** if you don't lock down immediately — caught by us on 2026-05-14, fixed structurally per [ADR-0008](0008-docker-port-publishing-policy.md). Bootstrap procedure documented in [docs/04-development/infrastructure/runbooks/coolify-bootstrap.md](../04-development/infrastructure/runbooks/coolify-bootstrap.md).
+- 📝 **First-run admin port (8000) is initially world-reachable** if you don't lock down immediately — caught by us on 2026-05-14, fixed structurally per [ADR-0008](0008-docker-port-publishing-policy.md). Bootstrap procedure documented in [docs/04-development/infrastructure/runbooks/_archive/coolify-bootstrap.md](../04-development/infrastructure/runbooks/_archive/coolify-bootstrap.md) (⛔ archived).
 
 ## References
 - [Coolify documentation](https://coolify.io/docs)
 - [ADR-0002](0002-deployment-target.md) — single-host deployment target
 - [ADR-0008](0008-docker-port-publishing-policy.md) — Docker port publishing policy
-- [docs/04-development/infrastructure/runbooks/coolify-bootstrap.md](../04-development/infrastructure/runbooks/coolify-bootstrap.md) — bootstrap procedure
+- [docs/04-development/infrastructure/runbooks/_archive/coolify-bootstrap.md](../04-development/infrastructure/runbooks/_archive/coolify-bootstrap.md) — ⛔ archived bootstrap procedure

@@ -4,6 +4,25 @@
 **Pre-reading:** [`infrastructure/observability/docker-compose.yml`](../../../../infrastructure/observability/docker-compose.yml) (logs), [`infrastructure/gatus/docker-compose.yml`](../../../../infrastructure/gatus/docker-compose.yml) (uptime), [ADR-0007](../../../adr/0007-coolify-orchestration.md), [ADR-0032](../../../adr/0032-operator-tools-must-sso-or-embed.md).
 **Ships:** Sprint 0.4 from [`docs/01-business/community-platform-roadmap.md`](../../../01-business/community-platform-roadmap.md) §7.
 
+> ## ⚠️ Deploy steps are Coolify-era — the stack config is still valid
+>
+> **Updated 2026-07-27 (`wf-20260727-fix-134`).** The "Coolify deploy steps"
+> section below, the `--network=coolify` logcli examples, the "set X in the
+> Coolify env" instructions, and the `https://coolify.aiqadam.org/` uptime probe
+> all refer to infrastructure that no longer exists
+> ([ADR-0007](../../../adr/0007-coolify-orchestration.md) /
+> [ADR-0040](../../../adr/0040-deployment-target-pro-data-tech.md)).
+>
+> Still valid: the two compose files
+> (`infrastructure/observability/docker-compose.yml`,
+> `infrastructure/gatus/docker-compose.yml`), what each component does, the
+> retention model, and the query patterns — substitute the current Docker network
+> for `coolify` and set env vars in `$APP_DIR/.env` rather than a Coolify UI.
+>
+> **Whether this stack is currently deployed at all has not been verified** — it
+> is not in `deploy/docker-compose.{qa,prod}.yml`. Treat "already deployed as
+> Coolify service `aiqadam-observability`" below as historical.
+
 ## What this stack gives us
 
 | Service | Job | Reach |
