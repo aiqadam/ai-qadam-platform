@@ -1,0 +1,80 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260727-docs-133"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-27T00:00:00Z"
+last_updated_at: "2026-07-27T00:00:00Z"
+
+requirement_ref: "ISS-WF-STATE-002"
+requirement_text: "ADR-0002 was Accepted while asserting Coolify orchestrates every stack on a decommissioned host, directly contradicting ADR-0007 (Superseded). ADR-0038 sat at Proposed while being machine-enforced by tools/architecture-check.ts. Reconcile the ADR log so the deployment-target record matches reality."
+github_issue_url: ""
+
+branch: "chore/wf-20260727-docs-133-adr-deployment-supersede"
+base_branch: "chore/wf-20260726-docs-132-workspace-state-reconcile"
+github_pr_url: ""
+
+current_step: 1
+current_step_name: "adr-supersession"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-WF-STATE-002"
+
+deferrals: []
+
+# Doc/state-only reconciliation. No FR or ISS row is introduced, so the
+# QualityGate Context-Update Check does not apply.
+expects_registry_update: false
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260727-docs-133/01-adr-supersession.md"
+
+context_refs:
+  - .copilot/context/workspace-state.md
+  - .copilot/context/workflow-history.md
+  - scripts/check-workflow-state.sh
+  - .copilot/schemas/protocol.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
