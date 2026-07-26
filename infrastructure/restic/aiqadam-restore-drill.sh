@@ -55,9 +55,12 @@ REQUIRED_PATHS=(
 # older than this, the daily backup has stopped firing — alert.
 MAX_SNAPSHOT_AGE_DAYS="${MAX_SNAPSHOT_AGE_DAYS:-2}"
 
-# Plausible ops-event emission. Same pattern as F-S0.11 prod-probe
-# alerting in .github/workflows/smoke-schedule.yml — POST to /api/event with a
-# domain-of-record + event name. Empty PLAUSIBLE_HOST disables emit.
+# Plausible ops-event emission — POST to /api/event with a domain-of-record
+# + event name. Empty PLAUSIBLE_HOST disables emit. (Formerly consumed by
+# the F-S0.11 scheduled prod-probe workflow, removed 2026-07-26 — see
+# docs/04-development/infrastructure/runbooks/restic-backups.md's
+# "Alerting on drill failure" section. This event still fires; nothing
+# currently reads it automatically.)
 PLAUSIBLE_HOST="${PLAUSIBLE_HOST:-https://analytics.aiqadam.org}"
 PLAUSIBLE_DOMAIN="${PLAUSIBLE_DOMAIN:-aiqadam.org}"
 PLAUSIBLE_EVENT="${PLAUSIBLE_EVENT:-backup_restore_drill}"

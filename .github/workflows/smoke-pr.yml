@@ -5,8 +5,7 @@ name: smoke-pr
 #
 # Runs Playwright tests against production (read-only assertions only) to
 # validate a PR's behavior against current prod. No deploy race — the PR
-# isn't deploying, so there's no Coolify redeploy window to wait out here
-# (contrast smoke-schedule.yml, which does need the health-gate wait).
+# isn't deploying.
 #
 # ISS-CI-SMOKE-001 (2026-07-26): split out of the former single smoke.yml
 # (later renamed smoke-probe.yml in #63) to work around a GitHub Actions
@@ -26,6 +25,16 @@ name: smoke-pr
 # that proven pattern. See github.com/orgs/community/discussions/174544
 # and /200691 for matching unresolved community reports of this class of
 # GitHub bug.
+#
+# smoke-schedule.yml (the other half of that split — schedule +
+# workflow_dispatch, a 30-min prod-probe cron) was removed 2026-07-26.
+# It was designed around Coolify's async auto-deploy racing a push-
+# triggered smoke run; Coolify was removed 2026-07-23 (#45) and replaced
+# with an SSH deploy that already health-checks inline. The cron also
+# never actually fired a real run due to the trigger bug above. See
+# apps/e2e/README.md's "History" section for the full rationale, including
+# the still-open gap (non-deploy prod breakage) and Gatus as the better
+# tool for that job if it's ever needed.
 
 on:
   pull_request:
