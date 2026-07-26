@@ -19,7 +19,7 @@ github_issue_url: ""
 
 branch: "chore/wf-20260726-docs-132-workspace-state-reconcile"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/68"
 
 current_step: 1
 current_step_name: "state-reconciliation"
