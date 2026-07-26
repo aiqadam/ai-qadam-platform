@@ -28,7 +28,20 @@ Two open sub-decisions to make concrete:
 
 **Encryption:** restic's default — XChaCha20-Poly1305 with key derived from the repo passphrase via scrypt. The passphrase lives at `/etc/restic/repo-password` (mode `600 root:root`) on the host AND in the operator's password manager. Lose both copies = lose the backups, irreversibly.
 
-**Initial scope:** `/data/coolify`, `/etc/iptables`, `/etc/ssh/sshd_config.d`, `/etc/fail2ban` — the configuration and orchestration state needed to rebuild the platform on a fresh host. Application data (Postgres dumps, MinIO buckets) joins as those stacks come online (procedure documented in [docs/04-development/infrastructure/runbooks/restic-backups.md](../04-development/infrastructure/runbooks/restic-backups.md)).
+**Initial scope (2026-05-15, superseded — see below):** `/data/coolify`, `/etc/iptables`, `/etc/ssh/sshd_config.d`, `/etc/fail2ban` — the configuration and orchestration state needed to rebuild the platform on a fresh host. Application data (Postgres dumps, MinIO buckets) joins as those stacks come online (procedure documented in [docs/04-development/infrastructure/runbooks/restic-backups.md](../04-development/infrastructure/runbooks/restic-backups.md)).
+
+> **Scope updated 2026-07-27 (`wf-20260727-fix-134`).** `/data/coolify` no longer
+> exists — Coolify was removed ([ADR-0007](0007-coolify-orchestration.md)) and its
+> host decommissioned ([ADR-0040](0040-deployment-target-pro-data-tech.md)). The
+> decision recorded by this ADR (restic → Cloudflare R2, client-side encrypted,
+> systemd-timer driven) is unchanged and still in force; only the *paths* moved.
+> Current scope, per `infrastructure/restic/aiqadam-backup.sh`:
+> `/opt/apps/aiqadam-{prod,qa}` (`$APP_DIR`), `/etc/nginx/sites-available`,
+> `/etc/letsencrypt`, `/etc/iptables`, `/etc/ssh/sshd_config.d`, `/etc/fail2ban`,
+> `/var/backups/aiqadam`. The script is the source of truth for scope; this line
+> is kept in sync deliberately, because a stale scope here is what allowed the
+> backup to silently capture nothing for four days
+> ([ISS-INFRA-003](../../.copilot/issues/ISS-INFRA-003.md)).
 
 ## Rationale
 

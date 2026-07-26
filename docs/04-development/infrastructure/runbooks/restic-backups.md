@@ -29,8 +29,9 @@
 `restic` runs daily at 03:00 UTC via systemd timer on the platform host, encrypts everything client-side with a passphrase only we know, and pushes incremental snapshots to a Cloudflare R2 bucket (`aiqadam-backups`) over the S3-compatible API. R2 stores the encrypted blobs but cannot decrypt them. Retention is `30 daily / 12 weekly / 12 monthly`. First backup: ~440 KiB; growth is dominated by new container state, not log volume (excluded).
 
 ```
-   /opt/apps/aiqadam-{prod,qa}, /etc/letsencrypt, /etc/iptables,
-   /etc/ssh/sshd_config.d, /etc/fail2ban, /var/backups/aiqadam
+   /opt/apps/aiqadam-{prod,qa}, /etc/nginx/sites-available,
+   /etc/letsencrypt, /etc/iptables, /etc/ssh/sshd_config.d,
+   /etc/fail2ban, /var/backups/aiqadam
                                 │
                                 ▼
                           [ aiqadam-backup.sh ]
