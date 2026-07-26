@@ -5,6 +5,34 @@
 > single rotation pass at launch time covers them, instead of doing
 > piecemeal rotations now.
 
+> ## ⚠️ The rotation steps below are stale — the exposure is not
+>
+> **Updated 2026-07-27 (`wf-20260727-fix-134`).** Every "Where" and "How" cell
+> in the table below routes through Coolify env vars and the Coolify UI/API.
+> Coolify was removed on 2026-07-23 ([ADR-0007](../../../adr/0007-coolify-orchestration.md))
+> and its host decommissioned ([ADR-0040](../../../adr/0040-deployment-target-pro-data-tech.md)),
+> so **none of those procedures can be executed as written.**
+>
+> **This does not close the exposure.** The secrets listed below were seen in
+> plaintext and, to the extent they are still in use on the current hosts, still
+> need rotating. What changed is only *where they live*:
+>
+> | Was | Now |
+> |---|---|
+> | Coolify env var on `aiqadam-api` | `.env` in `$APP_DIR` (`/opt/apps/aiqadam-{prod,qa}`), read by `deploy/docker-compose.{qa,prod}.yml` |
+> | "PATCH Coolify env; redeploy" | edit the host `.env`, then re-run the compose up (or re-dispatch `ci-cd.yml`) |
+> | Coolify deployment-log retention | not applicable — no Coolify log store exists |
+>
+> Also note the platform inventory has changed: prod currently runs `postgres`,
+> `oidc-stub`, `api`, and `web-next` only. Rows referencing `aiqadam-directus`,
+> `aiqadam-authentik`, `aiqadam-plausible`, or Twenty CRM do not correspond to
+> anything running in prod today — check QA and the live compose files before
+> rotating.
+>
+> **Before the launch rotation pass, this runbook needs rewriting against the
+> current deployment.** It is left in place rather than archived because the
+> underlying security obligation is still open.
+
 ## Why these need rotation
 
 On 2026-05-22, during R2 PR validation, Coolify's deployment log

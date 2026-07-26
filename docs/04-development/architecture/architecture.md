@@ -352,9 +352,18 @@ Production-equivalent host is **`aiqadam-web`** at IPv4 `212.20.151.29`, hosted 
 
 Twenty CRM integration (Phase 1 week 9) deploys under its own Coolify project at that point.
 
-### Hardening posture (live state, applied 2026-05-14)
+### Hardening posture (as applied 2026-05-14 to the retired Coolify host)
 
-Full procedure in [docs/04-development/infrastructure/runbooks/coolify-bootstrap.md](../infrastructure/runbooks/coolify-bootstrap.md):
+> ⚠️ **Not current live state.** This section describes `212.20.151.29`, which
+> was decommissioned ([ADR-0040](../../adr/0040-deployment-target-pro-data-tech.md)).
+> The *policies* below (UFW default-deny, `DOCKER-USER` DROP rules, fail2ban,
+> sshd hardening, unattended-upgrades) remain the intended baseline and
+> `/etc/iptables` + `/etc/ssh/sshd_config.d` + `/etc/fail2ban` are still what the
+> backup captures — but the Coolify-specific admin ports (8000/6001/6002) and the
+> "Coolify localhost-server pattern" rationale no longer apply. The equivalent
+> posture on the pro-data.tech hosts has **not** been re-verified and documented.
+
+Full procedure in [_archive/coolify-bootstrap.md](../infrastructure/runbooks/_archive/coolify-bootstrap.md) (⛔ archived):
 
 - **UFW:** default deny incoming, allow 22/80/443.
 - **iptables `DOCKER-USER` chain:** explicit `DROP` on Coolify admin ports (8000, 6001, 6002) bound to public NIC `ens3`, using `-m conntrack --ctorigdstport <port>` matchers because Docker port publishing bypasses UFW. See [ADR-0008](../../adr/0008-docker-port-publishing-policy.md).

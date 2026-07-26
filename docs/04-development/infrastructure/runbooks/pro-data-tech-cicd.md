@@ -197,7 +197,7 @@ The one exception: `deploy.sh`'s *forward-deploy logic itself* (the script body 
 ## References
 
 - [ADR-0002](../../../adr/0002-deployment-target.md) — the other, currently-still-accepted deployment target (Coolify/hyperapp.cloud). **No ADR yet exists for the pro-data.tech target described in this runbook — writing one, and deciding how the two targets relate, is the most valuable immediate follow-up for whoever owns this repo's deploy architecture.**
-- [`coolify-bootstrap.md`](coolify-bootstrap.md), [`coolify-app-stacks.md`](coolify-app-stacks.md) — the parallel pipeline's own runbooks, for comparison.
+- [`_archive/coolify-bootstrap.md`](_archive/coolify-bootstrap.md), [`_archive/coolify-app-stacks.md`](_archive/coolify-app-stacks.md) — ⛔ archived. This was the "parallel pipeline" until 2026-07-23; it is now the only one (ADR-0040).
 - [PR #15](https://github.com/aiqadam/ai-qadam-platform/pull/15) — adds `ci-cd.yml`.
 - [PR #16](https://github.com/aiqadam/ai-qadam-platform/pull/16) — lint cleanup blocking #15's `build` job.
 - `ai-qadam-infra` repo (external, not in this org) — tasks T-0110 through T-0113 — the full design/execution/verification audit trail for everything in this runbook, including three failed/rolled-back attempts before the working configuration was reached. Not accessible from this repo; ask the infra operator if you need the detailed history.
