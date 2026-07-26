@@ -21,8 +21,10 @@ import { defineConfig, devices } from '@playwright/test';
 //   - operator workspace flows (needs Sprint 2 to ship workspace)
 //   - cabinet flows (needs Sprint 3 to ship cabinets)
 //
-// CI integration: .github/workflows/smoke-probe.yml runs on PR + scheduled (every 30 min
-// in prod for Sprint 0.11 production probe).
+// CI integration: .github/workflows/smoke-pr.yml runs on PR; a separate
+// .github/workflows/smoke-schedule.yml runs every 30 min in prod for
+// Sprint 0.11 production probe (split to work around a GitHub Actions
+// trigger-registration bug — see smoke-pr.yml's header comment).
 
 const BASE_URL = process.env.BASE_URL ?? 'https://aiqadam.org';
 

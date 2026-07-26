@@ -1,67 +1,37 @@
-name: smoke
+name: smoke-schedule
 
-# Sprint 0.10 — browser-agent smoke tests (Lane 2 of 3-lane execution model).
-# See docs/01-business/community-platform-roadmap.md §2.5 + §7.5.
+# Sprint 0.11 — continuous production health probe. Runs the same Playwright
+# smoke suite as smoke-pr.yml, but on a 30-minute schedule against prod, with
+# failure/recovery alerting (Plausible ops-event + GitHub issue).
 #
-# Runs Playwright tests against production (read-only assertions only).
-# Doubles as the Sprint 0.11 production health probe via the schedule
-# trigger below (every 30 min) — there is no separate probe workflow file.
-#
-# ISS-CI-SMOKE-001 (2026-07-26): this file was renamed from smoke.yml to
-# smoke-probe.yml to work around a GitHub Actions platform bug introduced
-# by the ISS-MIGRATE-001 repo migration (2026-07-08 → aiqadam/ai-qadam-platform).
-# Under the old filename, GitHub's server-side registered trigger set for
-# this workflow got permanently stuck out of sync with the file's actual
-# `on:` block: `workflow_dispatch` calls 422'd with "Workflow does not have
-# 'workflow_dispatch' trigger" despite it being declared, and pull_request/
-# schedule never fired a single real run (confirmed: recent merged PRs show
-# no smoke check at all). Meanwhile every push to main produced a phantom
-# zero-job "failure" for a push trigger this file has never declared.
-# Neither a content-only push nor an API disable/enable cycle fixed it —
-# both are the documented first-line workarounds for this class of GitHub
-# issue (see e.g. github.com/orgs/community/discussions/174544 and
-# /200691) and neither worked here, so the file was renamed to force
-# GitHub to create a brand-new internal workflow registration. If you are
-# renaming this file again for any other reason, know that a rename is
-# the last-resort fix for this specific failure mode — try a content edit
-# and disable/enable first for anything that isn't this exact symptom.
+# ISS-CI-SMOKE-001 (2026-07-26): split out of the former single smoke.yml
+# (later renamed smoke-probe.yml in #63) to work around a GitHub Actions
+# platform bug — see smoke-pr.yml's header comment for the full history.
+# This file keeps the schedule + workflow_dispatch combination only
+# (mirrors the already-working parity-check.yml), deliberately excluding
+# pull_request to avoid recreating the broken 3-trigger combination.
 
 on:
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
   schedule:
-    # Every 30 minutes — production probe. Replaces the previous
-    # push-to-main trigger which raced the Coolify auto-deploy that the
-    # SAME push initiated (web container redeploys lag api by ~30–90s and
-    # serve "no available server" plaintext during that window). The
+    # Every 30 minutes — production probe. Previously (pre-2026-05-20) this
+    # ran on push-to-main instead, which raced the Coolify auto-deploy that
+    # the SAME push initiated (web container redeploys lag api by ~30–90s
+    # and serve "no available server" plaintext during that window). The
     # health-gate workaround consistently saw `api=200 web=no` from
-    # GitHub-Actions IPs for the full 7.5-min budget, so push-trigger
-    # smoke could never be reliably green.
-    #
-    # Smoke now runs:
-    #   - on PR: validates the PR's behavior against current prod (no
-    #     deploy race because the PR isn't deploying)
-    #   - on schedule (every 30 min): genuine prod-probe duty
-    #
-    # Push-to-main no longer triggers smoke; the supply-chain + ci gates
-    # already guard merges, and the next scheduled run catches any
-    # post-deploy regression.
+    # GitHub-Actions IPs for the full 7.5-min budget, so push-trigger smoke
+    # could never be reliably green. Schedule-based probing sidesteps the
+    # race entirely.
     - cron: "*/30 * * * *"
   workflow_dispatch: {}
 
 concurrency:
-  group: smoke-${{ github.ref }}
+  group: smoke-schedule-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  # The scheduled alerting steps below open + comment + close issues
-  # to alert on prod-probe failures (F-S0.11). PR runs don't need
-  # issues:write but having it set per-workflow keeps the job
-  # rerunnable across event types without surprises.
+  # The alerting steps below open + comment + close issues to alert on
+  # prod-probe failures (F-S0.11).
   issues: write
 
 jobs:
@@ -157,8 +127,7 @@ jobs:
 
       # ─────────── F-S0.11 — Prod-probe alerting ────────────────────────
       #
-      # On the scheduled cron path only (NOT on PRs — humans see PR
-      # failures inline), alert on smoke failure by:
+      # On failure: alert by
       #   1. Emitting a Plausible ops-event (prod_probe_failure) so the
       #      failure rate is trackable over time in /workspace/analytics.
       #   2. Opening (or commenting on) an issue labelled
@@ -167,16 +136,16 @@ jobs:
       #      a fresh issue for every 30-min tick during a multi-hour
       #      outage.
       #
-      # When smoke recovers on a subsequent cron run, the recovery step
-      # below closes the open issue with a "resolved by run #N" comment.
+      # When smoke recovers on a subsequent run, the recovery step below
+      # closes the open issue with a "resolved by run #N" comment.
       #
-      # Telegram alerting is deliberately omitted from this PR: the
+      # Telegram alerting is deliberately omitted from this workflow: the
       # Telegram alert bot's chat id + token are not yet in this repo's
       # GH secrets. When they are (HUMAN one-off), add a second step
       # gated on `if: secrets.TELEGRAM_ALERT_BOT_TOKEN != ''`.
 
-      - name: Alert on scheduled smoke failure (F-S0.11)
-        if: ${{ failure() && github.event_name == 'schedule' }}
+      - name: Alert on smoke failure (F-S0.11)
+        if: ${{ failure() }}
         env:
           GH_TOKEN: ${{ github.token }}
           PLAUSIBLE_HOST: ${{ vars.PLAUSIBLE_OPS_HOST || 'https://analytics.aiqadam.org' }}
@@ -193,8 +162,8 @@ jobs:
               \"domain\": \"aiqadam.org\",
               \"props\": {
                 \"run_id\": \"${{ github.run_id }}\",
-                \"workflow\": \"smoke\",
-                \"event\": \"schedule\"
+                \"workflow\": \"smoke-schedule\",
+                \"event\": \"${{ github.event_name }}\"
               }
             }" \
             || echo "(plausible POST failed; non-blocking)"
@@ -229,7 +198,7 @@ If this is the second consecutive cron failure, escalate to [\`security.md\`](..
           fi
 
       - name: Resolve open prod-probe issue on recovery (F-S0.11)
-        if: ${{ success() && github.event_name == 'schedule' }}
+        if: ${{ success() }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
