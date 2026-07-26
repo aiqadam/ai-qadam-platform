@@ -13,11 +13,11 @@ github_issue_url: ""
 
 branch: "chore/wf-20260727-docs-134-coolify-prose-sweep"
 base_branch: "chore/wf-20260727-docs-133-adr-deployment-supersede"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/70"
 
 current_step: 1
 current_step_name: "backup-fix-and-sweep"
-workflow_status: "running"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
