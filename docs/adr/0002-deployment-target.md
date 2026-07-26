@@ -1,7 +1,21 @@
 # ADR-0002: Deployment target — single host on hyperapp.cloud
 
 ## Status
-Accepted, 2026-05-14
+Superseded, 2026-07-27
+
+**Superseded by:** [ADR-0040](0040-deployment-target-pro-data-tech.md) — QA and
+production now run on two separate pro-data.tech hosts (`95.46.211.230` /
+`95.46.211.224`), orchestrated by plain Docker Compose + Nginx and deployed by
+`.github/workflows/ci-cd.yml` over SSH.
+
+**Nothing in the Decision section below is still true.** The hyperapp.cloud host
+`212.20.151.29` was decommissioned (commit `ef50eba`), and Coolify was removed
+from CI/CD on 2026-07-23 (PR #45, recorded in
+[ADR-0007](0007-coolify-orchestration.md)). This record is retained per the
+append-only rule in [`README.md`](README.md) as the historical account of why a
+single hyperapp.cloud box was chosen in May 2026 — not as current guidance.
+
+Original status: Accepted, 2026-05-14
 
 ## Context
 The original `ARCHITECTURE.md` draft labelled production deployment as "deferred — Viktor will pick a target VPS once the local product has enough surface to deploy." During the first infrastructure session (2026-05-14) Viktor provisioned and hardened a remote VM, and the deferral became inaccurate — a target host now exists.

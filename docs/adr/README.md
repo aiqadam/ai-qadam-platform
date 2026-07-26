@@ -17,7 +17,7 @@ for why ADRs stay here rather than being distributed across the doc layers.
 | # | Title | Status |
 |---|---|---|
 | [0001](0001-docs-live-in-claude-folder.md) | Operating documentation lives in `.claude/` | Superseded by [0039](0039-five-layer-doc-architecture.md) |
-| [0002](0002-deployment-target.md) | Deployment target — single host on hyperapp.cloud | Accepted |
+| [0002](0002-deployment-target.md) | Deployment target — single host on hyperapp.cloud | Superseded by [0040](0040-deployment-target-pro-data-tech.md) |
 | [0007](0007-coolify-orchestration.md) | Coolify as the orchestration layer | Superseded 2026-07-23 |
 | [0008](0008-docker-port-publishing-policy.md) | Docker port publishing must bind 127.0.0.1 | Accepted |
 | [0009](0009-email-stack-saas-exception.md) | Email stack SaaS exception (Cloudflare + Resend) | Accepted |
@@ -45,8 +45,9 @@ for why ADRs stay here rather than being distributed across the doc layers.
 | [0035](0035-admin-cabinet-and-invite-link-onboarding.md) | Admin UI + invite-link operator onboarding | Accepted |
 | [0036](0036-sponsor-digest-rollups.md) | Sponsor quarterly-digest rollups query Directus | Proposed |
 | [0037](0037-three-tier-architecture.md) | Three-tier architecture (eng / ops / customer) | Proposed |
-| [0038](0038-web-4-layer-architecture.md) | Web architecture — 4-layer block composition (LOCKED) | Proposed |
+| [0038](0038-web-4-layer-architecture.md) | Web architecture — 4-layer block composition (LOCKED) | Accepted 2026-07-27 |
 | [0039](0039-five-layer-doc-architecture.md) | Five-layer documentation architecture | Accepted |
+| [0040](0040-deployment-target-pro-data-tech.md) | Deployment target — pro-data.tech QA + prod, Compose + Nginx + GH Actions | Accepted 2026-07-27 |
 
 ## Reserved / unused numbers
 

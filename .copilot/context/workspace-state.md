@@ -1,10 +1,11 @@
 # Workspace State
 
-**Last updated:** 2026-07-26 — `wf-20260726-docs-132`. Reconciled this file to a
-current-state snapshot: the 13 prepended close-out entries moved verbatim to
-[`workflow-history.md`](workflow-history.md), five merged workflows archived out
-of `.copilot/tasks/active/`, and every section below re-verified against live
-repo state (`git log`, `deploy/`, `.github/workflows/`, `.copilot/tasks/`).
+**Last updated:** 2026-07-27 — `wf-20260727-docs-133`. Reconciled the ADR log:
+new [`ADR-0040`](../../docs/adr/0040-deployment-target-pro-data-tech.md) records
+the real deployment target and supersedes ADR-0002; ADR-0038 flipped `Proposed`
+→ `Accepted`. Prior entry (`wf-20260726-docs-132`, 2026-07-26) converted this
+file from a 48.5 KB append-only log into the current-state snapshot below and
+archived five merged workflows out of `.copilot/tasks/active/`.
 
 > **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
@@ -22,7 +23,8 @@ repo state (`git log`, `deploy/`, `.github/workflows/`, `.copilot/tasks/`).
 
 | Workflow ID | Type | Feature/Issue | Branch | Status |
 |---|---|---|---|---|
-| wf-20260726-docs-132 | issue-resolution | ISS-WF-STATE-001 — workspace-state reconciliation | chore/wf-20260726-docs-132-workspace-state-reconcile | running |
+| wf-20260726-docs-132 | issue-resolution | ISS-WF-STATE-001 — workspace-state reconciliation | chore/wf-20260726-docs-132-workspace-state-reconcile | in review ([PR #68](https://github.com/aiqadam/ai-qadam-platform/pull/68)) |
+| wf-20260727-docs-133 | issue-resolution | ISS-WF-STATE-002 — ADR deployment-target supersession | chore/wf-20260727-docs-133-adr-deployment-supersede | running |
 
 ### Queued follow-up workflows
 
@@ -61,16 +63,24 @@ Only genuinely open items belong here. Resolved issues live in
 A staleness audit on 2026-07-26 found four infrastructure pivots recorded in one
 place each and never propagated. Tracked, not yet resolved:
 
-- **Coolify → Docker Compose + Nginx + GH Actions SSH** (removed from CI
-  2026-07-23, ADR-0007 `Superseded`): 67 docs still reference Coolify, 63 with
-  no deprecation marker. [`ADR-0002`](../../docs/adr/0002-deployment-target.md)
-  is still `Accepted` and asserts Coolify orchestrates every stack —
-  it contradicts ADR-0007 and needs a superseding ADR.
+- ✅ **ADR log reconciled** 2026-07-27 (`wf-20260727-docs-133`).
+  [`ADR-0040`](../../docs/adr/0040-deployment-target-pro-data-tech.md) now
+  records the real deployment target (pro-data.tech QA `95.46.211.230` + prod
+  `95.46.211.224`, Compose + Nginx + GH Actions SSH) and supersedes ADR-0002,
+  which no longer contradicts ADR-0007. ADR-0038 flipped `Proposed` →
+  `Accepted` (it was already machine-enforced by `tools/architecture-check.ts`).
+- **Coolify prose not yet swept**: ~63 docs still describe Coolify as live
+  without a deprecation marker. The ADR layer is now correct; the runbook and
+  architecture prose is not.
+- **`runbooks/snapshot-restore.md` is broken** — the disaster-recovery path
+  depends on the removed `COOLIFY_TOKEN`. Highest-priority item in the sweep.
 - **Host `212.20.151.29` is gone** (commit `ef50eba`) — still referenced in
-  19 docs, including `runbooks/snapshot-restore.md`, which is the
-  disaster-recovery path and currently cannot work.
-- **ADR-0037 / ADR-0038** are `Proposed` but shipped and enforced
-  (`deploy/docker-compose.prod.yml` builds web-next "per ADR-0038").
+  19 docs.
+- **ADR-0037** left `Proposed` deliberately. It is operationally in force (it
+  defers Sprint 4 + all of Phase ζ, and `agent-prompts.md` §2.0 makes its layer
+  triage mandatory), but its own Outcome section says the remaining Phase A
+  tasks "become individual roadmap items when this ADR Accepts" — and no such
+  items exist. Accepting it is a roadmap decision, not a docs fix.
 - **16 broken internal doc links** (down from 44 in the 2026-06-19 audit).
 
 ---
