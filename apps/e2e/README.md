@@ -11,12 +11,13 @@
 Playwright tests that run on every PR via [`.github/workflows/smoke-pr.yml`](../../.github/workflows/smoke-pr.yml), against production.
 
 - **Target by default:** `https://aiqadam.org` (production). Read-only assertions only — no writes, no destructive ops.
-- **Override target:** `BASE_URL=http://localhost:4321 pnpm test:e2e` to test against local dev.
-- **Test types:**
+- **Override target:** `BASE_URL=http://localhost:4321 pnpm test:e2e:smoke` to test against local dev.
+- **Scope:** all `tests/smoke-*.spec.ts` files (32 as of 2026-07-26; grep `apps/e2e/tests/smoke-*.spec.ts` for the current list — this README doesn't try to enumerate every one). A few representative ones:
   - `smoke-public.spec.ts` — public surfaces (homepage, events, sitemap, robots, API health)
   - `smoke-auth-gates.spec.ts` — authentication boundaries (anon redirects, internal endpoints 401)
   - `smoke-accessibility.spec.ts` — axe-core WCAG 2.2 AA checks (serious/critical violations block merge)
   - `smoke-tenant.spec.ts` — multi-tenant subdomain routing (uz / kz / tj)
+- **NOT included:** `tests/uat/*.spec.ts` (BP-UAT business-process walkthroughs — need a local docker-compose stack, driven by the separate `uat-verification` agentic workflow, not CI), `tests/parity/*.spec.ts` (its own `playwright.parity.config.ts` + `pnpm e2e:parity`, wired to `.github/workflows/parity-check.yml`), and `tests/lead-form-within-fold.spec.ts` (a UAT-style regression spec that reads `UAT_BASE_URL`/needs Mailpit — misplaced at the tests/ root instead of tests/uat/, not migrated as of 2026-07-26). `pnpm test:e2e:smoke` deliberately excludes all of these via its `tests/smoke-*.spec.ts` glob; the unscoped `pnpm test:e2e` still sweeps in everything and will fail outside a full local stack — use `test:e2e:smoke` unless you specifically want the full sweep.
 
 ## What this is NOT (yet)
 
@@ -35,7 +36,7 @@ These get a separate `smoke-fullstack.spec.ts` once Sprint 1 ships writeable flo
 pnpm install
 cd apps/e2e
 pnpm install:browsers   # one-time — installs chromium + system deps
-pnpm test:e2e           # runs all specs against production
+pnpm test:e2e:smoke     # runs smoke-*.spec.ts only, against production (what CI runs)
 
 # Open HTML report after a run
 pnpm report
@@ -50,7 +51,7 @@ pnpm test:e2e:headed
 pnpm test:e2e:debug -- smoke-public
 
 # Override target
-BASE_URL=http://localhost:4321 pnpm test:e2e
+BASE_URL=http://localhost:4321 pnpm test:e2e:smoke
 ```
 
 ## CI integration

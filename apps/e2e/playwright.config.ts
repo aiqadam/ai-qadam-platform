@@ -10,23 +10,23 @@ import { defineConfig, devices } from '@playwright/test';
 //     require docker-compose stack — added when Sprint 1+ ships writeable flows)
 //   - local dev: override BASE_URL=http://localhost:4321 to test against pnpm dev
 //
-// What runs here:
-//   - smoke-public.spec.ts — homepage / events / sitemap / robots / OG meta / Plausible
-//   - smoke-auth-gates.spec.ts — /me redirects to sign-in; /admin gated
-//   - smoke-accessibility.spec.ts — axe-core on public pages
-//   - smoke-tenant.spec.ts — uz.aiqadam.org subdomain serves UZ-scoped content
+// This config's testDir (./tests) also covers tests/parity/ and tests/uat/,
+// which are NOT smoke tests — they need their own config/env and a docker
+// stack, and must not run via the plain `playwright test`. Use the scoped
+// package.json scripts instead:
+//   - pnpm test:e2e:smoke  → tests/smoke-*.spec.ts only (what CI runs) —
+//     read-only, safe against production. See apps/e2e/README.md's
+//     "What this is" section for the full file list and what's excluded.
+//   - pnpm e2e:parity      → tests/parity/, its own playwright.parity.config.ts
+//   - (tests/uat/ is driven by the uat-verification agentic workflow, not
+//     a package.json script — needs a local docker-compose stack)
 //
-// What does NOT run here (yet — added per sprint):
-//   - registration flow (writes to Directus; needs staging stack — Sprint 1.1)
-//   - operator workspace flows (needs Sprint 2 to ship workspace)
-//   - cabinet flows (needs Sprint 3 to ship cabinets)
-//
-// CI integration: .github/workflows/smoke-pr.yml runs on PR only. The
-// Sprint 0.11 scheduled prod-probe variant (smoke-schedule.yml, 30-min
-// cron) was removed 2026-07-26 — it predated the Coolify removal (PR #45)
-// that gave ci-cd.yml's deploy jobs their own inline post-deploy health
-// check, and it never actually ran due to a GitHub Actions trigger bug.
-// See apps/e2e/README.md's "History" section for the full rationale.
+// CI integration: .github/workflows/smoke-pr.yml runs `pnpm test:e2e:smoke`
+// on PR only. The Sprint 0.11 scheduled prod-probe variant
+// (smoke-schedule.yml, 30-min cron) was removed 2026-07-26 — it predated
+// the Coolify removal (PR #45) that gave ci-cd.yml's deploy jobs their own
+// inline post-deploy health check, and it never actually ran due to a
+// GitHub Actions trigger bug. See apps/e2e/README.md's "History" section.
 
 const BASE_URL = process.env.BASE_URL ?? 'https://aiqadam.org';
 

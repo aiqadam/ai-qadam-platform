@@ -81,7 +81,7 @@ jobs:
         env:
           BASE_URL: ${{ vars.SMOKE_BASE_URL || 'https://aiqadam.org' }}
           CI: "true"
-        run: pnpm test:e2e
+        run: pnpm test:e2e:smoke
 
       - name: Upload Playwright HTML report
         if: ${{ !cancelled() }}
