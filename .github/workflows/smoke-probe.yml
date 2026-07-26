@@ -7,14 +7,24 @@ name: smoke
 # Doubles as the Sprint 0.11 production health probe via the schedule
 # trigger below (every 30 min) — there is no separate probe workflow file.
 #
-# ISS-CI-SMOKE-001 (2026-07-26): after the ISS-MIGRATE-001 repo migration
-# (2026-07-08 → aiqadam/ai-qadam-platform), GitHub's registered trigger set
-# for this workflow desynced from this file's actual `on:` block — the API
-# reported "Workflow does not have 'workflow_dispatch' trigger" even though
-# it's declared below, and pull_request/schedule runs silently never fired
-# (only phantom zero-job "push" failures showed up, since push is NOT a
-# trigger here). Re-parsing was only triggered by a push that touches this
-# file, hence this comment update.
+# ISS-CI-SMOKE-001 (2026-07-26): this file was renamed from smoke.yml to
+# smoke-probe.yml to work around a GitHub Actions platform bug introduced
+# by the ISS-MIGRATE-001 repo migration (2026-07-08 → aiqadam/ai-qadam-platform).
+# Under the old filename, GitHub's server-side registered trigger set for
+# this workflow got permanently stuck out of sync with the file's actual
+# `on:` block: `workflow_dispatch` calls 422'd with "Workflow does not have
+# 'workflow_dispatch' trigger" despite it being declared, and pull_request/
+# schedule never fired a single real run (confirmed: recent merged PRs show
+# no smoke check at all). Meanwhile every push to main produced a phantom
+# zero-job "failure" for a push trigger this file has never declared.
+# Neither a content-only push nor an API disable/enable cycle fixed it —
+# both are the documented first-line workarounds for this class of GitHub
+# issue (see e.g. github.com/orgs/community/discussions/174544 and
+# /200691) and neither worked here, so the file was renamed to force
+# GitHub to create a brand-new internal workflow registration. If you are
+# renaming this file again for any other reason, know that a rename is
+# the last-resort fix for this specific failure mode — try a content edit
+# and disable/enable first for anything that isn't this exact symptom.
 
 on:
   pull_request:

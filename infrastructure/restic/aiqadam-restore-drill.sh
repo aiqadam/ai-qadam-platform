@@ -56,7 +56,7 @@ REQUIRED_PATHS=(
 MAX_SNAPSHOT_AGE_DAYS="${MAX_SNAPSHOT_AGE_DAYS:-2}"
 
 # Plausible ops-event emission. Same pattern as F-S0.11 prod-probe
-# alerting in .github/workflows/smoke.yml — POST to /api/event with a
+# alerting in .github/workflows/smoke-probe.yml — POST to /api/event with a
 # domain-of-record + event name. Empty PLAUSIBLE_HOST disables emit.
 PLAUSIBLE_HOST="${PLAUSIBLE_HOST:-https://analytics.aiqadam.org}"
 PLAUSIBLE_DOMAIN="${PLAUSIBLE_DOMAIN:-aiqadam.org}"
