@@ -8,7 +8,7 @@
 
 ## What this is
 
-Playwright tests that run on every PR AND every 30 minutes against production, both via the single workflow [`.github/workflows/smoke-probe.yml`](../../.github/workflows/smoke-probe.yml) (no separate probe workflow file — see its header comment).
+Playwright tests that run on every PR (via [`.github/workflows/smoke-pr.yml`](../../.github/workflows/smoke-pr.yml)) AND every 30 minutes against production (via [`.github/workflows/smoke-schedule.yml`](../../.github/workflows/smoke-schedule.yml)).
 
 - **Target by default:** `https://aiqadam.org` (production). Read-only assertions only — no writes, no destructive ops.
 - **Override target:** `BASE_URL=http://localhost:4321 pnpm test:e2e` to test against local dev.
@@ -55,10 +55,11 @@ BASE_URL=http://localhost:4321 pnpm test:e2e
 
 ## CI integration
 
-One workflow, two triggers: **`.github/workflows/smoke-probe.yml`**
+Two workflows (split by trigger type to work around a GitHub Actions bug — see `smoke-pr.yml`'s header comment):
 
-- **`pull_request`** — validates the PR's behavior against current prod. No `push`-to-`main` trigger (deliberately removed — it raced the Coolify auto-deploy the same push initiated).
-- **`schedule`** (every 30 min) — Sprint 0.11 production health probe. Opens/comments/closes a GitHub issue labelled `prod-probe-failure` on failure/recovery.
+1. **`.github/workflows/smoke-pr.yml`** — `pull_request` trigger. Validates the PR's behavior against current prod. No `push`-to-`main` trigger (deliberately removed — it raced the Coolify auto-deploy the same push initiated).
+
+2. **`.github/workflows/smoke-schedule.yml`** — `schedule` trigger (every 30 min). Sprint 0.11 production health probe. Opens/comments/closes a GitHub issue labelled `prod-probe-failure` on failure/recovery.
 
 ## Adding scenarios
 
