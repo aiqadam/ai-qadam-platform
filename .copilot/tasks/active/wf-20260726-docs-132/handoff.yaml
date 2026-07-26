@@ -1,0 +1,86 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260726-docs-132"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-26T00:00:00Z"
+last_updated_at: "2026-07-26T00:00:00Z"
+
+requirement_ref: "ISS-WF-STATE-001"
+requirement_text: >-
+  .copilot/context/workspace-state.md has degraded into a 48.5 KB append-only
+  log whose newest entry (2026-07-23) is stale, whose sections contradict each
+  other, and which no longer reflects reality. Five merged workflows remain in
+  .copilot/tasks/active/, two of them still marked in-progress. Agents read
+  both at the blocking Step 0.5 context sync, so the drift actively misleads
+  every workflow.
+github_issue_url: ""
+
+branch: "chore/wf-20260726-docs-132-workspace-state-reconcile"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 1
+current_step_name: "state-reconciliation"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-WF-STATE-001"
+
+deferrals: []
+
+# Doc/state-only reconciliation. No FR or ISS row is introduced, so the
+# QualityGate Context-Update Check does not apply.
+expects_registry_update: false
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260726-docs-132/01-state-reconciliation.md"
+
+context_refs:
+  - .copilot/context/workspace-state.md
+  - .copilot/context/workflow-history.md
+  - scripts/check-workflow-state.sh
+  - .copilot/schemas/protocol.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
