@@ -22,12 +22,18 @@ and leaderboard (BP-UAT-012), auth (BP-UAT-009), waitlist (BP-UAT-014), cancella
 by the `uat-verification` agentic workflow. This was last confirmed in
 `wf-20260630-uat-042/05-all-scripts-summary.md` (2026-06-30) and remains true.
 
-Separately, an independent Playwright `smoke-*.spec.ts` suite (35 files, CI-wired via
-`.github/workflows/smoke-pr.yml`, runs on every PR against production)
-covers many of the same surfaces but at contract depth only (status codes, redirects,
-auth gates) — not full business-process depth, and not cross-referenced to any BP-UAT
-code. There is currently no single place that shows, per business process, whether it
-has (a) no test, (b) a shallow smoke test, or (c) a deep UAT walkthrough.
+Separately, an independent Playwright `smoke-*.spec.ts` suite (35 files) covers many
+of the same surfaces but at contract depth only (status codes, redirects, auth gates)
+— not full business-process depth, and not cross-referenced to any BP-UAT code. There
+is currently no single place that shows, per business process, whether it has (a) no
+test, (b) a shallow smoke test, or (c) a deep UAT walkthrough.
+
+**Update (2026-07-26):** the smoke suite's CI wiring (`smoke-pr.yml`, PR-triggered
+against production) was removed — it tested each PR's own code against a manually-
+deployed prod that could lag `main` by days, making failures ambiguous, and was never
+a substitute for real UAT/QA verification. The smoke suite is now unwired manual-only
+tooling; UAT coverage (this issue's actual subject) remains the real gap. See
+`apps/e2e/README.md`'s "History" section for the smoke-suite removal rationale.
 
 ## Impact
 

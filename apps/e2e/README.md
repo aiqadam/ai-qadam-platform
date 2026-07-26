@@ -8,16 +8,20 @@
 
 ## What this is
 
-Playwright tests that run on every PR via [`.github/workflows/smoke-pr.yml`](../../.github/workflows/smoke-pr.yml), against production.
+**As of 2026-07-26, this suite is not wired into CI at all.** It's available tooling — Playwright specs anyone can run manually (see below) — but nothing runs it automatically. See "History" below for why.
 
-- **Target by default:** `https://aiqadam.org` (production). Read-only assertions only — no writes, no destructive ops.
+For actual pre-merge / pre-release verification of user-facing behavior, use:
+- **`tests/uat/*.spec.ts`** + the `uat-verification` agentic workflow, or manual QA testing — the intended tool for "does this change actually work," run against a controlled stack with test data you own.
+- **`.github/workflows/parity-check.yml`** (`tests/parity/`) for the scheduled v1/v2 parity sweep.
+
+- **Target by default:** `https://aiqadam.org` (production). Written to be read-only (no writes, no destructive ops) — **but this is not uniformly true across all 32 files**; several (e.g. `smoke-onboarding.spec.ts`) assume a dedicated pre-seeded test user or an isolated local/CI stack, not a shared environment. Audit a file before running it against anything with real or manually-managed test data (prod, QA) — see "History" below.
 - **Override target:** `BASE_URL=http://localhost:4321 pnpm test:e2e:smoke` to test against local dev.
 - **Scope:** all `tests/smoke-*.spec.ts` files (32 as of 2026-07-26; grep `apps/e2e/tests/smoke-*.spec.ts` for the current list — this README doesn't try to enumerate every one). A few representative ones:
   - `smoke-public.spec.ts` — public surfaces (homepage, events, sitemap, robots, API health)
   - `smoke-auth-gates.spec.ts` — authentication boundaries (anon redirects, internal endpoints 401)
   - `smoke-accessibility.spec.ts` — axe-core WCAG 2.2 AA checks (serious/critical violations block merge)
   - `smoke-tenant.spec.ts` — multi-tenant subdomain routing (uz / kz / tj)
-- **NOT included:** `tests/uat/*.spec.ts` (BP-UAT business-process walkthroughs — need a local docker-compose stack, driven by the separate `uat-verification` agentic workflow, not CI), `tests/parity/*.spec.ts` (its own `playwright.parity.config.ts` + `pnpm e2e:parity`, wired to `.github/workflows/parity-check.yml`), and `tests/lead-form-within-fold.spec.ts` (a UAT-style regression spec that reads `UAT_BASE_URL`/needs Mailpit — misplaced at the tests/ root instead of tests/uat/, not migrated as of 2026-07-26). `pnpm test:e2e:smoke` deliberately excludes all of these via its `tests/smoke-*.spec.ts` glob; the unscoped `pnpm test:e2e` still sweeps in everything and will fail outside a full local stack — use `test:e2e:smoke` unless you specifically want the full sweep.
+- **NOT included:** `tests/uat/*.spec.ts`, `tests/parity/*.spec.ts` (its own `playwright.parity.config.ts` + `pnpm e2e:parity`), and `tests/lead-form-within-fold.spec.ts` (a UAT-style regression spec that reads `UAT_BASE_URL`/needs Mailpit — misplaced at the tests/ root instead of tests/uat/, not migrated as of 2026-07-26). `pnpm test:e2e:smoke` deliberately excludes all of these via its `tests/smoke-*.spec.ts` glob; the unscoped `pnpm test:e2e` still sweeps in everything and will fail outside a full local stack.
 
 ## What this is NOT (yet)
 
@@ -56,15 +60,17 @@ BASE_URL=http://localhost:4321 pnpm test:e2e:smoke
 
 ## CI integration
 
-**`.github/workflows/smoke-pr.yml`** — `pull_request` trigger only. Validates the PR's behavior against current prod. No `push`-to-`main` trigger.
+**None, currently.** No workflow runs this suite automatically.
 
-### History: the Sprint 0.11 scheduled prod-probe (removed 2026-07-26)
+### History (2026-07-26 — both CI workflows for this suite removed)
 
-There used to be a second workflow, `smoke-schedule.yml`, running this same suite on a 30-minute cron against prod as a standing health probe (opening/closing a `prod-probe-failure` GitHub issue on failure/recovery). It was removed because:
+Two workflows existed and were removed the same day, for different reasons:
 
-- It predated [PR #45](https://github.com/aiqadam/ai-qadam-platform/pull/45) ("remove Coolify, fix SSH deploy secrets," 2026-07-23), which replaced Coolify's async auto-deploy (the original reason smoke avoided running on `push`) with an SSH-triggered `deploy.sh` that already runs a post-deploy health check inline (`ci-cd.yml`'s `deploy-qa`/`deploy-prod` jobs poll `/health` right after deploying). The deploy-race problem this cron was partly working around no longer exists.
-- It never actually worked — a GitHub Actions platform bug (documented in the git history of `smoke-pr.yml`'s header comment) stuck its trigger registration for months, so in practice it produced zero real scheduled runs and no useful signal.
-- Non-deploy prod breakage (cert expiry, upstream dependency outage) is a real gap this leaves open. If that risk needs covering again, prefer a dedicated lightweight uptime/health monitor (e.g. Gatus, already used elsewhere in `infrastructure/gatus/`) over a full Playwright suite on a blind polling interval.
+**`smoke-schedule.yml`** (30-min cron prod-probe) — removed first. It predated [PR #45](https://github.com/aiqadam/ai-qadam-platform/pull/45) ("remove Coolify, fix SSH deploy secrets," 2026-07-23), which replaced Coolify's async auto-deploy with an SSH-triggered `deploy.sh` that already runs a post-deploy health check inline (`ci-cd.yml`'s `deploy-qa`/`deploy-prod` jobs poll `/health` right after deploying) — its deploy-race rationale no longer applied. It also never actually worked: a GitHub Actions platform bug stuck its trigger registration for months, producing zero real scheduled runs the entire time it existed.
+
+**`smoke-pr.yml`** (`pull_request` trigger) — removed second, for a more fundamental reason. Prod deploys here are manual (`workflow_dispatch` on `ci-cd.yml`), and can lag `main` significantly — 6 days / 22 commits behind at time of removal. `smoke-pr.yml` always tested the **PR's own** test code against **whatever's currently live on prod**, which is frequently a different, older version of the app. That makes a red `smoke` check ambiguous by construction: it can mean "this PR broke something" or just as easily "prod hasn't caught up yet," with no way to tell which from the check alone — actively misleading as a PR gate. Moving it to run against QA post-deploy was considered and rejected: several smoke specs (e.g. `smoke-onboarding.spec.ts`) assume a dedicated seeded test user or an isolated stack, not a shared environment that also carries hand-managed manual QA test data — running them there risked colliding with real testing in progress. **QA/UAT verification (`tests/uat/`, the `uat-verification` workflow, manual testing) is the correct tool for "does this PR's change work" and already exists — smoke was answering a question nobody needed answered, badly.**
+
+Non-deploy prod breakage (cert expiry, upstream dependency outage) remains an open gap with no automated catch. If that's ever prioritized, a dedicated lightweight uptime/health monitor (e.g. Gatus, already deployed at `infrastructure/gatus/`) is the right tool — not this Playwright suite.
 
 ## Adding scenarios
 

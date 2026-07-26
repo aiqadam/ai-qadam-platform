@@ -3,30 +3,34 @@ import { defineConfig, devices } from '@playwright/test';
 // Sprint 0.10 — smoke test infrastructure (Lane 2 of the 3-lane execution model).
 // See docs/01-business/community-platform-roadmap.md §2.5 + §7.5 for the smoke catalog convention.
 //
-// Targeting strategy:
-//   - default: BASE_URL=https://aiqadam.org (production probe)
-//   - CI on PR: same — these are READ-ONLY smoke assertions against public surfaces;
-//     no destructive operations are permitted in this suite (write/destructive tests
-//     require docker-compose stack — added when Sprint 1+ ships writeable flows)
-//   - local dev: override BASE_URL=http://localhost:4321 to test against pnpm dev
+// NOT WIRED INTO CI (as of 2026-07-26). This suite is available tooling —
+// run it manually if useful — but nothing runs it automatically. The last
+// CI hook (smoke-pr.yml, pull_request trigger) was removed because it
+// tested each PR's own test code against whatever was currently deployed
+// to prod, which — under this repo's manual prod-deploy model — can lag
+// main by days, making a red result ambiguous (broken PR vs. stale prod,
+// no way to tell which). QA/UAT verification (tests/uat/, the
+// uat-verification agentic workflow, manual testing) is the correct tool
+// for "does this PR's change work." Full history + rationale in
+// apps/e2e/README.md's "History" section — read it before re-wiring this
+// into any pipeline.
+//
+// Targeting strategy if you DO run this manually:
+//   - default: BASE_URL=https://aiqadam.org (production)
+//   - local dev: override BASE_URL=http://localhost:4321
+//   - Most files are read-only, but NOT ALL — several (e.g.
+//     smoke-onboarding.spec.ts) assume a dedicated seeded test user or an
+//     isolated stack. Read a file before running it against prod, QA, or
+//     any environment with test data you don't want disturbed.
 //
 // This config's testDir (./tests) also covers tests/parity/ and tests/uat/,
 // which are NOT smoke tests — they need their own config/env and a docker
 // stack, and must not run via the plain `playwright test`. Use the scoped
 // package.json scripts instead:
-//   - pnpm test:e2e:smoke  → tests/smoke-*.spec.ts only (what CI runs) —
-//     read-only, safe against production. See apps/e2e/README.md's
-//     "What this is" section for the full file list and what's excluded.
+//   - pnpm test:e2e:smoke  → tests/smoke-*.spec.ts only
 //   - pnpm e2e:parity      → tests/parity/, its own playwright.parity.config.ts
 //   - (tests/uat/ is driven by the uat-verification agentic workflow, not
 //     a package.json script — needs a local docker-compose stack)
-//
-// CI integration: .github/workflows/smoke-pr.yml runs `pnpm test:e2e:smoke`
-// on PR only. The Sprint 0.11 scheduled prod-probe variant
-// (smoke-schedule.yml, 30-min cron) was removed 2026-07-26 — it predated
-// the Coolify removal (PR #45) that gave ci-cd.yml's deploy jobs their own
-// inline post-deploy health check, and it never actually ran due to a
-// GitHub Actions trigger bug. See apps/e2e/README.md's "History" section.
 
 const BASE_URL = process.env.BASE_URL ?? 'https://aiqadam.org';
 
