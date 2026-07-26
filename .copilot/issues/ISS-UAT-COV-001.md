@@ -23,7 +23,7 @@ by the `uat-verification` agentic workflow. This was last confirmed in
 `wf-20260630-uat-042/05-all-scripts-summary.md` (2026-06-30) and remains true.
 
 Separately, an independent Playwright `smoke-*.spec.ts` suite (35 files, CI-wired via
-`.github/workflows/smoke.yml`, runs on every PR + every 30 min against production)
+`.github/workflows/smoke-probe.yml`, runs on every PR + every 30 min against production)
 covers many of the same surfaces but at contract depth only (status codes, redirects,
 auth gates) — not full business-process depth, and not cross-referenced to any BP-UAT
 code. There is currently no single place that shows, per business process, whether it

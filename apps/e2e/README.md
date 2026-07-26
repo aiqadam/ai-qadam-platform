@@ -8,7 +8,7 @@
 
 ## What this is
 
-Playwright tests that run on every PR (via [`.github/workflows/smoke.yml`](../../.github/workflows/smoke.yml)) AND every 30 minutes against production (Sprint 0.11 — separate workflow).
+Playwright tests that run on every PR AND every 30 minutes against production, both via the single workflow [`.github/workflows/smoke-probe.yml`](../../.github/workflows/smoke-probe.yml) (no separate probe workflow file — see its header comment).
 
 - **Target by default:** `https://aiqadam.org` (production). Read-only assertions only — no writes, no destructive ops.
 - **Override target:** `BASE_URL=http://localhost:4321 pnpm test:e2e` to test against local dev.
@@ -55,11 +55,10 @@ BASE_URL=http://localhost:4321 pnpm test:e2e
 
 ## CI integration
 
-Two workflows:
+One workflow, two triggers: **`.github/workflows/smoke-probe.yml`**
 
-1. **`.github/workflows/smoke.yml`** — runs on every PR + on push to `main`. Targets production by default; CI-managed retries (2) handle transient flakes.
-
-2. **`.github/workflows/smoke-production-probe.yml`** (Sprint 0.11 — separate PR) — runs on a 30-minute schedule against production. Failures alert Telegram + email via existing notification path.
+- **`pull_request`** — validates the PR's behavior against current prod. No `push`-to-`main` trigger (deliberately removed — it raced the Coolify auto-deploy the same push initiated).
+- **`schedule`** (every 30 min) — Sprint 0.11 production health probe. Opens/comments/closes a GitHub issue labelled `prod-probe-failure` on failure/recovery.
 
 ## Adding scenarios
 
