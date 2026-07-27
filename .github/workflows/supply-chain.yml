@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -67,7 +67,7 @@ jobs:
       # accounts — running the CLI keeps this zero-cost (CLAUDE.md §9).
       GITLEAKS_VERSION: 8.18.4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install gitleaks
         run: |
@@ -110,7 +110,7 @@ jobs:
           - clickhouse/clickhouse-server:24.12-alpine
           - ghcr.io/plausible/community-edition:v3.0.1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Trivy scan ${{ matrix.image }}
         uses: aquasecurity/trivy-action@v0.36.0
