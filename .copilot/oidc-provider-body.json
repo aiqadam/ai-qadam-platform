@@ -8,6 +8,7 @@
   ],
   "sub_mode": "hashed_user_id",
   "include_claims_in_id_token": true,
+  "property_mappings": ["6ce4272c-457f-453e-afe1-100bf43ce3e6","489c40fe-7599-40f9-bfa8-4c7329be2952","28d1d8e0-0b6b-47dd-92c8-6e555b13d003"],
   "access_code_validity": "minutes=1",
   "access_token_validity": "minutes=10",
   "refresh_token_validity": "days=30"
