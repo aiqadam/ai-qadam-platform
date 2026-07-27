@@ -2,7 +2,24 @@
 
 **Severity:** blocker
 **Module:** infrastructure / backups
-**Status:** RESOLVED 2026-07-27 by `wf-20260727-fix-134`
+**Status:** RESOLVED 2026-07-27 by `wf-20260727-fix-134` — but see the
+correction below.
+
+> ## ⚠️ Diagnosis corrected 2026-07-27 by [ISS-INFRA-004](ISS-INFRA-004.md)
+>
+> This issue concluded the backups "silently stopped" after the Coolify
+> removal. That was inferred from reading the scripts, **not** from
+> observing the hosts, and it is wrong.
+>
+> Direct inspection of both live hosts shows `restic` is **not installed**,
+> `/etc/restic` **does not exist**, no scripts are installed, and **zero**
+> `aiqadam-*` timers are configured. The backup system was never deployed
+> to the pro-data.tech hosts at all — it lived only on the decommissioned
+> Coolify host. Prod has had **no backups since it was provisioned**.
+>
+> The code fixes in this issue remain correct and necessary; they were
+> just not sufficient, and the impact statement below understates the
+> problem. See [ISS-INFRA-004](ISS-INFRA-004.md).
 **Business-Process:** —
 
 ## Symptom

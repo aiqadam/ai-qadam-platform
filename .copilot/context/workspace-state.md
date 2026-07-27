@@ -1,15 +1,11 @@
 # Workspace State
 
-**Last updated:** 2026-07-27 — `wf-20260727-fix-134`. Fixed a **live backup
-failure** found while sweeping Coolify prose: both restic scripts aborted before
-`restic backup` on any host without Coolify, so hourly + daily snapshots had
-silently stopped ([ISS-INFRA-003](../issues/ISS-INFRA-003.md)). Also archived the
-two dead Coolify runbooks and de-Coolified the DR path. Prior entries:
-`wf-20260727-docs-133` reconciled the ADR log (new ADR-0040 supersedes ADR-0002;
-ADR-0038 → Accepted); `wf-20260726-docs-132` converted this file into the
-current-state snapshot below.
-
-> **Contract — read before editing.** This file answers exactly one question:
+**Last updated:** 2026-07-27 — `wf-20260727-fix-135`. Verified the backups
+against the **live hosts** for the first time and found the ISS-INFRA-003
+diagnosis was wrong: restic was never installed on either pro-data.tech host
+([ISS-INFRA-004](../issues/ISS-INFRA-004.md)). Prod has run unbacked since
+provisioning. Manual dumps taken on both hosts as a stopgap; two further
+script defects fixed and verified live.> **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
 >
 > - **Do not prepend close-out narrative.** Workflow history belongs in
@@ -72,7 +68,18 @@ place each and never propagated. Tracked, not yet resolved:
   `95.46.211.224`, Compose + Nginx + GH Actions SSH) and supersedes ADR-0002,
   which no longer contradicts ADR-0007. ADR-0038 flipped `Proposed` →
   `Accepted` (it was already machine-enforced by `tools/architecture-check.ts`).
-- 🚨 **Backups were silently broken** — found 2026-07-27 while sweeping Coolify
+- 🚨🚨 **No backup system exists on either host** — verified by direct
+  inspection 2026-07-27 ([ISS-INFRA-004](../issues/ISS-INFRA-004.md)). `restic`
+  is not installed, `/etc/restic` is absent, zero timers are configured. Prod
+  has had **no backups since it was provisioned**. Manual `pg_dumpall` taken on
+  both hosts as a stopgap (local disk only — not a backup system). Standing up
+  the real thing is **blocked on a decision**: ADR-0017 specifies Cloudflare R2,
+  but the sibling `ai-dala-infra` project mandates *no off-site storage of any
+  kind*. That conflict needs resolving before the timers can be enabled.
+- ⚠️ **ISS-INFRA-003's diagnosis was wrong** — it said backups "silently broke"
+  when Coolify was removed, inferred from code rather than observed. Corrected
+  in place. Its code fixes were correct but insufficient.
+- ~~**Backups were silently broken**~~ — superseded; found while sweeping Coolify
   prose, fixed in `wf-20260727-fix-134`
   ([ISS-INFRA-003](../issues/ISS-INFRA-003.md)). Both `aiqadam-db-dump.sh` and
   `aiqadam-backup.sh` ran `docker exec coolify-db` under `set -euo pipefail`, so

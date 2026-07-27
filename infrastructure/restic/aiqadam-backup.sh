@@ -44,31 +44,37 @@ DUMP_DIR="${DB_DUMP_ROOT}/${DUMP_TS}"
 mkdir -p "${DUMP_DIR}"
 chmod 700 "${DB_DUMP_ROOT}" "${DUMP_DIR}"
 
-# Resolve the Postgres container. Kept byte-identical to the discovery
-# in aiqadam-db-dump.sh — if you change one, change both.
-#   1. PG_CONTAINER env override (pin it in /etc/restic/r2.env).
-#   2. deploy/docker-compose.{qa,prod}.yml naming (`aiqadam-<env>-postgres-1`).
-#   3. Any running postgres:16 container.
+# Container discovery, most-specific first:
+#   1. PG_CONTAINER env override (set it in /etc/restic/r2.env to pin).
+#   2. Any running container whose image is a Postgres image. Verified
+#      2026-07-27 against the live hosts: prod runs `postgres:16` as
+#      `aiqadam-prod-postgres-1`, but QA runs `pgvector/pgvector:pg16`
+#      as `ai-qadam-test-db-1` — a name no `aiqadam-<env>-postgres-1`
+#      pattern matches. Match on the image, not the name.
 PG_CONTAINER="${PG_CONTAINER:-}"
 if [ -z "${PG_CONTAINER}" ]; then
-  PG_CONTAINER="$(docker ps --filter 'name=^/aiqadam-.*-postgres-1$' \
-    --format '{{.Names}}' | head -1 || true)"
-fi
-if [ -z "${PG_CONTAINER}" ]; then
-  PG_CONTAINER="$(docker ps --filter 'ancestor=postgres:16' \
-    --format '{{.Names}}' | head -1 || true)"
+  PG_CONTAINER="$(docker ps --format '{{.Names}}	{{.Image}}'     | grep -Ei '(^|[/[:space:]])(postgres|pgvector)'     | awk '{print $1}' | head -1 || true)"
 fi
 if [ -z "${PG_CONTAINER}" ]; then
   echo "ERROR: no Postgres container found. Set PG_CONTAINER in /etc/restic/r2.env." >&2
   exit 1
 fi
 
+# The superuser is NOT always `postgres`. Read POSTGRES_USER from the
+# container's own env (prod uses `aiqadam_prod`, QA uses `aiqadam`);
+# `pg_dumpall -U postgres` fails with `role "postgres" does not exist`.
+PG_SUPERUSER="${PG_SUPERUSER:-}"
+if [ -z "${PG_SUPERUSER}" ]; then
+  PG_SUPERUSER="$(docker inspect "${PG_CONTAINER}"     --format '{{range .Config.Env}}{{println .}}{{end}}'     | sed -n 's/^POSTGRES_USER=//p' | head -1 || true)"
+fi
+PG_SUPERUSER="${PG_SUPERUSER:-postgres}"
+
 # pg_dumpall captures every DB in the cluster + globals (roles,
 # tablespaces). Compressed in-stream to avoid a temp file the size
 # of the cluster.
 echo "[pg_dumpall] cluster via ${PG_CONTAINER}"
 docker exec "${PG_CONTAINER}" \
-  pg_dumpall -U postgres --clean --if-exists \
+  pg_dumpall -U "${PG_SUPERUSER}" --clean --if-exists \
   | gzip > "${DUMP_DIR}/shared-pg-all.sql.gz"
 
 # A plain `[ -s file ]` test is NOT sufficient: gzip emits a ~20-byte
