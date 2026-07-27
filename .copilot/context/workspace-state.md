@@ -1,12 +1,17 @@
 # Workspace State
 
-**Last updated:** 2026-07-27 — `wf-20260727-fix-137`. **OIDC email-claim bug fixed.**
-`.copilot/bootstrap-oidc.sh` now attaches Authentik's built-in openid/email/profile
-scope mappings on provider create and reuse-and-patch (self-heal), fixing the 401
-"oidc id_token missing email claim" reported in GitHub issue #79. Verified live
-against local Authentik (Authentik's own claim-evaluation engine confirms `email`
-now present); live QA re-verification rides the pre-existing, still-queued
-`wf-20260723-fix-128-deploy-qa-permission-fix`. See [ISS-AUTH-OIDC-EMAIL-001](../issues/ISS-AUTH-OIDC-EMAIL-001.md).
+**Last updated:** 2026-07-28 — `wf-20260728-fix-138`. **apps/web-next Ru/En i18n
+shipped.** `apps/web-next` (the app nginx routes production traffic to) had a
+`<LocaleSwitcher>` that wrote a cookie but no translation layer to read it back,
+so selecting Русский never changed the UI (GitHub issue #85). Ported
+`apps/web/src/lib/i18n.ts` + a new `en`/`ru` catalog (~130 keys) into
+`apps/web-next`, wired the full public-facing surface (nav, home, events,
+leaderboard, global, profile, welcome) plus 4 React islands via a `t` prop.
+Shipped as one PR per explicit user override of the AGENTS.md §4 PR-size cap
+(recorded in the PR's Risks section). Verified live: `Cookie: aiqadam-locale=ru`
+renders `<html lang="ru">` + Russian copy on `/`, `/events`, `/leaderboard`,
+`/global`; 932/932 tests passing. See
+[ISS-WEB-NEXT-I18N-001](../issues/ISS-WEB-NEXT-I18N-001.md).
 > **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
 >

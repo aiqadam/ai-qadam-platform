@@ -61,7 +61,7 @@ description's "Risks" section for the formal record.
 ## Resolution
 
 - **Workflow:** wf-20260728-fix-138
-- **PR:** <pending>
+- **PR:** https://github.com/aiqadam/ai-qadam-platform/pull/87
 - **Root cause:** `apps/web-next`'s `<LocaleSwitcher>` wrote the `aiqadam-locale`
   cookie but the app had no i18n translation layer to read it back.
 - **Fix:** Ported `apps/web/src/lib/i18n.ts` (i18next, cookie + Accept-Language
@@ -88,7 +88,7 @@ description's "Risks" section for the formal record.
   `/leaderboard`, `/global` on a local dev server confirms `<html lang="ru">`
   and Russian body copy render end-to-end; `en` (no cookie) still renders
   English — round-trip confirmed both directions.
-- **Merged:** <pending>
+- **Merged:** `a27c8c7` (squash, 2026-07-28)
 
 **Scope note:** per the chat override recorded above, this shipped as one
 PR rather than the AGENTS.md §4-compliant 4-PR sequence originally proposed.
