@@ -14,13 +14,16 @@ import { PageHead } from '../blocks/common';
 import { Hero, LeadCaptureForm } from '../blocks/customer';
 import Layout from '../layouts/Layout.astro';
 import { fetchSiteSettings } from '../lib/cms';
+import { getLocale, makeT } from '../lib/i18n';
 
 const settings = await fetchSiteSettings();
+const locale = getLocale(Astro);
+const t = makeT(locale);
 
 const stats = [
-  { label: 'Countries served', value: String(settings.countriesServed) },
-  { label: 'Operator tenants', value: 'uz · kz · tj' },
-  { label: 'Channel', value: 'Open community' },
+  { label: t('home.stat_countries_served'), value: String(settings.countriesServed) },
+  { label: t('home.stat_operator_tenants'), value: 'uz · kz · tj' },
+  { label: t('home.stat_channel'), value: t('home.stat_channel_value') },
 ];
 ---
 
@@ -31,12 +34,28 @@ const stats = [
       description={settings.defaultDescription}
       stats={stats}
       primaryHref="/events"
-      primaryLabel="Browse events"
+      primaryLabel={t('home.primary_cta')}
       secondaryHref={settings.telegramUrl ?? undefined}
-      secondaryLabel={settings.telegramUrl ? 'Join on Telegram' : undefined}
+      secondaryLabel={settings.telegramUrl ? t('home.secondary_cta') : undefined}
     />
     <section class="container mx-auto px-4 py-12">
-      <LeadCaptureForm client:load />
+      <LeadCaptureForm
+        client:load
+        t={{
+          heading: t('leads.heading'),
+          subheading: t('leads.subheading'),
+          email_label: t('leads.email_label'),
+          email_placeholder: t('leads.email_placeholder'),
+          city_label: t('leads.city_label'),
+          city_placeholder: t('leads.city_placeholder'),
+          topics_label: t('leads.topics_label'),
+          submit_idle: t('leads.submit_idle'),
+          submit_pending: t('leads.submit_pending'),
+          submit_error_fallback: t('leads.submit_error_fallback'),
+          success_heading: t('leads.success_heading'),
+          success_body: t('leads.success_body'),
+        }}
+      />
     </section>
   </main>
 </Layout>

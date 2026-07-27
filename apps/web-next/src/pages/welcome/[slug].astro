@@ -13,6 +13,7 @@ export const prerender = false;
 import Layout from '../../layouts/Layout.astro';
 import { fetchLandingPage } from '../../lib/cms';
 import { PageHead } from '../../blocks/common';
+import { getLocale, makeT } from '../../lib/i18n';
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/');
@@ -22,6 +23,9 @@ const page = await fetchLandingPage(slug);
 if (!page) {
   return Astro.redirect('/404');
 }
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
 
 // CTA: anon users go to sign-in, authed users go to /onboard directly.
 // The query param preserves attribution across the auth round-trip.
@@ -55,9 +59,9 @@ const ctaHref = '/onboard?slug=' + encodeURIComponent(slug);
         {page.ctaLabel}
       </a>
       <p class="text-sm text-muted-foreground">
-        Already a member?
+        {t('welcome.already_member')}
         <a href="/me" class="underline underline-offset-2 hover:text-foreground">
-          Go to your hub
+          {t('welcome.go_to_hub')}
         </a>
       </p>
     </div>

@@ -19,6 +19,7 @@
 import EmptyState from '../common/EmptyState.astro';
 import type { LeaderboardEntry, LeaderboardWindow } from '../../lib/types';
 import { LEADERBOARD_WINDOWS } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
 
 interface Props {
   entries: LeaderboardEntry[];
@@ -26,11 +27,13 @@ interface Props {
 }
 
 const { entries, window } = Astro.props;
+const locale = getLocale(Astro);
+const t = makeT(locale);
 
 const WINDOW_LABEL: Record<LeaderboardWindow, string> = {
-  all: 'All time',
-  year: 'This year',
-  quarter: 'This quarter',
+  all: t('leaderboard.window_all'),
+  year: t('leaderboard.window_year'),
+  quarter: t('leaderboard.window_quarter'),
 };
 
 function windowHref(target: LeaderboardWindow): string {
@@ -70,14 +73,14 @@ const PODIUM_RING: Record<'gold' | 'silver' | 'bronze', string> = {
 <section class="mx-auto max-w-5xl px-6 py-12">
   <header class="mb-8">
     <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground mb-1">
-      Leaderboard
+      {t('leaderboard.heading')}
     </h1>
     <p class="text-sm text-muted-foreground">
-      Points earned by attending events, sharing, organizing, and contributing.
+      {t('leaderboard.subheading')}
     </p>
   </header>
 
-  <nav class="flex flex-wrap gap-2 mb-6" aria-label="Time window">
+  <nav class="flex flex-wrap gap-2 mb-6" aria-label={t('leaderboard.window_label')}>
     {
       LEADERBOARD_WINDOWS.map((w) => {
         const active = w === window;
@@ -96,8 +99,8 @@ const PODIUM_RING: Record<'gold' | 'silver' | 'bronze', string> = {
   {
     entries.length === 0 ? (
       <EmptyState
-        heading="No leaderboard data yet"
-        description="Points appear once members start attending events."
+        heading={t('leaderboard.empty_title')}
+        description={t('leaderboard.empty_body')}
         icon="🏆"
       />
     ) : (
@@ -125,7 +128,7 @@ const PODIUM_RING: Record<'gold' | 'silver' | 'bronze', string> = {
                     {e.totalPoints}
                   </span>
                   <span class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    points
+                    {t('leaderboard.points')}
                   </span>
                 </div>
               );
@@ -153,10 +156,10 @@ const PODIUM_RING: Record<'gold' | 'silver' | 'bronze', string> = {
                     #
                   </th>
                   <th class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-4 py-2">
-                    Member
+                    {t('leaderboard.col_member')}
                   </th>
                   <th class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-4 py-2 text-right w-24">
-                    Points
+                    {t('leaderboard.col_points')}
                   </th>
                 </tr>
               </thead>

@@ -10,21 +10,25 @@
 // Wiring: docs/04-development/architecture/wiring-map.md → event_materials.
 
 import type { EventMaterial } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
 
 interface Props {
   materials: EventMaterial[];
   heading?: string | undefined;
 }
 
-const { materials, heading = 'Materials' } = Astro.props;
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const { materials, heading = t('event_detail.materials') } = Astro.props;
 
 const KIND_LABEL: Record<EventMaterial['kind'], string> = {
-  slides: 'SLIDES',
-  handout: 'HANDOUT',
-  cheatsheet: 'CHEATSHEET',
-  recording: 'RECORDING',
-  code: 'CODE',
-  other: 'LINK',
+  slides: t('event_detail.material_kind_slides'),
+  handout: t('event_detail.material_kind_handout'),
+  cheatsheet: t('event_detail.material_kind_cheatsheet'),
+  recording: t('event_detail.material_kind_recording'),
+  code: t('event_detail.material_kind_code'),
+  other: t('event_detail.material_kind_other'),
 };
 ---
 

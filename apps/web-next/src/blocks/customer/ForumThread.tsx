@@ -26,24 +26,45 @@ import { useAuth } from '@/lib/use-auth';
 import { usePostQuestion } from '@/lib/use-event-forum';
 import { type FormEvent, type ReactElement, useMemo, useState } from 'react';
 
+interface Translations {
+  time_just_now: string;
+  time_minutes_ago: (count: number) => string;
+  time_hours_ago: (count: number) => string;
+  time_days_ago: (count: number) => string;
+  signin_body: string;
+  signin_cta: string;
+  form_label: string;
+  form_placeholder: (eventTitle: string) => string;
+  form_submit: string;
+  form_posting: string;
+  anon_label: string;
+  badge_pinned: string;
+  badge_answered: string;
+  heading: string;
+  subheading: string;
+  empty_title: string;
+  empty_body: string;
+}
+
 interface Props {
   eventId: string;
   eventTitle: string;
   initialQuestions: EventQuestion[];
+  t: Translations;
 }
 
 const MAX_LEN = 2000;
 
-function formatRelativeTime(iso: string, nowMs: number = Date.now()): string {
+function formatRelativeTime(iso: string, t: Translations, nowMs: number = Date.now()): string {
   const diffMs = nowMs - Date.parse(iso);
   if (!Number.isFinite(diffMs) || diffMs < 0) return '';
   const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return t.time_just_now;
+  if (minutes < 60) return t.time_minutes_ago(minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t.time_hours_ago(hours);
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return t.time_days_ago(days);
   return new Date(iso).toLocaleDateString();
 }
 
@@ -52,17 +73,15 @@ function signInHref(eventId: string): string {
   return `/api/v1/auth/login?next=${encodeURIComponent(next)}`;
 }
 
-function AnonPrompt({ eventId }: { eventId: string }): ReactElement {
+function AnonPrompt({ eventId, t }: { eventId: string; t: Translations }): ReactElement {
   return (
     <div className="rounded-md border border-dashed border-border p-4 flex flex-col items-start gap-3">
-      <p className="text-sm text-muted-foreground m-0">
-        Sign in with your AI Qadam account to ask a question.
-      </p>
+      <p className="text-sm text-muted-foreground m-0">{t.signin_body}</p>
       <a
         href={signInHref(eventId)}
         className="rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium hover:bg-primary/90 transition-colors"
       >
-        Sign in
+        {t.signin_cta}
       </a>
     </div>
   );
@@ -72,9 +91,10 @@ interface ComposerProps {
   eventId: string;
   eventTitle: string;
   onCreated: (q: EventQuestion) => void;
+  t: Translations;
 }
 
-function Composer({ eventId, eventTitle, onCreated }: ComposerProps): ReactElement {
+function Composer({ eventId, eventTitle, onCreated, t }: ComposerProps): ReactElement {
   const [draft, setDraft] = useState('');
   const post = usePostQuestion(eventId);
   const trimmedLength = draft.trim().length;
@@ -100,13 +120,13 @@ function Composer({ eventId, eventTitle, onCreated }: ComposerProps): ReactEleme
         htmlFor="forum-textarea"
         className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
       >
-        Ask the speakers
+        {t.form_label}
       </label>
       <textarea
         id="forum-textarea"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder={`Your question about "${eventTitle}"…`}
+        placeholder={t.form_placeholder(eventTitle)}
         maxLength={MAX_LEN}
         rows={3}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -116,7 +136,7 @@ function Composer({ eventId, eventTitle, onCreated }: ComposerProps): ReactEleme
           {trimmedLength}/{MAX_LEN}
         </span>
         <Button type="submit" disabled={!canSubmit}>
-          {post.isPending ? 'Posting…' : 'Post'}
+          {post.isPending ? t.form_posting : t.form_submit}
         </Button>
       </div>
       {post.error && <p className="text-xs text-destructive m-0">{post.error.message}</p>}
@@ -124,21 +144,21 @@ function Composer({ eventId, eventTitle, onCreated }: ComposerProps): ReactEleme
   );
 }
 
-function QuestionItem({ q }: { q: EventQuestion }): ReactElement {
+function QuestionItem({ q, t }: { q: EventQuestion; t: Translations }): ReactElement {
   const accent = q.isPinned ? 'border-primary/40 bg-primary/[0.06]' : 'border-border bg-card';
   return (
     <li className={`rounded-md border ${accent} p-3.5`}>
       <div className="flex items-baseline gap-2 mb-1.5 text-xs text-muted-foreground">
-        <span className="font-semibold text-foreground">{q.author.displayName ?? 'Anonymous'}</span>
-        <span className="font-mono">· {formatRelativeTime(q.createdAt)}</span>
+        <span className="font-semibold text-foreground">{q.author.displayName ?? t.anon_label}</span>
+        <span className="font-mono">· {formatRelativeTime(q.createdAt, t)}</span>
         {q.isPinned && (
           <span className="font-mono uppercase tracking-wider text-[9px] px-1.5 py-0.5 rounded border border-primary/30 text-primary">
-            Pinned
+            {t.badge_pinned}
           </span>
         )}
         {q.isAnswered && (
           <span className="font-mono uppercase tracking-wider text-[9px] px-1.5 py-0.5 rounded border border-border">
-            Answered
+            {t.badge_answered}
           </span>
         )}
       </div>
@@ -147,7 +167,7 @@ function QuestionItem({ q }: { q: EventQuestion }): ReactElement {
   );
 }
 
-function ForumThreadInner({ eventId, eventTitle, initialQuestions }: Props): ReactElement {
+function ForumThreadInner({ eventId, eventTitle, initialQuestions, t }: Props): ReactElement {
   const auth = useAuth();
   const [questions, setQuestions] = useState<EventQuestion[]>(initialQuestions);
 
@@ -165,27 +185,25 @@ function ForumThreadInner({ eventId, eventTitle, initialQuestions }: Props): Rea
   return (
     <section className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h2 className="font-display text-lg font-semibold text-foreground m-0">Q&A</h2>
-        <p className="text-xs text-muted-foreground m-0">
-          Ask the speakers; replies appear inline.
-        </p>
+        <h2 className="font-display text-lg font-semibold text-foreground m-0">{t.heading}</h2>
+        <p className="text-xs text-muted-foreground m-0">{t.subheading}</p>
       </header>
 
       {auth.isAuthenticated ? (
-        <Composer eventId={eventId} eventTitle={eventTitle} onCreated={onCreated} />
+        <Composer eventId={eventId} eventTitle={eventTitle} onCreated={onCreated} t={t} />
       ) : (
-        <AnonPrompt eventId={eventId} />
+        <AnonPrompt eventId={eventId} t={t} />
       )}
 
       {sorted.length === 0 ? (
         <div className="rounded-md border border-dashed border-border p-6 text-center">
-          <p className="text-sm font-medium text-foreground m-0">No questions yet</p>
-          <p className="text-xs text-muted-foreground mt-1 m-0">Be the first to ask something.</p>
+          <p className="text-sm font-medium text-foreground m-0">{t.empty_title}</p>
+          <p className="text-xs text-muted-foreground mt-1 m-0">{t.empty_body}</p>
         </div>
       ) : (
         <ul className="list-none m-0 p-0 flex flex-col gap-3">
           {sorted.map((q) => (
-            <QuestionItem key={q.id} q={q} />
+            <QuestionItem key={q.id} q={q} t={t} />
           ))}
         </ul>
       )}

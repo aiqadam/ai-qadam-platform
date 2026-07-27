@@ -9,8 +9,12 @@
 
 import Layout from '../layouts/Layout.astro';
 import { fetchEventCountForCountry } from '../lib/cms';
+import { getLocale, makeT } from '../lib/i18n';
 
 export const prerender = false;
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
 
 const COUNTRIES = [
   {
@@ -18,27 +22,24 @@ const COUNTRIES = [
     flag: 'UZ',
     flagEmoji: '\u{1F1FA}\u{1F1FF}',
     host: 'uz.aiqadam.org',
-    name: 'Uzbekistan',
-    description: 'AI community events in Tashkent and beyond.',
-    eventLabel: 'events run',
+    name: t('country.uz'),
+    description: t('global.uz_desc'),
   },
   {
     code: 'kz',
     flag: 'KZ',
     flagEmoji: '\u{1F1F0}\u{1F1FF}',
     host: 'kz.aiqadam.org',
-    name: 'Kazakhstan',
-    description: 'AI community events in Almaty, Astana, and beyond.',
-    eventLabel: 'events run',
+    name: t('country.kz'),
+    description: t('global.kz_desc'),
   },
   {
     code: 'tj',
     flag: 'TJ',
     flagEmoji: '\u{1F1F9}\u{1F1EF}',
     host: 'tj.aiqadam.org',
-    name: 'Tajikistan',
-    description: 'AI community events in Dushanbe and beyond.',
-    eventLabel: 'events run',
+    name: t('country.tj'),
+    description: t('global.tj_desc'),
   },
 ] as const;
 
@@ -48,20 +49,17 @@ const countsByCountry = await Promise.all(
 const eventsCountMap = new Map(countsByCountry.map((r) => [r.code, r.count]));
 ---
 
-<Layout
-  title="AI Qadam — Central Asia"
-  description="Pick your country to browse AI community events."
->
+<Layout title={t('global.title')} description={t('global.description')}>
   <main class="mx-auto max-w-4xl px-8 py-24 text-center">
     <div class="mb-16">
       <h1 class="mb-4 font-display text-5xl font-semibold tracking-tight">
-        AI <span class="text-primary">Qadam</span>
+        {t('global.brand_prefix')}<span class="text-primary">{t('global.brand_suffix')}</span>
       </h1>
       <p class="mb-2 text-lg text-muted-foreground">
-        Central Asia AI community platform
+        {t('global.tagline')}
       </p>
       <p class="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-        Uzbekistan · Kazakhstan · Tajikistan
+        {t('global.countries_strip')}
       </p>
     </div>
 
@@ -80,11 +78,11 @@ const eventsCountMap = new Map(countsByCountry.map((r) => [r.code, r.count]));
             <p class="flex-1 text-sm leading-relaxed text-muted-foreground">{c.description}</p>
             <p class="font-mono text-xs text-muted-foreground">
               {eventsRun > 0
-                ? `${eventsRun} ${c.eventLabel}`
-                : 'No events yet'}
+                ? `${eventsRun} ${t('global.events_run')}`
+                : t('global.no_events_yet')}
             </p>
             <span class="mt-auto font-mono text-xs uppercase tracking-widest text-primary transition-transform group-hover:translate-x-1">
-              Browse →
+              {t('global.browse')}
             </span>
           </a>
         );
@@ -92,7 +90,7 @@ const eventsCountMap = new Map(countsByCountry.map((r) => [r.code, r.count]));
     </div>
 
     <p class="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground">
-      Select a country to see upcoming and past AI community events, connect with local engineers, and find opportunities to learn and collaborate.
+      {t('global.note')}
     </p>
   </main>
 </Layout>

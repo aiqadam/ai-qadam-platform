@@ -15,27 +15,33 @@
 // <script> rather than a React island: the behaviour is trivial and
 // hydration-free keeps the nav cheap.
 
-const COUNTRY_OPTIONS = [
-  { code: 'uz', label: '🇺🇿 Uzbekistan' },
-  { code: 'kz', label: '🇰🇿 Kazakhstan' },
-  { code: 'tj', label: '🇹🇯 Tajikistan' },
-  { code: 'global', label: '🌐 Global' },
-] as const;
+import { getLocale, makeT } from '../../lib/i18n';
 
-const COUNTRY_CODES = COUNTRY_OPTIONS.map((o) => o.code);
+const COUNTRY_FLAGS = {
+  uz: '🇺🇿',
+  kz: '🇰🇿',
+  tj: '🇹🇯',
+  global: '🌐',
+} as const;
+const COUNTRY_CODES = Object.keys(COUNTRY_FLAGS) as (keyof typeof COUNTRY_FLAGS)[];
 
 interface Props {
   class?: string;
 }
 const { class: extraClass = '' } = Astro.props;
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
 ---
 
 <select
   id="aq-country-switcher"
-  aria-label="Switch country"
+  aria-label={t('country.label')}
   class={`rounded-md border border-border bg-card text-foreground px-2 py-1 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${extraClass}`}
 >
-  {COUNTRY_OPTIONS.map((o) => <option value={o.code}>{o.label}</option>)}
+  {COUNTRY_CODES.map((code) => (
+    <option value={code}>{COUNTRY_FLAGS[code]} {t(`country.${code}`)}</option>
+  ))}
 </select>
 
 <script is:inline define:vars={{ countryCodes: COUNTRY_CODES }}>

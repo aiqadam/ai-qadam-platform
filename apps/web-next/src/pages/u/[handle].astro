@@ -20,6 +20,7 @@ import { PageHead } from '../../blocks/common';
 import { ProfileCard } from '../../blocks/customer';
 import Layout from '../../layouts/Layout.astro';
 import { fetchPublicProfile } from '../../lib/api-ssr';
+import { getLocale, makeT } from '../../lib/i18n';
 
 const { handle } = Astro.params as { handle: string };
 const profile = await fetchPublicProfile(Astro.request, handle);
@@ -28,16 +29,24 @@ if (!profile) {
   return Astro.redirect('/leaderboard', 302);
 }
 
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
 const displayName = profile.displayName ?? profile.handle;
+const pageTitle = t('profile.title', { name: displayName });
 const description = profile.bioMd
   ? profile.bioMd.slice(0, 200)
-  : `${displayName} on AI Qadam — ${profile.attendedCount} events attended, ${profile.totalPoints} points.`;
+  : t('profile.description_fallback', {
+      name: displayName,
+      attended: profile.attendedCount,
+      points: profile.totalPoints,
+    });
 ---
 
-<Layout title={`${displayName} · AI Qadam (next)`} description={description}>
+<Layout title={pageTitle} description={description}>
   <PageHead
     slot="head"
-    title={`${displayName} · AI Qadam (next)`}
+    title={pageTitle}
     description={description}
   />
   <main>

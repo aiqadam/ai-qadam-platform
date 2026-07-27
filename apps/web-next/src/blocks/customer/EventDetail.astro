@@ -15,6 +15,7 @@
 // Wiring: docs/04-development/architecture/wiring-map.md → events.
 
 import type { ApiEvent } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
 import DateTime from '../common/DateTime.astro';
 import MarkdownBody from '../common/MarkdownBody.astro';
 import TimeRange from '../common/TimeRange.astro';
@@ -25,21 +26,24 @@ interface Props {
 
 const { event } = Astro.props;
 
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
 const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
-  meetup: 'MEETUP',
-  workshop: 'WORKSHOP',
-  hackathon: 'HACKATHON',
-  conference: 'CONFERENCE',
-  online: 'ONLINE',
+  meetup: t('event_card.format_meetup'),
+  workshop: t('event_card.format_workshop'),
+  hackathon: t('event_card.format_hackathon'),
+  conference: t('event_card.format_conference'),
+  online: t('event_card.format_online'),
 };
 
 const LINK_KIND_LABEL: Record<string, string> = {
-  website: 'WEBSITE',
-  registration: 'REGISTER',
-  sponsor: 'SPONSOR',
-  livestream: 'LIVESTREAM',
-  recording: 'RECORDING',
-  other: 'LINK',
+  website: t('event_detail.link_kind_website'),
+  registration: t('event_detail.link_kind_registration'),
+  sponsor: t('event_detail.link_kind_sponsor'),
+  livestream: t('event_detail.link_kind_livestream'),
+  recording: t('event_detail.link_kind_recording'),
+  other: t('event_detail.link_kind_other'),
 };
 
 ---
@@ -70,7 +74,7 @@ const LINK_KIND_LABEL: Record<string, string> = {
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 mb-6 border-b border-border">
       <div>
         <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-          Date
+          {t('event_detail.date')}
         </p>
         <DateTime value={event.startsAt} format="long" class="text-sm text-foreground" />
         <TimeRange
@@ -81,10 +85,10 @@ const LINK_KIND_LABEL: Record<string, string> = {
       </div>
       <div>
         <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-          {event.venue ? 'Venue' : 'Location'}
+          {event.venue ? t('event_detail.venue') : t('event_detail.location')}
         </p>
         <p class="text-sm text-foreground">
-          {event.venue ?? event.location ?? 'Location TBA'}
+          {event.venue ?? event.location ?? t('event_card.location_tba')}
         </p>
         {event.address && (
           <p class="text-xs text-muted-foreground mt-1">{event.address}</p>
@@ -92,19 +96,19 @@ const LINK_KIND_LABEL: Record<string, string> = {
       </div>
     </div>
 
-    <h2 class="font-display text-xl font-semibold text-foreground mb-3">About</h2>
+    <h2 class="font-display text-xl font-semibold text-foreground mb-3">{t('event_detail.about')}</h2>
     <MarkdownBody content={event.description} class="text-base leading-relaxed mb-8" />
 
     {event.agendaMd && (
       <section class="mb-10">
-        <h2 class="font-display text-xl font-semibold text-foreground mb-3">Agenda</h2>
+        <h2 class="font-display text-xl font-semibold text-foreground mb-3">{t('event_detail.agenda')}</h2>
         <MarkdownBody content={event.agendaMd} class="text-sm leading-relaxed" />
       </section>
     )}
 
     {event.externalLinks && event.externalLinks.length > 0 && (
       <section class="mb-10">
-        <h2 class="font-display text-xl font-semibold text-foreground mb-3">Links</h2>
+        <h2 class="font-display text-xl font-semibold text-foreground mb-3">{t('event_detail.links')}</h2>
         <ul class="space-y-2 list-none p-0 m-0">
           {event.externalLinks.map((link) => (
             <li>
@@ -115,7 +119,7 @@ const LINK_KIND_LABEL: Record<string, string> = {
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-card no-underline text-inherit hover:border-primary/40 transition-colors"
               >
                 <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground tracking-wider shrink-0">
-                  {LINK_KIND_LABEL[link.kind ?? 'other'] ?? 'LINK'}
+                  {LINK_KIND_LABEL[link.kind ?? 'other'] ?? t('event_detail.link_kind_other')}
                 </span>
                 <span class="text-sm flex-1 truncate">{link.label}</span>
                 <span class="text-xs text-muted-foreground shrink-0" aria-hidden="true">↗</span>

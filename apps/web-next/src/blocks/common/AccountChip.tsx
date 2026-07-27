@@ -40,7 +40,15 @@ function localPart(email: string): string {
 const MENU_ITEM_CLASS =
   'block rounded-md px-2.5 py-2 text-sm text-foreground no-underline text-left w-full bg-transparent border-0 cursor-pointer hover:bg-muted/60 transition-colors';
 
-function AccountChipInner(): ReactElement | null {
+interface Translations {
+  account_menu_aria: string;
+  signed_in_as: string;
+  workspace: string;
+  engineering_deck: string;
+  sign_out: string;
+}
+
+function AccountChipInner({ t }: { t: Translations }): ReactElement | null {
   const auth = useAuth();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -73,7 +81,7 @@ function AccountChipInner(): ReactElement | null {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Account menu"
+        aria-label={t.account_menu_aria}
         aria-expanded={open}
         aria-haspopup="menu"
         className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-primary/20 font-mono text-[10px] font-semibold text-foreground cursor-pointer p-0"
@@ -87,7 +95,7 @@ function AccountChipInner(): ReactElement | null {
         >
           <div className="px-2.5 pt-1 pb-2">
             <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground m-0 mb-0.5">
-              Signed in as
+              {t.signed_in_as}
             </p>
             <p className="text-sm text-foreground m-0 truncate max-w-[220px]" title={email}>
               {localPart(email)}
@@ -99,7 +107,7 @@ function AccountChipInner(): ReactElement | null {
               <div className="border-t border-border my-0.5" />
               {showWorkspace && (
                 <a href="/workspace" role="menuitem" className={MENU_ITEM_CLASS}>
-                  Workspace
+                  {t.workspace}
                 </a>
               )}
               {showEngineering && (
@@ -110,7 +118,7 @@ function AccountChipInner(): ReactElement | null {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Engineering Deck ↗
+                  {t.engineering_deck} ↗
                 </a>
               )}
             </>
@@ -125,7 +133,7 @@ function AccountChipInner(): ReactElement | null {
             }}
             className={MENU_ITEM_CLASS}
           >
-            Sign out
+            {t.sign_out}
           </button>
         </div>
       )}
@@ -133,10 +141,10 @@ function AccountChipInner(): ReactElement | null {
   );
 }
 
-export function AccountChip(): ReactElement {
+export function AccountChip({ t }: { t: Translations }): ReactElement {
   return (
     <IslandRoot>
-      <AccountChipInner />
+      <AccountChipInner t={t} />
     </IslandRoot>
   );
 }

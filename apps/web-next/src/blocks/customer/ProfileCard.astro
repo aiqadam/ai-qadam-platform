@@ -21,6 +21,7 @@
 // Wiring: docs/04-development/architecture/wiring-map.md → directus_users.
 
 import type { PublicProfile } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
 import DateTime from '../common/DateTime.astro';
 import MarkdownBody from '../common/MarkdownBody.astro';
 
@@ -30,6 +31,8 @@ interface Props {
 }
 
 const { profile, mode = 'public' } = Astro.props;
+const locale = getLocale(Astro);
+const t = makeT(locale);
 
 function avatarSeed(name: string): string {
   const parts = name.split(/[\s._]+/).filter(Boolean);
@@ -74,7 +77,7 @@ void mode;
 
   {profile.bioMd && (
     <section class="mb-8">
-      <h2 class="font-display text-base font-semibold text-foreground mb-2">About</h2>
+      <h2 class="font-display text-base font-semibold text-foreground mb-2">{t('profile.about')}</h2>
       <MarkdownBody content={profile.bioMd} class="text-sm" />
     </section>
   )}
@@ -82,7 +85,7 @@ void mode;
   <dl class="grid grid-cols-3 gap-3 mb-10">
     <div class="rounded-lg border border-border bg-card p-3 text-center">
       <dt class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-        Attended
+        {t('profile.attended')}
       </dt>
       <dd class="font-display text-2xl font-semibold text-foreground">
         {profile.attendedCount}
@@ -90,7 +93,7 @@ void mode;
     </div>
     <div class="rounded-lg border border-border bg-card p-3 text-center">
       <dt class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-        Registered
+        {t('profile.registered')}
       </dt>
       <dd class="font-display text-2xl font-semibold text-foreground">
         {profile.registeredCount}
@@ -98,7 +101,7 @@ void mode;
     </div>
     <div class="rounded-lg border border-border bg-card p-3 text-center">
       <dt class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-        Points
+        {t('profile.points')}
       </dt>
       <dd class="font-display text-2xl font-semibold text-foreground">
         {profile.totalPoints}
@@ -109,7 +112,7 @@ void mode;
   {recentForList.length > 0 && (
     <section>
       <h2 class="font-display text-base font-semibold text-foreground mb-3">
-        Recent events
+        {t('profile.recent_events')}
       </h2>
       <ul class="space-y-2 list-none p-0 m-0">
         {recentForList.map((ev) => (

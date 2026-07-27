@@ -1,0 +1,53 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-fix-138"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T00:00:00Z"
+last_updated_at: "2026-07-28T00:00:00Z"
+
+requirement_ref: "ISS-WEB-NEXT-I18N-001"
+requirement_text: |
+  GitHub issue #85: "Switch to Ru localization is not working." Root cause:
+  apps/web-next (the app nginx routes production traffic to) ships a Ru/En
+  <LocaleSwitcher> that writes a cookie but has no i18n translation layer to
+  read it back. User chose the full-port resolution (not the hide-switcher
+  stopgap) and explicitly overrode the AGENTS.md §4 400-line/5-file PR cap
+  for this task, so it ships as one PR instead of the originally proposed
+  4-PR sequence.
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/85"
+
+branch: "fix/ISS-WEB-NEXT-I18N-001-ru-locale-port"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/87"
+
+current_step: 12
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+
+merge_mode: "auto"
+
+gate_results:
+  step9-registry-update:
+    status: "passed"
+    notes: "ISS-WEB-NEXT-I18N-001.md and registry.md both flipped to resolved in the same commit as the code fix."
+
+artifacts:
+  - "apps/web-next/src/lib/i18n.ts"
+  - "apps/web-next/src/lib/i18n.test.ts"
+  - "apps/web-next/src/locales/en.json"
+  - "apps/web-next/src/locales/ru.json"

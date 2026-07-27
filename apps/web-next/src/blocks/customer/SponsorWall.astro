@@ -10,20 +10,24 @@
 // Wiring: docs/04-development/architecture/wiring-map.md → event_sponsors.
 
 import type { EventSponsor } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
 
 interface Props {
   sponsors: EventSponsor[];
   heading?: string | undefined;
 }
 
-const { sponsors, heading = 'Sponsors' } = Astro.props;
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const { sponsors, heading = t('event_detail.sponsors') } = Astro.props;
 
 const TIER_LABEL: Record<EventSponsor['tier'], string> = {
-  presenting: 'PRESENTING',
-  gold: 'GOLD',
-  silver: 'SILVER',
-  bronze: 'BRONZE',
-  community: 'COMMUNITY',
+  presenting: t('event_detail.sponsor_tier_presenting'),
+  gold: t('event_detail.sponsor_tier_gold'),
+  silver: t('event_detail.sponsor_tier_silver'),
+  bronze: t('event_detail.sponsor_tier_bronze'),
+  community: t('event_detail.sponsor_tier_community'),
 };
 ---
 
