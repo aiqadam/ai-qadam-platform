@@ -1,11 +1,11 @@
 # Workspace State
 
-**Last updated:** 2026-07-27 — `wf-20260727-fix-135`. Verified the backups
-against the **live hosts** for the first time and found the ISS-INFRA-003
-diagnosis was wrong: restic was never installed on either pro-data.tech host
-([ISS-INFRA-004](../issues/ISS-INFRA-004.md)). Prod has run unbacked since
-provisioning. Manual dumps taken on both hosts as a stopgap; two further
-script defects fixed and verified live.> **Contract — read before editing.** This file answers exactly one question:
+**Last updated:** 2026-07-27 — `wf-20260727-feat-136`. **Backups are live.**
+Cross-host replication deployed and verified on both hosts: prod's dumps land on
+QA, QA's on prod, nightly at 03:00 UTC via systemd timers. No external provider,
+so the `ai-dala-infra` no-off-site rule holds. Push keys are locked to a forced
+command (rsync-push only; shell, pull and arbitrary reads all verified DENIED).
+See [ISS-INFRA-004](../issues/ISS-INFRA-004.md).> **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
 >
 > - **Do not prepend close-out narrative.** Workflow history belongs in
@@ -68,14 +68,19 @@ place each and never propagated. Tracked, not yet resolved:
   `95.46.211.224`, Compose + Nginx + GH Actions SSH) and supersedes ADR-0002,
   which no longer contradicts ADR-0007. ADR-0038 flipped `Proposed` →
   `Accepted` (it was already machine-enforced by `tools/architecture-check.ts`).
-- 🚨🚨 **No backup system exists on either host** — verified by direct
-  inspection 2026-07-27 ([ISS-INFRA-004](../issues/ISS-INFRA-004.md)). `restic`
-  is not installed, `/etc/restic` is absent, zero timers are configured. Prod
-  has had **no backups since it was provisioned**. Manual `pg_dumpall` taken on
-  both hosts as a stopgap (local disk only — not a backup system). Standing up
-  the real thing is **blocked on a decision**: ADR-0017 specifies Cloudflare R2,
-  but the sibling `ai-dala-infra` project mandates *no off-site storage of any
-  kind*. That conflict needs resolving before the timers can be enabled.
+- ✅ **Backups live** ([ISS-INFRA-004](../issues/ISS-INFRA-004.md)) — resolved
+  2026-07-27 by cross-host replication: prod ⇄ QA, nightly 03:00 UTC, systemd
+  timers enabled and green on both hosts. Restore verified (prod's dump reads
+  back cleanly from QA). Prior state: **no backup system existed at all** —
+  restic was never installed on either host, and prod had run unbacked since
+  provisioning.
+- ⚠️ **ADR-0017 now contradicts reality** — it is `Accepted` and specifies
+  Cloudflare R2, but the deployed model is cross-host replication with no
+  external provider (the `ai-dala-infra` no-off-site rule forbids R2). Needs a
+  superseding ADR.
+- ⚠️ **Residual backup limitation:** both hosts are KVM guests at the same
+  provider on adjacent IPs. Protects against disk failure, bad migrations and
+  loss of one VM; does **not** protect against provider-level loss.
 - ⚠️ **ISS-INFRA-003's diagnosis was wrong** — it said backups "silently broke"
   when Coolify was removed, inferred from code rather than observed. Corrected
   in place. Its code fixes were correct but insufficient.

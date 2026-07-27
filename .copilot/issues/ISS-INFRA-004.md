@@ -2,7 +2,7 @@
 
 **Severity:** blocker
 **Module:** infrastructure / backups
-**Status:** PARTIALLY RESOLVED 2026-07-27 by `wf-20260727-fix-135`
+**Status:** RESOLVED 2026-07-27 by `wf-20260727-feat-136` (cross-host replication live on both hosts)
 **Business-Process:** —
 
 ## Symptom
@@ -75,3 +75,69 @@ make:
 
 Data volume is small (prod ~8 MB, QA ~1.1 MB), so cost is not a factor
 in the decision.
+
+
+---
+
+## Resolution — cross-host replication (2026-07-27, `wf-20260727-feat-136`)
+
+User's design: **prod's backups live on QA; QA's live on prod.** No external
+provider, so the `ai-dala-infra` no-off-site rule holds while still getting the
+data off the machine that produced it.
+
+**Chosen over restic-to-R2:** data is ~10 MB total, both hosts are ours, and a
+restic passphrase stored on the hosts protects nothing while adding a way to
+lose the backups permanently. Plain `gzip` + `rsync`.
+
+### Security model
+
+Each host holds a dedicated ed25519 key (`/root/.ssh/backup-push`) authorized on
+the peer with `command="/usr/local/sbin/aiqadam-backup-receive.sh",restrict`.
+The forced command permits **only** an rsync push into
+`/var/backups/aiqadam/peer/`, rejecting `--sender` (pull), `..`, and absolute
+destinations, and `cd`s into the peer dir so relative paths cannot escape.
+
+Verified live against both hosts:
+
+| Attempt | Result |
+|---|---|
+| shell (`id -un`) | **DENIED** |
+| `cat /etc/shadow` | **DENIED** |
+| rsync pull (exfiltrate peer's dumps) | **DENIED** |
+| rsync push | **OK** |
+
+So a compromise of one host lets the attacker write backup files onto the other
+— it does not give them a shell or let them read the peer's data.
+
+### Verified working
+
+- prod → QA and QA → prod pushes both succeed.
+- Restore check: prod's replicated dump on QA passes `gzip -t` and contains 30
+  SQL statements with a valid `PostgreSQL database cluster dump` header.
+- `systemd` timers enabled on both hosts, nightly 03:00 UTC with 5-min jitter
+  and `Persistent=true`; both services run green under `ProtectSystem=strict`.
+
+### Two guard bugs found by running live
+
+1. **rsync flag pinning broke negotiation.** The forced command originally
+   re-exec'd a hardcoded `--server` flag string; rsync negotiates compression in
+   those flags, so it failed with *"Failed to negotiate a compress choice"*.
+   Now re-execs the client's own invocation, with safety from the
+   `--sender`/`..`/absolute rejections plus `restrict`.
+2. **The SQL guard rejected a valid dump.** `zcat | head -200 | grep -q` exits
+   early, SIGPIPEs `zcat`, and under `set -o pipefail` fails the whole pipeline
+   — it rejected QA's good 1.1 MB dump. Replaced with a full-stream `awk` scan.
+
+### Residual limitation
+
+Both hosts are KVM guests at the same provider on adjacent IPs. This protects
+against disk failure, bad migrations, accidental `DROP`, and loss of one VM. It
+does **not** protect against provider-level loss or account suspension. That is
+a real gap versus ADR-0017's original off-site intent, accepted deliberately
+because the no-off-site rule forbids the alternative.
+
+### ADR-0017 follow-up
+
+ADR-0017 still specifies Cloudflare R2 and is `Accepted`. It now contradicts the
+deployed reality and should be superseded by an ADR recording the cross-host
+model. Not done here to keep this change reviewable.
