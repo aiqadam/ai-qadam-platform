@@ -11,6 +11,7 @@
 // the page. The share-URL builder is pure.
 
 import { buildAllShareLinks } from '../../lib/share-urls';
+import { getLocale, makeT } from '../../lib/i18n';
 
 interface Props {
   eventId: string;
@@ -20,10 +21,12 @@ interface Props {
 
 const { eventId, eventTitle, eventUrl } = Astro.props;
 const links = buildAllShareLinks({ eventId, eventTitle, eventUrl });
+const locale = getLocale(Astro);
+const t = makeT(locale);
 ---
 
 <section class="mt-4 pt-4 border-t border-border">
-  <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Share</p>
+  <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('event_detail.share')}</p>
   <ul class="flex flex-wrap gap-2 list-none p-0 m-0">
     {
       links.map((l) => (

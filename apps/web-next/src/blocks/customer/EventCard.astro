@@ -12,6 +12,7 @@
 // Wiring: docs/04-development/architecture/wiring-map.md → events.
 
 import type { ApiEvent } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
 
 interface Props {
   event: ApiEvent;
@@ -19,12 +20,15 @@ interface Props {
 
 const { event } = Astro.props;
 
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
 const FORMAT_LABEL: Record<ApiEvent['format'], string> = {
-  meetup: 'MEETUP',
-  workshop: 'WORKSHOP',
-  hackathon: 'HACKATHON',
-  conference: 'CONFERENCE',
-  online: 'ONLINE',
+  meetup: t('event_card.format_meetup'),
+  workshop: t('event_card.format_workshop'),
+  hackathon: t('event_card.format_hackathon'),
+  conference: t('event_card.format_conference'),
+  online: t('event_card.format_online'),
 };
 
 function platePieces(iso: string): { month: string; day: string; weekday: string } {
@@ -49,8 +53,8 @@ const time = shortTime(event.startsAt);
 const capacityHint =
   event.capacity != null
     ? `${event.registeredCount} / ${event.capacity}`
-    : `${event.registeredCount} going`;
-const location = event.venue ?? event.location ?? 'Location TBA';
+    : t('event_card.going_count', { count: event.registeredCount });
+const location = event.venue ?? event.location ?? t('event_card.location_tba');
 ---
 
 <a
@@ -92,7 +96,7 @@ const location = event.venue ?? event.location ?? 'Location TBA';
   >
     <span class="font-mono text-[10px] text-muted-foreground">{capacityHint}</span>
     <span class="text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-      View →
+      {t('event_card.view')}
     </span>
   </div>
 </a>

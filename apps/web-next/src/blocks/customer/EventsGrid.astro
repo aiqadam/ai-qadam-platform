@@ -11,6 +11,7 @@
 
 import EmptyState from '../common/EmptyState.astro';
 import type { ApiEvent } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
 import EventCard from './EventCard.astro';
 
 interface Props {
@@ -19,10 +20,13 @@ interface Props {
   emptyDescription?: string | undefined;
 }
 
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
 const {
   events,
-  emptyHeading = 'No events scheduled yet',
-  emptyDescription = 'Check back soon — country leads are lining up the next session.',
+  emptyHeading = t('events_index.empty_title'),
+  emptyDescription = t('events_index.empty_body'),
 } = Astro.props;
 ---
 

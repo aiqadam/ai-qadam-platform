@@ -18,6 +18,8 @@
 // are scheduled, and matches the ADR-0038 "compose, don't merge"
 // principle.
 
+import { getLocale, makeT } from '../../lib/i18n';
+
 interface Stat {
   label: string;
   value: string;
@@ -32,11 +34,14 @@ interface Props {
   secondaryLabel?: string | undefined;
 }
 
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
 const {
   description,
   stats = [],
   primaryHref = '/events',
-  primaryLabel = 'Browse events',
+  primaryLabel = t('home.primary_cta'),
   secondaryHref,
   secondaryLabel,
 } = Astro.props;
@@ -47,12 +52,12 @@ const {
     <p
       class="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6"
     >
-      AI Qadam — community platform
+      {t('home.eyebrow')}
     </p>
     <h1
       class="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-foreground mb-6 max-w-3xl mx-auto"
     >
-      AI engineers, building together across Central Asia.
+      {t('home.headline')}
     </h1>
     <p class="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
       {description}

@@ -19,30 +19,30 @@ import { EventsGrid, Hero } from '../blocks/customer';
 import { PageHead } from '../blocks/common';
 import Layout from '../layouts/Layout.astro';
 import { fetchUpcomingEvents } from '../lib/api-ssr';
+import { getLocale, makeT } from '../lib/i18n';
 
 const events = await fetchUpcomingEvents(Astro.request);
+const locale = getLocale(Astro);
+const t = makeT(locale);
 ---
 
-<Layout
-  title="Events · AI Qadam (next)"
-  description="Upcoming AI Qadam events across Central Asia — meetups, workshops, hackathons, conferences."
->
+<Layout title={t('events_index.title')} description={t('events_index.description_long')}>
   <PageHead
     slot="head"
-    title="Events · AI Qadam (next)"
-    description="Upcoming AI Qadam events across Central Asia."
+    title={t('events_index.title')}
+    description={t('events_index.description_short')}
   />
   <main>
     <Hero
-      description="Pick the next event you want to be in the room for."
+      description={t('events_index.hero_description')}
       primaryHref="#upcoming"
-      primaryLabel="Browse upcoming"
+      primaryLabel={t('events_index.hero_cta')}
     />
     <section id="upcoming" class="mx-auto max-w-5xl px-6 py-12">
       <h2
         class="font-display text-2xl font-semibold text-foreground mb-6"
       >
-        Upcoming
+        {t('events_index.upcoming')}
       </h2>
       <EventsGrid events={events} />
     </section>

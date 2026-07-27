@@ -2,6 +2,7 @@
 import '../styles/globals.css';
 import AppFooter from '../blocks/common/AppFooter.astro';
 import AppNav from '../blocks/common/AppNav.astro';
+import { getLocale } from '../lib/i18n';
 
 interface Props {
   title?: string | undefined;
@@ -25,10 +26,12 @@ const { title = 'AI Qadam', description = 'AI community platform for engineers a
 const ssrAuth = Astro.locals.auth;
 const ssrAuthInject = ssrAuth !== undefined;
 const ssrAuthJson = ssrAuthInject ? JSON.stringify(ssrAuth).replace(/</g, '\\u003c') : null;
+
+const locale = getLocale(Astro);
 ---
 
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang={locale} data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

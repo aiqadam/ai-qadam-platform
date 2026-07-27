@@ -26,10 +26,27 @@ import {
 } from '@/lib/use-registrations';
 import { type ReactElement, useState } from 'react';
 
+interface Translations {
+  capacity: string;
+  spots: (count: number, capacity: number) => string;
+  going_count: (count: number) => string;
+  sign_in_to_join_waitlist: string;
+  sign_in_to_register: string;
+  loading_registration: string;
+  join_waitlist: string;
+  register: string;
+  busy: string;
+  registered_confirmation: string;
+  cancel_registration: string;
+  on_waitlist: string;
+  leave_waitlist: string;
+}
+
 interface Props {
   eventId: string;
   capacity: number | null;
   registeredCount: number;
+  t: Translations;
 }
 
 function signInHref(eventId: string): string {
@@ -40,28 +57,38 @@ function signInHref(eventId: string): string {
 function CapacityHint({
   capacity,
   count,
+  t,
 }: {
   capacity: number | null;
   count: number;
+  t: Translations;
 }): ReactElement {
-  const hint = capacity != null ? `${count} / ${capacity} spots` : `${count} going`;
+  const hint = capacity != null ? t.spots(count, capacity) : t.going_count(count);
   return (
     <>
       <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        Capacity
+        {t.capacity}
       </p>
       <p className="text-sm text-foreground">{hint}</p>
     </>
   );
 }
 
-function AnonCta({ eventId, isFull }: { eventId: string; isFull: boolean }): ReactElement {
+function AnonCta({
+  eventId,
+  isFull,
+  t,
+}: {
+  eventId: string;
+  isFull: boolean;
+  t: Translations;
+}): ReactElement {
   return (
     <a
       href={signInHref(eventId)}
       className="block w-full text-center rounded-md bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors"
     >
-      {isFull ? 'Sign in to join waitlist' : 'Sign in to register'}
+      {isFull ? t.sign_in_to_join_waitlist : t.sign_in_to_register}
     </a>
   );
 }
@@ -72,6 +99,7 @@ interface AuthedCtaProps {
   status: ActiveRegistrationStatus | null;
   statusPending: boolean;
   onCountDelta: (delta: number) => void;
+  t: Translations;
 }
 
 function AuthedCta({
@@ -80,6 +108,7 @@ function AuthedCta({
   status,
   statusPending,
   onCountDelta,
+  t,
 }: AuthedCtaProps): ReactElement {
   const register = useRegisterForEvent(eventId);
   const cancel = useCancelRegistration(eventId);
@@ -88,7 +117,7 @@ function AuthedCta({
   const errorMsg = register.error?.message ?? cancel.error?.message ?? null;
 
   if (statusPending) {
-    return <p className="text-xs text-muted-foreground">Loading registration…</p>;
+    return <p className="text-xs text-muted-foreground">{t.loading_registration}</p>;
   }
 
   const handleRegister = (): void => {
@@ -96,7 +125,7 @@ function AuthedCta({
   };
 
   if (status === null) {
-    const label = isBusy ? '…' : isFull ? 'Join waitlist' : 'Register';
+    const label = isBusy ? t.busy : isFull ? t.join_waitlist : t.register;
     return (
       <Button onClick={handleRegister} disabled={isBusy} className="w-full">
         {label}
@@ -112,10 +141,10 @@ function AuthedCta({
     return (
       <>
         <div className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-foreground">
-          ✓ You're registered
+          {t.registered_confirmation}
         </div>
         <Button variant="outline" onClick={handleCancel} disabled={isBusy} className="w-full">
-          {isBusy ? '…' : 'Cancel registration'}
+          {isBusy ? t.busy : t.cancel_registration}
         </Button>
         {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
       </>
@@ -125,17 +154,17 @@ function AuthedCta({
   return (
     <>
       <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-        On waitlist — we'll email if a seat opens
+        {t.on_waitlist}
       </div>
       <Button variant="outline" onClick={handleCancel} disabled={isBusy} className="w-full">
-        {isBusy ? '…' : 'Leave waitlist'}
+        {isBusy ? t.busy : t.leave_waitlist}
       </Button>
       {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
     </>
   );
 }
 
-function RegistrationCTAInner({ eventId, capacity, registeredCount }: Props): ReactElement {
+function RegistrationCTAInner({ eventId, capacity, registeredCount, t }: Props): ReactElement {
   const auth = useAuth();
   const status = useMyRegistrationStatus(eventId);
   const [optimisticDelta, setOptimisticDelta] = useState(0);
@@ -144,7 +173,7 @@ function RegistrationCTAInner({ eventId, capacity, registeredCount }: Props): Re
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-      <CapacityHint capacity={capacity} count={count} />
+      <CapacityHint capacity={capacity} count={count} t={t} />
       {auth.isAuthenticated ? (
         <AuthedCta
           eventId={eventId}
@@ -152,9 +181,10 @@ function RegistrationCTAInner({ eventId, capacity, registeredCount }: Props): Re
           status={status.data ?? null}
           statusPending={status.isPending}
           onCountDelta={(d) => setOptimisticDelta((prev) => prev + d)}
+          t={t}
         />
       ) : (
-        <AnonCta eventId={eventId} isFull={isFull} />
+        <AnonCta eventId={eventId} isFull={isFull} t={t} />
       )}
     </div>
   );

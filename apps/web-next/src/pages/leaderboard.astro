@@ -20,6 +20,7 @@ import { Leaderboard } from '../blocks/customer';
 import Layout from '../layouts/Layout.astro';
 import { fetchLeaderboard } from '../lib/api-ssr';
 import { LEADERBOARD_WINDOWS, type LeaderboardWindow } from '../lib/types';
+import { getLocale, makeT } from '../lib/i18n';
 
 const url = new URL(Astro.request.url);
 const rawWindow = url.searchParams.get('window');
@@ -30,16 +31,15 @@ const activeWindow: LeaderboardWindow = (LEADERBOARD_WINDOWS as readonly string[
   : 'all';
 
 const entries = await fetchLeaderboard(Astro.request, 20, activeWindow);
+const locale = getLocale(Astro);
+const t = makeT(locale);
 ---
 
-<Layout
-  title="Leaderboard · AI Qadam (next)"
-  description="Top AI Qadam community members by points earned through events, sharing, and contributing."
->
+<Layout title={t('leaderboard.title')} description={t('leaderboard.description_long')}>
   <PageHead
     slot="head"
-    title="Leaderboard · AI Qadam (next)"
-    description="Top AI Qadam community members by points earned."
+    title={t('leaderboard.title')}
+    description={t('leaderboard.description_short')}
   />
   <main>
     <Leaderboard entries={entries} window={activeWindow} />

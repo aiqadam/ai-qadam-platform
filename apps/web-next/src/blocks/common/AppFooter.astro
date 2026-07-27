@@ -14,8 +14,11 @@
 // (internal docker URL) and the defaults render the same.
 
 import { fetchSiteSettings } from '../../lib/cms';
+import { getLocale, makeT } from '../../lib/i18n';
 
 const settings = await fetchSiteSettings();
+const locale = getLocale(Astro);
+const t = makeT(locale);
 
 interface SocialLink {
   href: string;
@@ -37,13 +40,13 @@ interface ContactLink {
 
 const contacts: ContactLink[] = [
   settings.contactEmailPartners
-    ? { href: `mailto:${settings.contactEmailPartners}`, label: 'Partners' }
+    ? { href: `mailto:${settings.contactEmailPartners}`, label: t('footer.contact_partners') }
     : null,
   settings.contactEmailPress
-    ? { href: `mailto:${settings.contactEmailPress}`, label: 'Press' }
+    ? { href: `mailto:${settings.contactEmailPress}`, label: t('footer.contact_press') }
     : null,
   settings.contactEmailSupport
-    ? { href: `mailto:${settings.contactEmailSupport}`, label: 'Support' }
+    ? { href: `mailto:${settings.contactEmailSupport}`, label: t('footer.contact_support') }
     : null,
 ].filter((x): x is ContactLink => x !== null);
 
@@ -53,19 +56,19 @@ const year = new Date().getUTCFullYear();
 <footer class="border-t border-border mt-16 bg-card">
   <div class="mx-auto max-w-5xl px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-8">
     <div>
-      <p class="font-display text-lg font-semibold text-foreground mb-2">AI Qadam</p>
+      <p class="font-display text-lg font-semibold text-foreground mb-2">{t('footer.brand')}</p>
       <p class="text-sm text-muted-foreground leading-relaxed">
         {settings.defaultDescription}
       </p>
       <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mt-3">
-        {settings.countriesServed} countries served
+        {t('footer.countries_served', { count: settings.countriesServed })}
       </p>
     </div>
 
     {socials.length > 0 && (
       <div>
         <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
-          Follow
+          {t('footer.follow')}
         </p>
         <ul class="list-none p-0 m-0 space-y-2">
           {socials.map((s) => (
@@ -87,7 +90,7 @@ const year = new Date().getUTCFullYear();
     {contacts.length > 0 && (
       <div>
         <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
-          Contact
+          {t('footer.contact')}
         </p>
         <ul class="list-none p-0 m-0 space-y-2">
           {contacts.map((c) => (
@@ -108,7 +111,7 @@ const year = new Date().getUTCFullYear();
   <div class="border-t border-border">
     <div class="mx-auto max-w-5xl px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-2">
       <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground m-0">
-        © {year} AI Qadam · Community-as-platform for Central Asian AI engineers
+        {t('footer.copyright', { year })}
       </p>
     </div>
   </div>
