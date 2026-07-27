@@ -20,7 +20,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/85"
 
 branch: "fix/ISS-WEB-NEXT-I18N-001-ru-locale-port"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/87"
 
 current_step: 12
 current_step_name: "commit-push-pr"
