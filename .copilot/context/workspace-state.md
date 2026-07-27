@@ -1,11 +1,13 @@
 # Workspace State
 
-**Last updated:** 2026-07-27 — `wf-20260727-docs-133`. Reconciled the ADR log:
-new [`ADR-0040`](../../docs/adr/0040-deployment-target-pro-data-tech.md) records
-the real deployment target and supersedes ADR-0002; ADR-0038 flipped `Proposed`
-→ `Accepted`. Prior entry (`wf-20260726-docs-132`, 2026-07-26) converted this
-file from a 48.5 KB append-only log into the current-state snapshot below and
-archived five merged workflows out of `.copilot/tasks/active/`.
+**Last updated:** 2026-07-27 — `wf-20260727-fix-134`. Fixed a **live backup
+failure** found while sweeping Coolify prose: both restic scripts aborted before
+`restic backup` on any host without Coolify, so hourly + daily snapshots had
+silently stopped ([ISS-INFRA-003](../issues/ISS-INFRA-003.md)). Also archived the
+two dead Coolify runbooks and de-Coolified the DR path. Prior entries:
+`wf-20260727-docs-133` reconciled the ADR log (new ADR-0040 supersedes ADR-0002;
+ADR-0038 → Accepted); `wf-20260726-docs-132` converted this file into the
+current-state snapshot below.
 
 > **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
@@ -24,7 +26,8 @@ archived five merged workflows out of `.copilot/tasks/active/`.
 | Workflow ID | Type | Feature/Issue | Branch | Status |
 |---|---|---|---|---|
 | wf-20260726-docs-132 | issue-resolution | ISS-WF-STATE-001 — workspace-state reconciliation | chore/wf-20260726-docs-132-workspace-state-reconcile | in review ([PR #68](https://github.com/aiqadam/ai-qadam-platform/pull/68)) |
-| wf-20260727-docs-133 | issue-resolution | ISS-WF-STATE-002 — ADR deployment-target supersession | chore/wf-20260727-docs-133-adr-deployment-supersede | running |
+| wf-20260727-docs-133 | issue-resolution | ISS-WF-STATE-002 — ADR deployment-target supersession | chore/wf-20260727-docs-133-adr-deployment-supersede | in review ([PR #69](https://github.com/aiqadam/ai-qadam-platform/pull/69)) |
+| wf-20260727-fix-134 | issue-resolution | ISS-INFRA-003 — backups broken by Coolify removal | chore/wf-20260727-docs-134-coolify-prose-sweep | running |
 
 ### Queued follow-up workflows
 
@@ -69,11 +72,26 @@ place each and never propagated. Tracked, not yet resolved:
   `95.46.211.224`, Compose + Nginx + GH Actions SSH) and supersedes ADR-0002,
   which no longer contradicts ADR-0007. ADR-0038 flipped `Proposed` →
   `Accepted` (it was already machine-enforced by `tools/architecture-check.ts`).
-- **Coolify prose not yet swept**: ~63 docs still describe Coolify as live
-  without a deprecation marker. The ADR layer is now correct; the runbook and
-  architecture prose is not.
-- **`runbooks/snapshot-restore.md` is broken** — the disaster-recovery path
-  depends on the removed `COOLIFY_TOKEN`. Highest-priority item in the sweep.
+- 🚨 **Backups were silently broken** — found 2026-07-27 while sweeping Coolify
+  prose, fixed in `wf-20260727-fix-134`
+  ([ISS-INFRA-003](../issues/ISS-INFRA-003.md)). Both `aiqadam-db-dump.sh` and
+  `aiqadam-backup.sh` ran `docker exec coolify-db` under `set -euo pipefail`, so
+  each aborted **before** `restic backup`. **Not verified on the hosts** — the
+  scripts must be re-installed and a snapshot confirmed; expect a gap from
+  2026-07-23. Follow-up: `wf-20260727-fix-135-verify-backups-live`.
+- ✅ **Operational runbooks swept** 2026-07-27: `coolify-bootstrap.md` and
+  `coolify-app-stacks.md` moved to `runbooks/_archive/` with ⛔ banners;
+  `snapshot-restore.md` and `restic-backups.md` rewritten against the real
+  hosts; `observability.md`, `secret-rotation-pending.md`, and
+  `architecture.md`'s "hardening posture" given scoped correction headers.
+  `runbooks/README.md` no longer holds up the dead Coolify runbook as the model
+  to imitate.
+- **Coolify prose remains in non-operational docs** (~40 files: requirements,
+  roadmap, plans, completed task artifacts). Lower risk — none is a procedure an
+  operator would follow. Not yet swept.
+- ⚠️ **`secret-rotation-pending.md` is a still-open security obligation** whose
+  rotation steps all route through the removed Coolify UI. Header added; needs a
+  real rewrite before the launch rotation pass.
 - **Host `212.20.151.29` is gone** (commit `ef50eba`) — still referenced in
   19 docs.
 - **ADR-0037** left `Proposed` deliberately. It is operationally in force (it

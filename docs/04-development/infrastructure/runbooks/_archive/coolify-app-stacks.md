@@ -1,7 +1,25 @@
+> # ⛔ ARCHIVED — DO NOT FOLLOW
+>
+> **This procedure is dead.** Coolify was removed from CI/CD on 2026-07-23
+> ([ADR-0007](../../../../adr/0007-coolify-orchestration.md), PR #45) and the
+> host it ran on (`212.20.151.29`) was decommissioned
+> ([ADR-0040](../../../../adr/0040-deployment-target-pro-data-tech.md), commit
+> `ef50eba`). Nothing described below exists any more.
+>
+> **What replaced it:** plain Docker Compose + Nginx, deployed by
+> `.github/workflows/ci-cd.yml` over SSH. See
+> [ADR-0040](../../../../adr/0040-deployment-target-pro-data-tech.md) and
+> `deploy/docker-compose.{qa,prod}.yml`.
+>
+> Retained only as the historical record of how the Coolify-era host was built.
+> Archived 2026-07-27 by `wf-20260727-fix-134`.
+
+---
+
 # Runbook: First production deploy via Coolify
 
 **Audience:** Viktor, deploying the AI Qadam stack to `aiqadam-web` (the production host bootstrapped via [coolify-bootstrap.md](coolify-bootstrap.md)).
-**Pre-reading:** [ADR-0007](../../../adr/0007-coolify-orchestration.md), [ADR-0009](../../../adr/0009-email-stack-saas-exception.md), [ADR-0016](../../../adr/0016-web-auth-flow.md).
+**Pre-reading:** [ADR-0007](../../../../adr/0007-coolify-orchestration.md), [ADR-0009](../../../../adr/0009-email-stack-saas-exception.md), [ADR-0016](../../../../adr/0016-web-auth-flow.md).
 **Total time:** ~60 minutes (setup) + ~15 minutes (verification).
 **State after:** `https://aiqadam.org` serves the full MVP loop end-to-end.
 
@@ -43,8 +61,8 @@ Same-origin per the PR #18 routing decision:
 - Coolify v4 running on `aiqadam-web` (per [coolify-bootstrap.md](coolify-bootstrap.md))
 - `aiqadam.org` DNS managed in Cloudflare with wildcard `*.aiqadam.org` → host IP (per the project's existing email DNS)
 - Repository pushed to GitHub with the `feature/production-deploy` branch (Dockerfiles + this runbook)
-- Restic backups configured (per [restic-backups.md](restic-backups.md)) — Coolify volumes are included
-- Per-operator Gmail Send-as completed (per [operator-email-send-as.md](../../../02-business-processes/operations/archive/operator-email-send-as.md))
+- Restic backups configured (per [restic-backups.md](../restic-backups.md)) — Coolify volumes are included
+- Per-operator Gmail Send-as completed (per [operator-email-send-as.md](../../../../02-business-processes/operations/archive/operator-email-send-as.md))
 
 ## Step 1 — Provision shared Postgres + Redis stacks
 
@@ -138,11 +156,11 @@ Set env vars in the Coolify UI:
 
 Bind public domain: `auth.aiqadam.org` → port `9000`.
 
-Deploy. Wait for healthy. The known akadmin-bootstrap-with-default-email pitfall from [authentik-local-bootstrap.md](authentik-local-bootstrap.md) §"Forgot the akadmin password" applies — if the env var doesn't propagate, fix via `ak shell`.
+Deploy. Wait for healthy. The known akadmin-bootstrap-with-default-email pitfall from [authentik-local-bootstrap.md](../authentik-local-bootstrap.md) §"Forgot the akadmin password" applies — if the env var doesn't propagate, fix via `ak shell`.
 
 Open `https://auth.aiqadam.org/if/admin/`, log in as `akadmin` with the bootstrap password.
 
-**Create the OIDC application** (same procedure as [authentik-local-bootstrap.md](authentik-local-bootstrap.md) Step 3, with prod URLs):
+**Create the OIDC application** (same procedure as [authentik-local-bootstrap.md](../authentik-local-bootstrap.md) Step 3, with prod URLs):
 - Application slug: `aiqadam-platform`
 - Provider: OAuth2/OpenID, Confidential
 - Redirect URIs:
@@ -298,7 +316,7 @@ Coolify keeps the last N image builds. **Application → Deployments → previou
 
 ## Backups
 
-Restic snapshots include `/var/lib/docker/volumes` (per [restic-backups.md](restic-backups.md)), which covers Coolify-managed volumes. Postgres + Redis + Authentik state restore by reverse-applying the snapshot, then re-deploying the stacks pointing at the restored volumes.
+Restic snapshots include `/var/lib/docker/volumes` (per [restic-backups.md](../restic-backups.md)), which covers Coolify-managed volumes. Postgres + Redis + Authentik state restore by reverse-applying the snapshot, then re-deploying the stacks pointing at the restored volumes.
 
 ---
 
@@ -361,7 +379,7 @@ After that PATCH + force-redeploy, Traefik labels are generated against the `ser
 
 ## Plausible Analytics (`aiqadam-plausible`) — added Sprint M5.0
 
-Compose-based Coolify service at `analytics.aiqadam.org`. Three containers (Plausible + dedicated Postgres + ClickHouse). Source-of-truth compose: [`infrastructure/plausible/docker-compose.yml`](../../../../infrastructure/plausible/docker-compose.yml).
+Compose-based Coolify service at `analytics.aiqadam.org`. Three containers (Plausible + dedicated Postgres + ClickHouse). Source-of-truth compose: [`infrastructure/plausible/docker-compose.yml`](../../../../../infrastructure/plausible/docker-compose.yml).
 
 **Coolify identifiers**
 - Service uuid: `yhl7tx5ckc9j4quilq2y8f61`

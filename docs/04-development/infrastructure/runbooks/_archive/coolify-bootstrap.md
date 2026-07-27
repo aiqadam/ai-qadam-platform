@@ -1,7 +1,25 @@
+> # ⛔ ARCHIVED — DO NOT FOLLOW
+>
+> **This procedure is dead.** Coolify was removed from CI/CD on 2026-07-23
+> ([ADR-0007](../../../../adr/0007-coolify-orchestration.md), PR #45) and the
+> host it ran on (`212.20.151.29`) was decommissioned
+> ([ADR-0040](../../../../adr/0040-deployment-target-pro-data-tech.md), commit
+> `ef50eba`). Nothing described below exists any more.
+>
+> **What replaced it:** plain Docker Compose + Nginx, deployed by
+> `.github/workflows/ci-cd.yml` over SSH. See
+> [ADR-0040](../../../../adr/0040-deployment-target-pro-data-tech.md) and
+> `deploy/docker-compose.{qa,prod}.yml`.
+>
+> Retained only as the historical record of how the Coolify-era host was built.
+> Archived 2026-07-27 by `wf-20260727-fix-134`.
+
+---
+
 # Runbook: Bootstrapping Coolify on a fresh VM
 
 **Audience:** anyone setting up a new Coolify host (e.g., disaster recovery on a new VM, second region, replacement hardware).
-**Pre-reading:** [ADR-0007](../../../adr/0007-coolify-orchestration.md), [ADR-0008](../../../adr/0008-docker-port-publishing-policy.md).
+**Pre-reading:** [ADR-0007](../../../../adr/0007-coolify-orchestration.md), [ADR-0008](../../../../adr/0008-docker-port-publishing-policy.md).
 **Procedure source:** the actual sequence used on 2026-05-14 to bootstrap `aiqadam-web` (the production-equivalent host).
 **Total time:** ~90 minutes hands-on, including verification at each step.
 
@@ -66,7 +84,7 @@ sudo ufw status verbose
 EOF
 ```
 
-**Note:** UFW does NOT block Docker-published ports — see [ADR-0008](../../../adr/0008-docker-port-publishing-policy.md). UFW is one defense layer; the Docker-specific lockdown happens in step 7.
+**Note:** UFW does NOT block Docker-published ports — see [ADR-0008](../../../../adr/0008-docker-port-publishing-policy.md). UFW is one defense layer; the Docker-specific lockdown happens in step 7.
 
 ### Step 3 — fail2ban (with Docker-bridge whitelist)
 
@@ -217,7 +235,7 @@ done
 # expected: all three return 000 (timeout/refused)
 ```
 
-If any port returns a non-000 code, the lockdown isn't working — see [docker-iptables-and-ufw.md](docker-iptables-and-ufw.md) for diagnostics.
+If any port returns a non-000 code, the lockdown isn't working — see [docker-iptables-and-ufw.md](../docker-iptables-and-ufw.md) for diagnostics.
 
 ### Step 8 — First admin via SSH tunnel
 
@@ -264,8 +282,8 @@ The `DOCKER-USER` DROP rules from step 7 stay in place — Traefik on 80/443 (al
 - Deploying actual application stacks (Postgres, Authentik, NestJS, etc.) — those will have their own per-stack runbooks
 - Restic backup configuration (separate runbook, TBD)
 - Observability stack (Grafana / Loki / Prometheus / Uptime Kuma — Phase 1 weeks 8–10)
-- Multi-host setup (out of scope for Phase 1; see [ADR-0002](../../../adr/0002-deployment-target.md))
+- Multi-host setup (out of scope for Phase 1; see [ADR-0002](../../../../adr/0002-deployment-target.md))
 
 ## Disaster-recovery use
 
-If the original host dies, this runbook is the recovery procedure. Combined with restic-restored Postgres + MinIO + `/data/coolify`, a fresh box can be brought to working state in ~2 hours plus the restic restore time. RTO target per [SECURITY.md §"Recovery time objectives"](../../security/security.md) is 4 hours.
+If the original host dies, this runbook is the recovery procedure. Combined with restic-restored Postgres + MinIO + `/data/coolify`, a fresh box can be brought to working state in ~2 hours plus the restic restore time. RTO target per [SECURITY.md §"Recovery time objectives"](../../../security/security.md) is 4 hours.

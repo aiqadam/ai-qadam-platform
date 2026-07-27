@@ -210,7 +210,7 @@ Full registry with status and open issues: [`docs/02-business-processes/uat/regi
 Active on a single host at `aiqadam-web` (hyperapp.cloud, Frankfurt, 8 vCPU / 31 GiB / 2 TB SSD). Coolify v4 orchestrates every stack. See:
 
 - [ADR-0002](docs/adr/0002-deployment-target.md) — host choice and topology
-- [docs/04-development/infrastructure/runbooks/coolify-bootstrap.md](docs/04-development/infrastructure/runbooks/coolify-bootstrap.md) — exact bootstrap procedure used
+- ⛔ [docs/04-development/infrastructure/runbooks/_archive/coolify-bootstrap.md](docs/04-development/infrastructure/runbooks/_archive/coolify-bootstrap.md) — archived Coolify-era bootstrap; current deployment is [ADR-0040](docs/adr/0040-deployment-target-pro-data-tech.md)
 - [docs/04-development/infrastructure/runbooks/docker-iptables-and-ufw.md](docs/04-development/infrastructure/runbooks/docker-iptables-and-ufw.md) — Docker / UFW lockdown lessons learned
 - [docs/04-development/infrastructure/runbooks/restic-backups.md](docs/04-development/infrastructure/runbooks/restic-backups.md) — daily off-site backups to Cloudflare R2
 

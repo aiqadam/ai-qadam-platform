@@ -1,0 +1,80 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260727-fix-134"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-27T00:00:00Z"
+last_updated_at: "2026-07-27T00:00:00Z"
+
+requirement_ref: "ISS-INFRA-003"
+requirement_text: "Sweep the retired-Coolify prose out of the live operational docs. Uncovered mid-workflow that this is not only a docs problem: both restic backup scripts hard-depend on a coolify-db container and abort before taking any snapshot."
+github_issue_url: ""
+
+branch: "chore/wf-20260727-docs-134-coolify-prose-sweep"
+base_branch: "chore/wf-20260727-docs-133-adr-deployment-supersede"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/70"
+
+current_step: 1
+current_step_name: "backup-fix-and-sweep"
+workflow_status: "completed"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-INFRA-003"
+
+deferrals: []
+
+# Doc/state-only reconciliation. No FR or ISS row is introduced, so the
+# QualityGate Context-Update Check does not apply.
+expects_registry_update: false
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260727-fix-134/01-backup-fix-and-sweep.md"
+
+context_refs:
+  - .copilot/context/workspace-state.md
+  - .copilot/context/workflow-history.md
+  - scripts/check-workflow-state.sh
+  - .copilot/schemas/protocol.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""

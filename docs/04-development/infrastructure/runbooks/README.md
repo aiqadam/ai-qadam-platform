@@ -32,7 +32,14 @@ If you are tempted to write a runbook for "how to use feature X", that is a tuto
 
 ## Canonical structure
 
-Every runbook in this directory follows the same skeleton. Deviate only when the procedure genuinely does not fit. Stick close to the existing examples — [`coolify-bootstrap.md`](coolify-bootstrap.md) is the longest reference; [`restic-backups.md`](restic-backups.md) is a tight day-to-day reference; [`observability.md`](observability.md) is the most recent.
+Every runbook in this directory follows the same skeleton. Deviate only when the procedure genuinely does not fit. Stick close to the existing examples — [`restic-backups.md`](restic-backups.md) is a tight day-to-day reference; [`snapshot-restore.md`](snapshot-restore.md) is the fullest worked example of a recovery procedure.
+
+> **Do not use anything under [`_archive/`](_archive/) as a template.** Those
+> runbooks describe the retired Coolify stack ([ADR-0007](../../../adr/0007-coolify-orchestration.md) /
+> [ADR-0040](../../../adr/0040-deployment-target-pro-data-tech.md)) and are kept
+> only as historical record. `coolify-bootstrap.md` was previously cited here as
+> the reference example, which taught agents to write Coolify-era procedures long
+> after the platform was gone.
 
 ```markdown
 # Runbook: <one-line title>
@@ -95,9 +102,9 @@ Why split: runbooks answer "what do I do when this breaks". The operator playboo
 ## Current runbooks
 
 ### Infrastructure (Agent-Infra)
-- [`coolify-bootstrap.md`](coolify-bootstrap.md) — full Coolify install on a fresh Ubuntu VM (~90 min).
-- [`coolify-app-stacks.md`](coolify-app-stacks.md) — deploying app stacks on top of Coolify.
-- [`pro-data-tech-cicd.md`](pro-data-tech-cicd.md) — CI/CD deploy to the pro-data.tech QA/prod hosts via `ci-cd.yml` + forced-command `deploy.sh` (a second, ADR-less deployment target alongside Coolify — see the runbook's own warning banner).
+- [`_archive/coolify-bootstrap.md`](_archive/coolify-bootstrap.md) — ⛔ archived; Coolify-era host install (ADR-0007/0040).
+- [`_archive/coolify-app-stacks.md`](_archive/coolify-app-stacks.md) — ⛔ archived; Coolify-era app stacks (ADR-0007/0040).
+- [`pro-data-tech-cicd.md`](pro-data-tech-cicd.md) — CI/CD deploy to the pro-data.tech QA/prod hosts via `ci-cd.yml` + forced-command `deploy.sh`. **This is now the only deployment path** and it has an ADR: [ADR-0040](../../../adr/0040-deployment-target-pro-data-tech.md). (It was previously described here as "a second, ADR-less target alongside Coolify".)
 - [`docker-iptables-and-ufw.md`](docker-iptables-and-ufw.md) — networking interaction between Docker and UFW (per ADR-0008).
 - [`restic-backups.md`](restic-backups.md) — daily backup operations, restore drill, key rotation (per ADR-0017).
 - [`observability.md`](observability.md) — Loki + Uptime Kuma + Plausible custom-event operations (per Sprint 0.4).

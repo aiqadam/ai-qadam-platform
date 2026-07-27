@@ -44,11 +44,18 @@ SCRATCH_DIR="${SCRATCH_DIR:-/tmp/aiqadam-restore-drill-$(date +%Y%m%d-%H%M%S)-$$
 # restore-from-latest doesn't surface any of these, that's a real
 # failure — either the backup is broken or the backup config drifted.
 # Keep in sync with the PATHS array in /usr/local/sbin/aiqadam-backup.sh.
+# 2026-07-27 (wf-20260727-fix-134): `data/coolify/source` removed. That
+# path stopped being backed up when Coolify was removed (ADR-0007) and
+# the host decommissioned (ADR-0040), so this drill hard-failed with
+# "required path missing in restore" on every run — reporting a broken
+# backup when the real problem was a stale assertion. Replaced with
+# `var/backups/aiqadam`, which is what actually proves the DB dumps made
+# it into the snapshot. Keep in sync with PATHS in aiqadam-backup.sh.
 REQUIRED_PATHS=(
   "etc/iptables/rules.v4"
   "etc/ssh/sshd_config.d"
   "etc/fail2ban"
-  "data/coolify/source"
+  "var/backups/aiqadam"
 )
 
 # Maximum age of the latest snapshot in days. If the latest snapshot is

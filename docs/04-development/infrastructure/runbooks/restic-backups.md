@@ -4,12 +4,34 @@
 **Pre-reading:** [ADR-0017](../../../adr/0017-backup-architecture.md).
 **Procedure source:** the actual setup performed on 2026-05-15.
 
+> **Updated 2026-07-27 (`wf-20260727-fix-134`).** The backup scripts had a live
+> defect, not just stale docs: `aiqadam-db-dump.sh` and `aiqadam-backup.sh` both
+> ran `docker exec coolify-db …` under `set -euo pipefail`. After Coolify was
+> removed ([ADR-0007](../../../adr/0007-coolify-orchestration.md)) and its host
+> decommissioned ([ADR-0040](../../../adr/0040-deployment-target-pro-data-tech.md)),
+> that command failed and **aborted each script before `restic backup` ran** —
+> so both the hourly and daily snapshots silently stopped. `aiqadam-backup.sh`
+> additionally pointed at `/data/coolify`, which does not exist on the current
+> hosts, and `aiqadam-restore-drill.sh` hard-failed asserting `data/coolify/source`
+> was present in every restore.
+>
+> All three are fixed: Postgres is discovered at runtime (`PG_CONTAINER` env
+> override → `aiqadam-<env>-postgres-1` → any `postgres:16`), the Coolify dump is
+> gone, `PATHS` now covers `$APP_DIR` + `/etc/letsencrypt`, and an empty dump
+> aborts the run instead of shipping a useless snapshot.
+>
+> **Verify on the hosts before trusting this:** `restic snapshots --tag
+> aiqadam-db-hourly --last`. There is likely a snapshot gap between the Coolify
+> removal (2026-07-23) and this fix being deployed.
+
 ## Architecture in one paragraph
 
 `restic` runs daily at 03:00 UTC via systemd timer on the platform host, encrypts everything client-side with a passphrase only we know, and pushes incremental snapshots to a Cloudflare R2 bucket (`aiqadam-backups`) over the S3-compatible API. R2 stores the encrypted blobs but cannot decrypt them. Retention is `30 daily / 12 weekly / 12 monthly`. First backup: ~440 KiB; growth is dominated by new container state, not log volume (excluded).
 
 ```
-   /data/coolify, /etc/iptables, /etc/ssh/sshd_config.d, /etc/fail2ban
+   /opt/apps/aiqadam-{prod,qa}, /etc/nginx/sites-available,
+   /etc/letsencrypt, /etc/iptables, /etc/ssh/sshd_config.d,
+   /etc/fail2ban, /var/backups/aiqadam
                                 │
                                 ▼
                           [ aiqadam-backup.sh ]
@@ -87,7 +109,7 @@ sudo bash -c 'set -a; . /etc/restic/r2.env; set +a; \
 # Inspect /tmp/restore-full, then move pieces back where needed (rsync, cp, etc.)
 ```
 
-For full host disaster recovery (lost the VM), use the procedure in [coolify-bootstrap.md](coolify-bootstrap.md) to bring up a fresh box, then restore `/data/coolify`, `/etc/iptables`, `/etc/ssh/sshd_config.d`, `/etc/fail2ban` from latest snapshot.
+For full host disaster recovery (lost the VM), follow [snapshot-restore.md § "The slow path: rebuild a host from zero"](snapshot-restore.md), then restore `/opt/apps/aiqadam-*`, `/etc/letsencrypt`, `/etc/iptables`, `/etc/ssh/sshd_config.d`, and `/etc/fail2ban` from the latest snapshot.
 
 ### Mount the repo as a filesystem (browse like any directory)
 
@@ -109,13 +131,14 @@ When a new state-bearing service lands (Postgres data dir, MinIO buckets, etc.),
 # Pseudo-pattern for adding Postgres dumps to the backup
 PG_DUMP_DIR=/var/backups/postgres
 mkdir -p "$PG_DUMP_DIR"
-sudo docker exec coolify-db pg_dumpall -U coolify | gzip > "$PG_DUMP_DIR/$(date +%F).sql.gz"
+PG=$(sudo docker ps --filter 'name=^/aiqadam-.*-postgres-1$' --format '{{.Names}}' | head -1)
+sudo docker exec "$PG" pg_dumpall -U postgres | gzip > "$PG_DUMP_DIR/$(date +%F).sql.gz"
 PATHS+=("$PG_DUMP_DIR")
 ```
 
 Then run a manual backup to verify (`sudo /usr/local/sbin/aiqadam-backup.sh`) and check with `restic snapshots` that the new path is included.
 
-For MinIO buckets, restic can back up the underlying `/data/coolify/applications/<minio>/data` directly, OR use `mc mirror` to a pre-backup staging dir first. The trade-off: backing up the data dir is faster but skips MinIO's metadata sanity (object listings). Decide when MinIO actually lands.
+For MinIO buckets, restic can back up the underlying MinIO data dir directly, OR use `mc mirror` to a pre-backup staging dir first. The trade-off: backing up the data dir is faster but skips MinIO's metadata sanity (object listings). Decide when MinIO actually lands.
 
 ## Monthly restore drill (automated, F-S0.5)
 
@@ -173,12 +196,12 @@ When the drill fails on the host, it still emits a `result=fail` Plausible event
 
 The monthly automated drill covers the bulk of recovery-test discipline. Once per quarter, additionally perform a manual file-level diff:
 
-1. Pick a non-trivial path that has changed recently (e.g., the `/data/coolify/source/.env` after Coolify settings have changed).
+1. Pick a non-trivial path that has changed recently (e.g., `$APP_DIR/.env` after a deploy).
 2. Restore from the latest snapshot to `/tmp/drill-q`.
 3. Diff against current; if you need older state, inspect snapshot timestamps via `restic snapshots`.
 4. Note in `docs/restore-drills/YYYY-Qn.md`: snapshot ID, file restored, time elapsed, any anomalies.
 
-Annually, run a full disaster-recovery drill: provision a fresh VM, follow [coolify-bootstrap.md](coolify-bootstrap.md), restore `/data/coolify` from R2, verify Coolify boots and admin login works.
+Annually, run a full disaster-recovery drill: provision a fresh VM, follow [snapshot-restore.md § "The slow path"](snapshot-restore.md), restore `$APP_DIR` + the DB dump from R2, and verify the stack boots and sign-in works.
 
 ## Key rotation
 
