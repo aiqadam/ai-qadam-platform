@@ -1,0 +1,15 @@
+[Unit]
+Description=AI Qadam DB dump + cross-host backup replication
+Documentation=file:///opt/apps/aiqadam-%i/docs/04-development/infrastructure/runbooks/snapshot-restore.md
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/default/aiqadam-backup
+ExecStart=/usr/local/sbin/aiqadam-backup.sh
+# The script writes only under /var/backups/aiqadam and reads docker.sock.
+ProtectSystem=strict
+ReadWritePaths=/var/backups/aiqadam
+PrivateTmp=true
+NoNewPrivileges=true
