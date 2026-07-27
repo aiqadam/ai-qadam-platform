@@ -129,3 +129,39 @@ Authentik API. Fails against the pre-fix script (empty/absent
   running the full local registration→sign-in round-trip is part of this
   workflow's Step 8 (see `07-test-results.md` for the outcome actually
   achieved before this workflow closed).
+
+### QA follow-up (2026-07-27, same day)
+
+The two gaps disclosed above are now closed:
+
+- **`deploy-qa` is no longer blocked.** A push to `main` after this PR
+  merged deployed commit `cc432578c695d53e1496892703133e8761e1f7e2` to
+  `pro-data-tech-qa` successfully (confirmed via the GitHub Actions run
+  log: `deployed cc432578c695d53e1496892703133e8761e1f7e2`).
+- **QA's existing Authentik provider was patched.** The code fix in this
+  PR only corrects the *provisioning script* going forward — it does not
+  retroactively fix a provider that was already created by the old,
+  broken version of that script. QA's provider (`aiqadam-qa-provider`,
+  Authentik `pk=1`, on host `pro-data-tech-qa`) was exactly such a case:
+  confirmed live with `property_mappings: []` before any change, then
+  patched additively to attach the three managed `openid`/`email`/`profile`
+  scope mappings. This required infrastructure-level access this repo's
+  session doesn't have, so it was done via the sibling `ai-qadam-infra`
+  project's own orchestrator workflow (with its own approval gate) —
+  tracked there as
+  [T-0126](../../../ai-qadam-infra/tasks/T-0126-fix-authentik-scope-mappings-on-qa.md)
+  (run `2026-07-27-fix-authentik-scope-mappings-qa-001`, `status: done`).
+- **Live confirmation from this session**: `POST https://qa.aiqadam.org/v1/auth/register`
+  with a fresh test email now returns `302 → /v1/auth/login` (the
+  documented success response), where it previously would complete
+  registration but then 401 at the OIDC callback. The literal end-to-end
+  browser round-trip (register → Authentik login → `/api/v1/auth/callback`
+  → signed-in session) was not exercised by a real browser in either this
+  repo's session or the infra-side workflow — both independently confirmed
+  the fix via non-browser means (this session: the 302 registration
+  response above; the infra workflow: three independent on-host ORM
+  re-queries plus Authentik's own live OIDC discovery document now
+  advertising `email` in `scopes_supported`/`claims_supported`). Tracked
+  as a small, explicitly non-blocking follow-up:
+  [T-0127](../../../ai-qadam-infra/tasks/T-0127-verify-authentik-qa-fix-live-browser-round-trip.md)
+  in `ai-qadam-infra` (P2, observation status).
