@@ -19,9 +19,9 @@ branch: "fix/ISS-AUTH-OIDC-EMAIL-001-property-mappings"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/81"
 
-current_step: 11
-current_step_name: "final-quality-gate"
-workflow_status: "running"
+current_step: 12.5
+current_step_name: "merge-pull-verify"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""

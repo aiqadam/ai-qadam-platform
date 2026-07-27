@@ -1,11 +1,13 @@
 # Workspace State
 
-**Last updated:** 2026-07-27 — `wf-20260727-feat-136`. **Backups are live.**
-Cross-host replication deployed and verified on both hosts: prod's dumps land on
-QA, QA's on prod, nightly at 03:00 UTC via systemd timers. No external provider,
-so the `ai-dala-infra` no-off-site rule holds. Push keys are locked to a forced
-command (rsync-push only; shell, pull and arbitrary reads all verified DENIED).
-See [ISS-INFRA-004](../issues/ISS-INFRA-004.md).> **Contract — read before editing.** This file answers exactly one question:
+**Last updated:** 2026-07-27 — `wf-20260727-fix-137`. **OIDC email-claim bug fixed.**
+`.copilot/bootstrap-oidc.sh` now attaches Authentik's built-in openid/email/profile
+scope mappings on provider create and reuse-and-patch (self-heal), fixing the 401
+"oidc id_token missing email claim" reported in GitHub issue #79. Verified live
+against local Authentik (Authentik's own claim-evaluation engine confirms `email`
+now present); live QA re-verification rides the pre-existing, still-queued
+`wf-20260723-fix-128-deploy-qa-permission-fix`. See [ISS-AUTH-OIDC-EMAIL-001](../issues/ISS-AUTH-OIDC-EMAIL-001.md).
+> **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
 >
 > - **Do not prepend close-out narrative.** Workflow history belongs in

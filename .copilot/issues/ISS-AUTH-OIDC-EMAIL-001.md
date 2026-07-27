@@ -89,7 +89,7 @@ Authentik API. Fails against the pre-fix script (empty/absent
 ## Resolution
 
 - **Workflow:** wf-20260727-fix-137
-- **PR:** <pending>
+- **PR:** [#81](https://github.com/aiqadam/ai-qadam-platform/pull/81)
 - **Root cause:** `.copilot/bootstrap-oidc.sh`'s provider-creation request
   omitted `property_mappings`, so Authentik attached no scope mappings and
   the id_token never carried an `email` claim.
@@ -97,7 +97,7 @@ Authentik API. Fails against the pre-fix script (empty/absent
   `scope-openid`/`scope-email`/`scope-profile` managed property mappings,
   on both create and reuse-and-patch paths.
 - **Regression test:** `scripts/tests/bootstrap-oidc.bats`
-- **Merged:** <pending>
+- **Merged:** squash commit `cc432578c695d53e1496892703133e8761e1f7e2` on `main` (PR #81, 2026-07-27)
 
 ### Honesty disclosures (AGENTS.md §6.1)
 
