@@ -1,0 +1,109 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260727-fix-137"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-27T00:00:00Z"
+last_updated_at: "2026-07-27T00:00:00Z"
+
+requirement_ref: "ISS-AUTH-OIDC-EMAIL-001"
+requirement_text: >-
+  OIDC callback rejects with 401 "oidc id_token missing email claim" after
+  a user registers and signs in. Root cause: .copilot/bootstrap-oidc.sh
+  creates the Authentik OAuth2/OIDC provider without property_mappings,
+  so no scope mappings are attached and the id_token never carries email.
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/79"
+
+branch: "fix/ISS-AUTH-OIDC-EMAIL-001-property-mappings"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/81"
+
+current_step: 11
+current_step_name: "final-quality-gate"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  issue-lookup:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/02-impact-analysis.md"
+  code-developer:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/03-code-summary.md"
+  security-review:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/04-security-review.md"
+  test-strategy-design:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/06-test-strategy.md"
+  test-execution:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/07-test-results.md"
+  registry-update:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/09-registry-update.md"
+  final-quality-gate:
+    status: passed
+    output_file: ".copilot/tasks/active/wf-20260727-fix-137/11-quality-gate.md"
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: ["ISS-AUTH-OIDC-EMAIL-001"]
+issue_ref: "ISS-AUTH-OIDC-EMAIL-001"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-009"]
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260727-fix-137/01-issue-lookup.md"
+  - ".copilot/tasks/active/wf-20260727-fix-137/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260727-fix-137/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260727-fix-137/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260727-fix-137/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260727-fix-137/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260727-fix-137/09-registry-update.md"
+  - ".copilot/tasks/active/wf-20260727-fix-137/11-quality-gate.md"
+  - "scripts/tests/bootstrap-oidc.bats"
+
+context_refs:
+  - docs/04-development/architecture/auth-architecture.md
+  - docs/04-development/infrastructure/runbooks/authentik-local-bootstrap.md
+  - .copilot/bootstrap-oidc.sh
+  - .copilot/oidc-provider-body.json
+
+merge_mode: "auto"
