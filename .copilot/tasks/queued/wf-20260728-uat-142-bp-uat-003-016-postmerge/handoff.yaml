@@ -1,0 +1,82 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-uat-142-bp-uat-003-016-postmerge"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T04:20:00Z"
+last_updated_at: "2026-07-28T04:20:00Z"
+
+requirement_ref: "ISS-USR-PROFILE-001"
+requirement_text: "Post-merge live re-verification of BP-UAT-003 (member self-service profile) and BP-UAT-016 (member referral programme), required per AGENTS.md §6.1 and protocol.md 'Business-Process Linkage & Post-Merge UAT' after wf-20260728-fix-141 (PR #95) merged the MeProfileService Directus-id-bridge fix."
+
+branch: ""
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "not-started"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260728-fix-141"
+  parent_branch: "fix/ISS-USR-PROFILE-001-directus-id-bridge"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-28T04:20:00Z"
+  spawned_by_issue: "ISS-USR-PROFILE-001"
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals:
+  - from_feature: "ISS-USR-PROFILE-001"
+    to_feature: "wf-20260728-uat-142-bp-uat-003-016-postmerge"
+    reason: "Live agent-driven Playwright re-verification of BP-UAT-003 + BP-UAT-016 deferred — required starting the local web dev server (down) and rebuilding/restarting the api dev process, plus fixture seeding; done in this workflow only to the extent of rebuilding+restarting the api and confirming it serves the merged fix (curl /health + grep dist for resolveDirectusId), not the full authenticated Playwright session which needs a real OIDC sign-in this session did not script."
+    step: 13
+    timestamp: "2026-07-28T04:20:00Z"
+
+expects_registry_update: false
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-003", "BP-UAT-016"]
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-003.md
+  - docs/02-business-processes/uat/BP-UAT-016.md
+  - apps/api/src/modules/me-profile/
+  - apps/api/src/modules/referrals/
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""

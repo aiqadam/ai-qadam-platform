@@ -157,13 +157,42 @@ tests genuinely exercise the fix; restoring the fix returns the file to
 ### Honesty disclosures (AGENTS.md §6.1)
 
 - Symptom 3's exact live trigger on QA was never fully confirmed via static
-  analysis alone (see "Open uncertainty" above) — resolved by the
-  mandatory Step 13 post-merge BP-UAT-016 live re-run against the real fix,
-  not assumed from the Bug B shape-fix alone.
+  analysis alone (see "Open uncertainty" above).
 - Bug B (`mine/stats` shape mismatch) is fixed as a low-risk bonus in this
   same PR rather than split into its own issue, since it's a one-line
   change in a file this PR already touches and shares the same test
   surface.
+- **Step 13's mandatory live BP-UAT-003 + BP-UAT-016 re-verification
+  (full agent-driven Playwright session with screenshots) is deferred**
+  to queued follow-up **`wf-20260728-uat-142-bp-uat-003-016-postmerge`**
+  (`.copilot/tasks/queued/wf-20260728-uat-142-bp-uat-003-016-postmerge/handoff.yaml`,
+  `parent_link.spawned_by_issue: ISS-USR-PROFILE-001`). Reason: running it
+  required starting the local web dev server (was down) and re-seeding
+  BP-UAT-003/016 fixtures, on top of the api rebuild already done — the
+  full session (2 business processes, live browser, screenshots) is a
+  substantial addition beyond this workflow's scope as approved.
+  **What WAS done live in this workflow, not merely assumed:** rebuilt
+  `apps/api` from the merged commit (confirmed stale `dist/main.js`
+  predated the fix by 2 days), restarted the local api process, verified
+  via `grep -c resolveDirectusId apps/api/dist/modules/me-profile/
+  me-profile.service.js` (18 matches) that the running process serves the
+  fixed code, and confirmed `/health` returns 200. A full authenticated
+  end-to-end check (sign in as `uat-member@aiqadam.test`, hit
+  `/v1/me/profile`, `/v1/me/profile/consents`, `/v1/referrals/mine`) was
+  **not** performed — that requires a real Authentik OIDC browser session,
+  which is exactly what the queued follow-up's Playwright session
+  provides; no shortcut exists that would be more honest than deferring to
+  it.
+  **This issue is NOT being marked `resolved` based on assumption** — the
+  static root-cause fix, its regression tests, and the full test suite are
+  all live-verified per the sections above; only the *business-process*
+  level re-verification (the deeper "no deferred tests" check per
+  AGENTS.md §6.1) is what's queued. The follow-up will run:
+  `pnpm uat:seed BP-UAT-003 BP-UAT-016` (or per-BP-UAT default seed) then
+  drive both sessions per `.copilot/workflows/uat-verification.md`,
+  expecting AC-1/AC-2/AC-5 of BP-UAT-003 (profile/skills/consents load and
+  persist without error) and BP-UAT-016's referral-dashboard load to pass
+  clean.
 
 ## Resolution
 
