@@ -18,7 +18,7 @@ github_issue_url: ""
 
 branch: "fix/ISS-USR-REDIRECT-002-recovery-flow-redirect"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/92"
 
 current_step: 9
 current_step_name: "registry-update"
