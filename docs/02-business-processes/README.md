@@ -11,6 +11,8 @@ How the organization and community operate day to day. Operator playbooks, marke
 
 ## Operator playbook
 
+- [Process: Platform admin bootstrap (first super-admin, no manual scripts)](operator-playbook/admin-bootstrap.md)
+- [Process: Admin manages users, roles, and access via the admin panel](operator-playbook/admin-user-management.md)
 - [Operator playbook: Brand asset production](operator-playbook/brand-asset-production.md)
 - [Operator playbook: Community conduct (v0)](operator-playbook/community-conduct.md)
 - [Operator playbook: Country launch](operator-playbook/country-launch.md)
