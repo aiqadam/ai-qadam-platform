@@ -14,6 +14,16 @@ import { env } from '../../config/env';
 // to retry or surface as 5xx; for invite flows we currently surface as
 // a generic 502 (Authentik is a hard dependency, not a soft one).
 
+// Shared across the module: SuperAdminGuard (route-level authorization
+// check) and AdminBootstrapService (FR-ADM-010 zero-admin bootstrap) both
+// need the exact Authentik group name that carries platform-admin rights.
+// Previously duplicated as a private constant in super-admin.guard.ts —
+// extracted here so there is exactly one source of truth, and so
+// FR-ADM-011 (ongoing super-admin cap enforcement) has a natural shared
+// home to import from too. Must match the group provisioned by
+// scripts/provision-authentik-rbac-groups.sh.
+export const SUPER_ADMIN_GROUP = 'aiqadam-super-admin';
+
 export class AuthentikError extends Error {
   constructor(
     public readonly status: number,

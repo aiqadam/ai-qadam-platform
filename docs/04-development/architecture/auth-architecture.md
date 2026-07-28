@@ -433,6 +433,72 @@ What we do **not** defend against today:
 
 ---
 
+## 9.5. Platform-admin bootstrap (FR-ADM-010)
+
+Replaces the manual, human-operated bootstrap procedure formerly
+described at ADR-0021 §9 step 3 (now superseded — see the note there).
+
+On every API boot, `AdminBootstrapService`
+(`apps/api/src/modules/admin-invites/admin-bootstrap.service.ts`) checks
+whether the `aiqadam-super-admin` Authentik group has zero members. If it
+does, the service creates exactly one seeded admin account directly in
+Authentik via `AuthentikClient`, assigns it to `aiqadam-super-admin`, and
+sets an Authentik user attribute intended to force a password change on
+next login. If the group already has ≥1 member, bootstrap is a no-op —
+safe to run on every redeploy.
+
+No Postgres writes: the seeded identity lives only in Authentik (ADR-0021
+§1 — Authentik is the source of truth, `users.role` is advisory only).
+The platform's API never stores, hashes, or reads back the seeded
+password beyond the one `set_password/` call at creation time — the same
+"only Authentik sees a password" guarantee §2 above describes for every
+other account-creation path (e.g. FR-ADM-005's operator-invite flow).
+
+**Credentials — format/location only, not a live value.** The seeded
+email and default password are configured identically (same variable
+names, same spelling) in `apps/api/.env.example` and here:
+
+- `ADMIN_BOOTSTRAP_EMAIL` — not a secret; defaults to `admin@aiqadam.org`
+  if unset.
+- `ADMIN_BOOTSTRAP_DEFAULT_PASSWORD` — a genuine secret. No default value
+  anywhere in this repo, including `.env.example` (blank `=`) — each
+  environment (local/QA/prod) generates and supplies its own. If unset,
+  `AdminBootstrapService` logs a WARN and skips gracefully rather than
+  crashing boot (same degraded-mode pattern as `AUTHENTIK_ADMIN_TOKEN`
+  being unset).
+
+**Forced password-change mechanism — unverified, flagged for UAT.** The
+service attempts to force a password-change prompt on first login by
+setting the Authentik user attribute
+`ak_login_password_change_required: true` via
+`AuthentikClient.patchAttributes()`. This attribute key was chosen as the
+most standard/documented candidate for Authentik's stock password-expiry
+/ "prompt for new password" flow stage, but **has not been verified
+against a live Authentik instance** as part of the workflow that
+introduced it (no Testcontainers-Authentik double exists in this repo).
+[`BP-UAT-020`](../../02-business-processes/uat/BP-UAT-020.md) is the
+designated follow-up verification point — do not treat this mechanism as
+confirmed-working until that UAT script has run against a real Authentik
+instance. See the code comment on `FORCE_PASSWORD_CHANGE_ATTRIBUTE` in
+`admin-bootstrap.service.ts` for the full reasoning and documented
+fallback (a provisioned password-expiry policy) if this attribute key
+turns out to be wrong.
+
+**Idempotency detail.** The zero-admin check is keyed on
+`aiqadam-super-admin` **group membership count**
+(`AuthentikClient.resolveGroupNames(...)[0].users.length`), not on
+whether the seeded email exists. This matters: if `createUser()` ever
+succeeds but a subsequent `setUserGroups()` call fails, keying on email
+existence would cause every later boot to treat the orphaned, group-less
+user as "already bootstrapped" and never retry — leaving
+`aiqadam-super-admin` permanently empty. Keying on membership count means
+the next boot always retries until the group actually gains a member;
+`AdminBootstrapService` also recovers from a duplicate-email error on
+retry by looking up the orphaned user and continuing from there instead
+of crash-looping.
+
+---
+
 ## 10. Pointers into the code
 
 | Concept | Where |
@@ -444,6 +510,7 @@ What we do **not** defend against today:
 | Refresh rotation + replay detection | `apps/api/src/modules/auth/refresh-token.service.ts` |
 | `AuthGuard` (verifies access token) | `apps/api/src/modules/auth/auth.guard.ts` |
 | `AdminGuard` + `@Roles(...)` | `apps/api/src/modules/auth/admin.guard.ts`, `roles.decorator.ts` |
+| Platform-admin bootstrap (FR-ADM-010) | `apps/api/src/modules/admin-invites/admin-bootstrap.service.ts` |
 | Sign-in UI | `apps/web/src/pages/auth/sign-in.astro`, `components/SignInForm.tsx` |
 | Sign-out UI | `apps/web/src/components/MeDashboard.tsx` (signOut function) |
 | Signed-out landing | `apps/web/src/pages/auth/signed-out.astro` |
