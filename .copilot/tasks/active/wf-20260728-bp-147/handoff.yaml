@@ -128,6 +128,10 @@ artifacts:
   - docs/03-requirements/FR-ADM-011.md
   - docs/02-business-processes/uat/BP-UAT-020.md
   - docs/02-business-processes/uat/BP-UAT-021.md
+  - docs/adr/0021-rbac-manifest.md
+  - docs/02-business-processes/operations/country-lead-activation.md
+  - scripts/provision-authentik-rbac-groups.sh
+  - scripts/uat-seed.sh
 
 context_refs:
   - docs/02-business-processes/README.md
