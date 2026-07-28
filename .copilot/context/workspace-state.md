@@ -174,6 +174,14 @@ snapshot, not a log.
 Only genuinely open items belong here. Resolved issues live in
 [`../issues/registry.md`](../issues/registry.md).
 
+- [ISS-UAT-020-1](../issues/ISS-UAT-020-1.md) (blocker, uat/environment +
+  admin/ADM) — BP-UAT-020 has no safe, executable fixture for its
+  "zero-super-admin" precondition (only an unresolved design question:
+  isolated Authentik realm vs. destructive remove-and-restore against
+  shared local dev state). Blocks live verification of FR-ADM-010's
+  forced-password-change mechanism only — does not affect FR-ADM-010's
+  `Implemented`/`Shipped` status, which is fully unit-verified. No
+  follow-up workflow queued yet.
 - [ISS-USR-REG-002](../issues/ISS-USR-REG-002.md) — code fix **merged**
   2026-07-23 (PR [#51](https://github.com/aiqadam/ai-qadam-platform/pull/51),
   squash `e3edfa7`). Remains open only on **AC-4 (live QA verification)**,
