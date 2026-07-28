@@ -102,10 +102,10 @@ pre-fix (`Received: "/"` where `/me` expected), all 3 pass post-fix.
 ## Resolution
 
 - **Workflow:** wf-20260728-fix-139
-- **PR:** <pending>
+- **PR:** [#90](https://github.com/aiqadam/ai-qadam-platform/pull/90)
 - **Root cause:** No code path ever set `next=/me`; both apps' sign-in
   entry points defaulted `next` to the current/home path instead.
 - **Fix:** Default `next` to `/me` in both apps' `sign-in.astro` and
   both apps' nav "Sign in" CTA (homepage case only).
 - **Regression test:** `apps/e2e/tests/uat/sign-in-default-redirect.spec.ts`
-- **Merged:** <pending>
+- **Merged:** `a32e85bb2c448bd943c9e1dc3fa0ea7d778da96e` (squash, 2026-07-28)
