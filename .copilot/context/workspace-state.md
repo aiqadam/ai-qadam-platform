@@ -18,8 +18,8 @@ workflow — no Testcontainers-Authentik double exists in this repo. Per
 `business_process: [BP-UAT-020]` in `handoff.yaml`, the workflow protocol
 mandates a same-session post-merge `uat-verification` run against
 `BP-UAT-020` before this workflow is considered complete; check this
-file's own next entry (or `wf-20260728-feat-148`'s task directory) for
-the outcome.
+file's own next entry (or `wf-20260728-feat-148`'s task directory at
+`.copilot/tasks/completed/wf-20260728-feat-148/`) for the outcome.
 
 `wf-20260728-fix-145` — **QA's Directus environment-parity gap closed — QA now matches local.**
 [ISS-INFRA-QA-DIRECTUS-SCHEMA-001](../issues/ISS-INFRA-QA-DIRECTUS-SCHEMA-001.md):
