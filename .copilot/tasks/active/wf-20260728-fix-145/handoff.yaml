@@ -1,0 +1,108 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-fix-145"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T11:00:00Z"
+last_updated_at: "2026-07-28T11:19:53Z"
+
+requirement_ref: "ISS-INFRA-QA-DIRECTUS-SCHEMA-001"
+requirement_text: "QA's Directus has no application schema at all -- bootstrap.sh and flows-bootstrap.sh had apparently never been run against it. Close the environment-parity gap end-to-end, per explicit user request."
+github_issue_url: ""
+
+branch: "infra/wf-20260728-fix-145-qa-directus-bootstrap"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 12
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T11:20:00Z"
+    summary: "No BLOCKER or MAJOR findings; live infra mutations reviewed for operational risk."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-145/04-security-review.md"
+  test-results:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T11:25:00Z"
+    summary: "bootstrap.sh + flows-bootstrap.sh ran clean against QA; live end-to-end connectivity verified."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-145/07-test-results.md"
+  quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T11:30:00Z"
+    summary: "Status-consistency satisfied; one honestly-disclosed gap (no real member session tested)."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-145/09-quality-gate.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-INFRA-QA-DIRECTUS-SCHEMA-001"
+
+deferrals:
+  - from_feature: "ISS-INFRA-QA-DIRECTUS-SCHEMA-001"
+    to_feature: "ISS-RBAC-PERMS-001"
+    reason: "This workflow closed the schema-and-connectivity parity gap on QA (bootstrap.sh + flows-bootstrap.sh run, DIRECTUS_TOKEN wiring fixed). ISS-RBAC-PERMS-001's remaining scope (policy.member's public-read/create-own-registration halves, all 6 other ADR-0021 policies) is unchanged and now applies equally to both local and QA since QA has caught up to local's schema baseline."
+    step: 4
+    timestamp: "2026-07-28T11:19:53Z"
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-003", "BP-UAT-016"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260728-fix-145/handoff.yaml"
+  - ".copilot/tasks/active/wf-20260728-fix-145/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260728-fix-145/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260728-fix-145/09-quality-gate.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/architecture/migration-to-directus-centric.md
+  - infrastructure/directus/bootstrap.sh
+  - infrastructure/directus/flows-bootstrap.sh
+  - deploy/docker-compose.qa.yml
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260728-fix-145/NEEDS_REVIEW.md"

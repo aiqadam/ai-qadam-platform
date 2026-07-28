@@ -194,12 +194,21 @@ services:
       - .env
     environment:
       PORT: "3113"
-      # These 4 override whatever placeholder values are in .env's static
+      # These override whatever placeholder values are in .env's static
       # section — real services now exist at these addresses. .env keeps
       # the OTHER required vars (JWT_SIGNING_SECRET, INTERNAL_API_TOKEN,
       # WEB_BASE_URL, OIDC_CLIENT_ID/SECRET, DATABASE_URL) as before.
       REDIS_URL: "redis://127.0.0.1:3116"
       DIRECTUS_URL: "http://127.0.0.1:3119"
+      # ISS-INFRA-QA-DIRECTUS-SCHEMA-001 (2026-07-28): DIRECTUS_TOKEN was
+      # missing from this override block, so it silently fell through to
+      # whatever placeholder value .env's static section had — the api
+      # container could not authenticate to Directus at all, independent
+      # of schema/permission correctness. Reuse DIRECTUS_ADMIN_TOKEN (the
+      # same real token the directus service block above already
+      # requires) as the single source of truth, so there is no second
+      # "DIRECTUS_TOKEN" value in .env that can drift out of sync with it.
+      DIRECTUS_TOKEN: ${DIRECTUS_ADMIN_TOKEN:?set DIRECTUS_ADMIN_TOKEN in deploy/.env}
       # MUST be a real public hostname, not a loopback address: Authentik's
       # discovery document reports authorization_endpoint based on the
       # Host header of the request that fetched /.well-known/... — if this
