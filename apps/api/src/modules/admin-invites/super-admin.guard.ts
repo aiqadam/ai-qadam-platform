@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { AuthentikClient } from './authentik.client';
+import { AuthentikClient, SUPER_ADMIN_GROUP } from './authentik.client';
 
 // F-S2.7 (ADR-0035): super-admin gate for /v1/admin/* routes. Runs
 // AFTER AuthGuard — uses the caller's email (always present in OIDC
@@ -16,10 +16,9 @@ import { AuthentikClient } from './authentik.client';
 // we do NOT cache — caching here means a revoked admin keeps their
 // access until the cache TTL. Admin path; extra round-trip is fine.
 //
-// SUPER_ADMIN_GROUP must match the group provisioned by
-// scripts/provision-authentik-rbac-groups.sh.
-
-const SUPER_ADMIN_GROUP = 'aiqadam-super-admin';
+// SUPER_ADMIN_GROUP (imported from authentik.client.ts, shared with
+// FR-ADM-010's AdminBootstrapService) must match the group provisioned
+// by scripts/provision-authentik-rbac-groups.sh.
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {

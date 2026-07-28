@@ -1,0 +1,257 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-feat-148"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T00:00:00Z"
+last_updated_at: "2026-07-28T00:00:00Z"
+
+requirement_ref: "FR-ADM-010"
+requirement_text: "Platform admin bootstrap (no manual scripts) — on first boot of a fresh environment with zero aiqadam-super-admin members, automatically create exactly one seeded admin account in Authentik, assign it to aiqadam-super-admin, and force a password change on first login. Replaces the current manual, human-operated bootstrap (ADR-0021 §9)."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/107"
+
+branch: "feature/ADM-010-admin-bootstrap-job"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+last_updated_at: "2026-07-28T04:00:00Z"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:20:00Z"
+    summary: "FR-ADM-010 specific, testable, non-conflicting, architecturally feasible. No blocking gaps."
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:45:00Z"
+    summary: >
+      Scoped entirely to apps/api/src/modules/admin-invites/ (new
+      OnModuleInit service). No DB/shared-types/frontend/bot/worker
+      changes, no new API endpoints, no new AuthentikClient method
+      (resolveGroupNames().users[] already covers the membership-count
+      check). Two risk flags raised for SecurityReviewer: the fixed
+      default password's secret-handling posture, and an idempotency-check
+      precision recommendation (key on group membership count, not seeded
+      email existence).
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T01:15:00Z"
+    summary: "AdminBootstrapService implemented; typecheck/lint/build clean; existing tests pass (31+2)."
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T01:45:00Z"
+    summary: >
+      All 11 invariants checked against the actual diff; INV-2/INV-4/INV-8
+      applicable and passing, remaining 8 confirmed N/A by direct
+      inspection (no Postgres/Drizzle access, zero new routes, no
+      frontend/token code). Independently verified the idempotency check
+      is keyed on aiqadam-super-admin group membership count (not seeded
+      -email existence) by reading admin-bootstrap.service.ts lines 91-95
+      directly. Independently line-by-line audited all 5 logger calls in
+      the new service — none log the password value. Fixed-default
+      -password exposure window accepted as a pre-existing, architecture
+      -level trade-off (no worse than the manual process it replaces),
+      non-blocking. Zero BLOCKER, zero MAJOR findings.
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T02:10:00Z"
+    summary: >
+      Rubric applied directly to the diff: score 2 (tenant-scoped-data +0,
+      new-API-endpoint +0, business-rule-with-edge-case +2 for the
+      idempotency/partial-failure recovery logic, cross-module-call +0
+      justified as an already-owned same-module dependency not a new
+      inter-module edge, new-DB-query +0) — below both the integration
+      (>=4) and E2E (>=6) thresholds, independently confirming the impact
+      analysis's unit-only conclusion on the rubric's own merits, robust
+      even under a more generous +1 cross-module score (total 3, still
+      short of 4). Full unit test plan written for the new
+      apps/api/test/admin-bootstrap.service.spec.ts covering both
+      degraded-mode skips, the no-op path, the zero-member bootstrap happy
+      path, the missing-group failure, the duplicate-email recovery edge
+      case, the 4xx/5xx error boundary, and a dedicated
+      password-never-logged regression test. All 5 ACs mapped; AC-3 split
+      into its two halves per task brief (logging half unit-tested,
+      forced-screen half correctly routed to BP-UAT-020); AC-4 noted as
+      having no testable code path rather than a hollow test invented;
+      AC-5 noted as a doc fact already satisfied, not a code test.
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T02:35:00Z"
+    summary: "15 new unit tests in admin-bootstrap.service.spec.ts; 48/48 passing incl. siblings; no source changes."
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/06-test-design.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T03:10:00Z"
+    summary: >
+      Independently re-ran the full mandated execution order (typecheck,
+      biome, unit, integration) rather than trusting prior self-reports.
+      Repo-wide typecheck and apps/api-scoped typecheck both clean (0
+      errors). Repo-wide biome check clean (exit 0; 2 pre-existing
+      unrelated warnings, confirmed untouched by this branch). New
+      admin-bootstrap.service.spec.ts: 15/15 passing standalone and 48/48
+      combined with siblings + boot-smoke test. Full apps/api suite run 3
+      times (2x direct vitest run + 1x via repo-root pnpm test): identical
+      1314/1315 result each time, the one failure being the already-tracked
+      pre-existing users.spec.ts:65 timestamp-race flake (confirmed
+      untouched by this branch; tracked under queued
+      wf-20260704-fix-096-pre-existing-api-test-flakes since 2026-07-04).
+      Integration-tier ambiguity resolved per task brief: apps/api has no
+      test:integration script or INTEGRATION_TEST gate (confirmed via
+      grep); vitest.config.ts is itself the Testcontainers-backed config.
+      Ran the existing Testcontainers integration specs directly (29/29
+      pass) to confirm no regression, correctly did not author a new
+      integration test for a feature with zero Postgres/Drizzle calls
+      (independently confirmed via grep). Docker confirmed running/healthy
+      via docker ps + docker info before any run — no infra gap, no
+      escalation needed. apps/web-next (932/932) and apps/web (54/54)
+      also pass clean via the same pnpm test invocation. E2E confirmed
+      genuinely not applicable (zero new routes, zero frontend changes).
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/07-test-results.md"
+  doc-update:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-28T03:45:00Z"
+    summary: "FR-ADM-010.md + requirements-registry.md status flip; ADR-0021 update; retry added workspace-state.md entry (QualityGate attempt-1 gap) + FR Notes BP-UAT-020 line."
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-28T04:00:00Z"
+    summary: "Attempt 1 failed-retry on missing workspace-state.md; fixed in doc-update attempt 2. Attempt 2 confirms fix, all checks pass. Authorizes commit/push/PR."
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/09-quality-gate.md"
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/01-requirement-validation.md"
+    timestamp: "2026-07-28T00:20:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/02-impact-analysis.md"
+    timestamp: "2026-07-28T00:45:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/03-code-summary.md"
+    timestamp: "2026-07-28T01:15:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/04-security-review.md"
+    timestamp: "2026-07-28T01:45:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/06-test-strategy.md"
+    timestamp: "2026-07-28T02:10:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/06-test-design.md"
+    timestamp: "2026-07-28T02:35:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/07-test-results.md"
+    timestamp: "2026-07-28T03:10:00Z"
+  doc-writer:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/08-doc-update.md"
+    timestamp: "2026-07-28T03:45:00Z"
+  quality-gate:
+    status: completed
+    step: 10
+    output_file: ".copilot/tasks/active/wf-20260728-feat-148/09-quality-gate.md"
+    timestamp: "2026-07-28T04:00:00Z"
+
+retry_counts:
+  doc-writer: 1
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-020"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260728-feat-148/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260728-feat-148/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260728-feat-148/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260728-feat-148/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260728-feat-148/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260728-feat-148/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260728-feat-148/07-test-results.md"
+  - "apps/api/test/admin-bootstrap.service.spec.ts"
+  - ".copilot/tasks/active/wf-20260728-feat-148/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260728-feat-148/09-quality-gate.md"
+  - ".copilot/context/workspace-state.md"
+
+context_refs:
+  - docs/03-requirements/FR-ADM-010.md
+  - docs/02-business-processes/operator-playbook/admin-bootstrap.md
+  - docs/02-business-processes/uat/BP-UAT-020.md
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/architecture/auth-architecture.md
+  - docs/04-development/standards.md
+  - docs/adr/0021-rbac-manifest.md
+  - apps/api/src/modules/admin-invites/authentik.client.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260728-feat-148/NEEDS_REVIEW.md"

@@ -1,7 +1,27 @@
 # Workspace State
 
-**Last updated:** 2026-07-28 — `wf-20260728-fix-145`.
-**QA's Directus environment-parity gap closed — QA now matches local.**
+**Last updated:** 2026-07-28 — `wf-20260728-feat-148`.
+**FR-ADM-010 (platform admin bootstrap) implemented — no more manual Authentik console steps.**
+[FR-ADM-010](../../docs/03-requirements/FR-ADM-010.md): new `AdminBootstrapService`
+(`apps/api/src/modules/admin-invites/admin-bootstrap.service.ts`, `OnModuleInit`)
+seeds exactly one `admin@aiqadam.org`-style super-admin directly in Authentik
+on boot when `aiqadam-super-admin` has zero members, idempotent on every
+later boot (keyed on live group-membership count, not seeded-email
+existence, to avoid a dangling-zero-admin state on partial failure).
+Replaces the manual procedure at ADR-0021 §9 step 3 (already marked
+superseded there). Status flipped `Implemented`/`Shipped` in
+`FR-ADM-010.md` and `requirements-registry.md`. **Known unverified gap,
+by design:** the forced-password-change-on-next-login mechanism
+(`AuthentikClient.patchAttributes()` with `ak_login_password_change_required`)
+has not been confirmed against a live Authentik instance in this
+workflow — no Testcontainers-Authentik double exists in this repo. Per
+`business_process: [BP-UAT-020]` in `handoff.yaml`, the workflow protocol
+mandates a same-session post-merge `uat-verification` run against
+`BP-UAT-020` before this workflow is considered complete; check this
+file's own next entry (or `wf-20260728-feat-148`'s task directory) for
+the outcome.
+
+`wf-20260728-fix-145` — **QA's Directus environment-parity gap closed — QA now matches local.**
 [ISS-INFRA-QA-DIRECTUS-SCHEMA-001](../issues/ISS-INFRA-QA-DIRECTUS-SCHEMA-001.md):
 ran `infrastructure/directus/bootstrap.sh` + `flows-bootstrap.sh` against
 QA's Directus live (29 → 79 collections, all 7 ADR-0021 RBAC policies +

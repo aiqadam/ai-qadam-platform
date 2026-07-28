@@ -151,6 +151,26 @@ const envSchema = z.object({
   AUTHENTIK_ADMIN_URL: z.string().url().default('https://auth.aiqadam.org'),
   AUTHENTIK_ADMIN_TOKEN: z.string().min(20).optional(),
 
+  // FR-ADM-010 — platform-admin bootstrap. On boot, AdminBootstrapService
+  // checks whether the aiqadam-super-admin Authentik group has zero
+  // members; if so it creates exactly one seeded admin account with these
+  // fixed credentials. AC-5 requires the email/password to be documented
+  // "identically... in .env.example and auth-architecture.md" — kept as
+  // env vars (not code constants) so a value change never requires a code
+  // deploy, consistent with how other fixed identifiers in this file
+  // (e.g. EMAIL_FROM) are handled.
+  //
+  // ADMIN_BOOTSTRAP_EMAIL has a dev-friendly default (matches EMAIL_FROM's
+  // pattern) since it is not a secret. ADMIN_BOOTSTRAP_DEFAULT_PASSWORD is
+  // a genuine new secret — CLAUDE.md's dev/test .env exception explicitly
+  // does NOT cover inventing new secret values, so this has NO default
+  // and MUST be supplied by the operator per environment. **Optional**:
+  // when unset, AdminBootstrapService logs a WARN and skips gracefully —
+  // same degraded-mode pattern as AUTHENTIK_ADMIN_TOKEN — so local dev
+  // without Authentik admin creds configured still boots cleanly.
+  ADMIN_BOOTSTRAP_EMAIL: z.string().email().default('admin@aiqadam.org'),
+  ADMIN_BOOTSTRAP_DEFAULT_PASSWORD: z.string().min(12).optional(),
+
   // F-S4.1-b — name of the Authentik OAuth2/OIDC provider that handles
   // aiqadam.org sign-in. The country-provisioning state machine reads
   // this to append `https://<country>.aiqadam.org/api/v1/auth/callback`

@@ -1,7 +1,7 @@
 ---
 code: FR-ADM-010
 name: Platform admin bootstrap (no manual scripts)
-status: Proposed
+status: Implemented
 module: Admin / Operator (ADM)
 phase: Not phased
 business_process: [BP-UAT-020]
@@ -105,3 +105,19 @@ fresh environment (local/QA/prod).
   country-lead onboarding flow.
 - Business-process linkage: `BP-UAT-020` (reserved, authored at Step 4 of
   the originating workflow).
+- **Deferred verification (added at `wf-20260728-feat-148`, implementation
+  workflow):** the forced-password-change-on-next-login mechanism
+  (`AuthentikClient.patchAttributes()` setting
+  `ak_login_password_change_required`, see the code comment on
+  `FORCE_PASSWORD_CHANGE_ATTRIBUTE` in `admin-bootstrap.service.ts`) is
+  **not verified against a live Authentik instance** as of this FR's
+  `Implemented` status — no Testcontainers-Authentik double exists in
+  this repo, so this could only be unit-tested at the "correct call
+  attempted" level, not the "Authentik actually enforces it" level.
+  `BP-UAT-020` is the named, protocol-mandated follow-up verification
+  point (run automatically post-merge, same session, per
+  `.copilot/schemas/protocol.md` "Business-Process Linkage & Post-Merge
+  UAT") — check `BP-UAT-020`'s own status and this workflow's
+  `handoff.yaml.post_merge_uat_runs[]` for the outcome. If it finds the
+  attribute key wrong, the documented fallback is a provisioned
+  password-expiry policy (infra/provisioning change, not a code change).
