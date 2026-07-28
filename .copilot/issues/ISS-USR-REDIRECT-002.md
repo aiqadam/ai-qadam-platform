@@ -132,7 +132,7 @@ issue-resolution workflow's scope.
 ## Resolution
 
 - **Workflow:** wf-20260728-fix-140-recovery-flow-redirect
-- **PR:** <pending>
+- **PR:** [#92](https://github.com/aiqadam/ai-qadam-platform/pull/92)
 - **Root cause:** `createRecoveryLink()` read `res.recovery_link`;
   Authentik's real response field is `res.link`. Always returned
   `undefined` in production.
@@ -141,4 +141,4 @@ issue-resolution workflow's scope.
   mirroring the same bug.
 - **Regression test:** `apps/api/test/authentik-client.spec.ts` —
   `AuthentikClient.createRecoveryLink` describe block.
-- **Merged:** <pending>
+- **Merged:** `6f5400e` (squash, 2026-07-28)
