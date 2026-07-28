@@ -1,0 +1,96 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-uat-149"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T04:30:00Z"
+last_updated_at: "2026-07-28T04:30:00Z"
+
+requirement_ref: "BP-UAT-020"
+requirement_text: "Post-merge UAT re-verification of BP-UAT-020 (Platform admin bootstrap, no manual scripts), spawned per requirement-development workflow wf-20260728-feat-148's Step 13 after FR-ADM-010 merged (PR #110)."
+github_issue_url: ""
+
+branch: "uat/bp-uat-020-admin-bootstrap"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 1
+current_step_name: "uat-script-validation"
+workflow_status: "needs-review"
+last_updated_at: "2026-07-28T05:00:00Z"
+
+parent_link:
+  parent_workflow_id: "wf-20260728-feat-148"
+  parent_branch: "feature/ADM-010-admin-bootstrap-job"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-28T04:30:00Z"
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  uat-script-validation:
+    status: failed-retry
+    attempt: 1
+    timestamp: "2026-07-28T05:00:00Z"
+    summary: "BP-UAT-020's seed_fixture for the zero-super-admin precondition is an unresolved design question, not an executable fixture. Not mechanically retriable -- treated as failed-escalate equivalent per protocol.md. See NEEDS_REVIEW.md and ISS-UAT-020-1."
+    output_file: ".copilot/tasks/active/wf-20260728-uat-149/01-uat-script-validation.md"
+
+agent_assignments:
+  business-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260728-uat-149/01-uat-script-validation.md"
+    timestamp: "2026-07-28T05:00:00Z"
+
+retry_counts:
+  business-analyst: 1
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: ["ISS-UAT-020-1"]
+issue_ref: "ISS-UAT-020-1"
+
+deferrals: []
+
+expects_registry_update: false
+
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-020"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260728-uat-149/01-uat-script-validation.md"
+  - ".copilot/tasks/active/wf-20260728-uat-149/NEEDS_REVIEW.md"
+  - ".copilot/issues/ISS-UAT-020-1.md"
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-020.md
+  - docs/02-business-processes/uat/registry.md
+  - docs/03-requirements/FR-ADM-010.md
+
+needs_review:
+  reason: "BP-UAT-020's seed_fixture for its zero-super-admin precondition is an unresolved design question, not an executable/safe fixture -- not mechanically retriable within Step 1's 1-retry limit."
+  stopped_at_step: 1
+  stopped_at_step_name: "uat-script-validation"
+  issue_ref: "ISS-UAT-020-1"
+  artifact_file: ".copilot/tasks/active/wf-20260728-uat-149/NEEDS_REVIEW.md"
