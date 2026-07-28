@@ -18,10 +18,12 @@ import { MembersOnboardingService } from '../src/modules/members/onboarding.serv
 // ---------------------------------------------------------------------------
 
 const USER_ID = '11111111-1111-4000-8000-000000000001';
+const EMAIL = 'ahmad@example.com';
 
 function makeFakeOnboardingService() {
   return {
-    completeOnboarding: vi.fn<(_u: string, _d: OnboardMemberDto) => Promise<void>>(),
+    completeOnboarding:
+      vi.fn<(_u: string, _e: string, _d: OnboardMemberDto) => Promise<void>>(),
   };
 }
 
@@ -33,8 +35,8 @@ type MockRequest = {
   user?: { sub: string; email?: string };
 };
 
-function reqWithUser(sub: string): MockRequest {
-  return { user: { sub } };
+function reqWithUser(sub: string, email = EMAIL): MockRequest {
+  return { user: { sub, email } };
 }
 
 function reqNoUser(): MockRequest {
@@ -170,7 +172,7 @@ describe('POST /v1/members/onboard — controller', () => {
       );
 
       expect(fakeSvc.completeOnboarding).toHaveBeenCalledTimes(1);
-      expect(fakeSvc.completeOnboarding).toHaveBeenNthCalledWith(1, USER_ID, expect.objectContaining({
+      expect(fakeSvc.completeOnboarding).toHaveBeenNthCalledWith(1, USER_ID, EMAIL, expect.objectContaining({
         firstName: 'Ahmad',
         lastName: 'Rakhimov',
         jobTitle: 'ML Engineer',
@@ -194,7 +196,7 @@ describe('POST /v1/members/onboard — controller', () => {
         },
       );
 
-      const [, dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
+      const [, , dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
       expect(dto.skills).toEqual(['mlops', 'computer-vision']);
     });
 
@@ -211,7 +213,7 @@ describe('POST /v1/members/onboard — controller', () => {
         },
       );
 
-      const [, dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
+      const [, , dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
       expect(dto.interests[0]?.topic_tag).toBe('llm-optimization');
     });
 
@@ -224,7 +226,7 @@ describe('POST /v1/members/onboard — controller', () => {
         { firstName: 'A', lastName: 'B' },
       );
 
-      const [, dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
+      const [, , dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
       expect(dto.skills).toEqual([]);
     });
 
@@ -237,7 +239,7 @@ describe('POST /v1/members/onboard — controller', () => {
         { firstName: 'A', lastName: 'B' },
       );
 
-      const [, dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
+      const [, , dto] = fakeSvc.completeOnboarding.mock.calls[0]!;
       expect(dto.consents).toEqual({});
     });
 
@@ -271,8 +273,12 @@ describe('MembersOnboardingService.completeOnboarding — orchestration', () => 
       patch: vi.fn(),
       delete: vi.fn(),
     };
+    const fakeBridge = { ensureLinked: vi.fn().mockResolvedValue('directus-user-1') };
 
-    const profile = new MeProfileService(fakeDirectus as unknown as import('../src/modules/directus/directus.client').DirectusClient);
+    const profile = new MeProfileService(
+      fakeDirectus as unknown as import('../src/modules/directus/directus.client').DirectusClient,
+      fakeBridge as unknown as import('../src/modules/directus/directus-users-bridge.service').DirectusUsersBridgeService,
+    );
 
     // Mock PointsDirectusService — only awardFirstJoinPoints is used by onboarding
     const mockPoints = {
@@ -289,7 +295,7 @@ describe('MembersOnboardingService.completeOnboarding — orchestration', () => 
     const setConsentSpy = vi.spyOn(profile, 'setConsent').mockResolvedValue({ purpose: 'events', granted: true, lastChangedAt: '2026-01-01T00:00:00Z' });
     const setOnboardedAtSpy = vi.spyOn(profile, 'setOnboardedAt').mockResolvedValue(undefined);
 
-    await svc.completeOnboarding(USER_ID, {
+    await svc.completeOnboarding(USER_ID, EMAIL, {
       firstName: 'Ahmad',
       lastName: 'Rakhimov',
       jobTitle: 'ML Engineer',
@@ -300,15 +306,15 @@ describe('MembersOnboardingService.completeOnboarding — orchestration', () => 
     });
 
     // Verify all methods called
-    expect(patchDirectusFieldsSpy).toHaveBeenCalledWith(USER_ID, {
+    expect(patchDirectusFieldsSpy).toHaveBeenCalledWith(USER_ID, EMAIL, {
       first_name: 'Ahmad',
       last_name: 'Rakhimov',
     });
-    expect(patchProfileSpy).toHaveBeenCalledWith(USER_ID, { job_title: 'ML Engineer' });
-    expect(addSkillSpy).toHaveBeenCalledWith(USER_ID, 'mlops');
-    expect(addInterestSpy).toHaveBeenCalledWith(USER_ID, 'ai-safety', 'learn');
-    expect(setConsentSpy).toHaveBeenCalledWith(USER_ID, 'events', true);
-    expect(setOnboardedAtSpy).toHaveBeenCalledWith(USER_ID);
+    expect(patchProfileSpy).toHaveBeenCalledWith(USER_ID, EMAIL, { job_title: 'ML Engineer' });
+    expect(addSkillSpy).toHaveBeenCalledWith(USER_ID, EMAIL, 'mlops');
+    expect(addInterestSpy).toHaveBeenCalledWith(USER_ID, EMAIL, 'ai-safety', 'learn');
+    expect(setConsentSpy).toHaveBeenCalledWith(USER_ID, EMAIL, 'events', true);
+    expect(setOnboardedAtSpy).toHaveBeenCalledWith(USER_ID, EMAIL);
     expect(mockPoints.awardFirstJoinPoints).toHaveBeenCalledWith(USER_ID);
 
     // Verify call order: setOnboardedAt before awardFirstJoinPoints
@@ -325,8 +331,12 @@ describe('MembersOnboardingService.completeOnboarding — orchestration', () => 
       patch: vi.fn(),
       delete: vi.fn(),
     };
+    const fakeBridge = { ensureLinked: vi.fn().mockResolvedValue('directus-user-1') };
 
-    const profile = new MeProfileService(fakeDirectus as unknown as import('../src/modules/directus/directus.client').DirectusClient);
+    const profile = new MeProfileService(
+      fakeDirectus as unknown as import('../src/modules/directus/directus.client').DirectusClient,
+      fakeBridge as unknown as import('../src/modules/directus/directus-users-bridge.service').DirectusUsersBridgeService,
+    );
 
     const mockPoints = {
       awardFirstJoinPoints: vi.fn().mockResolvedValue(undefined),
@@ -341,7 +351,7 @@ describe('MembersOnboardingService.completeOnboarding — orchestration', () => 
     vi.spyOn(profile, 'addInterest').mockResolvedValue({ id: 'i-1', topic_tag: '', intent: 'learn' });
     vi.spyOn(profile, 'setOnboardedAt').mockResolvedValue(undefined);
 
-    await svc.completeOnboarding(USER_ID, {
+    await svc.completeOnboarding(USER_ID, EMAIL, {
       firstName: 'A',
       lastName: 'B',
       skills: [],
@@ -350,7 +360,7 @@ describe('MembersOnboardingService.completeOnboarding — orchestration', () => 
     });
 
     // Only 'events' and 'research' should be set (both true); 'marketing' (false) skipped
-    const callPurposes = setConsentSpy.mock.calls.map((c) => c[1] as string);
+    const callPurposes = setConsentSpy.mock.calls.map((c) => c[2] as string);
     expect(callPurposes).toEqual(expect.arrayContaining(['events', 'research']));
     expect(callPurposes).not.toContain('marketing');
   });

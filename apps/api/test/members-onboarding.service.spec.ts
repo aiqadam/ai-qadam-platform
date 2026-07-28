@@ -28,6 +28,7 @@ type FakePoints = {
 };
 
 const USER_ID = '11111111-1111-4000-8000-000000000001';
+const EMAIL = 'ahmad@example.com';
 
 function makeFakeProfile(): FakeProfile {
   return {
@@ -80,9 +81,9 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
-      expect(profile.patchDirectusFields).toHaveBeenCalledWith(USER_ID, {
+      expect(profile.patchDirectusFields).toHaveBeenCalledWith(USER_ID, EMAIL, {
         first_name: 'Ahmad',
         last_name: 'Rakhimov',
       });
@@ -99,9 +100,9 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
-      expect(profile.patchProfile).toHaveBeenCalledWith(USER_ID, {
+      expect(profile.patchProfile).toHaveBeenCalledWith(USER_ID, EMAIL, {
         job_title: 'Senior ML Engineer',
       });
     });
@@ -117,9 +118,9 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
-      expect(profile.patchProfile).toHaveBeenCalledWith(USER_ID, {
+      expect(profile.patchProfile).toHaveBeenCalledWith(USER_ID, EMAIL, {
         job_title: null,
       });
     });
@@ -134,12 +135,12 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.addSkill).toHaveBeenCalledTimes(3);
-      expect(profile.addSkill).toHaveBeenNthCalledWith(1, USER_ID, 'mlops');
-      expect(profile.addSkill).toHaveBeenNthCalledWith(2, USER_ID, 'llm-finetuning');
-      expect(profile.addSkill).toHaveBeenNthCalledWith(3, USER_ID, 'computer-vision');
+      expect(profile.addSkill).toHaveBeenNthCalledWith(1, USER_ID, EMAIL, 'mlops');
+      expect(profile.addSkill).toHaveBeenNthCalledWith(2, USER_ID, EMAIL, 'llm-finetuning');
+      expect(profile.addSkill).toHaveBeenNthCalledWith(3, USER_ID, EMAIL, 'computer-vision');
     });
 
     it('calls addInterest once per interest entry', async () => {
@@ -155,11 +156,11 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.addInterest).toHaveBeenCalledTimes(2);
-      expect(profile.addInterest).toHaveBeenNthCalledWith(1, USER_ID, 'ai-safety', 'learn');
-      expect(profile.addInterest).toHaveBeenNthCalledWith(2, USER_ID, 'mlops', 'practice');
+      expect(profile.addInterest).toHaveBeenNthCalledWith(1, USER_ID, EMAIL, 'ai-safety', 'learn');
+      expect(profile.addInterest).toHaveBeenNthCalledWith(2, USER_ID, EMAIL, 'mlops', 'practice');
     });
 
     it('calls setConsent only for granted (true) purposes', async () => {
@@ -172,11 +173,11 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.setConsent).toHaveBeenCalledTimes(2);
-      expect(profile.setConsent).toHaveBeenNthCalledWith(1, USER_ID, 'events', true);
-      expect(profile.setConsent).toHaveBeenNthCalledWith(2, USER_ID, 'research', true);
+      expect(profile.setConsent).toHaveBeenNthCalledWith(1, USER_ID, EMAIL, 'events', true);
+      expect(profile.setConsent).toHaveBeenNthCalledWith(2, USER_ID, EMAIL, 'research', true);
     });
 
     it('calls setOnboardedAt', async () => {
@@ -189,9 +190,9 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
-      expect(profile.setOnboardedAt).toHaveBeenCalledWith(USER_ID);
+      expect(profile.setOnboardedAt).toHaveBeenCalledWith(USER_ID, EMAIL);
     });
 
     it('calls awardFirstJoinPoints with the userId', async () => {
@@ -204,7 +205,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(points.awardFirstJoinPoints).toHaveBeenCalledWith(USER_ID);
     });
@@ -221,7 +222,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.addSkill).not.toHaveBeenCalled();
     });
@@ -236,7 +237,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.addInterest).not.toHaveBeenCalled();
     });
@@ -251,7 +252,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.setConsent).not.toHaveBeenCalled();
     });
@@ -266,7 +267,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.setConsent).not.toHaveBeenCalled();
     });
@@ -283,7 +284,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       const setOnboardedAtCallOrder = profile.setOnboardedAt.mock.invocationCallOrder[0]!;
       const awardCallOrder = points.awardFirstJoinPoints.mock.invocationCallOrder[0]!;
@@ -305,11 +306,11 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.addSkill).toHaveBeenCalledTimes(3);
       // Verify all three were called (regardless of order)
-      const calledTags = profile.addSkill.mock.calls.map((c) => c[1]);
+      const calledTags = profile.addSkill.mock.calls.map((c) => c[2]);
       expect(calledTags).toEqual(expect.arrayContaining(['mlops', 'llm', 'cv']));
     });
 
@@ -327,10 +328,10 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.addInterest).toHaveBeenCalledTimes(3);
-      const calledTags = profile.addInterest.mock.calls.map((c) => c[1]);
+      const calledTags = profile.addInterest.mock.calls.map((c) => c[2]);
       expect(calledTags).toEqual(expect.arrayContaining(['ai', 'mlops', 'cv']));
     });
 
@@ -344,7 +345,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: undefined,
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       expect(profile.setConsent).toHaveBeenCalledTimes(4);
     });
@@ -361,7 +362,7 @@ describe('MembersOnboardingService.completeOnboarding', () => {
         slug: 'telegram-uz',
       };
 
-      await svc.completeOnboarding(USER_ID, dto);
+      await svc.completeOnboarding(USER_ID, EMAIL, dto);
 
       // The slug is accepted but the service does not use it for any writes.
       // All other assertions still pass — slug does not break the flow.

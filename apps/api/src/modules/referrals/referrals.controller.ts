@@ -51,9 +51,10 @@ export class ReferralsController {
   // for the extra 2 queries.
   @Get('mine/stats')
   @UseGuards(AuthGuard)
-  async myStats(@Req() req: Request): Promise<MyReferralStats> {
+  async myStats(@Req() req: Request): Promise<{ stats: MyReferralStats }> {
     const { sub, email } = requireUser(req);
-    return this.referrals.getMyStats(sub, email);
+    const stats = await this.referrals.getMyStats(sub, email);
+    return { stats };
   }
 
   // Public: anonymous visitor lands at /?ref=CODE; client resolves to

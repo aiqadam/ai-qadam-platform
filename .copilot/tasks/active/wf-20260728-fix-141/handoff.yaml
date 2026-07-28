@@ -1,0 +1,144 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-fix-141"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T00:00:00Z"
+last_updated_at: "2026-07-28T01:00:00Z"
+
+requirement_ref: "ISS-USR-PROFILE-001"
+requirement_text: "/me/profile, /me/preferences, /me/referrals fail to load Directus-backed data (Consents/Skills/Referral data unavailable) on QA."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/94"
+
+branch: "fix/ISS-USR-PROFILE-001-directus-id-bridge"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/95"
+
+current_step: 11
+current_step_name: "final-quality-gate"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:00:00Z"
+    summary: "GitHub issue #94 mirrored to ISS-USR-PROFILE-001. Root cause pre-identified via static analysis."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:15:00Z"
+    summary: "Single-service fix, no schema change, no module wiring change needed. Low risk."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/02-impact-analysis.md"
+  code-developer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:30:00Z"
+    summary: "5 source files + 3 test files changed. tsc + biome clean."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:35:00Z"
+    summary: "Zero BLOCKER/MAJOR/MINOR findings. No new client input surface, no ownership-scoping change."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:40:00Z"
+    summary: "Regression test targets the exact defect using non-overlapping fixture ids."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:45:00Z"
+    summary: "4 new regression tests added to me-profile-service.spec.ts."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/06-test-design.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:55:00Z"
+    summary: "77/77 targeted, 1293/1294 full suite (1 pre-existing unrelated flake). Fail-before/pass-after verified."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/07-test-results.md"
+  registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T00:58:00Z"
+    summary: "ISS-USR-PROFILE-001.md and registry.md flipped to resolved atomically."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/09-registry-update.md"
+  final-quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T01:00:00Z"
+    summary: "All ACs verified or honestly deferred to mandatory Step 13. Status-consistency check passed."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-141/09-quality-gate.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-USR-PROFILE-001"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-003", "BP-UAT-016"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260728-fix-141/01-issue-lookup.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/09-registry-update.md"
+  - ".copilot/tasks/active/wf-20260728-fix-141/09-quality-gate.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/api/src/modules/me-profile/
+  - apps/api/src/modules/referrals/
+  - apps/api/src/modules/directus/
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260728-fix-141/NEEDS_REVIEW.md"

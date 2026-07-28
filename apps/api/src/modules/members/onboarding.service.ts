@@ -30,21 +30,21 @@ export class MembersOnboardingService {
    * 5. Set `onboarded_at` to now on directus_users
    * 6. Award first-join points (idempotent — skipped if already awarded)
    */
-  async completeOnboarding(userId: string, dto: OnboardMemberDto): Promise<void> {
+  async completeOnboarding(userId: string, email: string, dto: OnboardMemberDto): Promise<void> {
     // Idempotency: if already onboarded, skip all writes.
     // Future: read onboarded_at from profile once the field is added.
-    await this.doPatchProfile(userId, dto);
+    await this.doPatchProfile(userId, email, dto);
 
     // Skills — one addSkill() call per tag. addSkill() deduplicates.
     if (dto.skills.length > 0) {
-      await Promise.all(dto.skills.map((tag) => this.profile.addSkill(userId, tag)));
+      await Promise.all(dto.skills.map((tag) => this.profile.addSkill(userId, email, tag)));
     }
 
     // Interests — one addInterest() call per (topic_tag, intent) pair.
     if (dto.interests.length > 0) {
       await Promise.all(
         dto.interests.map((i) =>
-          this.profile.addInterest(userId, i.topic_tag, i.intent as InterestIntent),
+          this.profile.addInterest(userId, email, i.topic_tag, i.intent as InterestIntent),
         ),
       );
     }
@@ -55,11 +55,13 @@ export class MembersOnboardingService {
       true,
     ][];
     if (granted.length > 0) {
-      await Promise.all(granted.map(([purpose]) => this.profile.setConsent(userId, purpose, true)));
+      await Promise.all(
+        granted.map(([purpose]) => this.profile.setConsent(userId, email, purpose, true)),
+      );
     }
 
     // Set onboarded_at on directus_users.
-    await this.profile.setOnboardedAt(userId);
+    await this.profile.setOnboardedAt(userId, email);
 
     // Award first-join points (idempotent in PointsDirectusService).
     await this.points.awardFirstJoinPoints(userId);
@@ -67,7 +69,11 @@ export class MembersOnboardingService {
     this.logger.log(`onboarding complete for user=${userId}`);
   }
 
-  private async doPatchProfile(userId: string, dto: OnboardMemberDto): Promise<void> {
+  private async doPatchProfile(
+    userId: string,
+    email: string,
+    dto: OnboardMemberDto,
+  ): Promise<void> {
     const fields: Record<string, unknown> = {};
     if (dto.firstName !== undefined) fields.first_name = dto.firstName;
     if (dto.lastName !== undefined) fields.last_name = dto.lastName;
@@ -78,7 +84,7 @@ export class MembersOnboardingService {
     // first_name / last_name live on directus_users but are not surfaced
     // through patchProfile (profile-only fields). Patch them directly via
     // the same Directus client MeProfileService wraps internally.
-    await this.profile.patchProfile(userId, {
+    await this.profile.patchProfile(userId, email, {
       job_title: fields.job_title as string | null | undefined,
     });
     if (fields.first_name !== undefined || fields.last_name !== undefined) {
@@ -87,7 +93,7 @@ export class MembersOnboardingService {
       // and then patching the remaining fields directly through a helper.
       // TODO: once first_name/last_name are added to patchProfile's DTO,
       // remove this workaround.
-      await this.profile.patchDirectusFields(userId, {
+      await this.profile.patchDirectusFields(userId, email, {
         first_name: fields.first_name as string | null | undefined,
         last_name: fields.last_name as string | null | undefined,
       });
