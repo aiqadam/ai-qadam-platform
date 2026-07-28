@@ -1,32 +1,28 @@
 # Workspace State
 
-**Last updated:** 2026-07-28 — `wf-20260728-fix-140-recovery-flow-redirect`.
-**`createRecoveryLink()` field-name bug fixed — was silently breaking
-both the welcome email AND Telegram sign-in.** While chasing
-[ISS-USR-REDIRECT-001](../issues/ISS-USR-REDIRECT-001.md) (first-time
-sign-in landing on the homepage instead of `/me` — fixed by defaulting
-`next` to `/me` in both apps' `sign-in.astro` + nav CTA, GitHub issue
-#89, regression test `apps/e2e/tests/uat/sign-in-default-redirect.spec.ts`,
-932/932 + 54/54 tests still passing), a second, more severe bug was
-found: `AuthentikClient.createRecoveryLink()` read `res.recovery_link`,
-but Authentik's real API returns `res.link` — confirmed live. The
-method always returned `undefined` in production, so
-`registration.service.ts`'s welcome email was **never sent** and
-Telegram Login-Widget sign-in **redirected to `undefined`** for every
-user — both silently, with only a `logger.warn`. Fixed with a one-line
-field-name correction; the existing unit test's mock had been mirroring
-the same bug (`{ recovery_link: ... }` instead of the real
-`{ link: ... }`), so it never caught this — corrected to match reality.
-1289/1290 apps/api tests passing (1 pre-existing, unrelated, already-
-tracked flake). See [ISS-USR-REDIRECT-002](../issues/ISS-USR-REDIRECT-002.md).
-Live Playwright verification of the FULL recovery-link flow (after this
-fix) surfaced a THIRD, deeper problem: Authentik's recovery link isn't
-actually a one-time-login mechanism — it still prompts for email
-re-entry. A redirect-stage fix was applied live, verified insufficient
-for a true one-click experience, and reverted (Authentik state restored
-to baseline). This is a design question, not a bugfix — filed as
-[ISS-USR-REDIRECT-003](../issues/ISS-USR-REDIRECT-003.md), open,
-unscheduled, needs `requirement-development` treatment.
+**Last updated:** 2026-07-28 — `wf-20260728-fix-141`.
+**`MeProfileService` fixed to resolve Directus ids via the bridge — was
+breaking `/me/profile`, `/me/preferences`, and (partly) `/me/referrals`
+on QA.** Reported via [GitHub issue #94](https://github.com/aiqadam/ai-qadam-platform/issues/94)
+("Profile data errors"). Root cause: `MeProfileService` queried Directus
+directly using the platform `users.id` (JWT `sub`) as if it were
+`directus_users.id` — two different UUID spaces. It never called
+`DirectusUsersBridgeService.ensureLinked()` the way `ReferralsService`
+already correctly does, so every Directus call 404s/errors against the
+wrong primary key. Fixed by injecting the bridge and resolving the real
+Directus id in all 15 methods; also fixed an independent, latent shape
+mismatch in `GET /v1/referrals/mine/stats` (controller returned the body
+unwrapped; the frontend hook expected `{ stats: ... }`). 77/77 targeted
+tests + 1293/1294 full `apps/api` suite (1 pre-existing, unrelated,
+already-tracked flake). See [ISS-USR-PROFILE-001](../issues/ISS-USR-PROFILE-001.md),
+PR [#95](https://github.com/aiqadam/ai-qadam-platform/pull/95), merged
+`313365f`.
+
+`wf-20260728-fix-140-recovery-flow-redirect` (`createRecoveryLink()`
+field-name bug, [ISS-USR-REDIRECT-002](../issues/ISS-USR-REDIRECT-002.md))
+merged earlier the same day via PR #92 — the row below had gone stale
+showing it still `running`; corrected here since this file is a
+snapshot, not a log.
 > **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
 >
@@ -46,7 +42,6 @@ unscheduled, needs `requirement-development` treatment.
 | wf-20260726-docs-132 | issue-resolution | ISS-WF-STATE-001 — workspace-state reconciliation | chore/wf-20260726-docs-132-workspace-state-reconcile | in review ([PR #68](https://github.com/aiqadam/ai-qadam-platform/pull/68)) |
 | wf-20260727-docs-133 | issue-resolution | ISS-WF-STATE-002 — ADR deployment-target supersession | chore/wf-20260727-docs-133-adr-deployment-supersede | in review ([PR #69](https://github.com/aiqadam/ai-qadam-platform/pull/69)) |
 | wf-20260727-fix-134 | issue-resolution | ISS-INFRA-003 — backups broken by Coolify removal | chore/wf-20260727-docs-134-coolify-prose-sweep | running |
-| wf-20260728-fix-140-recovery-flow-redirect | issue-resolution | ISS-USR-REDIRECT-002 — createRecoveryLink() field-name bug | fix/ISS-USR-REDIRECT-002-recovery-flow-redirect | running |
 
 ### Queued follow-up workflows
 
