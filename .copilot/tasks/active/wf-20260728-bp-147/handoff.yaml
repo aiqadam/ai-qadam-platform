@@ -1,0 +1,148 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-bp-147"
+workflow_type: "business-process-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T00:00:00Z"
+last_updated_at: "2026-07-28T00:00:00Z"
+
+requirement_ref: ""
+requirement_text: |
+  Replace the current ad hoc, script-driven admin/RBAC bootstrap
+  (super-admin status granted only via one-off scripts touching Authentik
+  groups and/or Directus policies directly, with no UI, no self-service,
+  and demonstrably unreliable — see 00a-investigation-issue-107.md /
+  00b-scope-correction.md in this task dir for the concrete failure that
+  triggered this) with a proper, in-product admin/RBAC subsystem:
+    1. System bootstraps with a seeded initial admin account (e.g. username
+       `admin`, a known simple default password) that MUST force a password
+       change on first login.
+    2. A standard, understandable roles/groups/permissions model, replacing
+       or fronting the current split Authentik-groups / Postgres-enum /
+       Directus-policies mechanism with one coherent model.
+    3. Admins manage users and their access (grant/revoke roles, invite,
+       deactivate) entirely through a normal admin-panel screen/form in the
+       product UI — not scripts, not direct Authentik/Directus console
+       access.
+  Originated from GitHub issue #107 ("There is no admin panel") but
+  supersedes its literal text — investigation found the existing
+  /workspace/admin/* surface already covers tenant provisioning and
+  operator invites, but is unreachable/unmanageable except via scripts
+  that have proven unreliable (reporting user still not recognized as
+  super-admin after a script claimed to grant it). The real gap is the
+  bootstrap/RBAC-management mechanism itself, not the admin screens.
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/107"
+
+branch: "docs/BP-ADM-107-admin-panel"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 5
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  draft-business-process:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-28T00:00:00Z"
+    summary: "Revised per Step 2 attempt 1 failed-retry + user decisions (Authentik-hosted bootstrap; enforced super-admin cap)."
+    output_file: ".copilot/tasks/active/wf-20260728-bp-147/01-business-process-draft.md"
+  audit-business-process:
+    status: passed
+    attempt: 2
+    timestamp: "2026-07-28T00:00:00Z"
+    summary: "All BLOCKER/MAJOR findings resolved; Authentik-hosted bootstrap verified against existing AuthentikClient code."
+    output_file: ".copilot/tasks/active/wf-20260728-bp-147/02-business-process-audit.md"
+agent_assignments:
+  business-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260728-bp-147/01-business-process-draft.md"
+    timestamp: "2026-07-28T00:00:00Z"
+  business-process-auditor:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260728-bp-147/02-business-process-audit.md"
+    timestamp: "2026-07-28T00:00:00Z"
+  requirement-analyst:
+    status: completed
+    step: 3
+    output_file: ".copilot/tasks/active/wf-20260728-bp-147/03-requirements.md"
+    timestamp: "2026-07-28T00:00:00Z"
+  business-analyst-uat:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260728-bp-147/04-uat-script-draft.md"
+    timestamp: "2026-07-28T00:00:00Z"
+retry_counts:
+  business-analyst: 1
+
+retry_limits:
+  business-analyst: 2
+  business-process-auditor: 2
+  requirement-analyst: 1
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process:
+  - BP-UAT-020
+  - BP-UAT-021
+post_merge_uat_runs: []
+
+artifacts:
+  - .copilot/tasks/active/wf-20260728-bp-147/00a-investigation-issue-107.md
+  - .copilot/tasks/active/wf-20260728-bp-147/00b-scope-correction.md
+  - .copilot/tasks/active/wf-20260728-bp-147/01-business-process-draft.md
+  - .copilot/tasks/active/wf-20260728-bp-147/02-business-process-audit.md
+  - .copilot/tasks/active/wf-20260728-bp-147/03-requirements.md
+  - .copilot/tasks/active/wf-20260728-bp-147/04-uat-script-draft.md
+  - docs/02-business-processes/operator-playbook/admin-bootstrap.md
+  - docs/02-business-processes/operator-playbook/admin-user-management.md
+  - docs/03-requirements/FR-ADM-010.md
+  - docs/03-requirements/FR-ADM-011.md
+  - docs/02-business-processes/uat/BP-UAT-020.md
+  - docs/02-business-processes/uat/BP-UAT-021.md
+  - docs/adr/0021-rbac-manifest.md
+  - docs/02-business-processes/operations/country-lead-activation.md
+  - scripts/provision-authentik-rbac-groups.sh
+  - scripts/uat-seed.sh
+
+context_refs:
+  - docs/02-business-processes/README.md
+  - docs/02-business-processes/business-process-gaps.md
+  - docs/04-development/architecture/architecture.md
+  - docs/03-requirements/requirements-registry.md
+  - docs/02-business-processes/uat/registry.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260728-bp-147/NEEDS_REVIEW.md"

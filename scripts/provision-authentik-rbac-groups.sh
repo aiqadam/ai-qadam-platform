@@ -16,6 +16,19 @@
 # real change to a specific person" step in this script; everything else
 # is structural.
 #
+# SUPERSEDED (bootstrap use) by FR-ADM-010 (Proposed) — see
+# docs/02-business-processes/operator-playbook/admin-bootstrap.md. This
+# script's manual, per-person SUPER_ADMIN_EMAIL grant is exactly the
+# "run a script and hope" bootstrap pattern that FR-ADM-010 replaces with
+# an automated, self-verifying, Authentik-hosted bootstrap job (triggered
+# by GitHub issue #107 — a case where this exact script's grant silently
+# did not work for a QA user, with no error and no way to tell). Once
+# FR-ADM-010 ships, do not use this script's SUPER_ADMIN_EMAIL assignment
+# to bootstrap a new environment's first admin — use FR-ADM-010's
+# bootstrap job instead. The group-creation half of this script (lines
+# above) is unaffected and remains the correct tool for provisioning the
+# RBAC group structure itself.
+#
 # Required env (read from /tmp/aiqadam-secrets-AK_API_TOKEN if not set):
 #   AK_API_TOKEN          — Authentik admin API token
 #   AUTHENTIK_URL         — defaults to https://auth.aiqadam.org
