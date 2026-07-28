@@ -25,6 +25,15 @@ type: engineering-runbook
 
 ### A. RBAC bind (per F-S2.2 once shipped)
 
+> **Forward reference:** once [FR-ADM-011](../../03-requirements/FR-ADM-011.md)
+> (admin user/role management screen, Proposed) ships, step 1 below is a
+> candidate to move from "manually add in the Authentik console" to "grant
+> via the in-product role-management screen" — see
+> [admin-user-management.md](../operator-playbook/admin-user-management.md)'s
+> open question on scoped-admin access. Not yet decided; this runbook's
+> manual step remains correct until FR-ADM-011 explicitly covers this
+> case.
+
 1. In Authentik: add the candidate's user to the `country_lead_<xx>` group.
 2. Wait for the F-S2.2 RBAC sync service to propagate (SLO: 60 seconds). Watch in `/workspace/observability` → "RBAC sync events".
 3. Verify in Directus: the candidate's permission set now includes their country's policy. Confirm via `cms.aiqadam.org/policies` filtered by the candidate's user.

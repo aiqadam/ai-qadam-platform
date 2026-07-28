@@ -182,9 +182,22 @@ Per-engine status is also surfaced on the user's own `/me/access-log` page (Spri
 
 ### 9. Bootstrap procedure (one-time, before Sprint 2.2 ships code)
 
+> **Step 3 below (manual per-human super-admin assignment) is SUPERSEDED
+> by [FR-ADM-010](../03-requirements/FR-ADM-010.md) (Proposed) — see
+> [admin-bootstrap.md](../02-business-processes/operator-playbook/admin-bootstrap.md).**
+> This manual, no-verification assignment step is the pattern that
+> produced GitHub issue #107 (a super-admin grant that silently failed
+> for a QA user, with no error and no way to tell). Once FR-ADM-010
+> ships, a fresh environment's first admin is created by its automated,
+> self-verifying bootstrap job, not by an operator manually adding a
+> named human in the Authentik console. Steps 1, 2, 4, and 5 below
+> (policy seeding, group *structure* creation, Plausible prerequisite,
+> and the sync-service rollout) are unaffected — this note applies only
+> to step 3's per-person assignment.
+
 1. **F-S2.2 bootstrap append** seeds the seven Directus policies named in §4.1 (`policy.member`, `policy.speaker`, `policy.sponsor_rep`, `policy.organizer`, `policy.country_lead`, `policy.svc_bot`, `policy.svc_worker`) via `infrastructure/directus/bootstrap.sh`. F-S0.1 already covered the `country=xx` demo-tenant isolation policy (renamed from the original `country=demo` per PR #123); this F-S2.2 work extends to the seven role policies.
 2. **Operator (HUMAN)** creates the eight country-agnostic groups in Authentik (`aiqadam-member`, `aiqadam-speaker`, `aiqadam-sponsor-rep`, `aiqadam-super-admin`, `aiqadam-svc-bot`, `aiqadam-svc-worker`) plus per-country pairs for every active country (`uz`, `kz`, `tj`, `xx`): `aiqadam-organizer-<c>`, `aiqadam-country-lead-<c>`. Runbook: `docs/runbooks/rbac-bootstrap.md` (follow-up PR alongside F-S2.2).
-3. **Operator** assigns Viktor to `aiqadam-super-admin`. Validates by signing in and seeing all engines.
+3. **Operator** assigns Viktor to `aiqadam-super-admin`. Validates by signing in and seeing all engines. **Superseded by FR-ADM-010 — see note above.**
 4. **F-S2.4 prerequisite** — Plausible has per-country sites named `<country>.aiqadam.org`.
 5. **F-S2.2** ships the webhook receiver, the BullMQ sync worker, the state machine (Directus + Plausible only; Twenty removed), and the nightly poll cron.
 

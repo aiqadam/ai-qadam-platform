@@ -15,6 +15,12 @@
 #        uat-operator@example.com → aiqadam-super-admin (full operator cab)
 #      These credentials are referenced in apps/e2e/.env.uat
 #      (UAT_MEMBER_EMAIL / UAT_OPERATOR_EMAIL) written by uat-env-setup.sh.
+#      NOTE: this grant is scoped to the synthetic UAT fixture only — it
+#      is not, and should not be treated as, the pattern for bootstrapping
+#      a real environment's first admin. See FR-ADM-010 (Proposed),
+#      docs/02-business-processes/operator-playbook/admin-bootstrap.md,
+#      for the real-admin bootstrap process this fixture grant is
+#      intentionally separate from.
 #   4. Inserts three operator_invites rows into Directus (one valid+unused,
 #      one consumed, one expired) so BP-UAT-013 steps 005/006 and
 #      Neg 002/003 can run against the real /v1/onboard/preview API. Idempotent.
