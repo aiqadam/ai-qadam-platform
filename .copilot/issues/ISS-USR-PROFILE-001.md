@@ -168,7 +168,7 @@ tests genuinely exercise the fix; restoring the fix returns the file to
 ## Resolution
 
 - **Workflow:** wf-20260728-fix-141
-- **PR:** `<pending>`
+- **PR:** [#95](https://github.com/aiqadam/ai-qadam-platform/pull/95)
 - **Root cause:** `MeProfileService` queried Directus using the platform
   `users.id` instead of the Directus `directus_users.id`, never resolving
   the mapping via `DirectusUsersBridgeService`. Separately, `referrals
@@ -178,4 +178,4 @@ tests genuinely exercise the fix; restoring the fix returns the file to
   Directus id in every method; wrapped the referrals stats response.
 - **Regression test:** `apps/api/test/me-profile-service.spec.ts` —
   "MeProfileService — Directus id resolution (ISS-USR-PROFILE-001)".
-- **Merged:** `<pending>`
+- **Merged:** `313365f` (squash, 2026-07-28)
