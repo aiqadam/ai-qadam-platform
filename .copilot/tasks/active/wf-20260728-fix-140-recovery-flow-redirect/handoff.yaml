@@ -1,0 +1,72 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-fix-140-recovery-flow-redirect"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T00:00:00Z"
+last_updated_at: "2026-07-28T01:00:00Z"
+
+requirement_ref: "ISS-USR-REDIRECT-002"
+requirement_text: >-
+  AuthentikClient.createRecoveryLink() read the wrong JSON field
+  (recovery_link instead of Authentik's real link) from the recovery
+  endpoint response — always returned undefined in production, silently
+  breaking both the self-registration welcome email and Telegram
+  Login-Widget sign-in.
+github_issue_url: ""
+
+branch: "fix/ISS-USR-REDIRECT-002-recovery-flow-redirect"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/92"
+
+current_step: 9
+current_step_name: "registry-update"
+workflow_status: "running"
+issue_resolution: "resolved"
+
+parent_link:
+  parent_workflow_id: "wf-20260728-fix-139"
+  parent_branch: "fix/ISS-USR-REDIRECT-001-post-signup-redirect"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-07-28T00:00:00Z"
+  spawned_by_issue: "ISS-USR-REDIRECT-001"
+  resolution_for_parent: ""
+
+issues_created: ["ISS-USR-REDIRECT-003"]
+issue_ref: "ISS-USR-REDIRECT-002"
+
+expects_registry_update: true
+
+business_process: ["BP-UAT-013"]
+
+artifacts:
+  - .copilot/tasks/active/wf-20260728-fix-140-recovery-flow-redirect/01-issue-lookup.md
+  - .copilot/tasks/active/wf-20260728-fix-140-recovery-flow-redirect/02-impact-analysis.md
+  - .copilot/tasks/active/wf-20260728-fix-140-recovery-flow-redirect/03-code-summary.md
+  - .copilot/tasks/active/wf-20260728-fix-140-recovery-flow-redirect/04-security-review.md
+  - .copilot/tasks/active/wf-20260728-fix-140-recovery-flow-redirect/06-test-strategy.md
+  - .copilot/tasks/active/wf-20260728-fix-140-recovery-flow-redirect/07-test-results.md
+  - .copilot/tasks/active/wf-20260728-fix-140-recovery-flow-redirect/09-registry-update.md
+
+notes: >-
+  Discovered during wf-20260728-fix-139's Step 2 impact analysis while
+  investigating GitHub issue #89 (post-signup redirect). Originally
+  hypothesized the root cause was a missing redirect stage on Authentik's
+  default-recovery-flow. Deeper investigation (live curl/fetch against
+  aiqadam-authentik-server) found a more direct and more severe bug
+  first: createRecoveryLink() reads res.recovery_link, but Authentik's
+  real response field is res.link — always returned undefined in
+  production, silently breaking both the welcome-email path AND Telegram
+  Login-Widget sign-in. Fixed that (one-line + test mock correction).
+  Then live-verified the FULL flow via Playwright and discovered the
+  original redirect-stage hypothesis, even if implemented, would not
+  have delivered a working one-click sign-in — Authentik's recovery link
+  still prompts for email re-entry, it is not a one-time-login token.
+  A redirect stage was applied live to test this, confirmed insufficient,
+  and reverted (live Authentik state restored to baseline). The larger
+  design question (what should the welcome-email link's login mechanism
+  actually be) was split off to ISS-USR-REDIRECT-003, filed as open and
+  unscheduled pending product/design input, per AGENTS.md §13 (surfaced
+  to the user rather than decided unilaterally) and confirmed in-chat.

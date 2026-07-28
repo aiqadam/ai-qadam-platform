@@ -248,9 +248,15 @@ describe('AuthentikClient.getUserByTelegramId', () => {
 });
 
 describe('AuthentikClient.createRecoveryLink', () => {
-  it('POSTs to the recovery endpoint and returns the recovery_link string', async () => {
+  // ISS-USR-REDIRECT-002: this mock previously used `recovery_link` as
+  // the response key, mirroring the code's own bug — Authentik's real
+  // API returns `{ link: string }` (confirmed live), so the mock and
+  // the bug agreed with each other and both disagreed with reality.
+  // This test would NOT have caught the always-undefined-in-production
+  // bug. Fixed to match the real response shape.
+  it('POSTs to the recovery endpoint and returns the link string', async () => {
     const RECOVERY_URL = 'https://auth.aiqadam.org/recover/abcdef123456/';
-    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { recovery_link: RECOVERY_URL }));
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { link: RECOVERY_URL }));
 
     const result = await client.createRecoveryLink(42);
 
