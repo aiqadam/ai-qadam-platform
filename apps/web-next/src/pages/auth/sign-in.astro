@@ -6,7 +6,7 @@
 //
 // This page has no UI. Visiting it redirects to the API's /v1/auth/login
 // endpoint, which sets a flow cookie and redirects to Authentik's authorize
-// endpoint. The post-login callback returns to `/` or the `?next=` value.
+// endpoint. The post-login callback returns to `/me` or the `?next=` value.
 //
 // This mirrors v1's apps/web/src/pages/auth/sign-in.astro redirect pattern.
 // The OIDC flow itself lives server-side in the API (AuthController.login).
@@ -16,9 +16,14 @@
 export const prerender = false;
 
 const url = new URL(Astro.request.url);
-const rawNext = url.searchParams.get('next') ?? '/';
+// ISS-USR-REDIRECT-001 (GitHub #89): default to /me, not /. A visitor who
+// reaches /auth/sign-in with no explicit ?next= has no page to "return"
+// to (this page renders nothing) — /me is what FR-USR-001 AC-1 requires
+// for the no-context case. Callers with real context (AppNav, AuthGate,
+// etc.) always pass an explicit ?next= and are unaffected.
+const rawNext = url.searchParams.get('next') ?? '/me';
 // Sanitize: must start with /, must not be // (protocol-relative)
-const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/me';
 
 void safeNext; // used in redirect URL
 

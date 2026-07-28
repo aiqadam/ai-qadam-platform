@@ -1,0 +1,87 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-fix-139"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T00:00:00Z"
+last_updated_at: "2026-07-28T00:00:00Z"
+
+requirement_ref: "ISS-USR-REDIRECT-001"
+requirement_text: "After the first login in the application user not routed to his profile. FR-USR-001 post-signup redirect not working."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/89"
+
+branch: "fix/ISS-USR-REDIRECT-001-post-signup-redirect"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/90"
+
+current_step: 9
+current_step_name: "registry-update"
+workflow_status: "running"
+issue_resolution: "resolved"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: ["ISS-USR-REDIRECT-001"]
+issue_ref: "ISS-USR-REDIRECT-001"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-013"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - .copilot/tasks/active/wf-20260728-fix-139/01-issue-lookup.md
+  - .copilot/tasks/active/wf-20260728-fix-139/02-impact-analysis.md
+  - .copilot/tasks/active/wf-20260728-fix-139/03-code-summary.md
+  - .copilot/tasks/active/wf-20260728-fix-139/04-security-review.md
+  - .copilot/tasks/active/wf-20260728-fix-139/06-test-strategy.md
+  - .copilot/tasks/active/wf-20260728-fix-139/07-test-results.md
+  - .copilot/tasks/active/wf-20260728-fix-139/09-registry-update.md
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-USR-001.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260728-fix-139/NEEDS_REVIEW.md"
