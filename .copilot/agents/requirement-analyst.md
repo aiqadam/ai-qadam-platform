@@ -27,9 +27,16 @@ Before starting any task, read:
 
 5. **If incomplete:** Generate a more-detailed version of the requirement with reasonable assumptions. The Orchestrator does NOT return these to a human — the analyst produces its best interpretation and flags it as `needs-clarification`.
 
-6. **Assign feature identifier** if not already assigned. Format: `FEAT-<MODULE>-<N>` (e.g., `FEAT-EVENTS-12`, `FEAT-REG-3`, `FEAT-GAMIF-7`).
+6. **Assign feature identifier** if not already assigned. Format: `FEAT-<MODULE>-<N>` (e.g., `FEAT-EVT-12`, `FEAT-REG-3`, `FEAT-GAM-7`).
 
-   Module codes: `USERS`, `EVENTS`, `REG` (registrations), `SPEAKERS`, `PARTNERS`, `GAMIF`, `NOTIF`, `CONTENT`, `ADMIN`, `BOT`, `WORKERS`, `WEB`, `INFRA`, `WORKFLOW`
+   Module codes (must match `docs/03-requirements/requirements-registry.md`
+   §Module Abbrev table exactly — that table, not this list, is the source
+   of truth; re-check it before assigning a code, since it grows over time):
+   `AUTH`, `USR` (users), `EVT` (events), `REG` (registrations), `SPK`
+   (speakers), `PTN` (partners), `GAM` (gamification), `NTF`
+   (notifications), `BOT` (Telegram bot), `CMS` (content), `ADM`
+   (admin/operator), `CRM`, `OPS` (ops/infra), `MIG` (migration),
+   `WORKFLOW`
 
 7. **Write the formalized requirement.**
 
