@@ -1,7 +1,29 @@
 # Workspace State
 
-**Last updated:** 2026-07-28 — `wf-20260728-fix-144`.
-**`/me/profile` 500 fixed (user-reported live from `qa.aiqadam.org`) +
+**Last updated:** 2026-07-28 — `wf-20260728-fix-145`.
+**QA's Directus environment-parity gap closed — QA now matches local.**
+[ISS-INFRA-QA-DIRECTUS-SCHEMA-001](../issues/ISS-INFRA-QA-DIRECTUS-SCHEMA-001.md):
+ran `infrastructure/directus/bootstrap.sh` + `flows-bootstrap.sh` against
+QA's Directus live (29 → 79 collections, all 7 ADR-0021 RBAC policies +
+`policy.member`'s permission rows, 3 registration-lifecycle flows). Also
+found and fixed a second, independent, compounding bug while verifying:
+`aiqadam-qa-api-1`'s `DIRECTUS_TOKEN` was a literal placeholder — a
+different env var (`DIRECTUS_ADMIN_TOKEN`) held the real token, but
+`docker-compose.qa.yml`'s `api` service never wired the two together, so
+the API could not talk to Directus at all regardless of schema state.
+Fixed the compose file (repo-tracked, prevents regression on next
+deploy) + QA's live `.env` (backed up first) + enabled
+`RBAC_SYNC_WRITE_ENABLED=true` there too. Live-verified:
+`qa.aiqadam.org/me/profile` → 200, `/api/v1/leaderboard` → real Directus
+round-trip, anonymous `directus_users` read still correctly denied (the
+PII-leak fix from `wf-20260728-fix-144` did not regress). **Known
+remaining gap:** no real signed-in QA member session was tested (no test
+credentials available this session) — next QA UAT touch should verify a
+live human sign-in → profile-load round trip. Infra-only workflow, no
+PR (direct SSH changes to `pro-data-tech-qa` + one `docker-compose.qa.yml`
+line landed via the normal branch/PR path for the repo-tracked part).
+
+`wf-20260728-fix-144` — **`/me/profile` 500 fixed (user-reported live from `qa.aiqadam.org`) +
 a critical PII leak found and closed + a much larger QA infra gap
 discovered.** [ISS-USR-PROFILE-002](../issues/ISS-USR-PROFILE-002.md):
 `MeProfileService.getProfile()` unconditionally requested `onboarded_at`;
@@ -108,17 +130,11 @@ snapshot, not a log.
 - **(no workflow id assigned yet — not yet a task directory)** pick up by
   starting issue-resolution for
   [ISS-RBAC-PERMS-001](../issues/ISS-RBAC-PERMS-001.md) — `policy.member`'s
-  own-row grants shipped via `wf-20260728-fix-144`; still needed:
-  `policy.member`'s public-read + create-own-registration halves, and all
-  6 other ADR-0021 §4.1 policies (`speaker` through `svc_worker`).
-- **(no workflow id assigned yet — not yet a task directory)** pick up by
-  starting issue-resolution for
-  [ISS-INFRA-QA-DIRECTUS-SCHEMA-001](../issues/ISS-INFRA-QA-DIRECTUS-SCHEMA-001.md)
-  — QA's Directus has no application schema at all; `bootstrap.sh`
-  (idempotent, ~4700 lines) needs a deliberately-reviewed run against QA.
-  Very likely the actual root cause of the original `/me/profile` bug
-  report. Blocks BP-UAT-003/BP-UAT-016 and effectively every Directus-
-  backed BP-UAT on QA.
+  own-row grants shipped via `wf-20260728-fix-144` (and now also live on
+  QA via `wf-20260728-fix-145`); still needed: `policy.member`'s
+  public-read + create-own-registration halves, and all 6 other
+  ADR-0021 §4.1 policies (`speaker` through `svc_worker`) — on BOTH
+  local and QA now that QA has caught up to local's schema baseline.
 - **wf-20260723-fix-128-deploy-qa-permission-fix** — `deploy-qa` CI has failed on
   every push to `main` since PR #45 (`unable to unlink old 'package.json':
   Permission denied` on the QA deploy host). QA is pinned to PR #44's code, so
