@@ -13,7 +13,12 @@
 export const prerender = false;
 
 const url = new URL(Astro.request.url);
-const rawNext = url.searchParams.get('next') ?? '/';
-const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+// ISS-USR-REDIRECT-001 (GitHub #89): default to /me, not /. A visitor who
+// reaches /auth/sign-in with no explicit ?next= has no page to "return"
+// to (this page renders nothing) — /me is what FR-USR-001 AC-1 requires
+// for the no-context case. Callers with real context always pass an
+// explicit ?next= and are unaffected.
+const rawNext = url.searchParams.get('next') ?? '/me';
+const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/me';
 return Astro.redirect(`/api/v1/auth/login?next=${encodeURIComponent(safeNext)}`);
 ---

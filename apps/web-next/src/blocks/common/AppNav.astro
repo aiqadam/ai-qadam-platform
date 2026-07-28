@@ -29,7 +29,12 @@ import LocaleSwitcher from './LocaleSwitcher.astro';
 
 const signedInHint = Astro.locals.auth?.me != null;
 const currentPath = `${Astro.url.pathname}${Astro.url.search}`;
-const signInHref = `/api/v1/auth/login?next=${encodeURIComponent(currentPath)}`;
+// ISS-USR-REDIRECT-001 (GitHub #89): a visitor on the homepage has no
+// real page to return to — sending next=/ just bounces a first-time
+// signed-up user back to the homepage instead of /me (FR-USR-001 AC-1).
+// Every other page keeps its normal "return to where I was" behavior.
+const signInNext = Astro.url.pathname === '/' ? '/me' : currentPath;
+const signInHref = `/api/v1/auth/login?next=${encodeURIComponent(signInNext)}`;
 
 const locale = getLocale(Astro);
 const t = makeT(locale);

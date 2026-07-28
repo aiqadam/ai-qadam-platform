@@ -1,17 +1,23 @@
 # Workspace State
 
-**Last updated:** 2026-07-28 — `wf-20260728-fix-138`. **apps/web-next Ru/En i18n
-shipped.** `apps/web-next` (the app nginx routes production traffic to) had a
-`<LocaleSwitcher>` that wrote a cookie but no translation layer to read it back,
-so selecting Русский never changed the UI (GitHub issue #85). Ported
-`apps/web/src/lib/i18n.ts` + a new `en`/`ru` catalog (~130 keys) into
-`apps/web-next`, wired the full public-facing surface (nav, home, events,
-leaderboard, global, profile, welcome) plus 4 React islands via a `t` prop.
-Shipped as one PR per explicit user override of the AGENTS.md §4 PR-size cap
-(recorded in the PR's Risks section). Verified live: `Cookie: aiqadam-locale=ru`
-renders `<html lang="ru">` + Russian copy on `/`, `/events`, `/leaderboard`,
-`/global`; 932/932 tests passing. See
-[ISS-WEB-NEXT-I18N-001](../issues/ISS-WEB-NEXT-I18N-001.md).
+**Last updated:** 2026-07-28 — `wf-20260728-fix-139`. **First-time sign-in
+now lands on `/me`.** Neither `apps/web` nor `apps/web-next` ever set
+`next=/me` anywhere — the homepage "Sign in" CTA and the bare
+`/auth/sign-in` page both defaulted `next` to the current/home path,
+so first-time sign-in landed on the homepage instead of the profile,
+violating FR-USR-001 AC-1 (GitHub issue #89). Fixed by defaulting `next`
+to `/me` in both apps' `sign-in.astro` and nav "Sign in" CTA (homepage
+case only — every other page's CTA is unchanged). Regression test
+`apps/e2e/tests/uat/sign-in-default-redirect.spec.ts` added,
+fail-before/pass-after verified live via `git stash` against the running
+dev server. 932/932 + 54/54 existing tests still passing. See
+[ISS-USR-REDIRECT-001](../issues/ISS-USR-REDIRECT-001.md). A second,
+more severe, distinct bug was discovered during impact analysis — the
+self-registration welcome-email one-time login link never re-enters the
+app at all (Authentik's `default-recovery-flow` has no login/redirect
+stage) — filed as
+[ISS-USR-REDIRECT-002](../issues/ISS-USR-REDIRECT-002.md), queued as
+`wf-20260728-fix-140-recovery-flow-redirect`.
 > **Contract — read before editing.** This file answers exactly one question:
 > **what is true right now?** It is a snapshot, not a log.
 >
@@ -31,9 +37,15 @@ renders `<html lang="ru">` + Russian copy on `/`, `/events`, `/leaderboard`,
 | wf-20260726-docs-132 | issue-resolution | ISS-WF-STATE-001 — workspace-state reconciliation | chore/wf-20260726-docs-132-workspace-state-reconcile | in review ([PR #68](https://github.com/aiqadam/ai-qadam-platform/pull/68)) |
 | wf-20260727-docs-133 | issue-resolution | ISS-WF-STATE-002 — ADR deployment-target supersession | chore/wf-20260727-docs-133-adr-deployment-supersede | in review ([PR #69](https://github.com/aiqadam/ai-qadam-platform/pull/69)) |
 | wf-20260727-fix-134 | issue-resolution | ISS-INFRA-003 — backups broken by Coolify removal | chore/wf-20260727-docs-134-coolify-prose-sweep | running |
+| wf-20260728-fix-139 | issue-resolution | ISS-USR-REDIRECT-001 — first-time sign-in not landing on /me | fix/ISS-USR-REDIRECT-001-post-signup-redirect | running |
 
 ### Queued follow-up workflows
 
+- **wf-20260728-fix-140-recovery-flow-redirect** — self-registration
+  welcome-email one-time login link never re-enters the app; Authentik's
+  `default-recovery-flow` has no login/redirect stage bound to it.
+  Discovered during `wf-20260728-fix-139`'s impact analysis. Handoff:
+  `.copilot/tasks/queued/wf-20260728-fix-140-recovery-flow-redirect/handoff.yaml`.
 - **wf-20260723-fix-128-deploy-qa-permission-fix** — `deploy-qa` CI has failed on
   every push to `main` since PR #45 (`unable to unlink old 'package.json':
   Permission denied` on the QA deploy host). QA is pinned to PR #44's code, so
@@ -61,6 +73,10 @@ Only genuinely open items belong here. Resolved issues live in
   api/directus-bridge) — `ensureLinkedByEmail` returns `null` for seed users
   with no `platform.users` row. Blocks AC-2/3 of
   [ISS-UAT-001-1](../issues/ISS-UAT-001-1.md).
+- [ISS-USR-REDIRECT-002](../issues/ISS-USR-REDIRECT-002.md) (blocker,
+  infra/authentik + api/auth) — self-registration welcome-email one-time
+  login link never re-enters the app. Queued as
+  `wf-20260728-fix-140-recovery-flow-redirect`.
 
 ---
 
