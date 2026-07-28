@@ -193,6 +193,28 @@ tests genuinely exercise the fix; restoring the fix returns the file to
   expecting AC-1/AC-2/AC-5 of BP-UAT-003 (profile/skills/consents load and
   persist without error) and BP-UAT-016's referral-dashboard load to pass
   clean.
+- **Update (2026-07-28, second attempt at the queued follow-up):** a real
+  live authenticated session was driven against `apps/web-next` (signed in
+  as `uat-member@example.com` via Authentik OIDC, genuinely authenticated
+  — confirmed by the nav avatar and post-signin URL). This **did confirm
+  the core fix works**: the api log showed the Directus request using the
+  correctly-resolved Directus id (`GET /users/a1524645-...`), not the old
+  broken platform id — i.e. the bridge-resolution mechanism this issue
+  fixed is proven live, not just by unit test. However, the request then
+  hit a **separate, pre-existing, unrelated environment bug**: Directus
+  403s reading `onboarded_at` because every local Directus user has no
+  policy attached (`RbacSyncService` is permanently dry-run locally). This
+  blocks completing the full BP-UAT-003/016 pass/fail verdict in the
+  *current* local environment — filed as
+  **[ISS-UAT-RBAC-001](ISS-UAT-RBAC-001.md)** (blocker, not yet scheduled)
+  since it's a real, previously-undocumented gap that will block every
+  future local UAT session needing an authenticated member view, not just
+  this one. `wf-20260728-uat-142-bp-uat-003-016-postmerge`'s handoff.yaml
+  records the full diagnostic trail (what was tried, what failed, why).
+  This issue's own fix remains correctly merged and live-confirmed at the
+  mechanism level; only the full BP-UAT pass/fail verdict is still
+  blocked, now by a named, filed, different issue rather than an
+  undiagnosed gap.
 
 ## Resolution
 

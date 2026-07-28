@@ -56,6 +56,55 @@ deferrals:
     reason: "Live agent-driven Playwright re-verification of BP-UAT-003 + BP-UAT-016 deferred — required starting the local web dev server (down) and rebuilding/restarting the api dev process, plus fixture seeding; done in this workflow only to the extent of rebuilding+restarting the api and confirming it serves the merged fix (curl /health + grep dist for resolveDirectusId), not the full authenticated Playwright session which needs a real OIDC sign-in this session did not script."
     step: 13
     timestamp: "2026-07-28T04:20:00Z"
+  - from_feature: "ISS-USR-PROFILE-001"
+    to_feature: "wf-20260728-uat-142-bp-uat-003-016-postmerge"
+    reason: >-
+      Second attempt (2026-07-28, same day): built a standalone Playwright
+      script, signed in live as uat-member@example.com against apps/web-next
+      on :4321 (had to run web-next on :4321 not its usual :4322, because
+      apps/api's OIDC_REDIRECT_URI/WEB_BASE_URL are hardcoded to :4321 —
+      restored web-next to :4322 afterward), and reached /me/profile,
+      /me/preferences, /me/referrals as a genuinely authenticated user.
+      This DID prove the core ISS-USR-PROFILE-001 fix works: the api log
+      showed GET /users/a1524645-...  (a real, distinct Directus id) instead
+      of the old 404-on-platform-id failure — the bridge resolution is
+      confirmed working live. BUT the request then failed with a NEW,
+      separate, pre-existing local-environment bug unrelated to this fix:
+      Directus 403 "You don't have permission to access field 'onboarded_at'
+      in collection 'directus_users'" for the signed-in test user. Root
+      cause chased down: every Directus user row in this local instance has
+      `role: null, policies: []` — RbacSyncService (apps/api/src/modules/
+      rbac-sync/) only ever runs in dry_run mode locally
+      (RBAC_SYNC_WRITE_ENABLED defaults false, apps/api/src/config/env.ts:190-198,
+      explicitly gated "flip to true only after verifying diffs in the
+      workspace UI" — not something to flip casually for one UAT check).
+      Confirmed via POST /v1/internal/rbac/poll (manual trigger, succeeded,
+      scanned=7 jobs_created=4) that jobs ARE computed but directus_status
+      stays "dry_run" — policies are never actually written to Directus.
+      Tried to work around by directly attaching the existing
+      "S0.1 Demo-tenant isolation" policy (id 500e0001-..., already grants
+      fields:["*"] read on directus_users) to the test user via Directus
+      REST API — blocked: PATCH /users/{id} {policies:[...]} and direct
+      writes to the directus_access junction collection both return
+      "You don't have permission to access this" even using the app's own
+      DIRECTUS_TOKEN, which DOES resolve to an Administrator-role Directus
+      user (confirmed via GET /users/me) — so even Directus's admin role is
+      restricted from writing this particular relation in this instance,
+      for reasons not further chased down (out of scope for this workflow).
+      This blocks ANY live authenticated-member UI check in the CURRENT
+      local dev environment, not just this one — it is a pre-existing
+      environment gap, confirmed unrelated to ISS-USR-PROFILE-001's code
+      (git diff of that PR touches none of rbac-sync/, directus-policy-
+      applier, or bootstrap.sh). No issue file previously existed for this;
+      one should be filed (working title: local Directus role/policy
+      never provisioned for seeded UAT users because RBAC sync defaults to
+      dry-run) before this BP-UAT re-verification can actually complete.
+      Cleanup performed: removed the scratch Playwright script and empty
+      evidence directories; restored apps/web-next dev server to its
+      original :4322 port; left the api process I rebuilt+restarted running
+      (already confirmed serving the merged fix, no reason to revert it).
+    step: 13
+    timestamp: "2026-07-28T07:10:00Z"
 
 expects_registry_update: false
 context_sync_commits: 0
