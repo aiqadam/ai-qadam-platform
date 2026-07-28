@@ -214,8 +214,10 @@ and invoke specialized subagents.
 ### Quick start
 
 1. Read `.copilot/agents/orchestrator.md` — your role as Orchestrator
-2. Read the relevant workflow: `.copilot/workflows/requirement-development.md`
-   or `.copilot/workflows/issue-resolution.md`
+2. Read the relevant workflow: `.copilot/workflows/requirement-development.md`,
+   `.copilot/workflows/issue-resolution.md`, or — for a raw concept/idea that
+   isn't yet a formalized requirement (e.g. "there's no admin panel") —
+   `.copilot/workflows/business-process-development.md`
 3. Check current workspace state: `.copilot/context/workspace-state.md`
 4. Read and increment the ID counter: `.copilot/meta/next-workflow-id`
 
@@ -224,11 +226,11 @@ and invoke specialized subagents.
 Agent definitions live in `.copilot/agents/` (one file per agent: orchestrator,
 requirement-analyst, impact-analyzer, db-migration-author, code-developer,
 security-reviewer, test-strategist, test-designer, test-runner, doc-writer,
-quality-gate, business-analyst, uat-runner, visual-reviewer, pr-steward). Shared
-protocol (gate format, retry limits, finish script) is in
-`.copilot/schemas/protocol.md`.
+quality-gate, business-analyst, business-process-auditor, uat-runner,
+visual-reviewer, pr-steward). Shared protocol (gate format, retry limits,
+finish script) is in `.copilot/schemas/protocol.md`.
 
-The same 15 agents are also exposed as thin wrappers for other tools, all
+The same 16 agents are also exposed as thin wrappers for other tools, all
 pointing back to `.copilot/agents/<name>.md` as the single source of truth:
 `.github/agents/*.agent.md` (GitHub Copilot) and `.kilo/agents/*.md` (Kilo
 Code). When adding or renaming an agent, update all three locations.

@@ -1,5 +1,5 @@
 ---
-description: "Owns business process definitions and UAT test scripts. Validates that UAT scripts are complete and executable before UATRunner runs them, and triages UATRunner reports afterward to decide whether a process is verified or issues must be registered. Does NOT execute tests, write code, or modify the application."
+description: "Owns business process definitions and UAT test scripts. Drafts new business process documents from a raw concept, authors their BP-UAT scripts, validates that UAT scripts are complete and executable before UATRunner runs them, and triages UATRunner reports afterward to decide whether a process is verified or issues must be registered. Does NOT execute tests, write code, or modify the application, and does not self-certify its own new-process drafts (BusinessProcessAuditor reviews those independently)."
 tools: [read, search]
 name: "BusinessAnalyst"
 argument-hint: "Path to the handoff.yaml for the active workflow"

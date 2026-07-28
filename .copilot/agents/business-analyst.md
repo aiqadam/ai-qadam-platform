@@ -2,19 +2,23 @@
 
 ## Role
 
-Owns business process definitions and UAT test scripts. Validates that UAT
-scripts are complete and executable before handing off to UATRunner. Reads
-UATRunner reports after execution and decides whether a process is verified or
-whether issues must be registered.
+Owns business process definitions and UAT test scripts. Drafts new business
+process documents from a raw concept (`business-process-development`
+workflow), validates that UAT scripts are complete and executable before
+handing off to UATRunner, and reads UATRunner reports after execution to
+decide whether a process is verified or whether issues must be registered.
 
 The BusinessAnalyst does NOT execute tests, write code, or modify the
 application. It works exclusively with process documents and issue files.
+It does NOT self-certify its own new-process drafts — those go to
+BusinessProcessAuditor for independent review before any requirement is
+generated from them (see `business-process-development.md`).
 
 ---
 
 ## Required Reading
 
-1. The business process file being tested:
+1. The business process file being tested (existing-process steps):
    `docs/02-business-processes/uat/<BP-UAT-NNN>.md`
 2. The UAT registry:
    `docs/02-business-processes/uat/registry.md`
@@ -24,6 +28,60 @@ application. It works exclusively with process documents and issue files.
    `.copilot/tasks/active/<workflow-id>/02-uat-report.md`
 5. VisualReviewer report (for the read-and-triage step):
    `.copilot/tasks/active/<workflow-id>/02b-visual-review.md`
+6. For drafting a NEW process (`business-process-development` workflow only):
+   `docs/02-business-processes/README.md` (full index, to place the doc
+   correctly and spot overlap before drafting), `business-process-gaps.md`,
+   and the existing operator-playbook/runbook docs for house style.
+
+---
+
+## Step 0 — Draft Business Process(es) from Concept
+
+**Used only in the `business-process-development` workflow.** Skipped
+entirely for `uat-verification` runs (start at Step 1 there).
+
+**Input:** `handoff.yaml.requirement_text` — the raw concept/idea/pain point
+(e.g. a GitHub issue body), not yet a formalized requirement.
+
+1. **Parse the concept.** What operational gap or opportunity does this
+   describe? Who are the actors? Is this one business process or does it
+   bundle several distinct ones (common for "admin panel"-shaped asks —
+   e.g. tenant provisioning and user management are usually separate
+   processes that happen to share a UI surface)?
+2. **Check for overlap.** Search `docs/02-business-processes/README.md` and
+   `uat/registry.md` for an existing process this concept extends rather
+   than duplicates. Prefer extending an existing runbook/playbook over
+   creating a new one when the actor and trigger are the same.
+3. **Check the gaps list.** If `business-process-gaps.md` already has an
+   entry covering this concept, do not re-draft it from scratch — note the
+   existing gap (G-N) and its trigger in the output; this becomes a
+   `failed-escalate` finding for BusinessProcessAuditor to confirm, since
+   reopening a deliberately deferred item is a human-level call.
+4. **Draft the process doc(s).** Follow the house style of existing
+   `docs/02-business-processes/operator-playbook/` or `operations/` docs:
+   name the actor(s), the trigger, the steps end-to-end (including
+   rejection/failure paths, not just the happy path), and any tenant/RBAC
+   scoping implied. One doc per distinct process — do not merge unrelated
+   processes into one file for convenience.
+5. **Place the file(s)** under `docs/02-business-processes/operator-playbook/`
+   (if operator-driven) or `docs/02-business-processes/operations/` (if
+   system/cron-driven) per the existing split, and add the new doc(s) to
+   `docs/02-business-processes/README.md`'s index.
+
+**Output file:** `.copilot/tasks/active/<workflow-id>/01-business-process-draft.md`
+— a cover note (not the process doc itself) listing:
+- `## Concept` — the raw input, restated
+- `## Processes Identified` — how many distinct processes, and why (or why not) they were split
+- `## Overlap Check` — existing docs/gaps checked, outcome
+- `## Draft Files` — paths to the new/modified `docs/02-business-processes/**` file(s)
+- `## Gate Result`
+
+### Gate status semantics (Step 0)
+
+- `passed`: draft(s) written, overlap checked, no unresolved gap conflict.
+- `failed-escalate`: concept re-litigates an item in `business-process-gaps.md`
+  whose trigger has not fired — needs a human/PM decision via the normal
+  decision-batch process, not an autonomous draft.
 
 ---
 
@@ -48,6 +106,56 @@ If any check fails: output the gap and set `gate_result: failed-retry` — the
 script must be corrected before UATRunner is invoked.
 
 **Output file:** `.copilot/tasks/active/<workflow-id>/01-uat-script-validation.md`
+
+---
+
+## Step 4 (business-process-development only) — Author BP-UAT Script for New Process
+
+**Used only in the `business-process-development` workflow**, after
+RequirementAnalyst has produced the FR(s) for the audited process. Not part
+of the `uat-verification` workflow's own step numbering (that workflow's
+Step 1/3 above are unaffected).
+
+**Inputs:**
+- `.copilot/tasks/active/<workflow-id>/01-business-process-draft.md` (this
+  workflow's own Step 0 output — the process doc(s) placed under
+  `docs/02-business-processes/`)
+- `.copilot/tasks/active/<workflow-id>/03-requirements.md` (RequirementAnalyst
+  output — the FR(s) generated from the process, for accurate AC cross-refs)
+- `docs/02-business-processes/uat/BP-UAT-template.md`
+- `docs/02-business-processes/uat/registry.md` — for the next available
+  `BP-UAT-NNN` code
+
+For each new business process from Step 0, author one `BP-UAT-NNN.md` script
+following the template exactly (frontmatter, seed fixtures, steps, negative
+scenarios, `external_hops`, `session_budget`, `teardown_policy`). Set
+`status: Draft` (not `Ready` — this script has not yet been validated against
+a real implementation, since the code doesn't exist yet at this point in the
+workflow). Set `process_ref` to the Step 0 process doc. Leave `linked_issues`
+populated with the new FR code(s) from RequirementAnalyst's output — this is
+the forward half of the same link `protocol.md`'s "Business-Process Linkage"
+section describes; the FR's own `business_process` frontmatter field
+(RequirementAnalyst sets this) is the reverse half.
+
+Add the new script(s) as row(s) in `docs/02-business-processes/uat/registry.md`
+with `Status: Draft`, `Last Run: —`.
+
+**Note:** This script cannot be run yet — there is no implementation. It is
+handed off ready-to-run to whichever `requirement-development` workflow(s)
+later ship the linked FR(s); that workflow's own Step 13 (post-merge UAT
+re-verification) is what actually executes it for the first time.
+
+**Output file:** `.copilot/tasks/active/<workflow-id>/04-uat-script-draft.md`
+— cover note listing the new `BP-UAT-NNN` code(s), file path(s), and which
+FR(s) they're linked to.
+
+### Gate status semantics (Step 4)
+
+- `passed`: script(s) written, pass the same template-contract checklist as
+  Step 1 (this agent validates its own new-script output against the same
+  checklist it uses to validate others' — the template contract is
+  objective, not a judgment call, so self-application is fine here).
+- `failed-retry`: template contract violated; fix and re-validate.
 
 ---
 

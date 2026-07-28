@@ -170,7 +170,8 @@ After each step, update `handoff.yaml`:
 
 Format: `wf-<YYYYMMDD>-<type-abbrev>-<n>` (n is zero-padded to 3 digits)
 
-Type abbreviations: `feat` = requirement-development, `fix` = issue-resolution
+Type abbreviations: `feat` = requirement-development, `fix` = issue-resolution,
+`bp` = business-process-development
 
 Read and increment the counter in `.copilot/meta/next-workflow-id`:
 ```bash
