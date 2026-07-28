@@ -884,3 +884,87 @@ already-disclosed debt.
 The user can override any agent decision in chat at any time. The override
 is recorded in the PR description under "Risks" per §13 step 4 (date,
 user's reason, agent's original concern) so the audit trail is preserved.
+
+---
+
+## 16. Reversibility is the test for asking, not "is this a real decision"
+(added 2026-07-28, per user override)
+
+**The user has said directly: stop asking him to click "Recommended."**
+Quote: "I have constant problem: agents during workflow execution
+periodically, one time a minute, ask me questions, which i answer simply
+clicking on `recommended` option... organize it in such way that I will
+not be asked and agents do their job by their own best judgement." This
+is not new — it restates the standing project default (this project is
+built end-to-end by AI agents; see §0, §14) — but §13's "trade-off the
+agent cannot grade" language has been mis-applied to reversible
+operational calls that were never actually ambiguous at the product
+level. This section closes that gap with a concrete test and worked
+examples, because the abstract rule alone was not preventing the
+behavior.
+
+### The test
+
+Before raising `AskUserQuestion` or otherwise pausing for confirmation,
+ask: **if this turns out wrong, what does undoing it cost?**
+
+- **Cost = re-run a command, revert a commit, restart a process, requeue
+  a workflow** → decide yourself and proceed. This is the overwhelming
+  majority of operational choices in a workflow (which service to
+  restart, how deep a verification pass to run, whether to rebuild before
+  checking, how to phrase a queued follow-up, workflow ceremony scope).
+- **Cost = data, history, or credentials are actually gone, or a
+  real person outside this session is affected without recourse** → stop
+  and ask, per §6 / §6.2 / §13's existing list (force-push, `rm -rf`,
+  prod migrations, secrets, dropping DB tables, transferring access).
+
+**"I'm not sure this is the best approach" is not, by itself, a reason to
+ask.** Pick the approach a competent engineer would pick, do it, and
+disclose the choice (in the issue file, PR description, or chat summary)
+so the user can correct it after the fact if they disagree. Post-hoc
+correction is cheap; that's the entire point of building on a repo with
+git history and revertible PRs.
+
+### Worked examples (from an actual session where this rule was violated)
+
+These two questions should NOT have been asked — both are recorded here
+so future agents recognize the shape and don't repeat them:
+
+1. **"The full live BP-UAT session needs infra I'd have to bring up —
+   should I do the full thing, a lighter check, or defer entirely?"**
+   Wrong to ask. This is a verification-depth/scheduling choice with a
+   revert-cost of zero (re-running verification later costs nothing
+   lost). Correct default: do the lightest check that produces genuine
+   evidence, queue the fuller verification as a named follow-up workflow
+   with the honesty disclosure §6.1 already requires, and say so in the
+   summary. No pause needed.
+2. **"A local dev process I didn't start is running stale code — should
+   I rebuild and restart it?"** Wrong to ask. Restarting a local
+   dev-loop process is trivially reversible (the user's own tooling
+   restarts it again in seconds; nothing is lost — it wasn't running
+   anything stateful that a restart destroys). Correct default: restart
+   it, note that it was done, move on.
+
+Contrast with a genuine stop-and-ask case: "this migration will drop a
+column with existing prod data in it" — that's real data loss, no
+revert-cost-zero option exists, so §6.2 applies and the agent must pause.
+
+### How to apply
+
+- Default every `AskUserQuestion` call to a mental "would the user
+  rather I just decided and told them, or does this genuinely need their
+  input to avoid an unrecoverable mistake or to resolve what-to-build
+  ambiguity?" If the honest answer is the former, don't call the tool —
+  decide, act, and report the decision plainly in the final summary.
+  Chat-level summaries already carry decisions made; add one more line
+  rather than a mid-workflow pause.
+- This applies across every agent role in §14's list, not just
+  Orchestrator — TestRunner deciding retry depth, CodeDeveloper deciding
+  a helper's shape, UATRunner deciding session scope, PRSteward deciding
+  override eligibility — all of it already defers to "decide and
+  proceed" per §14; this section is the same principle applied
+  explicitly to the meta-question of *whether to ask at all*.
+- This does not relax §6 NEVER-DOs, §6.2 safety gates, or genuine
+  product-requirements ambiguity (§13's "what to build," not "how to
+  build it"). Those remain hard stops. Everything else defaults to
+  autonomous execution with after-the-fact disclosure.
