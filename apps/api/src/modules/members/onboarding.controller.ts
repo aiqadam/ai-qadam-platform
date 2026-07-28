@@ -32,18 +32,18 @@ export class MembersOnboardingController {
   @Post('onboard')
   @HttpCode(204)
   async onboard(@Req() req: Request, @Body() body: unknown): Promise<void> {
-    const userId = requireUserId(req);
+    const { sub: userId, email } = requireUser(req);
     const parsed = OnboardMemberDtoSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
-    await this.onboarding.completeOnboarding(userId, parsed.data);
+    await this.onboarding.completeOnboarding(userId, email, parsed.data);
   }
 }
 
-function requireUserId(req: Request): string {
+function requireUser(req: Request): { sub: string; email: string } {
   if (!req.user) {
     throw new UnauthorizedException('no claims attached');
   }
-  return req.user.sub;
+  return { sub: req.user.sub, email: req.user.email };
 }

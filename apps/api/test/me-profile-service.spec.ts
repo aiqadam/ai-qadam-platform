@@ -1,10 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import { MeProfileService } from '../src/modules/me-profile/me-profile.service';
 
 // F-S3.6b — interests + employments coverage. F-S3.6 v1 (#171) shipped
 // the service without unit tests; these focus on the new paths +
 // dedupe/owned-check invariants that share the same shape.
+//
+// ISS-USR-PROFILE-001 — the platform `users.id` (JWT sub) and Directus's
+// `directus_users.id` are two different UUID spaces. Every method must
+// resolve the real Directus id via DirectusUsersBridgeService.ensureLinked()
+// before querying Directus. `PLATFORM_USER_ID` / `DIRECTUS_USER_ID` below
+// are deliberately DIFFERENT strings (unlike the old 'u-1'-for-both fixture
+// this file used to have) so any regression that skips the bridge and
+// queries Directus using the platform id directly is caught immediately —
+// this is the exact bug ISS-USR-PROFILE-001 fixed.
 
 type FakeDirectus = {
   get: ReturnType<typeof vi.fn>;
@@ -12,13 +22,74 @@ type FakeDirectus = {
   patch: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
 };
+type FakeBridge = { ensureLinked: ReturnType<typeof vi.fn> };
+
+const PLATFORM_USER_ID = 'platform-aaaa';
+const DIRECTUS_USER_ID = 'directus-bbbb';
+const EMAIL = 'member@example.com';
 
 let dx: FakeDirectus;
+let bridge: FakeBridge;
 let svc: MeProfileService;
 
 beforeEach(() => {
   dx = { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() };
-  svc = new MeProfileService(dx as unknown as DirectusClient);
+  bridge = { ensureLinked: vi.fn().mockResolvedValue(DIRECTUS_USER_ID) };
+  svc = new MeProfileService(
+    dx as unknown as DirectusClient,
+    bridge as unknown as DirectusUsersBridgeService,
+  );
+});
+
+// ISS-USR-PROFILE-001 — regression coverage for the id-translation bug.
+// Fails before the fix (methods queried Directus with PLATFORM_USER_ID
+// directly, never calling the bridge); passes after.
+describe('MeProfileService — Directus id resolution (ISS-USR-PROFILE-001)', () => {
+  it('getProfile resolves the Directus id via the bridge before querying Directus', async () => {
+    dx.get.mockResolvedValueOnce({
+      data: { id: DIRECTUS_USER_ID, email: EMAIL, first_name: null, last_name: null },
+    });
+
+    await svc.getProfile(PLATFORM_USER_ID, EMAIL);
+
+    expect(bridge.ensureLinked).toHaveBeenCalledWith({
+      userId: PLATFORM_USER_ID,
+      email: EMAIL,
+      displayName: null,
+    });
+    const url = dx.get.mock.calls[0]?.[0] as string;
+    expect(url).toContain(`/users/${DIRECTUS_USER_ID}`);
+    expect(url).not.toContain(PLATFORM_USER_ID);
+  });
+
+  it('listConsents filters by the Directus id, not the platform id', async () => {
+    dx.get.mockResolvedValueOnce({ data: [] });
+
+    await svc.listConsents(PLATFORM_USER_ID, EMAIL);
+
+    const url = dx.get.mock.calls[0]?.[0] as string;
+    expect(decodeURIComponent(url)).toContain(DIRECTUS_USER_ID);
+    expect(decodeURIComponent(url)).not.toContain(PLATFORM_USER_ID);
+  });
+
+  it('listSkills filters by the Directus id, not the platform id', async () => {
+    dx.get.mockResolvedValueOnce({ data: [] });
+
+    await svc.listSkills(PLATFORM_USER_ID, EMAIL);
+
+    const url = dx.get.mock.calls[0]?.[0] as string;
+    expect(decodeURIComponent(url)).toContain(DIRECTUS_USER_ID);
+    expect(decodeURIComponent(url)).not.toContain(PLATFORM_USER_ID);
+  });
+
+  it('throws NotFoundException when the bridge cannot resolve a Directus id', async () => {
+    bridge.ensureLinked.mockResolvedValueOnce(null);
+
+    await expect(svc.getProfile(PLATFORM_USER_ID, EMAIL)).rejects.toThrow(
+      /directus profile not found/,
+    );
+    expect(dx.get).not.toHaveBeenCalled();
+  });
 });
 
 describe('MeProfileService.addInterest', () => {
@@ -28,10 +99,11 @@ describe('MeProfileService.addInterest', () => {
       data: { id: 'i-1', topic_tag: 'computer-vision', intent: 'learn' },
     });
 
-    const result = await svc.addInterest('u-1', 'computer-vision', 'learn');
+    const result = await svc.addInterest(PLATFORM_USER_ID, EMAIL, 'computer-vision', 'learn');
 
     expect(result).toEqual({ id: 'i-1', topic_tag: 'computer-vision', intent: 'learn' });
     expect(dx.post.mock.calls[0]?.[0]).toBe('/items/member_interests');
+    expect((dx.post.mock.calls[0]?.[1] as Record<string, unknown>).member).toBe(DIRECTUS_USER_ID);
   });
 
   it('dedupes on (member, topic_tag, intent) — returns existing', async () => {
@@ -39,7 +111,7 @@ describe('MeProfileService.addInterest', () => {
       data: [{ id: 'i-existing', topic_tag: 'mlops', intent: 'practice' }],
     });
 
-    const result = await svc.addInterest('u-1', 'mlops', 'practice');
+    const result = await svc.addInterest(PLATFORM_USER_ID, EMAIL, 'mlops', 'practice');
 
     expect(result.id).toBe('i-existing');
     expect(dx.post).not.toHaveBeenCalled();
@@ -53,7 +125,7 @@ describe('MeProfileService.addInterest', () => {
       data: { id: 'i-mentor', topic_tag: 'mlops', intent: 'mentor' },
     });
 
-    const result = await svc.addInterest('u-1', 'mlops', 'mentor');
+    const result = await svc.addInterest(PLATFORM_USER_ID, EMAIL, 'mlops', 'mentor');
     expect(result.id).toBe('i-mentor');
   });
 });
@@ -61,14 +133,16 @@ describe('MeProfileService.addInterest', () => {
 describe('MeProfileService.removeInterest', () => {
   it('rejects when row does not belong to user', async () => {
     dx.get.mockResolvedValueOnce({ data: [] });
-    await expect(svc.removeInterest('u-1', 'i-other')).rejects.toThrow(/not found/);
+    await expect(svc.removeInterest(PLATFORM_USER_ID, EMAIL, 'i-other')).rejects.toThrow(
+      /not found/,
+    );
     expect(dx.delete).not.toHaveBeenCalled();
   });
 
   it('deletes when owned', async () => {
     dx.get.mockResolvedValueOnce({ data: [{ id: 'i-mine' }] });
     dx.delete.mockResolvedValueOnce({});
-    await svc.removeInterest('u-1', 'i-mine');
+    await svc.removeInterest(PLATFORM_USER_ID, EMAIL, 'i-mine');
     expect(dx.delete.mock.calls[0]?.[0]).toBe('/items/member_interests/i-mine');
   });
 });
@@ -96,7 +170,7 @@ describe('MeProfileService.addEmployment', () => {
       })
       .mockResolvedValueOnce({ data: { id: 'emp-1' } });
 
-    const result = await svc.addEmployment('u-1', {
+    const result = await svc.addEmployment(PLATFORM_USER_ID, EMAIL, {
       employer_name: 'Acme Robotics',
       role: 'Engineer',
       is_current: true,
@@ -130,7 +204,9 @@ describe('MeProfileService.addEmployment', () => {
       });
     dx.post.mockResolvedValueOnce({ data: { id: 'emp-2' } });
 
-    const result = await svc.addEmployment('u-1', { employer_name: '  ACME   Robotics  ' });
+    const result = await svc.addEmployment(PLATFORM_USER_ID, EMAIL, {
+      employer_name: '  ACME   Robotics  ',
+    });
 
     expect(result.employer.id).toBe('co-existing');
     // Only one post → the employment insert (no company POST)
@@ -138,22 +214,24 @@ describe('MeProfileService.addEmployment', () => {
   });
 
   it('rejects when employer_name is empty/whitespace', async () => {
-    await expect(svc.addEmployment('u-1', { employer_name: '   ' })).rejects.toThrow(
-      /employer name required/,
-    );
+    await expect(
+      svc.addEmployment(PLATFORM_USER_ID, EMAIL, { employer_name: '   ' }),
+    ).rejects.toThrow(/employer name required/);
   });
 });
 
 describe('MeProfileService.removeEmployment', () => {
   it('rejects when not owned', async () => {
     dx.get.mockResolvedValueOnce({ data: [] });
-    await expect(svc.removeEmployment('u-1', 'emp-other')).rejects.toThrow(/not found/);
+    await expect(svc.removeEmployment(PLATFORM_USER_ID, EMAIL, 'emp-other')).rejects.toThrow(
+      /not found/,
+    );
   });
 
   it('deletes when owned', async () => {
     dx.get.mockResolvedValueOnce({ data: [{ id: 'emp-mine' }] });
     dx.delete.mockResolvedValueOnce({});
-    await svc.removeEmployment('u-1', 'emp-mine');
+    await svc.removeEmployment(PLATFORM_USER_ID, EMAIL, 'emp-mine');
     expect(dx.delete.mock.calls[0]?.[0]).toBe('/items/member_employments/emp-mine');
   });
 });
@@ -161,8 +239,8 @@ describe('MeProfileService.removeEmployment', () => {
 // F-S5.6 — visibility preference round-trip on getProfile + patchProfile.
 describe('MeProfileService — F-S5.6 visibility fields', () => {
   const baseRow = {
-    id: 'u-1',
-    email: 'u@example.com',
+    id: DIRECTUS_USER_ID,
+    email: EMAIL,
     first_name: 'A',
     last_name: 'B',
     job_title: null,
@@ -183,7 +261,7 @@ describe('MeProfileService — F-S5.6 visibility fields', () => {
         show_company_on_public_profile: null,
       },
     });
-    const p = await svc.getProfile('u-1');
+    const p = await svc.getProfile(PLATFORM_USER_ID, EMAIL);
     expect(p.appear_on_attendee_list).toBe(true); // default ON
     expect(p.appear_on_public_leaderboard).toBe(true); // default ON
     expect(p.show_company_on_public_profile).toBe(false); // default OFF (privacy-first)
@@ -198,7 +276,7 @@ describe('MeProfileService — F-S5.6 visibility fields', () => {
         show_company_on_public_profile: true,
       },
     });
-    const p = await svc.getProfile('u-1');
+    const p = await svc.getProfile(PLATFORM_USER_ID, EMAIL);
     expect(p.appear_on_attendee_list).toBe(false);
     expect(p.appear_on_public_leaderboard).toBe(false);
     expect(p.show_company_on_public_profile).toBe(true);
@@ -215,7 +293,7 @@ describe('MeProfileService — F-S5.6 visibility fields', () => {
         show_company_on_public_profile: true,
       },
     });
-    const p = await svc.patchProfile('u-1', {
+    const p = await svc.patchProfile(PLATFORM_USER_ID, EMAIL, {
       appear_on_attendee_list: false,
       show_company_on_public_profile: true,
     });
@@ -230,7 +308,7 @@ describe('MeProfileService — F-S5.6 visibility fields', () => {
 
   it('PROFILE_FIELDS includes the three new columns in the GET request', async () => {
     dx.get.mockResolvedValueOnce({ data: baseRow });
-    await svc.getProfile('u-1');
+    await svc.getProfile(PLATFORM_USER_ID, EMAIL);
     const url = dx.get.mock.calls[0]?.[0] as string;
     expect(url).toContain('appear_on_attendee_list');
     expect(url).toContain('appear_on_public_leaderboard');
@@ -245,7 +323,7 @@ describe('MeProfileService.getOnboardedAt', () => {
       data: { onboarded_at: '2026-01-01T00:00:00Z' },
     });
 
-    const result = await svc.getOnboardedAt('u-1');
+    const result = await svc.getOnboardedAt(PLATFORM_USER_ID, EMAIL);
 
     expect(result).toBe('2026-01-01T00:00:00Z');
   });
@@ -255,7 +333,7 @@ describe('MeProfileService.getOnboardedAt', () => {
       data: { onboarded_at: null },
     });
 
-    const result = await svc.getOnboardedAt('u-1');
+    const result = await svc.getOnboardedAt(PLATFORM_USER_ID, EMAIL);
 
     expect(result).toBeNull();
   });
@@ -263,18 +341,19 @@ describe('MeProfileService.getOnboardedAt', () => {
   it('returns null when the user row does not exist', async () => {
     dx.get.mockResolvedValueOnce({ data: null });
 
-    const result = await svc.getOnboardedAt('u-nonexistent');
+    const result = await svc.getOnboardedAt(PLATFORM_USER_ID, EMAIL);
 
     expect(result).toBeNull();
   });
 
-  it('queries directus with the userId and onboarded_at field', async () => {
+  it('queries directus with the resolved Directus id and onboarded_at field', async () => {
     dx.get.mockResolvedValueOnce({ data: { onboarded_at: null } });
 
-    await svc.getOnboardedAt('u-123');
+    await svc.getOnboardedAt(PLATFORM_USER_ID, EMAIL);
 
     const url = dx.get.mock.calls[0]?.[0] as string;
     expect(url).toContain('/users/');
+    expect(url).toContain(DIRECTUS_USER_ID);
     expect(url).toContain('fields=onboarded_at');
   });
 });
@@ -283,11 +362,11 @@ describe('MeProfileService.setOnboardedAt', () => {
   it('PATCHes directus_users with onboarded_at set to current ISO timestamp', async () => {
     dx.patch.mockResolvedValueOnce({});
 
-    await svc.setOnboardedAt('u-1');
+    await svc.setOnboardedAt(PLATFORM_USER_ID, EMAIL);
 
     expect(dx.patch).toHaveBeenCalledTimes(1);
     const call = dx.patch.mock.calls[0];
-    expect(call?.[0]).toBe('/users/u-1');
+    expect(call?.[0]).toBe(`/users/${DIRECTUS_USER_ID}`);
     const body = call?.[1] as Record<string, unknown>;
     expect(body).toHaveProperty('onboarded_at');
     // Verify it's an ISO-8601 timestamp ending with Z
@@ -295,13 +374,17 @@ describe('MeProfileService.setOnboardedAt', () => {
     expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
   });
 
-  it('calls patch with the correct userId', async () => {
+  it('calls patch with the resolved Directus id, not the platform id', async () => {
+    bridge.ensureLinked.mockResolvedValueOnce('11111111-1111-4000-8000-000000000001');
     dx.patch.mockResolvedValueOnce({});
 
-    await svc.setOnboardedAt('11111111-1111-4000-8000-000000000001');
+    await svc.setOnboardedAt('platform-id-that-must-not-reach-directus', EMAIL);
 
     expect(dx.patch.mock.calls[0]?.[0]).toContain(
       '11111111-1111-4000-8000-000000000001',
+    );
+    expect(dx.patch.mock.calls[0]?.[0]).not.toContain(
+      'platform-id-that-must-not-reach-directus',
     );
   });
 });
@@ -311,8 +394,8 @@ describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
   it('getProfile includes onboarded_at in the fields query', async () => {
     dx.get.mockResolvedValueOnce({
       data: {
-        id: 'u-1',
-        email: 'a@b.com',
+        id: DIRECTUS_USER_ID,
+        email: EMAIL,
         first_name: null,
         last_name: null,
         job_title: null,
@@ -329,7 +412,7 @@ describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
       },
     });
 
-    await svc.getProfile('u-1');
+    await svc.getProfile(PLATFORM_USER_ID, EMAIL);
 
     const url = dx.get.mock.calls[0]?.[0] as string;
     expect(url).toContain('onboarded_at');
@@ -338,8 +421,8 @@ describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
   it('toProfile passes through onboarded_at as-is', async () => {
     dx.get.mockResolvedValueOnce({
       data: {
-        id: 'u-1',
-        email: 'a@b.com',
+        id: DIRECTUS_USER_ID,
+        email: EMAIL,
         first_name: null,
         last_name: null,
         job_title: null,
@@ -356,7 +439,7 @@ describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
       },
     });
 
-    const profile = await svc.getProfile('u-1');
+    const profile = await svc.getProfile(PLATFORM_USER_ID, EMAIL);
 
     expect(profile.onboarded_at).toBe('2026-06-20T12:00:00Z');
   });
@@ -364,8 +447,8 @@ describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
   it('toProfile defaults onboarded_at to null when field is null', async () => {
     dx.get.mockResolvedValueOnce({
       data: {
-        id: 'u-1',
-        email: 'a@b.com',
+        id: DIRECTUS_USER_ID,
+        email: EMAIL,
         first_name: null,
         last_name: null,
         job_title: null,
@@ -382,7 +465,7 @@ describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
       },
     });
 
-    const profile = await svc.getProfile('u-1');
+    const profile = await svc.getProfile(PLATFORM_USER_ID, EMAIL);
 
     expect(profile.onboarded_at).toBeNull();
   });

@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
 
 // F-S3.6 — member self-service backend per ADR-0033 cabinet #5.
@@ -169,11 +170,28 @@ const PROFILE_FIELDS =
 export class MeProfileService {
   private readonly logger = new Logger(MeProfileService.name);
 
-  constructor(private readonly directus: DirectusClient) {}
+  constructor(
+    private readonly directus: DirectusClient,
+    private readonly bridge: DirectusUsersBridgeService,
+  ) {}
 
-  async getProfile(userId: string): Promise<MemberProfile> {
+  // Every method below is keyed on the platform `users.id` (the JWT `sub`)
+  // but Directus rows are keyed on `directus_users.id` — a different UUID
+  // space. resolveDirectusId() is the mandatory translation step; skipping
+  // it means every Directus call below 404s/errors against the wrong
+  // primary key (ISS-USR-PROFILE-001).
+  private async resolveDirectusId(userId: string, email: string): Promise<string> {
+    const directusUserId = await this.bridge.ensureLinked({ userId, email, displayName: null });
+    if (!directusUserId) {
+      throw new NotFoundException('directus profile not found for this member');
+    }
+    return directusUserId;
+  }
+
+  async getProfile(userId: string, email: string): Promise<MemberProfile> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     const row = await this.directus.get<{ data: DirectusUserRow | null }>(
-      `/users/${encodeURIComponent(userId)}?fields=${PROFILE_FIELDS}`,
+      `/users/${encodeURIComponent(directusUserId)}?fields=${PROFILE_FIELDS}`,
     );
     if (!row.data) {
       throw new NotFoundException('user not found');
@@ -183,6 +201,7 @@ export class MeProfileService {
 
   async patchProfile(
     userId: string,
+    email: string,
     patch: {
       job_title?: string | null | undefined;
       seniority?: SeniorityKey | null | undefined;
@@ -196,17 +215,19 @@ export class MeProfileService {
       show_company_on_public_profile?: boolean | undefined;
     },
   ): Promise<MemberProfile> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     // Pass through exactly the fields the caller set; PATCHing
     // null is meaningful (clearing a field).
-    await this.directus.patch(`/users/${encodeURIComponent(userId)}`, patch);
-    return this.getProfile(userId);
+    await this.directus.patch(`/users/${encodeURIComponent(directusUserId)}`, patch);
+    return this.getProfile(userId, email);
   }
 
-  async listConsents(userId: string): Promise<MemberConsentSummary[]> {
+  async listConsents(userId: string, email: string): Promise<MemberConsentSummary[]> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     // One query for all the member's rows. Group client-side by
     // purpose, take the most recent (granted_at DESC) per purpose,
     // check revoked_at IS NULL for the current state.
-    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: userId } }));
+    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: directusUserId } }));
     const res = await this.directus.get<{ data: MemberConsentRow[] }>(
       `/items/member_consents?filter=${filter}&sort=-granted_at&fields=id,purpose,granted_at,revoked_at&limit=200`,
     );
@@ -232,15 +253,17 @@ export class MeProfileService {
 
   async setConsent(
     userId: string,
+    email: string,
     purpose: MemberConsentPurpose,
     granted: boolean,
   ): Promise<MemberConsentSummary> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     // Append-only: every toggle inserts a new row (matches the
     // existing consent_records pattern in PreferencesService). Most-
     // recent row wins on read.
     const now = new Date().toISOString();
     await this.directus.post('/items/member_consents', {
-      member: userId,
+      member: directusUserId,
       purpose,
       granted_at: now,
       revoked_at: granted ? null : now,
@@ -249,8 +272,9 @@ export class MeProfileService {
     return { purpose, granted, lastChangedAt: now };
   }
 
-  async listSkills(userId: string): Promise<MemberSkill[]> {
-    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: userId } }));
+  async listSkills(userId: string, email: string): Promise<MemberSkill[]> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
+    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: directusUserId } }));
     const res = await this.directus.get<{ data: MemberSkillRow[] }>(
       `/items/member_skills?filter=${filter}&sort=skill_tag&fields=id,skill_tag,endorsement_count,verified_by_event&limit=100`,
     );
@@ -262,14 +286,15 @@ export class MeProfileService {
     }));
   }
 
-  async addSkill(userId: string, skillTag: string): Promise<MemberSkill> {
+  async addSkill(userId: string, email: string, skillTag: string): Promise<MemberSkill> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     // Deduplicate client-side: if the tag already exists for this
     // user, return the existing row instead of creating a second one.
-    const existing = await this.listSkills(userId);
+    const existing = await this.listSkills(userId, email);
     const match = existing.find((s) => s.skill_tag === skillTag);
     if (match) return match;
     const res = await this.directus.post<{ data: MemberSkillRow }>('/items/member_skills', {
-      member: userId,
+      member: directusUserId,
       skill_tag: skillTag,
       endorsement_count: 0,
     });
@@ -281,12 +306,13 @@ export class MeProfileService {
     };
   }
 
-  async removeSkill(userId: string, skillId: string): Promise<void> {
+  async removeSkill(userId: string, email: string, skillId: string): Promise<void> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     // Confirm the row belongs to the caller before deletion — a
     // small belt-and-braces check on top of the eventual Directus
     // permission policy.
     const filter = encodeURIComponent(
-      JSON.stringify({ id: { _eq: skillId }, member: { _eq: userId } }),
+      JSON.stringify({ id: { _eq: skillId }, member: { _eq: directusUserId } }),
     );
     const owned = await this.directus.get<{ data: MemberSkillRow[] }>(
       `/items/member_skills?filter=${filter}&fields=id&limit=1`,
@@ -297,8 +323,9 @@ export class MeProfileService {
     await this.directus.delete(`/items/member_skills/${encodeURIComponent(skillId)}`);
   }
 
-  async listInterests(userId: string): Promise<MemberInterest[]> {
-    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: userId } }));
+  async listInterests(userId: string, email: string): Promise<MemberInterest[]> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
+    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: directusUserId } }));
     const res = await this.directus.get<{ data: MemberInterestRow[] }>(
       `/items/member_interests?filter=${filter}&sort=topic_tag&fields=id,topic_tag,intent&limit=200`,
     );
@@ -307,25 +334,28 @@ export class MeProfileService {
 
   async addInterest(
     userId: string,
+    email: string,
     topicTag: string,
     intent: InterestIntent,
   ): Promise<MemberInterest> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     // Dedupe on (member, topic_tag, intent) — same intent on the same
     // topic is meaningless; return existing.
-    const existing = await this.listInterests(userId);
+    const existing = await this.listInterests(userId, email);
     const match = existing.find((i) => i.topic_tag === topicTag && i.intent === intent);
     if (match) return match;
     const res = await this.directus.post<{ data: MemberInterestRow }>('/items/member_interests', {
-      member: userId,
+      member: directusUserId,
       topic_tag: topicTag,
       intent,
     });
     return { id: res.data.id, topic_tag: res.data.topic_tag, intent: res.data.intent };
   }
 
-  async removeInterest(userId: string, interestId: string): Promise<void> {
+  async removeInterest(userId: string, email: string, interestId: string): Promise<void> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     const filter = encodeURIComponent(
-      JSON.stringify({ id: { _eq: interestId }, member: { _eq: userId } }),
+      JSON.stringify({ id: { _eq: interestId }, member: { _eq: directusUserId } }),
     );
     const owned = await this.directus.get<{ data: { id: string }[] }>(
       `/items/member_interests?filter=${filter}&fields=id&limit=1`,
@@ -336,8 +366,9 @@ export class MeProfileService {
     await this.directus.delete(`/items/member_interests/${encodeURIComponent(interestId)}`);
   }
 
-  async listEmployments(userId: string): Promise<MemberEmployment[]> {
-    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: userId } }));
+  async listEmployments(userId: string, email: string): Promise<MemberEmployment[]> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
+    const filter = encodeURIComponent(JSON.stringify({ member: { _eq: directusUserId } }));
     const fields =
       'id,role,started_at,ended_at,is_current,share_with_sponsors,employer.id,employer.name,employer.slug';
     const res = await this.directus.get<{ data: MemberEmploymentRow[] }>(
@@ -354,10 +385,15 @@ export class MeProfileService {
     }));
   }
 
-  async addEmployment(userId: string, input: AddEmploymentInput): Promise<MemberEmployment> {
+  async addEmployment(
+    userId: string,
+    email: string,
+    input: AddEmploymentInput,
+  ): Promise<MemberEmployment> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     const employer = await this.findOrCreateEmployer(input.employer_name);
     const body: Record<string, unknown> = {
-      member: userId,
+      member: directusUserId,
       employer: employer.id,
       is_current: input.is_current ?? false,
       share_with_sponsors: input.share_with_sponsors ?? false,
@@ -389,9 +425,10 @@ export class MeProfileService {
     };
   }
 
-  async removeEmployment(userId: string, employmentId: string): Promise<void> {
+  async removeEmployment(userId: string, email: string, employmentId: string): Promise<void> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     const filter = encodeURIComponent(
-      JSON.stringify({ id: { _eq: employmentId }, member: { _eq: userId } }),
+      JSON.stringify({ id: { _eq: employmentId }, member: { _eq: directusUserId } }),
     );
     const owned = await this.directus.get<{ data: { id: string }[] }>(
       `/items/member_employments?filter=${filter}&fields=id&limit=1`,
@@ -405,17 +442,19 @@ export class MeProfileService {
   // FR-MIG-020 — set onboarded_at on directus_users. Called once during
   // the /v1/members/onboard flow. Idempotent: overwriting with the same
   // value is harmless.
-  async setOnboardedAt(userId: string): Promise<void> {
-    await this.directus.patch(`/users/${encodeURIComponent(userId)}`, {
+  async setOnboardedAt(userId: string, email: string): Promise<void> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
+    await this.directus.patch(`/users/${encodeURIComponent(directusUserId)}`, {
       onboarded_at: new Date().toISOString(),
     });
   }
 
   // FR-MIG-020 — read onboarded_at for a user. Returns null when the
   // Directus field is unset (legacy users who joined before this feature).
-  async getOnboardedAt(userId: string): Promise<string | null> {
+  async getOnboardedAt(userId: string, email: string): Promise<string | null> {
+    const directusUserId = await this.resolveDirectusId(userId, email);
     const row = await this.directus.get<{ data: DirectusUserRow | null }>(
-      `/users/${encodeURIComponent(userId)}?fields=onboarded_at`,
+      `/users/${encodeURIComponent(directusUserId)}?fields=onboarded_at`,
     );
     return row.data?.onboarded_at ?? null;
   }
@@ -425,9 +464,11 @@ export class MeProfileService {
   // flow where we want to set identity fields alongside job_title.
   async patchDirectusFields(
     userId: string,
+    email: string,
     fields: { first_name?: string | null | undefined; last_name?: string | null | undefined },
   ): Promise<void> {
-    await this.directus.patch(`/users/${encodeURIComponent(userId)}`, {
+    const directusUserId = await this.resolveDirectusId(userId, email);
+    await this.directus.patch(`/users/${encodeURIComponent(directusUserId)}`, {
       first_name: fields.first_name,
       last_name: fields.last_name,
     });

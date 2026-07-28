@@ -140,13 +140,13 @@ export class MeProfileController {
     interests: MemberInterest[];
     employments: MemberEmployment[];
   }> {
-    const userId = requireUserId(req);
+    const { sub: userId, email } = requireUser(req);
     const [profile, consents, skills, interests, employments] = await Promise.all([
-      this.profile.getProfile(userId),
-      this.profile.listConsents(userId),
-      this.profile.listSkills(userId),
-      this.profile.listInterests(userId),
-      this.profile.listEmployments(userId),
+      this.profile.getProfile(userId, email),
+      this.profile.listConsents(userId, email),
+      this.profile.listSkills(userId, email),
+      this.profile.listInterests(userId, email),
+      this.profile.listEmployments(userId, email),
     ]);
     return { profile, consents, skills, interests, employments };
   }
@@ -156,12 +156,12 @@ export class MeProfileController {
     @Req() req: Request,
     @Body() body: unknown,
   ): Promise<{ profile: MemberProfile }> {
-    const userId = requireUserId(req);
+    const { sub: userId, email } = requireUser(req);
     const parsed = profilePatchSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
-    const profile = await this.profile.patchProfile(userId, parsed.data);
+    const profile = await this.profile.patchProfile(userId, email, parsed.data);
     return { profile };
   }
 
@@ -170,18 +170,23 @@ export class MeProfileController {
     @Req() req: Request,
     @Body() body: unknown,
   ): Promise<{ consent: MemberConsentSummary }> {
-    const userId = requireUserId(req);
+    const { sub: userId, email } = requireUser(req);
     const parsed = consentPatchSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
-    const consent = await this.profile.setConsent(userId, parsed.data.purpose, parsed.data.granted);
+    const consent = await this.profile.setConsent(
+      userId,
+      email,
+      parsed.data.purpose,
+      parsed.data.granted,
+    );
     return { consent };
   }
 
   @Post('skills')
   async addSkill(@Req() req: Request, @Body() body: unknown): Promise<{ skill: MemberSkill }> {
-    const userId = requireUserId(req);
+    const { sub: userId, email } = requireUser(req);
     const parsed = skillAddSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
@@ -189,14 +194,14 @@ export class MeProfileController {
     if (!parsed.data.skill_tag) {
       throw new BadRequestException('skill_tag normalised to empty string');
     }
-    const skill = await this.profile.addSkill(userId, parsed.data.skill_tag);
+    const skill = await this.profile.addSkill(userId, email, parsed.data.skill_tag);
     return { skill };
   }
 
   @Delete('skills/:id')
   async removeSkill(@Req() req: Request, @Param('id') id: string): Promise<{ ok: true }> {
-    const userId = requireUserId(req);
-    await this.profile.removeSkill(userId, id);
+    const { sub: userId, email } = requireUser(req);
+    await this.profile.removeSkill(userId, email, id);
     return { ok: true };
   }
 
@@ -205,7 +210,7 @@ export class MeProfileController {
     @Req() req: Request,
     @Body() body: unknown,
   ): Promise<{ interest: MemberInterest }> {
-    const userId = requireUserId(req);
+    const { sub: userId, email } = requireUser(req);
     const parsed = interestAddSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     if (!parsed.data.topic_tag) {
@@ -213,6 +218,7 @@ export class MeProfileController {
     }
     const interest = await this.profile.addInterest(
       userId,
+      email,
       parsed.data.topic_tag,
       parsed.data.intent,
     );
@@ -221,8 +227,8 @@ export class MeProfileController {
 
   @Delete('interests/:id')
   async removeInterest(@Req() req: Request, @Param('id') id: string): Promise<{ ok: true }> {
-    const userId = requireUserId(req);
-    await this.profile.removeInterest(userId, id);
+    const { sub: userId, email } = requireUser(req);
+    await this.profile.removeInterest(userId, email, id);
     return { ok: true };
   }
 
@@ -231,17 +237,17 @@ export class MeProfileController {
     @Req() req: Request,
     @Body() body: unknown,
   ): Promise<{ employment: MemberEmployment }> {
-    const userId = requireUserId(req);
+    const { sub: userId, email } = requireUser(req);
     const parsed = employmentAddSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    const employment = await this.profile.addEmployment(userId, parsed.data);
+    const employment = await this.profile.addEmployment(userId, email, parsed.data);
     return { employment };
   }
 
   @Delete('employments/:id')
   async removeEmployment(@Req() req: Request, @Param('id') id: string): Promise<{ ok: true }> {
-    const userId = requireUserId(req);
-    await this.profile.removeEmployment(userId, id);
+    const { sub: userId, email } = requireUser(req);
+    await this.profile.removeEmployment(userId, email, id);
     return { ok: true };
   }
 
@@ -249,15 +255,15 @@ export class MeProfileController {
   // Returns whether onboarded_at is set on directus_users.
   @Get('onboarding-status')
   async getOnboardingStatus(@Req() req: Request): Promise<{ onboarded: boolean }> {
-    const userId = requireUserId(req);
-    const onboardedAt = await this.profile.getOnboardedAt(userId);
+    const { sub: userId, email } = requireUser(req);
+    const onboardedAt = await this.profile.getOnboardedAt(userId, email);
     return { onboarded: onboardedAt !== null };
   }
 }
 
-function requireUserId(req: Request): string {
+function requireUser(req: Request): { sub: string; email: string } {
   if (!req.user) {
     throw new UnauthorizedException('no claims attached');
   }
-  return req.user.sub;
+  return { sub: req.user.sub, email: req.user.email };
 }
