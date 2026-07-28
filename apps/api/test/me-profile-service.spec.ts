@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
+import { DirectusError } from '../src/modules/directus/directus.client';
 import type { DirectusClient } from '../src/modules/directus/directus.client';
 import { MeProfileService } from '../src/modules/me-profile/me-profile.service';
 
@@ -468,5 +469,66 @@ describe('MeProfileService — onboarded_at in PROFILE_FIELDS', () => {
     const profile = await svc.getProfile(PLATFORM_USER_ID, EMAIL);
 
     expect(profile.onboarded_at).toBeNull();
+  });
+});
+
+// ISS-USR-PROFILE-002 — a Directus 403 on the combined-fields request
+// (e.g. a policy missing a field-level grant on one field, like
+// onboarded_at under ISS-RBAC-PERMS-001) previously crashed the ENTIRE
+// /me/profile response with an unhandled 500 for every real member.
+// getProfile must retry without onboarded_at rather than losing the
+// whole profile — a real, unrelated 403/404 must still surface normally.
+describe('MeProfileService.getProfile — degrades gracefully on field-permission 403 (ISS-USR-PROFILE-002)', () => {
+  const BASE_ROW = {
+    id: DIRECTUS_USER_ID,
+    email: EMAIL,
+    first_name: null,
+    last_name: null,
+    job_title: 'Engineer',
+    seniority: null,
+    industry_tags: null,
+    is_student: false,
+    bio_md: null,
+    appear_in_directory: false,
+    appear_in_matches: true,
+    appear_on_attendee_list: true,
+    appear_on_public_leaderboard: true,
+    show_company_on_public_profile: false,
+  };
+
+  it('retries without onboarded_at when the full field list 403s, and returns the rest of the profile', async () => {
+    dx.get
+      .mockRejectedValueOnce(
+        new DirectusError(
+          403,
+          '/users/x?fields=...,onboarded_at',
+          '{"errors":[{"message":"You don\'t have permission to access field \\"onboarded_at\\""}]}',
+        ),
+      )
+      .mockResolvedValueOnce({ data: BASE_ROW });
+
+    const profile = await svc.getProfile(PLATFORM_USER_ID, EMAIL);
+
+    expect(dx.get).toHaveBeenCalledTimes(2);
+    const retryUrl = dx.get.mock.calls[1]?.[0] as string;
+    expect(retryUrl).not.toContain('onboarded_at');
+    expect(profile.job_title).toBe('Engineer');
+    expect(profile.onboarded_at).toBeNull();
+  });
+
+  it('re-throws a non-403 DirectusError without retrying', async () => {
+    dx.get.mockRejectedValueOnce(new DirectusError(503, '/users/x', 'service unavailable'));
+
+    await expect(svc.getProfile(PLATFORM_USER_ID, EMAIL)).rejects.toThrow(DirectusError);
+    expect(dx.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-throws a 403 that persists on the retry (a real, unrelated permission gap)', async () => {
+    dx.get
+      .mockRejectedValueOnce(new DirectusError(403, '/users/x?fields=...,onboarded_at', 'denied'))
+      .mockRejectedValueOnce(new DirectusError(403, '/users/x?fields=...', 'still denied'));
+
+    await expect(svc.getProfile(PLATFORM_USER_ID, EMAIL)).rejects.toThrow(DirectusError);
+    expect(dx.get).toHaveBeenCalledTimes(2);
   });
 });

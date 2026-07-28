@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
-import { DirectusClient } from '../directus/directus.client';
+import { DirectusClient, DirectusError } from '../directus/directus.client';
 
 // F-S3.6 — member self-service backend per ADR-0033 cabinet #5.
 //
@@ -190,13 +190,39 @@ export class MeProfileService {
 
   async getProfile(userId: string, email: string): Promise<MemberProfile> {
     const directusUserId = await this.resolveDirectusId(userId, email);
-    const row = await this.directus.get<{ data: DirectusUserRow | null }>(
-      `/users/${encodeURIComponent(directusUserId)}?fields=${PROFILE_FIELDS}`,
-    );
-    if (!row.data) {
+    const row = await this.fetchProfileRow(directusUserId);
+    if (!row) {
       throw new NotFoundException('user not found');
     }
-    return this.toProfile(row.data);
+    return this.toProfile(row);
+  }
+
+  // ISS-USR-PROFILE-002 — a Directus policy missing a field-level grant on
+  // one of PROFILE_FIELDS (e.g. onboarded_at under a not-yet-fully-seeded
+  // RBAC policy, see ISS-RBAC-PERMS-001) 403s the WHOLE combined-fields
+  // request, taking down the entire profile page for that member. Retry
+  // once without onboarded_at — every other field the cabinet needs still
+  // loads, and onboarded_at has its own dedicated read path
+  // (getOnboardedAt / GET /me/profile/onboarding-status) that isn't on the
+  // critical path for this response. A real, unrelated 403/404 (row
+  // genuinely inaccessible) still surfaces normally on the retry.
+  private async fetchProfileRow(directusUserId: string): Promise<DirectusUserRow | null> {
+    try {
+      const row = await this.directus.get<{ data: DirectusUserRow | null }>(
+        `/users/${encodeURIComponent(directusUserId)}?fields=${PROFILE_FIELDS}`,
+      );
+      return row.data;
+    } catch (err) {
+      if (!(err instanceof DirectusError) || err.status !== 403) throw err;
+      this.logger.warn(
+        `getProfile: full field list denied for user=${directusUserId}, retrying without onboarded_at: ${err.status} ${err.path}`,
+      );
+      const fallbackFields = PROFILE_FIELDS.replace(',onboarded_at', '');
+      const row = await this.directus.get<{ data: Omit<DirectusUserRow, 'onboarded_at'> | null }>(
+        `/users/${encodeURIComponent(directusUserId)}?fields=${fallbackFields}`,
+      );
+      return row.data ? { ...row.data, onboarded_at: null } : null;
+    }
   }
 
   async patchProfile(

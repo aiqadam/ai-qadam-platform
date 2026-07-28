@@ -1,0 +1,113 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260728-fix-144"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-28T08:40:00Z"
+last_updated_at: "2026-07-28T15:35:00Z"
+
+requirement_ref: "ISS-USR-PROFILE-002"
+requirement_text: "Every authenticated member's GET /me/profile 500s in production and QA — unhandled Directus field-permission 403 on onboarded_at, root cause shared with ISS-RBAC-PERMS-001. User-reported live from qa.aiqadam.org."
+github_issue_url: ""
+
+branch: "fix/ISS-USR-PROFILE-002-me-profile-qa-404-hydration"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 12
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T15:00:00Z"
+    summary: "No BLOCKER or MAJOR findings; process caught + fixed an unrelated critical PII leak (ISS-SEC-DIRECTUS-USERS-PUBLIC-001)."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-144/04-security-review.md"
+  test-results:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T15:20:00Z"
+    summary: "3/3 new regression tests pass; live local + QA verification performed; QA blocked by separately-disclosed ISS-INFRA-QA-DIRECTUS-SCHEMA-001."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-144/07-test-results.md"
+  quality-gate:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-28T15:30:00Z"
+    summary: "Status-consistency satisfied across 4 issue files; QA deferral honestly disclosed with a named follow-up issue."
+    output_file: ".copilot/tasks/active/wf-20260728-fix-144/09-quality-gate.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: ["ISS-SEC-DIRECTUS-USERS-PUBLIC-001", "ISS-INFRA-QA-DIRECTUS-SCHEMA-001"]
+issue_ref: "ISS-USR-PROFILE-002"
+
+deferrals:
+  - from_feature: "ISS-USR-PROFILE-002"
+    to_feature: "ISS-RBAC-PERMS-001"
+    reason: "This workflow implemented only the policy.member permission-row slice needed to fix /me/profile. ISS-RBAC-PERMS-001 remains open for policy.member's public-read/create-own-registration halves and all 6 other ADR-0021 policies (speaker/sponsor_rep/organizer/country_lead/svc_bot/svc_worker) — none of their permission rows exist yet."
+    step: 4
+    timestamp: "2026-07-28T09:13:32Z"
+  - from_feature: "ISS-USR-PROFILE-002"
+    to_feature: "ISS-INFRA-QA-DIRECTUS-SCHEMA-001"
+    reason: "Live QA verification discovered QA's Directus has no application schema at all (bootstrap.sh apparently never run there) -- a larger, separate blocker than the permission-row gap this PR fixes. Deliberately not fixed live this session per explicit user instruction (running full bootstrap.sh against a live shared environment needs its own reviewed action). Not yet queued to a specific workflow id."
+    step: 8
+    timestamp: "2026-07-28T15:00:00Z"
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-003", "BP-UAT-016"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260728-fix-144/handoff.yaml"
+  - ".copilot/tasks/active/wf-20260728-fix-144/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260728-fix-144/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260728-fix-144/09-quality-gate.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/api/src/modules/me-profile/
+  - infrastructure/directus/bootstrap.sh
+  - docs/adr/0021-rbac-manifest.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260728-fix-144/NEEDS_REVIEW.md"

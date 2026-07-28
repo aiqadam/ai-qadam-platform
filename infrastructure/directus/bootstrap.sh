@@ -129,6 +129,61 @@ drop_field() {
   fi
 }
 
+# ISS-SEC-DIRECTUS-USERS-PUBLIC-001 — revoke a dangerous permission row
+# by (policy, collection, action), idempotently. Directus's built-in
+# Public role's policy ($t:public_label, a fixed well-known id shipped
+# with every Directus install — NOT something bootstrap.sh creates) had
+# an unrestricted directus_users/read grant (permissions: null, fields:
+# "*") that let ANY unauthenticated request read every member's full
+# profile row, including email/bio_md/telegram_user_id — confirmed live
+# 2026-07-28. Origin unknown (predates this script's directus_users
+# provisioning; not created by any `ensure_perm*` call here — likely a
+# manual Admin-App change or a Directus default this instance shipped
+# with). Idempotent: 0 matching rows = already safe = no-op; N matching
+# rows = delete all of them (defends against the row being re-added by
+# hand again).
+revoke_public_read() {
+  local policy_id="$1"
+  local collection="$2"
+  local kind="revoke public ${collection}/read"
+  local ids
+  ids=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${policy_id}&filter%5Bcollection%5D%5B_eq%5D=${collection}&filter%5Baction%5D%5B_eq%5D=read&fields=id" \
+    | jq -r '.data[].id' 2>/dev/null || true)
+  if [ -z "${ids}" ]; then
+    echo "  ✓ ${kind} (already absent)"
+    return 0
+  fi
+  local id
+  for id in ${ids}; do
+    if directus_request_with_retry DELETE "${DIRECTUS_URL}/permissions/${id}" -H "${H_AUTH}"; then
+      echo "  - ${kind} (revoked permission id=${id})"
+    else
+      local del_code
+      del_code=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ ${kind} id=${id} revoke HTTP ${del_code}"
+      head -c 200 /tmp/directus-retry-resp
+      echo
+      return 1
+    fi
+  done
+}
+
+echo "[ISS-SEC-DIRECTUS-USERS-PUBLIC-001 — revoke unauthenticated directus_users read]"
+# Directus's built-in Public role's policy has a FIXED NAME
+# ("$t:public_label", its untranslated i18n key) but an INSTANCE-SPECIFIC
+# id (generated at first-boot, not a deterministic constant like this
+# script's own 400e0021-...-style UUIDs) — look it up by name rather than
+# hardcoding the id observed on any one environment.
+DIRECTUS_PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${DIRECTUS_PUBLIC_POLICY_ID}" ]; then
+  revoke_public_read "${DIRECTUS_PUBLIC_POLICY_ID}" directus_users
+else
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping revoke (nothing to fix, or naming differs on this instance; verify manually)."
+fi
+
 # ──────────── countries ─────────────────────────────────────────────────
 
 echo "[countries]"
@@ -2597,6 +2652,87 @@ ensure "policy.member" \
     app_access:true,
     enforce_tfa:false
   }')"
+
+# directus_permissions rows keyed by an arbitrary policy id (not just the
+# hardcoded S0.1 demo-tenant policy ensure_perm() above assumes). Same
+# idempotency shape: identify by (policy, collection, action), POST
+# through the retry helper.
+ensure_perm_for_policy() {
+  local policy_id="$1" kind="$2" collection="$3" action="$4" filter="$5" fields_json="$6"
+  local count
+  count=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${policy_id}&filter%5Bcollection%5D%5B_eq%5D=${collection}&filter%5Baction%5D%5B_eq%5D=${action}&limit=1&fields=id" \
+    | jq -r '.data | length' 2>/dev/null || echo 0)
+  if [ "${count}" -gt 0 ]; then
+    echo "  ✓ ${kind} (exists)"
+    return 0
+  fi
+  local body
+  body=$(jq -nc --arg pol "$policy_id" --arg col "$collection" --arg act "$action" \
+                --argjson f "$filter" --argjson flds "$fields_json" \
+    '{policy:$pol, collection:$col, action:$act, permissions:$f, fields:$flds}')
+  if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
+       -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
+    echo "  + ${kind} (created)"
+  else
+    local last
+    last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+    echo "  ✗ ${kind} HTTP ${last}"
+    head -c 300 /tmp/directus-retry-resp
+    echo
+    return 1
+  fi
+}
+
+# ISS-USR-PROFILE-002 / ISS-RBAC-PERMS-001 — policy.member's own-row grant
+# on directus_users, per ADR-0021 §4.1's "CRUD on own directus_users row".
+# This is the minimum slice needed for /me/profile to load without the
+# whole combined-fields request 403ing (production incident: every member
+# got a 500 on their own profile page — see ISS-USR-PROFILE-002). The
+# remaining ADR-0021 §4.1 policies (speaker/sponsor_rep/organizer/
+# country_lead/svc_bot/svc_worker) and their per-collection grants are
+# still open — tracked in ISS-RBAC-PERMS-001, not implemented here.
+SELF_ROW_FILTER='{"id":{"_eq":"$CURRENT_USER"}}'
+MEMBER_PROFILE_FIELDS='["id","email","first_name","last_name","job_title","seniority","industry_tags","is_student","bio_md","appear_in_directory","appear_in_matches","appear_on_attendee_list","appear_on_public_leaderboard","show_company_on_public_profile","onboarded_at","country_code"]'
+
+echo "[policy.member — own-row directus_users grants]"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member directus_users/read" \
+  directus_users read "$SELF_ROW_FILTER" "$MEMBER_PROFILE_FIELDS"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member directus_users/update" \
+  directus_users update "$SELF_ROW_FILTER" \
+  '["job_title","seniority","industry_tags","is_student","bio_md","appear_in_directory","appear_in_matches","appear_on_attendee_list","appear_on_public_leaderboard","show_company_on_public_profile"]'
+
+echo "[policy.member — member_consents own-row grants]"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_consents/read" \
+  member_consents read '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_consents/create" \
+  member_consents create '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_consents/update" \
+  member_consents update '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+
+echo "[policy.member — member_skills own-row grants]"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_skills/read" \
+  member_skills read '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_skills/create" \
+  member_skills create '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_skills/delete" \
+  member_skills delete '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+
+echo "[policy.member — member_interests own-row grants]"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_interests/read" \
+  member_interests read '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_interests/create" \
+  member_interests create '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_interests/delete" \
+  member_interests delete '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+
+echo "[policy.member — member_employments own-row grants]"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_employments/read" \
+  member_employments read '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_employments/create" \
+  member_employments create '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_employments/delete" \
+  member_employments delete '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
 
 ensure "policy.speaker" \
   "${DIRECTUS_URL}/policies/${POLICY_RBAC_SPEAKER}" \

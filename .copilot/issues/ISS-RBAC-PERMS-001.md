@@ -5,12 +5,29 @@
 | ID | ISS-RBAC-PERMS-001 |
 | Severity | blocker |
 | Module | infrastructure/directus-bootstrap, api/rbac-sync |
-| Status | open |
+| Status | in-progress (`policy.member` done; 6 policies remain) |
 | Reported | 2026-07-28 |
 | Resolved | — |
-| Workflow | queued: `wf-20260728-fix-144` (to be created when this issue is picked up) |
+| Workflow | `wf-20260728-fix-144` (policy.member slice); remainder still queued, not yet a task directory |
 | Reporter | Orchestrator (discovered while verifying the fix for [ISS-UAT-RBAC-001](ISS-UAT-RBAC-001.md)) |
 | Business-Process | BP-UAT-003, BP-UAT-016 (and, by the same mechanism, any BP-UAT that needs a fully-permissioned authenticated member session) |
+
+## Update 2026-07-28 — `policy.member`'s core grants shipped
+
+While fixing [ISS-USR-PROFILE-002](ISS-USR-PROFILE-002.md) (every real
+member's `/me/profile` 500ing in production/QA — a direct, more severe
+consequence of this same gap), `policy.member`'s own-row grants on
+`directus_users`, `member_consents`, `member_skills`, `member_interests`,
+and `member_employments` were implemented in
+`infrastructure/directus/bootstrap.sh` (`ensure_perm_for_policy` +
+14 permission rows) and verified live via `wf-20260728-fix-144`. This
+covers everything `/me/profile` needs. **Not yet covered:** the
+"read public collections" and "create registrations/feedback_responses
+keyed to self" halves of `policy.member`'s ADR-0021 §4.1 Effect, and all
+six remaining policies (`policy.speaker` through `policy.svc_worker`) are
+still fully unimplemented. Re-read the Suggested Approach section below
+before picking this up again — item 1 is partially done, items 2-7 are
+untouched.
 
 ## Symptom
 
