@@ -46,11 +46,26 @@ export class DirectusPolicyApplier {
    */
   async apply(directusUserId: string, expected: ExpectedDirectusState): Promise<ApplyOutcome> {
     const policyUuids = expected.policies.map((slug) => DIRECTUS_POLICY_UUIDS[slug]);
-    const body: Record<string, unknown> = {
-      policies: policyUuids,
-      country_code: expected.filter_country,
-    };
     try {
+      // `policies` on directus_users is an M2M alias field backed by the
+      // directus_access junction table — Directus rejects a flat array of
+      // related-record UUIDs here with a generic 403 (ISS-UAT-RBAC-001;
+      // confirmed against directus/directus #25108 and directus/docs #520:
+      // the array elements are junction-record ids, not policy ids). The
+      // field must be written via the relational create/update/delete
+      // envelope. We replace the full set every sync (delete all existing
+      // access rows for this user, create the expected set) rather than
+      // diffing, since ExpectedDirectusState is already the complete
+      // desired state and a full replace is simpler and still idempotent.
+      const existingRowIds = await this.fetchExistingAccessRowIds(directusUserId);
+      const body: Record<string, unknown> = {
+        policies: {
+          create: policyUuids.map((policy) => ({ user: directusUserId, policy })),
+          update: [],
+          delete: existingRowIds,
+        },
+        country_code: expected.filter_country,
+      };
       await this.directus.patch(`/users/${encodeURIComponent(directusUserId)}`, body);
       this.logger.log({
         event: 'rbac.apply.directus.ok',
@@ -64,5 +79,17 @@ export class DirectusPolicyApplier {
       this.logger.warn(`rbac.apply.directus.failed user=${directusUserId}: ${reason}`);
       return { status: 'failed', error: reason.slice(0, 500) };
     }
+  }
+
+  // directus_access is a protected system collection — GET /items/directus_access
+  // 403s even for a full-admin token. The user's own directus_access row ids
+  // are readable through the `policies` alias field on /users/{id} instead
+  // (Directus returns the junction-record ids there, not policy ids — same
+  // shape the nested create/update/delete envelope expects for `delete`).
+  private async fetchExistingAccessRowIds(directusUserId: string): Promise<string[]> {
+    const res = await this.directus.get<{ data: { policies: string[] } }>(
+      `/users/${encodeURIComponent(directusUserId)}?fields=policies`,
+    );
+    return res.data.policies;
   }
 }

@@ -7,19 +7,39 @@ import {
 } from '../src/modules/rbac-sync/directus-policy-applier';
 
 // F-S2.2-c — Directus engine apply path.
+// ISS-UAT-RBAC-001: `policies` on directus_users is an M2M alias field
+// backed by directus_access — Directus rejects a flat array of policy
+// UUIDs there with a generic 403 even for a full-admin token. The correct
+// write shape is the relational create/update/delete envelope, and reading
+// the user's existing directus_access row ids (for `delete`) has to go
+// through GET /users/{id}?fields=policies — GET /items/directus_access
+// itself 403s even for admins, since it's a protected system collection.
 
-type FakeDirectus = { patch: ReturnType<typeof vi.fn> };
+type FakeDirectus = { patch: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> };
 
 let directus: FakeDirectus;
 let applier: DirectusPolicyApplier;
 
 beforeEach(() => {
-  directus = { patch: vi.fn().mockResolvedValue(undefined) };
+  directus = {
+    patch: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue({ data: { policies: [] } }),
+  };
   applier = new DirectusPolicyApplier(directus as unknown as DirectusClient);
 });
 
 describe('DirectusPolicyApplier.apply', () => {
-  it('PATCHes user with resolved policy UUIDs + country_code', async () => {
+  it('fetches existing access rows via /users/{id}?fields=policies, not /items/directus_access', async () => {
+    await applier.apply('directus-user-uuid', {
+      policies: ['policy.member'],
+      filter_country: null,
+    });
+    expect(directus.get).toHaveBeenCalledWith(
+      '/users/directus-user-uuid?fields=policies',
+    );
+  });
+
+  it('PATCHes policies via the create/update/delete relational envelope, not a flat array', async () => {
     const outcome = await applier.apply('directus-user-uuid', {
       policies: ['policy.member', 'policy.country_lead'],
       filter_country: 'kz',
@@ -29,11 +49,26 @@ describe('DirectusPolicyApplier.apply', () => {
     const call = directus.patch.mock.calls[0];
     expect(call?.[0]).toBe('/users/directus-user-uuid');
     const body = call?.[1] as Record<string, unknown>;
-    expect(body.policies).toEqual([
-      DIRECTUS_POLICY_UUIDS['policy.member'],
-      DIRECTUS_POLICY_UUIDS['policy.country_lead'],
-    ]);
+    expect(body.policies).toEqual({
+      create: [
+        { user: 'directus-user-uuid', policy: DIRECTUS_POLICY_UUIDS['policy.member'] },
+        { user: 'directus-user-uuid', policy: DIRECTUS_POLICY_UUIDS['policy.country_lead'] },
+      ],
+      update: [],
+      delete: [],
+    });
     expect(body.country_code).toBe('kz');
+  });
+
+  it('deletes existing access rows when replacing the policy set', async () => {
+    directus.get.mockResolvedValueOnce({ data: { policies: ['old-access-row-id'] } });
+    await applier.apply('directus-user-uuid', {
+      policies: ['policy.member'],
+      filter_country: null,
+    });
+    const body = directus.patch.mock.calls[0]?.[1] as Record<string, unknown>;
+    const policies = body.policies as { delete: string[] };
+    expect(policies.delete).toEqual(['old-access-row-id']);
   });
 
   it('sends country_code=null when filter is null (super-admin)', async () => {
@@ -50,5 +85,15 @@ describe('DirectusPolicyApplier.apply', () => {
     });
     expect(outcome.status).toBe('failed');
     expect(outcome.error).toContain('503');
+  });
+
+  it('returns { status: failed, error } when the existing-policies lookup fails', async () => {
+    directus.get.mockRejectedValueOnce(new DirectusError(403, '/users/x', 'forbidden'));
+    const outcome = await applier.apply('uuid', {
+      policies: ['policy.member'],
+      filter_country: null,
+    });
+    expect(outcome.status).toBe('failed');
+    expect(directus.patch).not.toHaveBeenCalled();
   });
 });
