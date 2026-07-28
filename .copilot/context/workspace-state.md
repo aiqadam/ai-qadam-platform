@@ -1,7 +1,42 @@
 # Workspace State
 
-**Last updated:** 2026-07-28 — `wf-20260728-fix-143`.
-**Local RBAC sync fixed to actually attach Directus policies to seeded UAT
+**Last updated:** 2026-07-28 — `wf-20260728-fix-144`.
+**`/me/profile` 500 fixed (user-reported live from `qa.aiqadam.org`) +
+a critical PII leak found and closed + a much larger QA infra gap
+discovered.** [ISS-USR-PROFILE-002](../issues/ISS-USR-PROFILE-002.md):
+`MeProfileService.getProfile()` unconditionally requested `onboarded_at`;
+`policy.member` had zero `directus_permissions` rows (ISS-RBAC-PERMS-001),
+so Directus 403'd the field and the whole request crashed unhandled for
+every real member. Fixed two ways: (1) `getProfile()` now retries without
+`onboarded_at` on a field-level 403 instead of losing the whole response;
+(2) `bootstrap.sh` now seeds `policy.member`'s own-row grants on
+`directus_users`/`member_consents`/`member_skills`/`member_interests`/
+`member_employments` (14 rows, new `ensure_perm_for_policy` helper).
+Verified live via a real Authentik login locally. **While
+security-reviewing the permission grants, found and fixed a critical,
+unrelated, pre-existing bug:** Directus's built-in Public policy had an
+unrestricted `directus_users` read grant — any anonymous request could
+read every member's full profile (email, bio_md, telegram_user_id, all
+of it) and enumerate every user. Local-only (confirmed via live SSH
+check: QA's Public policy has zero `directus_users` rows, so QA was never
+exposed to this specific leak). Fixed via new idempotent
+`revoke_public_read()` in `bootstrap.sh`. Filed
+[ISS-SEC-DIRECTUS-USERS-PUBLIC-001](../issues/ISS-SEC-DIRECTUS-USERS-PUBLIC-001.md)
+(resolved). **Also discovered, NOT fixed this session:** QA's Directus
+has no application schema at all — only Directus's own built-in system
+collections exist; `bootstrap.sh` has apparently never been run against
+QA. This is very likely the actual root cause of the original bug
+report (much bigger than a missing-permissions gap). Filed
+[ISS-INFRA-QA-DIRECTUS-SCHEMA-001](../issues/ISS-INFRA-QA-DIRECTUS-SCHEMA-001.md)
+(open, not yet scheduled — running the full `bootstrap.sh` against a live
+shared environment needs its own deliberate review pass, per explicit
+user instruction not to do it as a same-session drive-by). Prod has no
+Directus deployed at all yet (placeholder `DIRECTUS_URL`/`DIRECTUS_TOKEN`
+config on `aiqadam-prod-api-1`) — confirmed expected/known state, not a
+gap. PR [#102](https://github.com/aiqadam/ai-qadam-platform/pull/102),
+merged.
+
+`wf-20260728-fix-143` — **Local RBAC sync fixed to actually attach Directus policies to seeded UAT
 users — two stacked bugs.** [ISS-UAT-RBAC-001](../issues/ISS-UAT-RBAC-001.md):
 (1) `RBAC_SYNC_WRITE_ENABLED` defaulted `false` locally, undocumented;
 (2) once enabled, `DirectusPolicyApplier.apply()` sent a flat UUID array
@@ -70,11 +105,20 @@ snapshot, not a log.
 
 ### Queued follow-up workflows
 
-- **wf-20260728-fix-144** (not yet a task directory — pick up by starting
-  issue-resolution for [ISS-RBAC-PERMS-001](../issues/ISS-RBAC-PERMS-001.md))
-  — all 7 ADR-0021 §4.1 RBAC policies have zero `directus_permissions`
-  rows; implement the per-collection permission rows per the ADR's
-  "Effect" column. Blocks full BP-UAT-003/BP-UAT-016 live pass.
+- **(no workflow id assigned yet — not yet a task directory)** pick up by
+  starting issue-resolution for
+  [ISS-RBAC-PERMS-001](../issues/ISS-RBAC-PERMS-001.md) — `policy.member`'s
+  own-row grants shipped via `wf-20260728-fix-144`; still needed:
+  `policy.member`'s public-read + create-own-registration halves, and all
+  6 other ADR-0021 §4.1 policies (`speaker` through `svc_worker`).
+- **(no workflow id assigned yet — not yet a task directory)** pick up by
+  starting issue-resolution for
+  [ISS-INFRA-QA-DIRECTUS-SCHEMA-001](../issues/ISS-INFRA-QA-DIRECTUS-SCHEMA-001.md)
+  — QA's Directus has no application schema at all; `bootstrap.sh`
+  (idempotent, ~4700 lines) needs a deliberately-reviewed run against QA.
+  Very likely the actual root cause of the original `/me/profile` bug
+  report. Blocks BP-UAT-003/BP-UAT-016 and effectively every Directus-
+  backed BP-UAT on QA.
 - **wf-20260723-fix-128-deploy-qa-permission-fix** — `deploy-qa` CI has failed on
   every push to `main` since PR #45 (`unable to unlink old 'package.json':
   Permission denied` on the QA deploy host). QA is pinned to PR #44's code, so
