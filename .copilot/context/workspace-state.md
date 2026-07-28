@@ -1,7 +1,32 @@
 # Workspace State
 
-**Last updated:** 2026-07-28 — `wf-20260728-fix-141`.
-**`MeProfileService` fixed to resolve Directus ids via the bridge — was
+**Last updated:** 2026-07-28 — `wf-20260728-fix-143`.
+**Local RBAC sync fixed to actually attach Directus policies to seeded UAT
+users — two stacked bugs.** [ISS-UAT-RBAC-001](../issues/ISS-UAT-RBAC-001.md):
+(1) `RBAC_SYNC_WRITE_ENABLED` defaulted `false` locally, undocumented;
+(2) once enabled, `DirectusPolicyApplier.apply()` sent a flat UUID array
+for the `policies` M2M alias field on `directus_users`, which Directus
+rejects with a generic 403 even for a true `admin_access: true` token —
+confirmed against `directus/directus` GitHub issue #25108 and
+`directus/docs` issue #520; the field requires the nested
+`{create, update, delete}` relational envelope instead. Fixed both; live
+`POST /v1/internal/rbac/poll` now flips all 4 scanned UAT users to
+`rbac_sync_jobs.directus_status: applied`, confirmed directly against
+Directus that `uat-member@example.com` holds a real `directus_access` row.
+Regression test rewritten (the old version asserted the buggy shape).
+**Does not fully unblock BP-UAT-003/016** — live verification surfaced a
+separate, pre-existing gap: all 7 ADR-0021 §4.1 policies have zero
+`directus_permissions` rows anywhere in the codebase, so a correctly
+attached policy currently grants nothing. Filed
+[ISS-RBAC-PERMS-001](../issues/ISS-RBAC-PERMS-001.md), queued as
+`wf-20260728-fix-144` (see Queued follow-up workflows below). Also: the
+user explicitly relaxed `.claude/CLAUDE.md`'s blanket "never modify `.env`"
+rule mid-workflow to permit direct edits to local dev/test `.env` files
+(config flags only, never secrets/prod) — recorded in CLAUDE.md with
+rationale. PR [#100](https://github.com/aiqadam/ai-qadam-platform/pull/100),
+merged.
+
+`wf-20260728-fix-141` — **`MeProfileService` fixed to resolve Directus ids via the bridge — was
 breaking `/me/profile`, `/me/preferences`, and (partly) `/me/referrals`
 on QA.** Reported via [GitHub issue #94](https://github.com/aiqadam/ai-qadam-platform/issues/94)
 ("Profile data errors"). Root cause: `MeProfileService` queried Directus
@@ -45,6 +70,11 @@ snapshot, not a log.
 
 ### Queued follow-up workflows
 
+- **wf-20260728-fix-144** (not yet a task directory — pick up by starting
+  issue-resolution for [ISS-RBAC-PERMS-001](../issues/ISS-RBAC-PERMS-001.md))
+  — all 7 ADR-0021 §4.1 RBAC policies have zero `directus_permissions`
+  rows; implement the per-collection permission rows per the ADR's
+  "Effect" column. Blocks full BP-UAT-003/BP-UAT-016 live pass.
 - **wf-20260723-fix-128-deploy-qa-permission-fix** — `deploy-qa` CI has failed on
   every push to `main` since PR #45 (`unable to unlink old 'package.json':
   Permission denied` on the QA deploy host). QA is pinned to PR #44's code, so
