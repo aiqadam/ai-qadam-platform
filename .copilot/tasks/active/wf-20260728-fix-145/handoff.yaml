@@ -13,7 +13,7 @@ github_issue_url: ""
 
 branch: "infra/wf-20260728-fix-145-qa-directus-bootstrap"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/104"
 
 current_step: 12
 current_step_name: "commit-push-pr"
