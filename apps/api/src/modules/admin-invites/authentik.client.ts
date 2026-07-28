@@ -233,15 +233,22 @@ export class AuthentikClient {
 
   // FR-AUTH-002 — mint a one-time Authentik recovery link for the given
   // user PK. Authentik's recovery endpoint (POST /api/v3/core/users/{pk}/recovery/)
-  // returns `{ recovery_link: string }` — a short-TTL, one-use URL the
-  // browser visits to establish an authenticated OIDC session without
-  // a password.
+  // returns `{ link: string }` — a short-TTL, one-use URL the browser
+  // visits to establish an authenticated OIDC session without a
+  // password.
+  //
+  // ISS-USR-REDIRECT-002: this previously read `res.recovery_link`,
+  // which does not exist on Authentik's actual response — confirmed
+  // live via direct curl/fetch against the real API, which returns
+  // `{"link": "..."}`. The old code always returned `undefined`, so
+  // every caller (registration.service.ts's welcome email,
+  // telegram-auth.service.ts's sign-in redirect) silently broke.
   async createRecoveryLink(userPk: number): Promise<string> {
-    const res = await this.request<{ recovery_link: string }>(
+    const res = await this.request<{ link: string }>(
       'POST',
       `/api/v3/core/users/${userPk}/recovery/`,
     );
-    return res.recovery_link;
+    return res.link;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
