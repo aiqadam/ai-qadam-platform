@@ -45,6 +45,39 @@ apply on top of `AGENTS.md` Section 6:
   explicit confirmation.
 - **Prefer `pnpm`** over `npm` or `yarn` for all package operations in this repo.
 
+### `.env` edits — allowed in dev/test, never in prod (added 2026-07-28, per user override)
+
+`AGENTS.md` §6's blanket "never modify `.env` files without asking" is
+**relaxed for local development and test environments only**, per explicit
+user instruction: agents may directly edit any `.env` file that configures
+a local dev/test target (e.g. `apps/api/.env`, `apps/web/.env.local`,
+`infrastructure/.env` when it points at the local Docker stack) — no
+per-edit confirmation needed, same "decide and proceed" default as
+`AGENTS.md` §16.
+
+This does **not** extend to:
+- Any `.env` (or equivalent secret store) that configures a **production**
+  or shared **QA/staging** target reachable outside this local checkout.
+- Adding, removing, or rotating **secret values** (API keys, tokens,
+  passwords) — only toggling existing **non-secret config flags** (feature
+  flags, `*_ENABLED` switches, URLs, ports) is covered by this exception.
+  A genuinely new secret still requires the user to supply and apply it.
+- `.env.example` is unaffected by this exception — it was never covered by
+  the original restriction since it's tracked, non-secret, and already
+  edited freely as part of normal PRs.
+
+When an agent edits a local dev/test `.env`, it MUST state in chat (or the
+PR description, if the change is also reflected in `.env.example`) which
+variable changed, old → new value (redacting anything that looks like a
+real secret), and why — the edit is unrestricted, not silent.
+
+**Why this exists:** recorded 2026-07-28 during ISS-UAT-RBAC-001
+resolution, where `RBAC_SYNC_WRITE_ENABLED=false` in the untracked local
+`apps/api/.env` was blocking all UAT verification requiring a
+fully-permissioned member session, and the previous blanket rule would
+have required a manual round-trip for a config flag with no prod-safety
+implication in a local-only file.
+
 ### Git Bash / MSYS mangles `git show <ref>:<path>` (recorded 2026-07-18)
 
 Git Bash (MSYS) auto-converts path-like arguments before the command

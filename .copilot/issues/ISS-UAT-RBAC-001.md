@@ -5,10 +5,10 @@
 | ID | ISS-UAT-RBAC-001 |
 | Severity | blocker |
 | Module | uat/environment, api/rbac-sync |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-28 |
-| Resolved | — |
-| Workflow | — (discovered during wf-20260728-uat-142-bp-uat-003-016-postmerge, not yet scheduled) |
+| Resolved | 2026-07-28 |
+| Workflow | wf-20260728-fix-143 |
 | Reporter | Orchestrator (discovered while attempting live BP-UAT-003/016 verification) |
 | Business-Process | BP-UAT-003, BP-UAT-016 (and, by the same mechanism, every other BP-UAT that needs a fully-permissioned authenticated member session) |
 
@@ -66,7 +66,7 @@ field added since whatever policy snapshot last had write-mode applied —
 not just `onboarded_at`, potentially any custom field on any collection
 gated behind a policy the dry-run mode never actually attaches.
 
-## Attempted workaround (failed, documented for the next attempt)
+## Attempted workaround (failed at the time; root cause now understood — see Resolution)
 
 Tried to directly attach the repo's own `S0.1 Demo-tenant isolation`
 policy (`500e0001-0000-4000-8000-000000000001`, already grants
@@ -87,6 +87,22 @@ of *that* narrower restriction not chased down (would require deeper
 Directus internals investigation, out of scope for a UAT-verification
 session).
 
+**Resolved during this workflow (2026-07-28):** the `PATCH /users/{id}
+{"policies": [...]}` 403 was a payload-shape bug, not a genuine
+admin-bypass restriction. `policies` on `directus_users` is an M2M alias
+field backed by the `directus_access` junction table; Directus requires
+the nested relational `{create, update, delete}` envelope for alias-field
+writes (flat arrays of related-record UUIDs are rejected with this same
+generic 403 even for a true `admin_access: true` token — confirmed via a
+fresh session JWT, ruling out a stale static token). Confirmed against
+`directus/directus` GitHub issue #25108 and `directus/docs` issue #520.
+`POST /items/directus_access` directly, however, genuinely IS blocked —
+`directus_access` is a protected system collection inaccessible via the
+general Items API even to admins (that part of the original workaround's
+finding was correct; the fix reads existing access-row ids via the
+`/users/{id}?fields=policies` alias-read path instead, which is not
+blocked).
+
 ## Impact
 
 - Blocks live re-verification of [ISS-USR-PROFILE-001](ISS-USR-PROFILE-001.md)'s
@@ -103,7 +119,7 @@ session).
   beyond just these two, though this issue only confirms the two directly
   hit so far.
 
-## Suggested paths (not yet decided — needs product/infra input, hence filed rather than fixed inline)
+## Suggested paths (as originally filed — path 1 chosen; see Resolution for what actually shipped)
 
 1. Flip `RBAC_SYNC_WRITE_ENABLED=true` in local `.env` only (never touch
    prod/QA without the "verified diffs in workspace UI" step the comment
@@ -122,5 +138,62 @@ session).
 
 ## Resolution
 
-- **Workflow:** not yet scheduled.
-- **PR:** —
+- **Workflow:** wf-20260728-fix-143
+- **PR:** <pending>
+- **Root cause:** two independent bugs stacked: (a) `RBAC_SYNC_WRITE_ENABLED`
+  defaults to `false` locally with no `.env`/`.env.example` documentation,
+  so the sync worker never attempted a write; (b) once write mode is
+  enabled, `DirectusPolicyApplier.apply()` sent `policies` as a flat array
+  of UUIDs, which Directus rejects with a generic 403 for the `policies`
+  M2M alias field on `directus_users` regardless of token privilege level.
+- **Fix:**
+  1. `apps/api/.env` (local, untracked): added `RBAC_SYNC_WRITE_ENABLED=true`.
+  2. `apps/api/.env.example`: documented the flag (previously entirely
+     absent) with a comment explaining the dry-run default and pointing at
+     this issue.
+  3. `apps/api/src/modules/rbac-sync/directus-policy-applier.ts`: `apply()`
+     now reads the user's existing `directus_access` row ids via
+     `/users/{id}?fields=policies` (the alias-field read path — direct
+     `GET /items/directus_access` is blocked, confirmed a genuine
+     protected-system-collection restriction), then PATCHes `policies`
+     using the nested `{create, update: [], delete: <existing ids>}`
+     relational envelope instead of a flat UUID array — a full-replace
+     write that stays idempotent per sync run.
+- **Regression test:** `apps/api/test/rbac-directus-applier.spec.ts`,
+  rewritten (the pre-existing version asserted the buggy flat-array shape,
+  which is why this shipped silently) — 6 cases covering: correct
+  read-then-replace flow, the relational envelope shape, existing-row
+  deletion on replace, null country_code, `DirectusError` propagation on
+  the PATCH call, and failure propagation when the existing-policies
+  lookup itself fails.
+- **Live verification (2026-07-28):** restarted the local API process to
+  load the fix, triggered `POST /v1/internal/rbac/poll` (same endpoint the
+  original repro used) — all 4 scanned UAT users now show
+  `rbac_sync_jobs.directus_status: "applied"`, `directus_error: null`
+  (previously `dry_run`, then `403` mid-investigation). Confirmed via
+  direct Directus query that `uat-member@example.com` now has one real
+  `directus_access` row resolving to `policy.member`.
+- **Honesty disclosure (AGENTS.md §6.1):** live verification surfaced a
+  SEPARATE, pre-existing gap this issue does not fix: all seven ADR-0021
+  §4.1 policies (including `policy.member`) have zero
+  `directus_permissions` rows anywhere in the codebase — `bootstrap.sh`
+  seeds them as empty containers and its own comment defers permission
+  content to "F-S2.2 RBAC sync service," but the sync service (correctly,
+  per ADR-0021 §4.1's own text) never intended to own permission content,
+  only policy assignment. This means a user with `policy.member` correctly
+  attached (this issue's fix) still gets 403 reading `onboarded_at` — same
+  symptom, different cause. Filed as
+  [ISS-RBAC-PERMS-001](ISS-RBAC-PERMS-001.md), registered in
+  `registry.md`, queued as `wf-20260728-fix-144` (workflow directory to be
+  created when picked up — sizing the ADR-0021 §4.1 permission-row
+  implementation is that workflow's own first step). This issue
+  (ISS-UAT-RBAC-001) is closed as resolved because its own scope — the
+  sync mechanism actually attaching policies — is fully fixed and verified
+  live; it does not claim BP-UAT-003/BP-UAT-016 are unblocked end-to-end,
+  which still requires ISS-RBAC-PERMS-001.
+- **BP-UAT-003 / BP-UAT-016:** NOT re-run to a full pass in this workflow
+  — the remaining blocker (ISS-RBAC-PERMS-001) means the live UAT session
+  would still 403 on `onboarded_at`. Re-verification is owned by
+  `wf-20260728-fix-144` (ISS-RBAC-PERMS-001) once permission rows exist,
+  per AGENTS.md §6.1's "no deferred tests" rule — this is a named, queued
+  follow-up, not a silent gap.
