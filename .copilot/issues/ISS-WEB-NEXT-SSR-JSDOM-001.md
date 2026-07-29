@@ -4,7 +4,9 @@
 |---|---|
 | Severity | blocker |
 | Module | web-next/ssr-runtime (environment) |
-| Status | open |
+| Status | resolved |
+| Resolved | 2026-07-29 |
+| Workflow | wf-20260729-fix-151 |
 | Business-Process | — |
 | Discovered by | wf-20260729-feat-150 (Step 13, post-merge UAT pre-flight for BP-UAT-021) |
 | Date | 2026-07-29 |
@@ -116,8 +118,43 @@ npx astro dev logs
 
 ## Resolution
 
-Not yet resolved — filed as a blocking, disclosed environment gap.
-No follow-up workflow queued yet at time of filing (this issue was
-discovered during Step 13 of `wf-20260729-feat-150`, which completes
-independently per AGENTS.md §6.1's honesty-disclosure path — FR-ADM-011
-itself is not blocked by this, only its live UAT verification is).
+- **Workflow:** `wf-20260729-fix-151`
+- **PR:** https://github.com/aiqadam/ai-qadam-platform/pull/117
+- **Root cause:** the root `package.json`'s `pnpm.overrides.undici`
+  (`">=7.28.0"`, open-ended, added for an unrelated CVE fix in
+  `ISS-CI-001`) let pnpm resolve `jsdom`'s `undici` dependency to
+  `8.8.0` — a major version past jsdom's actual `^7.21.0` requirement,
+  removing an internal file (`lib/handler/wrap-handler.js`) jsdom
+  requires directly.
+- **Fix:** added a pnpm selector-scoped override,
+  `"jsdom>undici": "7.29.0"`, to `package.json`. This resolves `jsdom`'s
+  copy of `undici` to the latest 7.x (satisfying both jsdom's own range
+  and the original `>=7.28.0` CVE-fix floor) while leaving the blanket
+  override untouched for every other consumer — critically,
+  `testcontainers@12.0.4` (used by `apps/api`'s entire Testcontainers
+  integration suite), which needs `undici@^8.5.0` and would have broken
+  under a naive blanket downgrade. Confirmed via impact analysis that
+  `isomorphic-dompurify` is the only `jsdom` dependent in the monorepo,
+  so no other consumer needed the scoped treatment.
+- **Regression test:**
+  `apps/web-next/src/lib/isomorphic-dompurify-resolution.test.ts` —
+  proven via literal stash/reinstall/test/pop/reinstall/test execution
+  to fail before the fix (exact original error reproduced) and pass
+  after.
+- **Live verification:** all 5 previously-500 routes
+  (`/workspace/admin/users`, `/workspace/dashboard`,
+  `/workspace/admin/audit`, `/workspace/admin/rbac-sync`,
+  `/workspace/announce`) confirmed returning 200 in local dev after the
+  fix. Full `apps/api` (1350/1350) and `apps/web-next` (947/947) test
+  suites pass; both packages build and typecheck clean; `pnpm audit`
+  shows no new high/critical findings.
+- **QA verification:** **not yet performed** — this fix has not been
+  deployed to QA at time of writing. The user's original report
+  (`https://qa.aiqadam.org/workspace/admin/users` → 500) will only be
+  confirmed resolved once this PR merges and QA's `deploy-qa` CI job
+  redeploys. The Docker-build-vs-local-`pnpm-install` root-cause-identity
+  caveat noted earlier in this file is now resolved by this fix landing
+  identically for both environments (same `pnpm-lock.yaml`), but the
+  live QA confirmation itself is a follow-up action for whoever has
+  visibility into the next QA deploy, not verified by this workflow.
+- **Merged:** `<pending>`

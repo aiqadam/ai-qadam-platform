@@ -6,6 +6,7 @@ settings:
 
 overrides:
   tmp@<0.2.6: '>=0.2.6'
+  jsdom>undici: 7.29.0
   undici: '>=7.28.0'
   multer: '>=2.2.0'
   vite: '>=6.4.3'
@@ -270,7 +271,7 @@ importers:
         version: 0.9.9(prettier@3.8.3)(typescript@5.9.3)
       '@astrojs/node':
         specifier: ^11.0.2
-        version: 11.0.2(astro@7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 11.0.2(astro@7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.2)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
       '@astrojs/react':
         specifier: ^6.0.1
         version: 6.0.1(@types/node@22.19.19)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
@@ -282,7 +283,7 @@ importers:
         version: 4.3.3(vite@8.1.5(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
       astro:
         specifier: ^7.1.3
-        version: 7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
+        version: 7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.2)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
       geist:
         specifier: ^1.7.2
         version: 1.7.2(next@16.2.11(@playwright/test@1.61.1)(@types/node@22.19.19)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
@@ -331,7 +332,7 @@ importers:
         version: 0.9.9(prettier@3.8.3)(typescript@5.9.3)
       '@astrojs/node':
         specifier: ^11.0.2
-        version: 11.0.2(astro@7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.2)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 11.0.2(astro@7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
       '@astrojs/react':
         specifier: ^6.0.1
         version: 6.0.1(@types/node@22.19.19)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
@@ -388,7 +389,7 @@ importers:
         version: 0.2.1(@zxing/library@0.21.3)
       astro:
         specifier: ^7.1.3
-        version: 7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.2)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
+        version: 7.1.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -6539,6 +6540,10 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  undici@7.29.0:
+    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
+    engines: {node: '>=20.18.1'}
+
   undici@8.8.0:
     resolution: {integrity: sha512-ubshXMXwF3MQIMF1y/WxZdNBnjEKeSg2wF5mcGUtU55YTw34tnVVpKRlLf7ruDXZ5344KokPVX4RBx1wJm64Bw==}
     engines: {node: '>=22.19.0'}
@@ -11629,7 +11634,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 8.8.0
+      undici: 7.29.0
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -13330,6 +13335,8 @@ snapshots:
   undici-types@5.26.5: {}
 
   undici-types@6.21.0: {}
+
+  undici@7.29.0: {}
 
   undici@8.8.0: {}
 
