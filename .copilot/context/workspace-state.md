@@ -1,6 +1,37 @@
 # Workspace State
 
-**Last updated:** 2026-07-29 — `wf-20260729-fix-151`.
+**Last updated:** 2026-07-29 — `wf-20260729-chore-152`.
+**GitHub Issues/Projects Phase 1 sync shipped — 22 open ISS-*/FR-* items migrated to a typed GitHub Project board, with an ongoing best-effort sync wired into the agentic workflow.**
+[wf-20260729-chore-152](../tasks/completed/wf-20260729-chore-152/handoff.yaml)
+(PR [#144](https://github.com/aiqadam/ai-qadam-platform/pull/144), squash
+`9222e7f`): new `scripts/sync-github-project.sh` (idempotent
+create-or-update of a typed GitHub Issue + Project v2 item) and
+`scripts/migrate-open-items-to-github.sh` (one-time migration driver).
+Migrated the 4 currently-open `ISS-*` issues (Bug type) and 18 open
+`FR-*` requirements (Feature type) into the `ai-qadam-platform` Project
+board (project #1), each linked back via a new `GitHub-Issue:` /
+`github_issue:` field on the source file. Wired best-effort, non-blocking
+sync calls into `issue-resolution.md` / `requirement-development.md` at
+their existing atomic-pair trigger points (Step 1 create, Step 9
+implemented, Step 12.5/11.5-or-13 terminal) — documented centrally in
+`protocol.md`'s new "GitHub Issue / Project Sync" section. Markdown
+registries remain authoritative for QualityGate and workflow resume;
+full GitHub-as-source-of-truth is an explicitly named, not-yet-designed
+Phase 2. **Follow-up in the same PR:** split the terminal Status into
+`Agent-Verified` (script-set, once an agent has done everything it can —
+a passing post-merge UAT run or a clean merge with nothing
+process-related to check) vs. `Done` (human-only, set directly on the
+board — this is a volunteer community project, not a paid QA org, so
+`sync-github-project.sh` hard-refuses `--status done`). Added the new
+`Agent-Verified` Status option to the live board via GraphQL, preserving
+all 4 existing option ids and all 27 pre-existing items' statuses
+(verified live, no data loss). User explicitly declined to review the PR
+before merge ("If something wrong you will have to remake it") — merged
+directly via REST API after `gh pr merge`'s GraphQL call hit this
+session's rate limit (0/5000, migration + option testing exhausted it;
+REST budget was separately still at 4972/5000).
+
+`wf-20260729-fix-151`.
 **ISS-WEB-NEXT-SSR-JSDOM-001 resolved — every `/workspace/*` route on `apps/web-next` is unbroken again, both locally and (pending QA redeploy) on `qa.aiqadam.org`.**
 [ISS-WEB-NEXT-SSR-JSDOM-001](../issues/ISS-WEB-NEXT-SSR-JSDOM-001.md):
 root cause was an open-ended `pnpm.overrides.undici: ">=7.28.0"` (added
