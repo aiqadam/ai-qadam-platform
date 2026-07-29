@@ -125,6 +125,27 @@ only when the requirement is genuinely not process-related (rare for a
 product requirement — most FRs implement or extend a business process).
 This field drives the mandatory post-merge UAT re-verification at Step 13.
 
+**`github_issue` field (new 2026-07-29) — mirrors `issue-resolution.md`
+Step 1's `GitHub-Issue:` header field, adapted for FR frontmatter.** Add a
+`github_issue:` key to `FR-<CODE>.md`'s YAML frontmatter block (alongside
+`code`, `name`, `status`, `module`, `phase`) — empty/absent until the sync
+call below populates it. This is the FR-file equivalent of `ISS-<n>.md`'s
+`GitHub-Issue:` table field; same purpose (durable link, not derived from
+`handoff.yaml`), different file format (frontmatter, not a markdown
+table), because that's how `FR-<CODE>.md` is already structured.
+
+**GitHub sync (new 2026-07-29):** See `.copilot/schemas/protocol.md`
+"GitHub Issue / Project Sync". As the last action of this step:
+```bash
+scripts/sync-github-project.sh --ref FR-<CODE> --status todo \
+  --title "<FR-<CODE>.md frontmatter name>" \
+  --body-file <path to a temp file with the Description section>
+```
+(No `--severity` — the script infers Issue Type `Feature` from the `FR-`
+prefix automatically.) Write the returned `GITHUB_ISSUE_URL` into the new
+`github_issue:` frontmatter key. Best-effort — a failure here does not
+block this step's gate.
+
 **Gate:**
 - `passed` → Step 2
 - `failed-retry` (analyst produced a clarified version) → retry Step 1 (max 1 retry)
@@ -297,6 +318,14 @@ See `.copilot/agents/orchestrator.md §Infrastructure Pre-Flight`.
      affected BP-UAT(s) versus the original intake guess. Update it if so.
 2. Other doc updates per DocWriter's standard table (architecture, ADRs,
    runbooks, etc.) as needed.
+3. **GitHub sync (best-effort, non-blocking):**
+   ```bash
+   scripts/sync-github-project.sh --ref FR-<CODE> --status implemented \
+     --existing-url "<github_issue frontmatter value>"
+   ```
+   Per `.copilot/schemas/protocol.md`'s "GitHub Issue / Project Sync"
+   section, skip silently if `github_issue` is unset; failure here does
+   not change this step's `gate_result`.
 
 **Atomicity rule:** The two FR-status edits MUST be staged in the same
 `git add` and committed together. They are part of the same PR as the code,
@@ -399,7 +428,25 @@ start: "Auto-merge this PR when CI passes, or will you review it yourself?"
    If ANY check fails: `workflow_status: needs-review`, record specific
    failure, stop. Do not "fix" main's state — surface the discrepancy.
 
-4. **Move task dir `active/` → `completed/`** and add the
+4. **Sync GitHub Project Status (best-effort, only if `github_issue`
+   frontmatter is set) — value depends on whether Step 13 will run:**
+   - **If `business_process` is `—`** (Step 13 will be skipped): sync
+     straight to `agent-verified`, since a clean ship is itself sufficient.
+     ```bash
+     scripts/sync-github-project.sh --ref FR-<CODE> --status agent-verified \
+       --existing-url "<github_issue frontmatter value>"
+     ```
+   - **If `business_process` names one or more `BP-UAT-NNN`** (Step 13
+     will run): do NOT sync to `agent-verified` here. Sync to
+     `implemented` again instead (a harmless no-op) and let Step 13's own
+     gate (below) sync to `agent-verified` once its UAT run actually passes.
+
+   **Never pass `--status done`** — per `.copilot/schemas/protocol.md`'s
+   "`Agent-Verified` vs. `Done`" subsection, `done` is human-only; the
+   script hard-refuses it. Per `protocol.md`'s "GitHub Issue / Project
+   Sync" section, failure here does not block this step's gate.
+
+5. **Move task dir `active/` → `completed/`** and add the
    `.copilot/context/workspace-state.md` close-out entry:
    ```bash
    git mv .copilot/tasks/active/<wf-id> .copilot/tasks/completed/<wf-id>
@@ -467,14 +514,21 @@ Step 8. Record each run in `handoff.yaml.post_merge_uat_runs[]`.
 
 **Gate:**
 - All linked BP-UATs pass clean → note the pass(es) in `FR-<CODE>.md`,
-  workflow complete.
+  workflow complete. **Sync GitHub Project Status to `agent-verified`**
+  (best-effort, only if `github_issue` frontmatter is set):
+  ```bash
+  scripts/sync-github-project.sh --ref FR-<CODE> --status agent-verified \
+    --existing-url "<github_issue frontmatter value>"
+  ```
 - One or more triaged a new issue → issue registered normally; this
   workflow still completes, but note the new finding(s) in `FR-<CODE>.md`
-  and state whether they're believed related to this feature.
+  and state whether they're believed related to this feature. Do NOT sync
+  to `agent-verified` in this case — leave Status at `implemented`.
 - A `uat-verification` run itself hit `failed-escalate` (environment, not
   product) → register the env issue per that workflow's own rules, disclose
   the deferral in `FR-<CODE>.md` per AGENTS.md §6.1, workflow completes
-  with the disclosure recorded (not silently).
+  with the disclosure recorded (not silently). Do NOT sync to
+  `agent-verified` — nothing was actually verified.
 
 ---
 

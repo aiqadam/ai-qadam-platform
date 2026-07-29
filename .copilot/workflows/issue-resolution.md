@@ -135,6 +135,37 @@ issue not yet mirrored locally).
    tooling). This field drives the mandatory post-merge UAT re-verification
    at Step 13.
 
+**GitHub sync (both directions — new 2026-07-29):** See
+`.copilot/schemas/protocol.md` "GitHub Issue / Project Sync". As the last
+action of this step, after `Business-Process` is set:
+
+- **GitHub-origin issues** (item 1 above): update-in-place, adding the
+  already-existing GitHub issue to the Project board and setting its
+  Status — this is NOT a create call:
+  ```bash
+  scripts/sync-github-project.sh --ref ISS-<n> --status todo \
+    --existing-url "<the GitHub issue URL from item 1>"
+  ```
+- **Locally-discovered issues** (item 5 above): push the new issue TO
+  GitHub — this repo's Project board is meant to be a complete view of
+  open work, not just tester-reported bugs. This IS a create call (no
+  `--existing-url`):
+  ```bash
+  scripts/sync-github-project.sh --ref ISS-<n> --status todo \
+    --title "<ISS-<n>.md H1, minus the ISS-<n> prefix>" \
+    --body-file <path to a temp file containing the Symptom section> \
+    --severity <Severity field value>
+  ```
+  Use `in-progress` instead of `todo` for either path if CodeDeveloper
+  starts this same session.
+
+Either way, write the returned `GITHUB_ISSUE_URL` into a new
+`GitHub-Issue:` field in `ISS-<n>.md`'s header table (same field name/
+position regardless of which direction created the link — the field
+means "linked GitHub issue"). This sync call is best-effort per
+`protocol.md`'s "GitHub Issue / Project Sync" section — log failure, do
+not block the workflow on it.
+
 **Output file:** `01-issue-lookup.md`
 
 ---
@@ -261,6 +292,17 @@ file unchanged is a Step 9 failure — do not advance.
 **Edit 3 — `handoff.yaml`:**
 
 - Set `issue_resolution: resolved`.
+
+**Edit 4 — GitHub sync (best-effort, non-blocking):**
+```bash
+scripts/sync-github-project.sh --ref ISS-<n> --status implemented \
+  --existing-url "<GitHub-Issue: value from ISS-<n>.md>"
+```
+Per `protocol.md`'s "GitHub Issue / Project Sync" section, this is
+additive — a failure here does NOT change this step's `gate_result`. If
+`GitHub-Issue:` is unset (the Step 1 sync call itself failed, or this is
+a workflow instance predating this feature), skip silently — there is
+nothing to update.
 
 **Atomicity rule:** Edits 1 and 2 MUST be staged in the same `git add` and
 committed together. They are part of the same PR as the code fix, so when
@@ -446,6 +488,33 @@ is `auto` OR the user has merged manually.
    for the same `ISS-<n>` (append a new occurrence, do not create a new
    `ISS-<n>` file for the same GitHub issue number).
 
+7. **Sync GitHub Project Status (best-effort, only if `GitHub-Issue:` is
+   set) — value depends on whether Step 13 will run:**
+   - **If `Business-Process` is `—`** (Step 13 will be skipped — nothing
+     process-related for an agent to UAT-verify): sync straight to
+     `agent-verified` here, since a clean merge is itself sufficient.
+     ```bash
+     scripts/sync-github-project.sh --ref ISS-<n> --status agent-verified \
+       --existing-url "<GitHub-Issue: value>"
+     ```
+   - **If `Business-Process` names one or more `BP-UAT-NNN`** (Step 13
+     will run): do NOT sync to `agent-verified` here — Step 13 hasn't run
+     yet, so there is no UAT pass to report. Sync to `implemented` again
+     instead (a harmless no-op re-affirmation) and let Step 13's own gate
+     (below) perform the `agent-verified` sync once its UAT run actually
+     passes.
+
+   **Never pass `--status done` here or anywhere in this workflow** — per
+   `.copilot/schemas/protocol.md`'s "`Agent-Verified` vs. `Done`"
+   subsection, `done` is set only by a human volunteer directly on the
+   board; the script hard-refuses it.
+
+   Run this BEFORE action 6's `gh issue close` (closing first, then
+   syncing Status, is also fine — either order is acceptable since
+   they're independent API calls; this ordering just keeps action 6 last
+   since it's the most human-visible one). Per `protocol.md`, failure here
+   does not block this step's gate.
+
 **Gate:**
 - `passed` → proceed to Step 13 (below) if `Business-Process` is non-empty,
   otherwise workflow complete. Clean-tree invariant restored. Issue is
@@ -476,14 +545,25 @@ just the narrow regression test from Step 6/7. Record each run in
 
 **Gate:**
 - All linked BP-UATs pass clean → note the pass(es) in `ISS-<n>.md`'s
-  Resolution section, workflow complete.
+  Resolution section, workflow complete. **Sync GitHub Project Status to
+  `agent-verified`** (best-effort, only if `GitHub-Issue:` is set):
+  ```bash
+  scripts/sync-github-project.sh --ref ISS-<n> --status agent-verified \
+    --existing-url "<GitHub-Issue: value>"
+  ```
 - One or more triaged a new issue → issue registered normally; this
   workflow still completes, but the Resolution section MUST name the new
-  finding(s) and state whether they're believed related to this fix.
+  finding(s) and state whether they're believed related to this fix. Do
+  NOT sync to `agent-verified` in this case — a new finding on the same
+  surface means verification is not clean; leave Status at `implemented`
+  for a human to assess (or a follow-up workflow to resolve and then
+  correctly reach `agent-verified` on its own pass).
 - A `uat-verification` run itself hit `failed-escalate` (environment, not
   product) → register the env issue per that workflow's own rules, disclose
   the deferral in `ISS-<n>.md`'s Resolution section per AGENTS.md §6.1,
-  workflow completes with the disclosure recorded (not silently).
+  workflow completes with the disclosure recorded (not silently). Do NOT
+  sync to `agent-verified` — the environment failure means nothing was
+  actually verified.
 
 ---
 

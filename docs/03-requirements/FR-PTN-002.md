@@ -4,6 +4,7 @@ name: Partner and sponsor onboarding (operator)
 status: Not Started
 module: Partners (PTN)
 phase: Rebuild Phase 3 (V2)
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/133
 ---
 
 ## Description

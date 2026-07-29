@@ -291,6 +291,29 @@ If verification fails after 2 retries: set `workflow_status: needs-review`,
 record the specific failure in `handoff.yaml.needs_review.reason`, and stop.
 Do not attempt to "fix" main's state — surface the discrepancy to the user.
 
+### GitHub Project Sync (new 2026-07-29)
+
+At the same trigger points as the atomic-pair status flip (issue/FR
+creation, resolution, post-merge verification), the Orchestrator also
+calls `scripts/sync-github-project.sh` to keep the `ai-qadam-platform`
+GitHub Project board's Status field in sync — see
+`.copilot/schemas/protocol.md` "GitHub Issue / Project Sync" and the
+per-workflow Step 1 / 9 / 11.5-or-12.5 / 13 edits in `issue-resolution.md`
+/ `requirement-development.md`. This is a best-effort mirror, not a
+gating mechanism — its failure never changes a `gate_result`. The
+markdown atomic pair (above) remains what QualityGate enforces and what
+workflow resume reads from; do not treat the GitHub Project board as
+authoritative for resuming an interrupted workflow in Phase 1.
+
+**`agent-verified` is the Orchestrator's terminal sync value — never
+`done`.** This project is volunteer-run; `done` is reserved for a human
+spot-check made directly on the board, and `sync-github-project.sh`
+hard-refuses `--status done`. Post-merge, the Orchestrator syncs to
+`agent-verified` once it has done everything it can — either a clean
+merge with no linked `Business-Process` (nothing to UAT-verify) or a
+passing Step 13 UAT re-run. See `protocol.md`'s "`Agent-Verified` vs.
+`Done`" subsection.
+
 ---
 
 ## What the Orchestrator Does NOT Do

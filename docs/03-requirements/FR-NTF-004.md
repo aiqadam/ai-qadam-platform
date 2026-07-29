@@ -4,6 +4,7 @@ name: Telegram notification channel adapter
 status: Planned
 module: Notifications (NTF)
 phase: Roadmap Sprint 6
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/142
 ---
 
 ## Description

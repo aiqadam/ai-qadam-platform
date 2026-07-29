@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | ID | ISS-RBAC-PERMS-001 |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/124 |
 | Severity | blocker |
 | Module | infrastructure/directus-bootstrap, api/rbac-sync |
 | Status | in-progress (`policy.member` done; 6 policies remain) |

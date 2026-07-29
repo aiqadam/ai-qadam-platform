@@ -225,6 +225,106 @@ stop — do not attempt in-place fixes on `main`.
 
 ---
 
+## GitHub Issue / Project Sync (added 2026-07-29)
+
+`aiqadam/ai-qadam-platform` maintains a GitHub Project (v2) board (project
+number `1`, `ai-qadam-platform`) as a queryable, cross-cutting view of
+every currently-open `ISS-<n>` issue and non-terminal `FR-<CODE>`
+requirement — see `docs/04-development/github-access.md` §5 for setup.
+This is **additive** to, not a replacement for, the atomic-pair markdown
+status flip above: the markdown files remain what QualityGate gates on
+and what the Orchestrator reads to resume a workflow; the GitHub Issue /
+Project item is a synced mirror maintained via
+`scripts/sync-github-project.sh`, kept in step with the SAME trigger
+points the atomic-pair flip already uses, not new ones.
+
+### Sync trigger points (reuses existing atomic-pair moments)
+
+| Trigger | `--status` value | Workflow step |
+|---|---|---|
+| New `ISS-<n>.md` / `FR-<CODE>.md` created (local-origin) or GitHub-origin issue intake | `todo` (or `in-progress` if work starts same-session) | `issue-resolution.md` Step 1 / `requirement-development.md` Step 1 |
+| Atomic status flip to `resolved` / `Implemented` on the feature branch | `implemented` | `issue-resolution.md` Step 9 / `requirement-development.md` Step 9 |
+| Post-merge verification confirms the flip landed on `main` | `agent-verified` | `issue-resolution.md` Step 12.5 / `requirement-development.md` Step 11.5 |
+
+**Every call is idempotent and non-blocking to the workflow's gate
+outcome:** a `sync-github-project.sh` failure (GitHub API error, missing
+scope, transient rate limit, etc.) MUST be logged in the step's output
+file but MUST NOT itself flip a gate to `failed-retry`/`failed-escalate`
+— the markdown atomic pair remains the load-bearing status record in
+Phase 1. Treat a sync failure the way an optional notification failure
+would be treated: retry once, then proceed with a note, not a
+workflow-blocking condition. (This is a deliberate scoping decision —
+see "Deferred: full GitHub-as-source-of-truth" below.)
+
+### `Agent-Verified` vs. `Done` — the volunteer-UAT split (added 2026-07-29)
+
+This project is built and maintained by community volunteers, not a paid
+QA workforce — asking a volunteer to thoroughly re-test every merged
+change is not a reasonable ask of their time. The Status field therefore
+splits "an agent finished everything an agent can verify" from "a human
+actually looked at it":
+
+- **`agent-verified`** — set by `sync-github-project.sh` at the trigger
+  point above. This means either (a) `protocol.md`'s post-merge UAT
+  re-verification (`post_merge_uat_runs[]`, see "Business-Process Linkage
+  & Post-Merge UAT" below) ran and passed for every linked `BP-UAT-NNN`,
+  or (b) `Business-Process` was `—` (nothing process-related exists to
+  UAT-test), in which case a clean merge is treated as sufficient. Either
+  way, this status means "an agent has done everything it can here" — not
+  "a human confirmed it."
+- **`done`** — set **only by a human volunteer**, directly on the Project
+  board, after a light spot-check (not a full re-test — the agent already
+  did the thorough part). **No script and no workflow step is permitted
+  to set this status.** `sync-github-project.sh` hard-refuses `--status
+  done` (exit 2) specifically so a workflow-file typo can't silently
+  fabricate a human confirmation that never happened. There is
+  deliberately no automated trigger (e.g. a magic PR comment) driving
+  this in Phase 1 — see "Deferred" below if that changes.
+
+An item can sit at `agent-verified` indefinitely if no volunteer has
+looked yet — that's expected, not a failure state.
+
+### Invocation
+
+```bash
+scripts/sync-github-project.sh --ref <ISS-n|FR-CODE> --status <todo|in-progress|implemented|agent-verified> \
+  [--title ... --body-file ... --severity ... --existing-url ...]
+```
+
+(`done` is a valid Status *option* on the board but not a valid
+`--status` argument to this script — see above.)
+
+Full flag reference and idempotency design: see the script's own header
+comment. Capture its `GITHUB_ISSUE_URL=<url>` stdout line and write it
+into the source file's `GitHub-Issue:` field (`ISS-<n>.md` header table)
+or `github_issue:` frontmatter key (`FR-<CODE>.md`) — see
+`issue-resolution.md` Step 1 and `requirement-development.md` Step 1 for
+the exact field.
+
+Bug vs. Task vs. Feature type mapping (applied from the `Severity` field
+on `ISS-<n>.md`; `FR-<CODE>` refs are always Feature):
+
+| Severity value(s) | GitHub Issue Type |
+|---|---|
+| `blocker`, `bug`, `critical` | Bug |
+| `enhancement`, `minor`, `operational` | Task |
+| (any FR-* requirement) | Feature |
+
+### Deferred: full GitHub-as-source-of-truth (Phase 2, not designed here)
+
+Whether the markdown files (`registry.md`, `ISS-<n>.md`, `FR-<CODE>.md`,
+`requirements-registry.md`) should eventually become auto-generated FROM
+GitHub (via `gh`/GraphQL export) rather than hand-authored, and whether
+QualityGate's atomic-pair `git diff` check (above) should be replaced or
+supplemented by a GitHub-API-based check, is an explicitly deferred
+follow-up — not silently dropped, not partially attempted here. It is a
+larger behavioral change to a load-bearing enforcement mechanism and
+needs its own scoped design pass. Phase 1 (this section) only adds a
+best-effort mirror; it does not change what QualityGate enforces or what
+the Orchestrator treats as authoritative on resume.
+
+---
+
 ## Business-Process Linkage & Post-Merge UAT (added 2026-07-25)
 
 The application implements business processes, not an unconnected pile of

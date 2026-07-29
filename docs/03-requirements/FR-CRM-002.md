@@ -4,6 +4,7 @@ name: Contact sync — members to CRM
 status: Planned
 module: CRM (CRM)
 phase: Roadmap Sprint 5
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/129
 ---
 
 ## Description

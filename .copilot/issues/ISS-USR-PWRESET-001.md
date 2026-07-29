@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | ID | ISS-USR-PWRESET-001 |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/122 |
 | Severity | blocker |
 | Module | auth / member self-service |
 | Status | **in-progress** |

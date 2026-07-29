@@ -4,6 +4,7 @@ name: Telegram bot scaffold and deployment
 status: Planned
 module: Telegram Bot (BOT)
 phase: Roadmap Sprint 6
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/137
 ---
 
 ## Description

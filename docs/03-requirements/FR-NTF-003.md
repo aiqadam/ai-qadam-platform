@@ -4,6 +4,7 @@ name: 24-hour event reminder
 status: Planned
 module: Notifications (NTF)
 phase: Roadmap Sprint 5.5
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/131
 ---
 
 ## Description

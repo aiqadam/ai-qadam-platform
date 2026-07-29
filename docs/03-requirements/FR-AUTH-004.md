@@ -4,6 +4,7 @@ name: Magic-link authentication (passwordless web sign-in)
 status: Planned
 module: Auth (AUTH)
 phase: Roadmap Sprint 8
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/127
 ---
 
 ## Description
