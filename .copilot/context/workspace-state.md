@@ -1,7 +1,47 @@
 # Workspace State
 
-**Last updated:** 2026-07-28 — `wf-20260728-feat-148`.
-**FR-ADM-010 (platform admin bootstrap) implemented — no more manual Authentik console steps.**
+**Last updated:** 2026-07-29 — `wf-20260729-feat-150`.
+**FR-ADM-011 (admin user/role management screen) implemented — closes the GitHub issue #107 silent-failure gap.**
+[FR-ADM-011](../../docs/03-requirements/FR-ADM-011.md): `/workspace/admin/users`
+generalized from invite-list-only into "Invites" + "Manage users" tabs
+(`AdminUsersCabinet.tsx` composing the existing `InvitesListInner` and a
+new `UserRolesManagerInner`). New API surface in the `admin-invites`
+module: `AdminUserRolesController`/`AdminUserRolesService`
+(`GET /v1/admin/users`, `GET/PATCH /v1/admin/users/:id/roles`), all
+guarded by the existing `AuthGuard`+`SuperAdminGuard` chain. Every
+grant/revoke does a read-merge-write against `AuthentikClient.setUserGroups()`
+(REPLACE semantics), then re-reads and returns the actually-applied
+state — never an optimistic assumption, closing the exact class of bug
+GitHub issue #107 reported. Extracted a shared
+`AuthentikClient.getSuperAdminCount()` primitive (plus `MAX_SUPER_ADMINS = 3`)
+that both `AdminBootstrapService` (bootstrap's `>=1` check, refactored to
+use it) and the new grant/revoke path (`>3` cap, symmetric `<=1`
+self-lockout floor) read through — single source of truth per FR-ADM-010's
+own deferred-responsibility note. Added `roleLabel()`/`roleLabels()`
+plain-language mapping to `apps/web-next/src/lib/roles.ts` (e.g.
+"Country Lead — Uzbekistan", not `aiqadam-country-lead-uz`) — did not
+previously exist despite the FR text assuming it did (roles.ts held only
+boolean predicates). **Security-review-caught fix during this same
+workflow:** `AuthentikClient.resolveGroupNames()` silently drops
+unresolvable group names; `changeRole()` now verifies the resolved count
+before writing, refusing with `ConflictException` instead of risking a
+silent partial-group-loss write — a new instance of the #107 failure
+class would have been ironic to ship inside the FR meant to close it.
+1349/1350 `apps/api` tests pass (1 pre-existing, already-tracked flake,
+`wf-20260704-fix-096-pre-existing-api-test-flakes`), 946/946
+`apps/web-next` tests pass. Per `business_process: [BP-UAT-021]`, the
+workflow protocol mandates a same-session post-merge `uat-verification`
+run against `BP-UAT-021` before this workflow is considered complete —
+check this file's own next entry (or `wf-20260729-feat-150`'s task
+directory at `.copilot/tasks/completed/wf-20260729-feat-150/`) for the
+outcome. **Known inherited gap, not introduced by this workflow:**
+`BP-UAT-021`'s own file documents an unresolved `three-super-admins`
+live-fixture gap for its Negative-001 scenario (AC-3's live 3-admin
+cap-block test) — the cap logic itself is exhaustively unit-tested at
+every boundary (count=2/3), so this only affects the DEPTH of live E2E
+coverage, not whether AC-3 is verified.
+
+`wf-20260728-feat-148` — **FR-ADM-010 (platform admin bootstrap) implemented — no more manual Authentik console steps.**
 [FR-ADM-010](../../docs/03-requirements/FR-ADM-010.md): new `AdminBootstrapService`
 (`apps/api/src/modules/admin-invites/admin-bootstrap.service.ts`, `OnModuleInit`)
 seeds exactly one `admin@aiqadam.org`-style super-admin directly in Authentik
