@@ -6,7 +6,7 @@
 | GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/125 |
 | Severity | blocker (for BP-UAT-020 verification only — does not affect FR-ADM-010's shipped status) |
 | Module | uat/environment, admin/ADM |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-28 |
 | Reporter | BusinessAnalyst (`wf-20260728-uat-149`, Step 1 UAT script validation) |
 | Related | FR-ADM-010 (shipped, PR #110), BP-UAT-020 (Draft, blocked by this issue) |
@@ -99,26 +99,121 @@ anywhere in the script.
 
 ## Acceptance criteria
 
-- [ ] AC-1: BP-UAT-020's Seed Fixtures table describes a concrete,
+- [x] AC-1: BP-UAT-020's Seed Fixtures table describes a concrete,
       executable, safe fixture-isolation mechanism for the
       zero-super-admin precondition (not an open design question).
-- [ ] AC-2: The chosen mechanism does not require destructive action
+- [x] AC-2: The chosen mechanism does not require destructive action
       against a shared local dev environment's existing state without a
       verified, automatic restore.
-- [ ] AC-3: BP-UAT-020 passes BusinessAnalyst's Step 1 validation
+- [x] AC-3: BP-UAT-020 passes BusinessAnalyst's Step 1 validation
       checklist (`seed_fixture` non-empty check specifically).
-- [ ] AC-4: AC-5 (credential-documentation consistency) is mapped to a
+- [x] AC-4: AC-5 (credential-documentation consistency) is mapped to a
       step or negative scenario in the script.
-- [ ] AC-5: BP-UAT-020 successfully runs end-to-end via UATRunner against
+- [x] AC-5: BP-UAT-020 successfully runs end-to-end via UATRunner against
       `local`, producing a real pass/fail/partial verdict — this is the
       actual live verification of FR-ADM-010's forced-password-change
-      mechanism that this issue exists to unblock.
+      mechanism that this issue exists to unblock. **Result: partial —
+      AC-1/AC-2/AC-4/AC-5 of BP-UAT-020 verified MATCH; AC-3 verified
+      MISMATCH, filed as [ISS-ADM-010-1](ISS-ADM-010-1.md).** This
+      issue's own AC-5 only requires the run to happen and produce a
+      real verdict, which it did — the verdict itself surfacing a defect
+      is success for this fixture-mechanism issue, not failure.
 
 ## Resolution
 
-_Open — not yet scheduled. No follow-up workflow ID assigned at time of
-filing; picked up by whoever next works BP-UAT-020 or the broader ADM
-module's UAT coverage._
+- **Workflow:** wf-20260729-fix-153
+- **PR:** <pending>
+- **Root cause:** BP-UAT-020's Seed Fixtures table left the zero-super-admin
+  isolation mechanism as an open design question at draft time (before
+  FR-ADM-010 existed) and it was never resolved once FR-ADM-010 shipped.
+- **Fix:** Chose snapshot-remove-restore over a dedicated Authentik
+  realm/tenant, based on reading `AdminBootstrapService.hasSuperAdminMember()`
+  (`apps/api/src/modules/admin-invites/admin-bootstrap.service.ts`) — it is
+  checked exactly once, at API process `OnModuleInit`, never on a live
+  request, so the zero-admin window a fixture needs to open only has to
+  span one local `api` process restart, not the whole UAT session. New
+  `scripts/uat-bp-uat-020-fixture.sh` (`setup`/`teardown`/`verify-restored`)
+  snapshots `aiqadam-super-admin`'s exact live member pks, empties the
+  group, restarts the local api process so bootstrap fires against zero
+  admins, and on `teardown` restores the exact snapshotted pk array with an
+  automatic post-restore verification (fails loudly, preserves the
+  snapshot file, if the restored membership doesn't match) rather than
+  trusting the PATCH call's status code alone — satisfies AC-2's "no
+  destructive action without a verified, automatic restore." New manifest
+  `scripts/uat-fixtures/BP-UAT-020.json`. `BP-UAT-020.md` rewritten: Seed
+  Fixtures table now names the concrete mechanism; new Step 000 wires
+  `setup` in before Step 001; new Teardown section wires `teardown` in
+  after the negative scenarios; new Negative 002 maps AC-5
+  (credential-documentation consistency) to an explicit check — confirmed
+  `apps/api/.env.example` and `auth-architecture.md` §9.5 already agree
+  on `ADMIN_BOOTSTRAP_EMAIL`/`ADMIN_BOOTSTRAP_DEFAULT_PASSWORD`, so this
+  was a "script coverage gap," not a real documentation drift.
+- **Regression test:** `scripts/tests/uat-bp-uat-020-fixture.bats` (11
+  cases, all passing) — covers the localhost-only guard refusing a
+  non-local `AK_URL` before any mutation, `setup` refusing to run over an
+  un-torn-down snapshot, `teardown` refusing to run with no snapshot
+  present, and a full `setup` → `teardown` → `verify-restored` cycle
+  confirming the snapshot file (the durable "a restore is still owed"
+  signal) is created and removed at the right points. These would have
+  failed before the fix (the script did not exist) and pass after.
+- **Merged:** <pending>
+
+### AC-5 live verification
+
+Ran `scripts/uat-bp-uat-020-fixture.sh setup`, then a Playwright agent-driven
+session (`apps/e2e/tests/uat/BP-UAT-020.session.spec.ts`, run id
+`wf-20260729-uat-154`, evidence at
+`apps/e2e/uat-results/BP-UAT-020/wf-20260729-uat-154/`), then
+`scripts/uat-bp-uat-020-fixture.sh teardown`. Real, corroborated per-step
+verdicts:
+
+| Step | AC | Verdict | Evidence |
+|---|---|---|---|
+| 001 — bootstrap fires against zero admins | AC-1 | **MATCH** | Direct Authentik API: `admin@aiqadam.org` created (pk varied per run), assigned to `aiqadam-super-admin`, `ak_login_password_change_required: true`. Confirmed independently via API before the browser session AND via the session's own precondition check. |
+| 002 — forced password-change screen | AC-3 | **MISMATCH** | Sign-in with the seeded credentials succeeds normally and redirects straight to the app (`/me`), no password-change stage shown. Filed as [ISS-ADM-010-1](ISS-ADM-010-1.md) — a genuine product defect, not a fixture/script problem. |
+| 003 — admin reaches `/workspace/admin/countries` | AC-4 | **MATCH** | Countries admin table rendered with `Edit`/`Provision` actions — confirms full super-admin access despite AC-3's failure (the two are independent). |
+| Negative 001 — idempotent no-op | AC-2 | **MATCH** | Exactly 1 matching Authentik user both before and after a second `api` boot with the group non-empty — no duplicate created. |
+| Negative 002 — credential docs consistency | AC-5 | **MATCH** | `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_DEFAULT_PASSWORD` present with identical names in both `apps/api/.env.example` and `auth-architecture.md`. |
+
+**AC-5 of this issue (BP-UAT-020 runs end-to-end producing a real verdict)
+is satisfied** — the session ran, produced real screenshots and
+API-corroborated verdicts, and correctly surfaced a genuine product defect
+(AC-3) rather than a false pass. Per `uat-verification.md`'s triage rule,
+a defect found during live verification is registered separately
+([ISS-ADM-010-1](ISS-ADM-010-1.md)) and does not block this issue's own
+completion — this issue was about building the fixture mechanism and
+proving it works, which it does.
+
+### Debugging notes (kept for future maintainers, not part of the fix itself)
+
+Getting to the clean run above required fixing two additional real bugs
+discovered only by running the mechanism for real (not visible in
+mock-mode bats):
+
+1. `restart_api_and_wait_boot()` originally only polled the health
+   endpoint without ever terminating the running process (reported
+   success against an already-healthy api without bootstrap re-running
+   at all), then a second version assumed `nest start --watch`'s
+   supervisor would auto-respawn a force-killed child (false — the whole
+   watch chain dies with it). Both fixed; see the function's own header
+   comment in `scripts/uat-bp-uat-020-fixture.sh` for the full history.
+   A `cmd.exe start /b` / PowerShell `Start-Process` detached-launch
+   alternative was also tried and abandoned as unreliable in practice.
+2. Repeated debugging cycles (deleting/recreating the seeded Authentik
+   admin many times while iterating on the session script) left a stale
+   `public.users` row in Postgres keyed on the OLD `authentik_subject`
+   but the SAME `email` — `AuthController.callback()`'s upsert
+   (`ON CONFLICT (authentik_subject)`) doesn't match a differing subject,
+   so it attempted a fresh INSERT that collided with the stale row's
+   `users_email_unique` constraint, 500ing `GET /api/v1/auth/callback`
+   for every subsequent sign-in attempt. Not a fixture-design gap (a
+   single clean run never creates two different Authentik subjects for
+   the same seeded email) — cleaned up manually
+   (`DELETE FROM public.users WHERE email = 'admin@aiqadam.org'`) and
+   confirmed the callback succeeds cleanly afterward. Recorded here in
+   case a future BP-UAT-020 run hits the same 500 after an interrupted
+   prior session — the fix is deleting the stale local mirror row, not a
+   code change.
 
 ### Honesty disclosures
 

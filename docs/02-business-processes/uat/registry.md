@@ -27,7 +27,7 @@ One row per script. Updated by BusinessAnalyst after each `uat-verification` run
 | [BP-UAT-017](BP-UAT-017.md) | Pre-event member matching (T-7) | — | <br>smoke-event-matches-post-reg.spec.ts<br>smoke-event-matches.spec.ts |
 | [BP-UAT-018](BP-UAT-018.md) | Lead nurture cron | — | <br>smoke-lead-nurture.spec.ts<br>smoke-leads.spec.ts |
 | [BP-UAT-019](BP-UAT-019.md) | Operator approvals queue | — | <br>smoke-workspace-approvals.spec.ts |
-| [BP-UAT-020](BP-UAT-020.md) | Platform admin bootstrap (no manual scripts) | — |
+| [BP-UAT-020](BP-UAT-020.md) | Platform admin bootstrap (no manual scripts) | Implemented | 2026-07-29 | partial (AC-1/AC-2/AC-4/AC-5 verified MATCH; AC-3 verified MISMATCH — ISS-ADM-010-1) | [BP-UAT-020.session.spec.ts](../../../../apps/e2e/tests/uat/BP-UAT-020.session.spec.ts) | — |
 | [BP-UAT-021](BP-UAT-021.md) | Admin user and role management screen | — |
 
 ## Status legend
