@@ -1,6 +1,42 @@
 # Workspace State
 
-**Last updated:** 2026-07-29 — `wf-20260729-chore-152`.
+**Last updated:** 2026-07-29 — `wf-20260729-fix-153`.
+**ISS-UAT-020-1 resolved — BP-UAT-020 now has a safe, live-verified fixture-isolation mechanism; live run surfaced a real AC-3 defect, filed as ISS-ADM-010-1.**
+[wf-20260729-fix-153](../tasks/completed/wf-20260729-fix-153/handoff.yaml)
+(PR [#146](https://github.com/aiqadam/ai-qadam-platform/pull/146), squash
+`6a873ef`): new `scripts/uat-bp-uat-020-fixture.sh` (`setup`/`teardown`/
+`verify-restored`) snapshots `aiqadam-super-admin`'s live Authentik group
+membership, empties it, restarts the local `api` process so
+`AdminBootstrapService.onModuleInit()` re-runs against zero admins, then
+restores the exact snapshot with automatic post-restore verification —
+chosen over a dedicated Authentik realm because the bootstrap check only
+runs once per process boot, never per-request. New
+`scripts/uat-fixtures/BP-UAT-020.json` manifest, 11 bats regression tests,
+`BP-UAT-020.md` rewritten (Seed Fixtures, Step 000, Negative 002 mapping
+AC-5, Teardown section). Live-verified end-to-end via new
+`apps/e2e/tests/uat/BP-UAT-020.session.spec.ts` (agent-driven UATRunner
+session, same FR-WORKFLOW-004 model as `BP-UAT-010.spec.ts`'s pilot):
+AC-1/AC-2/AC-4/AC-5 verified `MATCH`; **AC-3 (forced password-change
+screen) verified `MISMATCH`** — sign-in with the seeded bootstrap
+credentials completes normally with no password-change stage, confirmed
+via raw Authentik flow-executor API responses
+(`xak-flow-redirect` straight to OIDC authorize). Filed as
+[ISS-ADM-010-1](../issues/ISS-ADM-010-1.md) (open, not yet scheduled) — a
+genuine product defect in `AdminBootstrapService`'s
+`ak_login_password_change_required` attribute approach, independent of
+this fixture work; the code comment introducing that attribute already
+flagged this exact risk as unverified pending this check.
+`restart_api_and_wait_boot()`'s design went through 3 iterations
+(documented in the script's own header) before landing on a plain bash
+background job — `cmd.exe start /b` and PowerShell `Start-Process` were
+both tried and found unreliable for this repo's Windows/Git-Bash setup,
+and invoking the fixture script from inside a Node `execFileSync` call
+(rather than a shell, before/after the Playwright session) is a known,
+documented limitation. Full bats suite: 142/153 pass — the 11 failures
+(`check-workflow-state.bats`, `bp-uat-template-rule.bats`) are confirmed
+pre-existing on `origin/main` HEAD, unrelated to any file this PR touched.
+
+`wf-20260729-chore-152`.
 **GitHub Issues/Projects Phase 1 sync shipped — 22 open ISS-*/FR-* items migrated to a typed GitHub Project board, with an ongoing best-effort sync wired into the agentic workflow.**
 [wf-20260729-chore-152](../tasks/completed/wf-20260729-chore-152/handoff.yaml)
 (PR [#144](https://github.com/aiqadam/ai-qadam-platform/pull/144), squash
@@ -273,14 +309,15 @@ snapshot, not a log.
 Only genuinely open items belong here. Resolved issues live in
 [`../issues/registry.md`](../issues/registry.md).
 
-- [ISS-UAT-020-1](../issues/ISS-UAT-020-1.md) (blocker, uat/environment +
-  admin/ADM) — BP-UAT-020 has no safe, executable fixture for its
-  "zero-super-admin" precondition (only an unresolved design question:
-  isolated Authentik realm vs. destructive remove-and-restore against
-  shared local dev state). Blocks live verification of FR-ADM-010's
-  forced-password-change mechanism only — does not affect FR-ADM-010's
-  `Implemented`/`Shipped` status, which is fully unit-verified. No
-  follow-up workflow queued yet.
+- [ISS-ADM-010-1](../issues/ISS-ADM-010-1.md) (blocker for AC-3 only,
+  admin/ADM + infra/authentik) — `AdminBootstrapService`'s
+  `ak_login_password_change_required` attribute does not force
+  Authentik's password-change screen; sign-in with the seeded bootstrap
+  admin credentials completes normally. Discovered live 2026-07-29 during
+  `wf-20260729-fix-153`'s BP-UAT-020 verification. Does not affect
+  FR-ADM-010's `Implemented`/`Shipped` status or AC-1/AC-2/AC-4/AC-5, all
+  independently live-verified in the same session. No follow-up workflow
+  queued yet.
 - [ISS-USR-REG-002](../issues/ISS-USR-REG-002.md) — code fix **merged**
   2026-07-23 (PR [#51](https://github.com/aiqadam/ai-qadam-platform/pull/51),
   squash `e3edfa7`). Remains open only on **AC-4 (live QA verification)**,

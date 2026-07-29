@@ -156,7 +156,7 @@ anywhere in the script.
   confirming the snapshot file (the durable "a restore is still owed"
   signal) is created and removed at the right points. These would have
   failed before the fix (the script did not exist) and pass after.
-- **Merged:** <pending>
+- **Merged:** `6a873ef1eeea6a5d4909a7bf00d19913fad8520b`
 
 ### AC-5 live verification
 
