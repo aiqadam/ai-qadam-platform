@@ -3,10 +3,21 @@
 # Project (v2) item for a local ISS-<n> / FR-<CODE> tracking record.
 #
 # Usage:
-#   scripts/sync-github-project.sh --ref <ISS-n|FR-CODE> --status <todo|in-progress|implemented|done>
+#   scripts/sync-github-project.sh --ref <ISS-n|FR-CODE> --status <todo|in-progress|implemented|agent-verified|done>
 #     [--title <text>] [--body-file <path>] [--severity <value>]
 #     [--business-process <codes>] [--existing-url <url>] [--dry-run]
 #     [--repo <owner/name>]
+#
+# Status model (added 2026-07-29, split for the volunteer-UAT distinction):
+#   todo / in-progress / implemented — as before.
+#   agent-verified — an agent (post-merge UAT re-run, or "nothing
+#     process-related to verify") has done everything it can. This is a
+#     SCRIPT-SET status, same as the others.
+#   done — a human volunteer spot-checked it and confirmed. This status is
+#     NEVER set by this script or by any workflow step — it is set only by
+#     a human directly on the Project board. Passing --status done here is
+#     a hard error; if a caller thinks it needs to, that's a bug in the
+#     caller, not a valid use of this script.
 #
 # --title/--body-file are required on first create (no existing issue
 # found and no --existing-url given); ignored (with a warning) on
@@ -50,8 +61,15 @@ declare -A STATUS_OPTION_ID=(
   [todo]="f75ad846"
   [in-progress]="47fc9ee4"
   [implemented]="f0db74f6"
+  [agent-verified]="875a2bc9"
   [done]="98236657"
 )
+
+# "done" is human-only — see the header comment. Enforced in argument
+# validation below, not just documented, so a workflow-file typo (passing
+# --status done from an agent step) fails loudly instead of silently
+# claiming a human confirmation that never happened.
+HUMAN_ONLY_STATUSES=("done")
 
 # Issue Type ids — confirmed live 2026-07-29 via
 #   gh api graphql -f query='query { repository(owner:"aiqadam",
@@ -100,6 +118,14 @@ if [[ -z "${STATUS_OPTION_ID[$STATUS]+x}" ]]; then
   echo "ERROR: --status must be one of: ${!STATUS_OPTION_ID[*]}" >&2
   exit 2
 fi
+
+for human_only in "${HUMAN_ONLY_STATUSES[@]}"; do
+  if [[ "$STATUS" == "$human_only" ]]; then
+    echo "ERROR: --status $STATUS is human-only — no script or workflow step may set it." >&2
+    echo "A human volunteer sets this directly on the Project board after spot-checking. See the header comment." >&2
+    exit 2
+  fi
+done
 
 MARKER="<!-- aiqadam-sync-ref: ${REF} -->"
 

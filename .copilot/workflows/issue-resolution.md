@@ -488,15 +488,29 @@ is `auto` OR the user has merged manually.
    for the same `ISS-<n>` (append a new occurrence, do not create a new
    `ISS-<n>` file for the same GitHub issue number).
 
-7. **Sync GitHub Project Status to `done` (best-effort, only if
-   `GitHub-Issue:` is set):**
-   ```bash
-   scripts/sync-github-project.sh --ref ISS-<n> --status done \
-     --existing-url "<GitHub-Issue: value>"
-   ```
+7. **Sync GitHub Project Status (best-effort, only if `GitHub-Issue:` is
+   set) — value depends on whether Step 13 will run:**
+   - **If `Business-Process` is `—`** (Step 13 will be skipped — nothing
+     process-related for an agent to UAT-verify): sync straight to
+     `agent-verified` here, since a clean merge is itself sufficient.
+     ```bash
+     scripts/sync-github-project.sh --ref ISS-<n> --status agent-verified \
+       --existing-url "<GitHub-Issue: value>"
+     ```
+   - **If `Business-Process` names one or more `BP-UAT-NNN`** (Step 13
+     will run): do NOT sync to `agent-verified` here — Step 13 hasn't run
+     yet, so there is no UAT pass to report. Sync to `implemented` again
+     instead (a harmless no-op re-affirmation) and let Step 13's own gate
+     (below) perform the `agent-verified` sync once its UAT run actually
+     passes.
+
+   **Never pass `--status done` here or anywhere in this workflow** — per
+   `.copilot/schemas/protocol.md`'s "`Agent-Verified` vs. `Done`"
+   subsection, `done` is set only by a human volunteer directly on the
+   board; the script hard-refuses it.
+
    Run this BEFORE action 6's `gh issue close` (closing first, then
-   syncing Status to `done`, is also fine and arguably more natural given
-   GitHub's own Status field semantics — either order is acceptable since
+   syncing Status, is also fine — either order is acceptable since
    they're independent API calls; this ordering just keeps action 6 last
    since it's the most human-visible one). Per `protocol.md`, failure here
    does not block this step's gate.
@@ -531,14 +545,25 @@ just the narrow regression test from Step 6/7. Record each run in
 
 **Gate:**
 - All linked BP-UATs pass clean → note the pass(es) in `ISS-<n>.md`'s
-  Resolution section, workflow complete.
+  Resolution section, workflow complete. **Sync GitHub Project Status to
+  `agent-verified`** (best-effort, only if `GitHub-Issue:` is set):
+  ```bash
+  scripts/sync-github-project.sh --ref ISS-<n> --status agent-verified \
+    --existing-url "<GitHub-Issue: value>"
+  ```
 - One or more triaged a new issue → issue registered normally; this
   workflow still completes, but the Resolution section MUST name the new
-  finding(s) and state whether they're believed related to this fix.
+  finding(s) and state whether they're believed related to this fix. Do
+  NOT sync to `agent-verified` in this case — a new finding on the same
+  surface means verification is not clean; leave Status at `implemented`
+  for a human to assess (or a follow-up workflow to resolve and then
+  correctly reach `agent-verified` on its own pass).
 - A `uat-verification` run itself hit `failed-escalate` (environment, not
   product) → register the env issue per that workflow's own rules, disclose
   the deferral in `ISS-<n>.md`'s Resolution section per AGENTS.md §6.1,
-  workflow completes with the disclosure recorded (not silently).
+  workflow completes with the disclosure recorded (not silently). Do NOT
+  sync to `agent-verified` — the environment failure means nothing was
+  actually verified.
 
 ---
 

@@ -111,6 +111,14 @@ include `project`. If missing:
 gh auth refresh -s project,read:project
 ```
 
+**`Agent-Verified` vs. `Done` (added 2026-07-29):** this is a
+volunteer-run community project, not a paid QA org — the Status field
+splits "an agent finished everything it can verify" (`Agent-Verified`,
+set automatically) from "a human volunteer spot-checked it"
+(`Done`, human-only — no script ever sets this). See
+`.copilot/schemas/protocol.md`'s "`Agent-Verified` vs. `Done`" subsection
+for the full rationale.
+
 **Fixed IDs** (confirmed live 2026-07-29 — re-verify via the commands
 below if any of this starts failing, e.g. after an org/project reset):
 
@@ -122,6 +130,7 @@ below if any of this starts failing, e.g. after an org/project reset):
 | Status: Todo | `f75ad846` | GraphQL `field(name:"Status") { ... options { id name } }` |
 | Status: In Progress | `47fc9ee4` | same |
 | Status: Implemented | `f0db74f6` | same |
+| Status: Agent-Verified | `875a2bc9` | same |
 | Status: Done | `98236657` | same |
 | Issue Type: Task | `IT_kwDOEXUt6M4CCp-w` | `repository.issueTypes` GraphQL query |
 | Issue Type: Bug | `IT_kwDOEXUt6M4CCp-x` | same |

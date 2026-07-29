@@ -244,7 +244,7 @@ points the atomic-pair flip already uses, not new ones.
 |---|---|---|
 | New `ISS-<n>.md` / `FR-<CODE>.md` created (local-origin) or GitHub-origin issue intake | `todo` (or `in-progress` if work starts same-session) | `issue-resolution.md` Step 1 / `requirement-development.md` Step 1 |
 | Atomic status flip to `resolved` / `Implemented` on the feature branch | `implemented` | `issue-resolution.md` Step 9 / `requirement-development.md` Step 9 |
-| Post-merge verification confirms the flip landed on `main` | `done` | `issue-resolution.md` Step 12.5 / `requirement-development.md` Step 11.5 |
+| Post-merge verification confirms the flip landed on `main` | `agent-verified` | `issue-resolution.md` Step 12.5 / `requirement-development.md` Step 11.5 |
 
 **Every call is idempotent and non-blocking to the workflow's gate
 outcome:** a `sync-github-project.sh` failure (GitHub API error, missing
@@ -256,12 +256,43 @@ would be treated: retry once, then proceed with a note, not a
 workflow-blocking condition. (This is a deliberate scoping decision —
 see "Deferred: full GitHub-as-source-of-truth" below.)
 
+### `Agent-Verified` vs. `Done` — the volunteer-UAT split (added 2026-07-29)
+
+This project is built and maintained by community volunteers, not a paid
+QA workforce — asking a volunteer to thoroughly re-test every merged
+change is not a reasonable ask of their time. The Status field therefore
+splits "an agent finished everything an agent can verify" from "a human
+actually looked at it":
+
+- **`agent-verified`** — set by `sync-github-project.sh` at the trigger
+  point above. This means either (a) `protocol.md`'s post-merge UAT
+  re-verification (`post_merge_uat_runs[]`, see "Business-Process Linkage
+  & Post-Merge UAT" below) ran and passed for every linked `BP-UAT-NNN`,
+  or (b) `Business-Process` was `—` (nothing process-related exists to
+  UAT-test), in which case a clean merge is treated as sufficient. Either
+  way, this status means "an agent has done everything it can here" — not
+  "a human confirmed it."
+- **`done`** — set **only by a human volunteer**, directly on the Project
+  board, after a light spot-check (not a full re-test — the agent already
+  did the thorough part). **No script and no workflow step is permitted
+  to set this status.** `sync-github-project.sh` hard-refuses `--status
+  done` (exit 2) specifically so a workflow-file typo can't silently
+  fabricate a human confirmation that never happened. There is
+  deliberately no automated trigger (e.g. a magic PR comment) driving
+  this in Phase 1 — see "Deferred" below if that changes.
+
+An item can sit at `agent-verified` indefinitely if no volunteer has
+looked yet — that's expected, not a failure state.
+
 ### Invocation
 
 ```bash
-scripts/sync-github-project.sh --ref <ISS-n|FR-CODE> --status <todo|in-progress|implemented|done> \
+scripts/sync-github-project.sh --ref <ISS-n|FR-CODE> --status <todo|in-progress|implemented|agent-verified> \
   [--title ... --body-file ... --severity ... --existing-url ...]
 ```
+
+(`done` is a valid Status *option* on the board but not a valid
+`--status` argument to this script — see above.)
 
 Full flag reference and idempotency design: see the script's own header
 comment. Capture its `GITHUB_ISSUE_URL=<url>` stdout line and write it
