@@ -13,7 +13,7 @@ github_issue_url: ""
 
 branch: "fix/iss-web-next-ssr-jsdom-001-undici-override"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/compare/fix/iss-web-next-ssr-jsdom-001-undici-override?expand=1"
 
 current_step: 9
 current_step_name: "registry-update"
