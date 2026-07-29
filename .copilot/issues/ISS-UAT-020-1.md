@@ -122,7 +122,7 @@ anywhere in the script.
 ## Resolution
 
 - **Workflow:** wf-20260729-fix-153
-- **PR:** <pending>
+- **PR:** https://github.com/aiqadam/ai-qadam-platform/pull/146
 - **Root cause:** BP-UAT-020's Seed Fixtures table left the zero-super-admin
   isolation mechanism as an open design question at draft time (before
   FR-ADM-010 existed) and it was never resolved once FR-ADM-010 shipped.
