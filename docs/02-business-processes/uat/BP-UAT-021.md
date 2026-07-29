@@ -3,10 +3,10 @@ code: BP-UAT-021
 name: "Admin user and role management screen"
 status: Draft
 process_ref: "docs/02-business-processes/operator-playbook/admin-user-management.md"
-environment: "http://localhost:4321"
+environment: "http://localhost:4322"
 seed_required: true
 last_run: ""
-linked_issues: [FR-ADM-011]
+linked_issues: [FR-ADM-011, ISS-WEB-NEXT-SSR-JSDOM-001]
 external_hops: []
 session_budget:
   max_steps: 40
@@ -195,6 +195,19 @@ expect(apiRes.status()).toBe(403);
 
 ## Notes
 
+- **2026-07-29 (`wf-20260729-feat-150` Step 13):** `FR-ADM-011` shipped
+  (PR #113), and this screen lives on `apps/web-next` (the
+  nginx-production-routed app), **not** `apps/web` (legacy) — corrected
+  `environment` from `:4321` to `:4322` accordingly; both apps happen to
+  have a route at the same path, but only web-next's carries this FR's
+  new "Manage users" tab. Live execution was attempted at Step 13 but
+  blocked before any browser session could start: `apps/web-next`'s
+  entire `/workspace/*` SSR surface currently 500s in local dev due to a
+  pre-existing `jsdom`/`undici` dependency incompatibility (see
+  [`ISS-WEB-NEXT-SSR-JSDOM-001`](../../../.copilot/issues/ISS-WEB-NEXT-SSR-JSDOM-001.md)),
+  confirmed unrelated to FR-ADM-011's own diff. This blocks not just
+  this script but every `/workspace/*` BP-UAT until the environment
+  issue is fixed. No follow-up workflow queued yet for the fix itself.
 - This script cannot run until `FR-ADM-011` ships. Authored now (Step 4 of
   `business-process-development` workflow `wf-20260728-bp-147`) so it is
   ready-to-run the moment the FR's own `requirement-development` workflow
