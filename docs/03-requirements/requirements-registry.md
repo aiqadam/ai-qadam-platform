@@ -109,6 +109,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 65 | [FR-WORKFLOW-005](FR-WORKFLOW-005.md) | Read-only QA target mode for agent-driven UAT sessions | Shipped | WORKFLOW-004 (agent-driven session model — this FR adds the target axis) |
 | 66 | [FR-WORKFLOW-006](FR-WORKFLOW-006.md) | Session-friction fixes — GitHub issue back-reference, branch-protection routing, gate self-consistency | Shipped | WORKFLOW-005 (same class of workflow-tooling fix) |
 | 67 | [FR-ADM-010](FR-ADM-010.md) | Platform admin bootstrap (no manual scripts) | Shipped | ADM-005 |
+| 68 | [FR-ADM-011](FR-ADM-011.md) | Admin user and role management screen | Shipped | ADM-005, ADM-007, ADM-008, ADM-010 |
 
 > **Note on CMS-004 / CMS-005:** both shipped in V1 against the existing `tg.dispatch.v1` notifier infrastructure (ADR-0034), not the planned aiogram bot (BOT-001). Their position above reflects this — they are independent of the BOT track.
 

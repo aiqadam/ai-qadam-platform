@@ -2,12 +2,15 @@
 // @generated-from gen:cabinet
 // slug: workspace/admin/users
 // generated: 2026-05-26
+// updated: 2026-07-29 — FR-ADM-011 generalizes this cabinet from
+// invite-list-only into "Invites" + "Manage users" tabs.
 //
 // Phase 2.3a — operator invites cabinet per ADR-0038 + ADR-0035.
+// FR-ADM-011 — admin user/role management, per GitHub issue #107.
 //
-// Composition only (L4): renders <InvitesList> inside the super-admin
-// auth gate. The list/create form contract lives in the island; this
-// page only owns the shell + role gate.
+// Composition only (L4): renders <AdminUsersCabinet> (owns the tab
+// state + both sub-views) inside the super-admin auth gate. This page
+// only owns the shell + role gate.
 //
 // Wiring: docs/04-development/architecture/wiring-map.md → operator_invites.
 //
@@ -16,26 +19,26 @@
 export const prerender = false;
 
 import { AuthGate, PageHead } from '../../../../blocks/common';
-import { Breadcrumbs, InvitesList, PageShell } from '../../../../blocks/workspace';
+import { AdminUsersCabinet, Breadcrumbs, PageShell } from '../../../../blocks/workspace';
 import Layout from '../../../../layouts/Layout.astro';
 ---
 
 <Layout
-  title="Operator invites · AI Qadam workspace"
-  description="Create, list, and revoke operator invitation links (ADR-0035)."
+  title="Manage users · AI Qadam workspace"
+  description="Invite operators, search users, and grant or revoke roles (ADR-0035, ADR-0021)."
 >
   <PageHead
     slot="head"
-    title="Operator invites · AI Qadam workspace"
-    description="Create, list, and revoke operator invitation links (ADR-0035)."
+    title="Manage users · AI Qadam workspace"
+    description="Invite operators, search users, and grant or revoke roles (ADR-0035, ADR-0021)."
   />
   <AuthGate
     role="aiqadam-super-admin"
     signInLabel="Super-admin only — sign in"
   >
     <PageShell
-      title="Operator invites"
-      description="ADR-0035 invite-link flow. Replaces CLI user-create."
+      title="Manage users"
+      description="Invite operators (ADR-0035) or search existing users and change their roles (ADR-0021, ≤3 super-admin cap enforced)."
       width="wide"
     >
       <Breadcrumbs
@@ -43,10 +46,10 @@ import Layout from '../../../../layouts/Layout.astro';
         items={[
           { label: 'Workspace', href: '/workspace' },
           { label: 'Admin' },
-          { label: 'Invites' },
+          { label: 'Users' },
         ]}
       />
-      <InvitesList client:load />
+      <AdminUsersCabinet client:load />
     </PageShell>
   </AuthGate>
 </Layout>

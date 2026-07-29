@@ -4,6 +4,7 @@
 // folder split; `common` blocks live next to both for cross-cutting
 // concerns like <PageHead> and <AppFooter>.
 
+export { AdminUsersCabinet } from './AdminUsersCabinet';
 export { AnnounceComposer } from './AnnounceComposer';
 export { BadgeAwardHistory, BadgeAwardHistoryInner } from './BadgeAwardHistory';
 export { BadgesCabinet } from './BadgesCabinet';
@@ -29,7 +30,7 @@ export { Form, FormIsland } from './Form';
 export { FormBuilderCabinet } from './FormBuilderCabinet';
 export { FormResponsesCabinet } from './FormResponsesCabinet';
 export { FormsList } from './FormsList';
-export { InvitesList } from './InvitesList';
+export { InvitesList, InvitesListInner } from './InvitesList';
 export { KpiTile } from './KpiTile';
 export { MembersFilterPanel } from './MembersFilterPanel';
 export { MembersList } from './MembersList';
@@ -49,4 +50,5 @@ export { RbacSyncList } from './RbacSyncList';
 export { TgSegmentsList } from './TgSegmentsList';
 export { TgBroadcastsList } from './TgBroadcastsList';
 export { TgBroadcastComposer } from './TgBroadcastComposer';
+export { UserRolesManager, UserRolesManagerInner } from './UserRolesManager';
 export { default as WorkspaceNav } from './WorkspaceNav.astro';
