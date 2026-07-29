@@ -291,6 +291,20 @@ If verification fails after 2 retries: set `workflow_status: needs-review`,
 record the specific failure in `handoff.yaml.needs_review.reason`, and stop.
 Do not attempt to "fix" main's state — surface the discrepancy to the user.
 
+### GitHub Project Sync (new 2026-07-29)
+
+At the same trigger points as the atomic-pair status flip (issue/FR
+creation, resolution, post-merge verification), the Orchestrator also
+calls `scripts/sync-github-project.sh` to keep the `ai-qadam-platform`
+GitHub Project board's Status field in sync — see
+`.copilot/schemas/protocol.md` "GitHub Issue / Project Sync" and the
+per-workflow Step 1 / 9 / 11.5-or-12.5 edits in `issue-resolution.md` /
+`requirement-development.md`. This is a best-effort mirror, not a gating
+mechanism — its failure never changes a `gate_result`. The markdown
+atomic pair (above) remains what QualityGate enforces and what workflow
+resume reads from; do not treat the GitHub Project board as authoritative
+for resuming an interrupted workflow in Phase 1.
+
 ---
 
 ## What the Orchestrator Does NOT Do

@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | ID | ISS-UAT-020-1 |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/125 |
 | Severity | blocker (for BP-UAT-020 verification only — does not affect FR-ADM-010's shipped status) |
 | Module | uat/environment, admin/ADM |
 | Status | open |

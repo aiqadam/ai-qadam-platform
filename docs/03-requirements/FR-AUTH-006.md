@@ -4,6 +4,7 @@ name: Temporary account upgrade (Telegram-only → full member)
 status: Planned
 module: Auth (AUTH)
 phase: Roadmap Sprint 6
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/139
 ---
 
 ## Description

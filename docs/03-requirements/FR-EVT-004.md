@@ -4,6 +4,7 @@ name: Event detail page
 status: In Progress
 module: Events (EVT)
 phase: Phase 1 (V1) / Rebuild Phase 1 (V2, In Progress)
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/130
 ---
 
 ## Description

@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | ID | ISS-USR-REDIRECT-003 |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/123 |
 | Severity | blocker |
 | Module | api/auth (registration) + infra/authentik |
 | Status | open |

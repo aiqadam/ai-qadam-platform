@@ -4,6 +4,7 @@ name: User notification preferences and topic interests
 status: Planned
 module: Notifications (NTF)
 phase: Roadmap Sprint 5.5
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/135
 ---
 
 ## Description

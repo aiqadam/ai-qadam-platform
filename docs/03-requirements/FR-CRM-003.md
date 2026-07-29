@@ -4,6 +4,7 @@ name: Activity sync — events and registrations to CRM
 status: Planned
 module: CRM (CRM)
 phase: Roadmap Sprint 5
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/132
 ---
 
 ## Description

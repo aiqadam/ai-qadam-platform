@@ -4,6 +4,7 @@ name: Telegram authentication (bot deep-link + web widget)
 status: Implemented
 module: Auth (AUTH)
 phase: Roadmap Sprint 6
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/126
 ---
 
 ## Description

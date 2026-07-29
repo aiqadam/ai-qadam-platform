@@ -91,15 +91,59 @@ even when this ruleset is actively enforcing. See
 human-facing statement of the same rule ("Protected: no direct pushes, PR
 required, CI must pass").
 
-## 5. GitHub Projects — not currently used
+## 5. GitHub Projects (v2) — `project` scope (added 2026-07-29)
 
-This repo's workflow does **not** use GitHub Projects (boards/ProjectV2).
-Issue tracking is entirely via GitHub Issues + this repo's own
-`.copilot/issues/registry.md` mirror. If Projects integration becomes a
-real requirement later, it needs its own scope (`project`, via
-`gh project` subcommands or the ProjectV2 GraphQL API) — not covered by
-anything above. Flag this explicitly if a future task asks for it; don't
-assume the existing `repo` scope covers it (it doesn't).
+This repo's workflow uses a GitHub Project (v2) board, `ai-qadam-platform`
+(project number `1`), as a synced mirror of every currently-open
+`ISS-<n>` issue and non-terminal `FR-<CODE>` requirement — see
+`.copilot/schemas/protocol.md` "GitHub Issue / Project Sync" for the full
+mechanism and `scripts/sync-github-project.sh` for the implementation.
+The markdown files under `.copilot/issues/` and `docs/03-requirements/`
+remain authoritative for workflow gating (QualityGate's atomic-pair
+check) and workflow resume — the Project board is a queryable
+convenience view, not (yet — see the Phase 2 note in `protocol.md`) the
+system of record.
+
+**Required scope:** `project` (in addition to `repo`, `workflow`,
+`read:org` from §1). Verify with `gh auth status` — Token scopes must
+include `project`. If missing:
+```bash
+gh auth refresh -s project,read:project
+```
+
+**Fixed IDs** (confirmed live 2026-07-29 — re-verify via the commands
+below if any of this starts failing, e.g. after an org/project reset):
+
+| Item | Value | Verify with |
+|---|---|---|
+| Project number | `1` | `gh project list --owner aiqadam` |
+| Project id | `PVT_kwDOEXUt6M4BewJJ` | same |
+| Status field id | (fetch live — not hardcoded in the script) | `gh project field-list 1 --owner aiqadam --format json` |
+| Status: Todo | `f75ad846` | GraphQL `field(name:"Status") { ... options { id name } }` |
+| Status: In Progress | `47fc9ee4` | same |
+| Status: Implemented | `f0db74f6` | same |
+| Status: Done | `98236657` | same |
+| Issue Type: Task | `IT_kwDOEXUt6M4CCp-w` | `repository.issueTypes` GraphQL query |
+| Issue Type: Bug | `IT_kwDOEXUt6M4CCp-x` | same |
+| Issue Type: Feature | `IT_kwDOEXUt6M4CCp-y` | same |
+
+**Note on `gh issue create`/`gh issue edit`:** neither supports setting
+Issue Type via CLI flag (confirmed against `gh` v2.83.1 `--help` output,
+2026-07-29) — Issue Type requires the GraphQL `createIssue` (with
+`issueTypeId`) or `updateIssueIssueType` mutation. `createIssue`'s
+ProjectV2 attach field is `projectV2Ids` (not `projectIds`, which targets
+legacy classic Projects) — easy to get wrong, confirmed via GraphQL
+schema introspection. `scripts/sync-github-project.sh` handles all of
+this; do not attempt `gh issue create --type` in ad hoc scripts, it does
+not exist.
+
+**Note on eventual consistency:** `createIssue`'s own mutation response
+frequently returns an empty `projectItems` list even when the
+`projectV2Ids` attachment succeeded (confirmed live 2026-07-29 — the
+attachment is asynchronous relative to the mutation's return payload).
+`sync-github-project.sh` polls (up to 5×, 1s apart) for the project item
+to appear before giving up; a bare `createIssue` call elsewhere should do
+the same rather than assuming the first response is authoritative.
 
 ## 6. CI secrets — provisioned separately, not via `gh auth`
 

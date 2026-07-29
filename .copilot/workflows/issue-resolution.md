@@ -135,6 +135,37 @@ issue not yet mirrored locally).
    tooling). This field drives the mandatory post-merge UAT re-verification
    at Step 13.
 
+**GitHub sync (both directions — new 2026-07-29):** See
+`.copilot/schemas/protocol.md` "GitHub Issue / Project Sync". As the last
+action of this step, after `Business-Process` is set:
+
+- **GitHub-origin issues** (item 1 above): update-in-place, adding the
+  already-existing GitHub issue to the Project board and setting its
+  Status — this is NOT a create call:
+  ```bash
+  scripts/sync-github-project.sh --ref ISS-<n> --status todo \
+    --existing-url "<the GitHub issue URL from item 1>"
+  ```
+- **Locally-discovered issues** (item 5 above): push the new issue TO
+  GitHub — this repo's Project board is meant to be a complete view of
+  open work, not just tester-reported bugs. This IS a create call (no
+  `--existing-url`):
+  ```bash
+  scripts/sync-github-project.sh --ref ISS-<n> --status todo \
+    --title "<ISS-<n>.md H1, minus the ISS-<n> prefix>" \
+    --body-file <path to a temp file containing the Symptom section> \
+    --severity <Severity field value>
+  ```
+  Use `in-progress` instead of `todo` for either path if CodeDeveloper
+  starts this same session.
+
+Either way, write the returned `GITHUB_ISSUE_URL` into a new
+`GitHub-Issue:` field in `ISS-<n>.md`'s header table (same field name/
+position regardless of which direction created the link — the field
+means "linked GitHub issue"). This sync call is best-effort per
+`protocol.md`'s "GitHub Issue / Project Sync" section — log failure, do
+not block the workflow on it.
+
 **Output file:** `01-issue-lookup.md`
 
 ---
@@ -261,6 +292,17 @@ file unchanged is a Step 9 failure — do not advance.
 **Edit 3 — `handoff.yaml`:**
 
 - Set `issue_resolution: resolved`.
+
+**Edit 4 — GitHub sync (best-effort, non-blocking):**
+```bash
+scripts/sync-github-project.sh --ref ISS-<n> --status implemented \
+  --existing-url "<GitHub-Issue: value from ISS-<n>.md>"
+```
+Per `protocol.md`'s "GitHub Issue / Project Sync" section, this is
+additive — a failure here does NOT change this step's `gate_result`. If
+`GitHub-Issue:` is unset (the Step 1 sync call itself failed, or this is
+a workflow instance predating this feature), skip silently — there is
+nothing to update.
 
 **Atomicity rule:** Edits 1 and 2 MUST be staged in the same `git add` and
 committed together. They are part of the same PR as the code fix, so when
@@ -445,6 +487,19 @@ is `auto` OR the user has merged manually.
    reopen the issue (`gh issue reopen`) — this restarts intake at Step 1
    for the same `ISS-<n>` (append a new occurrence, do not create a new
    `ISS-<n>` file for the same GitHub issue number).
+
+7. **Sync GitHub Project Status to `done` (best-effort, only if
+   `GitHub-Issue:` is set):**
+   ```bash
+   scripts/sync-github-project.sh --ref ISS-<n> --status done \
+     --existing-url "<GitHub-Issue: value>"
+   ```
+   Run this BEFORE action 6's `gh issue close` (closing first, then
+   syncing Status to `done`, is also fine and arguably more natural given
+   GitHub's own Status field semantics — either order is acceptable since
+   they're independent API calls; this ordering just keeps action 6 last
+   since it's the most human-visible one). Per `protocol.md`, failure here
+   does not block this step's gate.
 
 **Gate:**
 - `passed` → proceed to Step 13 (below) if `Business-Process` is non-empty,

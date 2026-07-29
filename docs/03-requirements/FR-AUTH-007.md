@@ -4,6 +4,7 @@ name: Identity surface — linked accounts management
 status: Planned
 module: Auth (AUTH)
 phase: Roadmap Sprint 8
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/143
 ---
 
 ## Description
