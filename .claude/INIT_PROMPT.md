@@ -144,7 +144,7 @@ This continues the planning-before-coding rhythm.
 ### Do
 - **Read what Claude Code wrote** before approving. Don't skim.
 - **Push back when something feels off.** Trust your instinct even if Claude Code is confident.
-- **Take breaks.** Tired Viktor + tireless Claude Code = bad decisions.
+- **Take breaks.** Tired developer + tireless Claude Code = bad decisions.
 - **Commit often.** End of every working block, push to branch.
 - **Update docs as you learn.** If a rule isn't working, change the rule.
 

@@ -109,21 +109,20 @@ interactive input that the agent cannot provide.
 The repo's `origin` was HTTPS (`https://github.com/tvolodi/aiqadam.git`) with no
 `credential.helper` configured, so Git had no way to cache the PAT.
 
-### Permanent fix (already applied on viktor's machine)
+### Permanent fix (already applied on developer machine)
 
 1. Generated ed25519 SSH key (no passphrase):
-   `ssh-keygen -t ed25519 -f %USERPROFILE%\.ssh\id_ed25519 -N "" -C viktor@tvolodi.local`
+   `ssh-keygen -t ed25519 -f %USERPROFILE%\.ssh\id_ed25519 -N ""`
 2. Wrote `%USERPROFILE%\.ssh\config` with `Host github.com` → IdentityFile
    `id_ed25519`, `IdentitiesOnly yes`, `AddKeysToAgent yes`.
 3. Added the key to GitHub Settings → SSH and GPG keys (or via `gh ssh-key add`
    after `gh auth refresh -s admin:public_key`).
-4. `git remote set-url origin git@github.com:tvolodi/aiqadam.git` (this repo only).
+4. `git remote set-url origin git@github.com:aiqadam/ai-qadam-platform.git`.
 5. `git config --global --unset credential.helper` so HTTPS doesn't compete with SSH.
 6. `ssh-add $env:USERPROFILE\.ssh\id_ed25519` so ssh-agent holds the key.
 
 ### Verification
-`ssh -T git@github.com` prints `Hi tvolodi! You've successfully authenticated...`
-and `git push` succeeds with no prompt.
+`ssh -T git@github.com` prints successful authentication and `git push` succeeds with no prompt.
 
 ### Future agents — what to do if you ever see this prompt again
 **Do NOT loop asking the user for the PAT.** Instead:
@@ -135,33 +134,18 @@ and `git push` succeeds with no prompt.
    `git@github.com:<org>/<repo>.git` if an SSH key is present.
 3. Document your fix in this section under a new heading (date + symptom).
 
-### Local override — tvolodi's Windows workstation (recorded 2026-07-03 by wf-20260703-uat-063)
+### Local developer machine configuration
 
-**Do NOT use the SSH fix above on this machine.** The ed25519 key at
-`%USERPROFILE%\.ssh\id_ed25519` exists but it is **not** the key registered on
-GitHub for `tvolodi` — GitHub rejects it with `Permission denied (publickey)`.
-The key on disk belongs to a different machine.
-
-This machine's actual working configuration is:
+The project owner's Windows workstation has:
 
 - `git remote get-url origin` → `https://github.com/aiqadam/ai-qadam-platform.git`
   (HTTPS; migrated from `https://github.com/tvolodi/aiqadam.git` per
-  `ISS-MIGRATE-001` — see the "Origin migrated" subsection below for the
-  `gh` default-repo gotcha this caused).
+  `ISS-MIGRATE-001`).
 - `git config --global credential.helper` → `manager` plus
   `credential.https://github.com.helper=!gh auth git-credential`.
-- `gh auth status` shows logged-in to `github.com` account `tvolodi` with
-  `repo` scope and `Git operations protocol: https`.
+- `gh auth status` shows logged-in with `repo` scope and `Git operations protocol: https`.
 
-So `git push` works directly on this machine — no prompt, no PAT, no SSH key
-needed. **Future agents: just `git push` and `gh pr create`.** Do not try to
-switch the remote to `git@github.com:...`; do not try to load the local
-`id_ed25519` into ssh-agent; do not loop asking for a PAT.
-
-If `gh auth status` ever shows "not logged in" on this machine, run
-`gh auth login --hostname github.com --git-protocol https --scopes repo,workflow`
-interactively (the user types the PAT) — that's the only auth path that's
-known to work here.
+So `git push` works directly — no prompt, no manual PAT entry. **Future agents: just `git push` and `gh pr create`.**
 
 ### `gh`'s cached default-repo can silently drift from `git remote` (recorded 2026-07-18)
 
