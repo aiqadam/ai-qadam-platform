@@ -85,6 +85,23 @@ FR — flagged as a follow-up candidate, not decided here; see "Notes.")
 
 ## Notes
 
+- **Honesty disclosure (added 2026-07-29, `wf-20260729-feat-150` Step 13,
+  per AGENTS.md §6.1):** all 6 acceptance criteria are verified at the
+  unit level (87 new/modified tests, boundary-exhaustive for the cap/floor
+  logic — see `.copilot/tasks/completed/wf-20260729-feat-150/07-test-results.md`).
+  Live browser (`BP-UAT-021`) verification was **attempted** at Step 13
+  but blocked before any session could start by a pre-existing, disclosed
+  environment issue —
+  [`ISS-WEB-NEXT-SSR-JSDOM-001`](../../.copilot/issues/ISS-WEB-NEXT-SSR-JSDOM-001.md)
+  (every `/workspace/*` SSR route 500s in local dev due to a
+  `jsdom`/`undici` dependency incompatibility, confirmed unrelated to this
+  FR's own diff — reproduces on routes this PR never touched). No
+  follow-up workflow is queued yet for the environment fix itself; this
+  FR's own `Implemented`/`Shipped` status is NOT contingent on that fix —
+  it reflects the fully-verified unit-level correctness of the shipped
+  code, consistent with `FR-ADM-010`'s own precedent (also shipped before
+  its live-Authentik mechanism was confirmed, tracked via `BP-UAT-020`
+  and `ISS-UAT-020-1`, still open).
 - **Deferred, not decided:** whether scoped admins (e.g. `country_lead`)
   get any access to a country-limited version of this screen. The
   business-process draft explicitly left this open per the user's own

@@ -1,0 +1,100 @@
+# ISS-WEB-NEXT-SSR-JSDOM-001
+
+| Field | Value |
+|---|---|
+| Severity | blocker |
+| Module | web-next/ssr-runtime (environment) |
+| Status | open |
+| Business-Process | — |
+| Discovered by | wf-20260729-feat-150 (Step 13, post-merge UAT pre-flight for BP-UAT-021) |
+| Date | 2026-07-29 |
+
+## Summary
+
+Every SSR route under `apps/web-next/src/pages/workspace/**` returns
+HTTP 500 in local dev (`http://localhost:4322`). Root cause:
+`jsdom@28.1.0` (a transitive dependency of `isomorphic-dompurify`, which
+`AnnounceComposer.tsx` imports) requires
+`undici/lib/handler/wrap-handler.js`, a file path that does not exist in
+the currently-installed `undici@8.8.0` (confirmed: `ls
+node_modules/.pnpm/undici@8.8.0/node_modules/undici/lib/handler/` shows
+only `cache-handler.js`, `cache-revalidation-handler.js`,
+`decorator-handler.js`, `deduplication-handler.js`, `redirect-handler.js`,
+`retry-handler.js` — no `wrap-handler.js`). This is a genuine
+jsdom/undici API-shape incompatibility baked into the current
+`pnpm-lock.yaml` resolution, not a corrupted/stale install — confirmed
+by `pnpm install` and `pnpm install --force` both completing without
+error and without changing the failure.
+
+Because Astro bundles all SSR routes together, this single broken
+import in `AnnounceComposer.tsx`'s dependency chain takes down every
+`/workspace/*` route's server render, not just the announce composer
+itself. Confirmed via direct `curl` against multiple unrelated routes:
+
+| Route | HTTP status |
+|---|---|
+| `/` (homepage) | 200 |
+| `/events` | 200 |
+| `/workspace/admin/users` | 500 |
+| `/workspace/admin/audit` | 500 |
+| `/workspace/admin/rbac-sync` | 500 |
+| `/workspace/dashboard` | 500 |
+| `/workspace/announce` | 500 |
+
+## Impact
+
+Blocks **live browser verification of every `/workspace/*` cabinet** in
+local dev, including `BP-UAT-021` (the post-merge UAT script for
+`FR-ADM-011`, discovered while attempting Step 13 of
+`wf-20260729-feat-150`). Also blocks any other pending/future BP-UAT
+script targeting a `/workspace/*` route on `web-next`.
+
+**Not caused by FR-ADM-011's diff.** `wf-20260729-feat-150`'s changes
+never import `isomorphic-dompurify`, `jsdom`, or `undici`, and the
+failure reproduces identically on routes that PR never touched
+(`/workspace/admin/audit`, `/workspace/dashboard`). Confirmed pre-existing
+on `origin/main` before this PR's changes were introduced (the same
+`node_modules` state predates this workflow's session).
+
+## Reproduction
+
+```bash
+cd apps/web-next
+pnpm dev   # or: npx astro dev
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4322/workspace/dashboard
+# 500
+
+npx astro dev logs
+# Cannot find module 'undici/lib/handler/wrap-handler.js'
+# Require stack: .../jsdom/lib/jsdom/browser/resources/jsdom-dispatcher.js
+#   -> ... -> isomorphic-dompurify/index.js
+```
+
+## Attempted fixes (this session, all unsuccessful at fully resolving)
+
+1. `pnpm install` — no-op, lockfile already satisfied per pnpm's own check.
+2. `pnpm install --force` — full re-resolution + reinstall, same failure persists after restart.
+3. Cleared `apps/web-next/node_modules/.vite` and `.astro` caches — no effect (confirms this is a `require()`-time module-resolution bug, not a stale build artifact).
+4. Confirmed `jsdom`'s own `node_modules/undici` symlink correctly points at `undici@8.8.0` (the only lockfile-declared version) — the bug is that 8.8.0 itself lacks the file jsdom's code expects, not a version-selection/hoisting problem.
+
+## Suggested fix directions (not attempted — out of scope for this discovery)
+
+- Pin `jsdom` to a version whose internal `undici` usage matches what
+  `undici@8.8.0` actually exports (check jsdom's changelog for the
+  `wrap-handler.js` internal path — it may have been renamed/moved in a
+  later undici minor, meaning jsdom 28.1.0 was built against a
+  pre-release or different-numbered undici API).
+- Alternatively, pin `undici` to whatever version jsdom 28.1.0 was
+  actually built/tested against.
+- Consider whether `isomorphic-dompurify` (only used by
+  `AnnounceComposer.tsx`) needs to be a hard SSR-bundle dependency at
+  all, or could be dynamically imported / `client:only` to avoid pulling
+  jsdom into the server bundle in the first place.
+
+## Resolution
+
+Not yet resolved — filed as a blocking, disclosed environment gap.
+No follow-up workflow queued yet at time of filing (this issue was
+discovered during Step 13 of `wf-20260729-feat-150`, which completes
+independently per AGENTS.md §6.1's honesty-disclosure path — FR-ADM-011
+itself is not blocked by this, only its live UAT verification is).
