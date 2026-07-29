@@ -157,4 +157,4 @@ npx astro dev logs
   identically for both environments (same `pnpm-lock.yaml`), but the
   live QA confirmation itself is a follow-up action for whoever has
   visibility into the next QA deploy, not verified by this workflow.
-- **Merged:** `<pending>`
+- **Merged:** `eed2305258dcfddbfc1a43a9d7d4e9fafdbeb58c` (PR #117, squash-merged 2026-07-29T03:22:33Z)

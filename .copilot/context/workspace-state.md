@@ -1,7 +1,35 @@
 # Workspace State
 
-**Last updated:** 2026-07-29 — `wf-20260729-feat-150`.
-**FR-ADM-011 (admin user/role management screen) implemented — closes the GitHub issue #107 silent-failure gap.**
+**Last updated:** 2026-07-29 — `wf-20260729-fix-151`.
+**ISS-WEB-NEXT-SSR-JSDOM-001 resolved — every `/workspace/*` route on `apps/web-next` is unbroken again, both locally and (pending QA redeploy) on `qa.aiqadam.org`.**
+[ISS-WEB-NEXT-SSR-JSDOM-001](../issues/ISS-WEB-NEXT-SSR-JSDOM-001.md):
+root cause was an open-ended `pnpm.overrides.undici: ">=7.28.0"` (added
+2026-06-24 for an unrelated CVE fix) letting `jsdom@28.1.0`'s `undici`
+dependency float from its supported `^7.21.0` up to `8.8.0` — a breaking
+major-version jump that removed an internal file (`lib/handler/wrap-handler.js`)
+jsdom requires directly. Because Astro bundles all SSR routes together,
+this one broken import (via `isomorphic-dompurify`, used only by
+`AnnounceComposer.tsx`) crashed every `/workspace/*` route, not just the
+announce composer. Fixed with a pnpm **selector-scoped** override
+(`"jsdom>undici": "7.29.0"` in root `package.json`) rather than a
+blanket version change — a blanket downgrade would have broken
+`apps/api`'s entire Testcontainers integration suite, since
+`testcontainers@12.0.4` separately needs `undici@^8.5.0` (caught during
+impact analysis before implementation). Regression test
+(`apps/web-next/src/lib/isomorphic-dompurify-resolution.test.ts`) proven
+via literal fail-before/pass-after execution (stashed the fix,
+reinstalled, confirmed the exact original error reproduced; restored,
+reinstalled, confirmed it passes). Full `apps/api` (1350/1350) and
+`apps/web-next` (947/947) suites pass; both packages build/typecheck
+clean; `pnpm audit` shows no new high/critical findings. Live-verified:
+all 5 previously-500 routes now return 200 locally. **Known follow-up,
+not performed by this workflow:** QA deployment confirmation — the fix
+hasn't redeployed to QA yet (happens automatically via the existing
+`deploy-qa` CI job on merge); the user's original live report
+(`https://qa.aiqadam.org/workspace/admin/users` → 500) should be
+re-checked after the next QA deploy completes.
+
+`wf-20260729-feat-150` — **FR-ADM-011 (admin user/role management screen) implemented — closes the GitHub issue #107 silent-failure gap.**
 [FR-ADM-011](../../docs/03-requirements/FR-ADM-011.md): `/workspace/admin/users`
 generalized from invite-list-only into "Invites" + "Manage users" tabs
 (`AdminUsersCabinet.tsx` composing the existing `InvitesListInner` and a
@@ -214,20 +242,6 @@ snapshot, not a log.
 Only genuinely open items belong here. Resolved issues live in
 [`../issues/registry.md`](../issues/registry.md).
 
-- [ISS-WEB-NEXT-SSR-JSDOM-001](../issues/ISS-WEB-NEXT-SSR-JSDOM-001.md)
-  (blocker, web-next/ssr-runtime) — **live user-facing outage, confirmed
-  on QA 2026-07-29:** every `/workspace/*` SSR route on `apps/web-next`
-  returns 500, both locally (`:4322`) and on `qa.aiqadam.org` — every
-  operator (country lead, organizer, super-admin) is locked out of the
-  entire workspace cabinet system on QA right now. Root cause: `jsdom@28.1.0`
-  (pulled in via `isomorphic-dompurify`, used only by `AnnounceComposer.tsx`)
-  requires `undici/lib/handler/wrap-handler.js`, a path absent from the
-  lockfile-pinned `undici@8.8.0` — Astro's shared SSR bundle means this
-  one broken import takes down every workspace route, not just announce.
-  Pre-existing, unrelated to FR-ADM-011 (which discovered it while
-  attempting Step 13 live UAT). No follow-up fix workflow queued yet —
-  this should be picked up as the next priority given it's blocking real
-  QA usage, not just test automation.
 - [ISS-UAT-020-1](../issues/ISS-UAT-020-1.md) (blocker, uat/environment +
   admin/ADM) — BP-UAT-020 has no safe, executable fixture for its
   "zero-super-admin" precondition (only an unresolved design question:
