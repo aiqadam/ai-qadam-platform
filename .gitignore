@@ -105,3 +105,12 @@ infrastructure/telegram.md
 .copilot/oidc-bootstrap.env
 .copilot/discovery.json
 .copilot/uat-env-setup.log
+
+# BP-UAT-020 fixture snapshot (scripts/uat-bp-uat-020-fixture.sh) — a
+# point-in-time capture of a specific local Authentik group's live
+# membership pks. Same rationale as the OIDC artifacts above: tied to one
+# instance's live state, never meaningful to commit. Its presence on disk
+# is itself the "teardown not yet run" signal the script checks for.
+.copilot/tmp/BP-UAT-020-super-admin-snapshot.json
+# stdout/stderr of the api dev process the same script restarts.
+.copilot/tmp/BP-UAT-020-api-dev.log

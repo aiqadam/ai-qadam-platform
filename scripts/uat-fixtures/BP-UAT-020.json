@@ -1,0 +1,14 @@
+{
+  "bp_uat": "BP-UAT-020",
+  "description": "Zero-super-admin bootstrap precondition (ISS-UAT-020-1). Unlike BP-UAT-001/013 (which reset domain rows via the api's Directus surface), this manifest documents a snapshot-remove-restore procedure against a single Authentik group's membership, executed by scripts/uat-bp-uat-020-fixture.sh (not scripts/uat-seed.sh --reset, which has no notion of 'remove all members of a group'). AdminBootstrapService.hasSuperAdminMember() (apps/api/src/modules/admin-invites/admin-bootstrap.service.ts) is checked exactly once, at API process OnModuleInit — never on live requests — so the zero-admin window this fixture opens only needs to span one API process restart, not the whole UAT session.",
+  "fixtures": [
+    {
+      "id": "fresh-env",
+      "kind": "group-membership-snapshot",
+      "target": "aiqadam-super-admin",
+      "note": "Not a domain/identity fixture in the scripts/uat-seed.sh sense — there is no Directus row and no single Authentik user to reset. setup: GET /api/v3/core/groups/?name=aiqadam-super-admin, capture users[] (array of Authentik user pks) to snapshot.json, PATCH the group's users to []. teardown: PATCH the group's users back to the exact snapshotted pk array. Both steps go through AuthentikClient-equivalent calls in scripts/uat-bp-uat-020-fixture.sh, not through uat-seed.sh's ensure_test_user()/reset_identity_fixture() (those manage individual users, not group-membership snapshots). Restore is by pk, not by re-deriving membership some other way, so it is exact regardless of what other fixtures (e.g. uat-operator@example.com via the standard pnpm uat:seed flow) already put in the group.",
+      "requires_api_restart": true,
+      "restart_reason": "AdminBootstrapService.onModuleInit() only runs at process boot; PATCHing the group empty while the api process is already running has no effect on already-booted state and does not re-trigger bootstrap."
+    }
+  ]
+}

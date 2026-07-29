@@ -1,0 +1,108 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260729-fix-153"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-29T11:00:00Z"
+last_updated_at: "2026-07-29T12:25:00Z"
+
+requirement_ref: ""
+requirement_text: ""
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/125"
+
+branch: "fix/ISS-UAT-020-1-fixture-isolation"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/146"
+
+current_step: 13
+current_step_name: "post-merge-uat-reverification"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  issue-lookup:
+    status: passed
+    summary: "GitHub issue #125 resolved to local ISS-UAT-020-1.md (pre-existing, already tracked)."
+  impact-analysis:
+    status: passed
+    summary: "Docs/fixture-script change only, no app code paths affected. Snapshot-remove-restore chosen over dedicated Authentik realm after reading AdminBootstrapService.hasSuperAdminMember() (checked once at OnModuleInit, not per-request)."
+  code-development:
+    status: passed
+    summary: "New scripts/uat-bp-uat-020-fixture.sh + scripts/uat-fixtures/BP-UAT-020.json + scripts/tests/uat-bp-uat-020-fixture.bats (11 cases). BP-UAT-020.md rewritten (Seed Fixtures, Step 000, Negative 002, Teardown). apps/e2e/tests/uat/BP-UAT-020.session.spec.ts authored and used for live verification."
+  test-results:
+    status: passed
+    summary: "11/11 new bats tests pass. Full bats suite 142/153 pass; 11 pre-existing failures confirmed unrelated (reproduce identically on origin/main HEAD b525007 with this branch's changes stashed) — check-workflow-state.bats and bp-uat-template-rule.bats, no files this PR touches."
+  registry-update:
+    status: passed
+    summary: "ISS-UAT-020-1.md (Status: resolved, AC-1/2/4/5 [x], AC-3 [x] partial with defect note) + registry.md row updated atomically. New ISS-ADM-010-1.md filed + registered for the AC-3 defect discovered during live verification."
+
+agent_assignments: {}
+retry_counts: {}
+issue_resolution: resolved
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created:
+  - "ISS-ADM-010-1"
+issue_ref: "ISS-UAT-020-1"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-020"]
+
+post_merge_uat_runs:
+  - bp_uat_code: "BP-UAT-020"
+    uat_workflow_id: "wf-20260729-uat-154"
+    outcome: "issues-found"
+    pr_url: ""
+    issues_found: ["ISS-ADM-010-1"]
+
+artifacts:
+  - "scripts/uat-bp-uat-020-fixture.sh"
+  - "scripts/uat-fixtures/BP-UAT-020.json"
+  - "scripts/tests/uat-bp-uat-020-fixture.bats"
+  - "apps/e2e/tests/uat/BP-UAT-020.session.spec.ts"
+  - "docs/02-business-processes/uat/BP-UAT-020.md"
+  - ".copilot/issues/ISS-ADM-010-1.md"
+  - "apps/e2e/uat-results/BP-UAT-020/wf-20260729-uat-154/"
+
+context_refs:
+  - ".copilot/issues/ISS-UAT-020-1.md"
+  - "docs/02-business-processes/uat/BP-UAT-020.md"
+  - "apps/api/src/modules/admin-invites/admin-bootstrap.service.ts"
+  - "apps/api/src/modules/admin-invites/authentik.client.ts"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260729-fix-153/NEEDS_REVIEW.md"
