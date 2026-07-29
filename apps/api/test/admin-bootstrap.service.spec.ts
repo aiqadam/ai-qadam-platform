@@ -40,6 +40,7 @@ const SEEDED_USER_PK = 777;
 type FakeAuthentik = {
   isConfigured: ReturnType<typeof vi.fn>;
   resolveGroupNames: ReturnType<typeof vi.fn>;
+  getSuperAdminCount: ReturnType<typeof vi.fn>;
   createUser: ReturnType<typeof vi.fn>;
   setPassword: ReturnType<typeof vi.fn>;
   setUserGroups: ReturnType<typeof vi.fn>;
@@ -73,6 +74,14 @@ beforeEach(() => {
     isConfigured: vi.fn().mockReturnValue(true),
     // Default: zero members, so bootstrap proceeds unless a test overrides.
     resolveGroupNames: vi.fn().mockResolvedValue([group([])]),
+    // getSuperAdminCount() delegates to resolveGroupNames() in the real
+    // implementation — the fake mirrors that so existing tests which
+    // override resolveGroupNames() to control the membership check
+    // keep working unmodified after the FR-ADM-011 refactor.
+    getSuperAdminCount: vi.fn().mockImplementation(async () => {
+      const groups = await authentik.resolveGroupNames([SUPER_ADMIN_GROUP]);
+      return groups[0]?.users.length ?? 0;
+    }),
     createUser: vi.fn().mockResolvedValue(SEEDED_USER),
     setPassword: vi.fn().mockResolvedValue(undefined),
     setUserGroups: vi.fn().mockResolvedValue(undefined),

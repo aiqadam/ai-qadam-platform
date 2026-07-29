@@ -24,6 +24,15 @@ import { env } from '../../config/env';
 // scripts/provision-authentik-rbac-groups.sh.
 export const SUPER_ADMIN_GROUP = 'aiqadam-super-admin';
 
+// ADR-0021 §2: "Limited to <= 3 humans." FR-ADM-010's bootstrap check
+// (>=1 member => already bootstrapped) and FR-ADM-011's ongoing grant-time
+// cap (block a grant that would push count > 3) are two different
+// comparisons against the SAME underlying number — the live
+// aiqadam-super-admin membership count. This constant plus
+// getSuperAdminCount() below are that single source of truth so the two
+// call sites can never disagree on what "the cap" means.
+export const MAX_SUPER_ADMINS = 3;
+
 export class AuthentikError extends Error {
   constructor(
     public readonly status: number,
@@ -167,6 +176,16 @@ export class AuthentikClient {
       if (match) found.push(match);
     }
     return found;
+  }
+
+  // FR-ADM-011 / FR-ADM-010 shared primitive: the live count of
+  // aiqadam-super-admin members. FR-ADM-010's bootstrap compares this to
+  // 0, FR-ADM-011's grant-time cap compares it to MAX_SUPER_ADMINS — both
+  // read through this one method so "how many super-admins exist" is
+  // never computed two different ways.
+  async getSuperAdminCount(): Promise<number> {
+    const groups = await this.resolveGroupNames([SUPER_ADMIN_GROUP]);
+    return groups[0]?.users.length ?? 0;
   }
 
   // Assign groups to a user by their pk. The update REPLACES the user's

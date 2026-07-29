@@ -1,0 +1,145 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260729-feat-150"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-29T00:00:00Z"
+last_updated_at: "2026-07-29T06:10:00Z"
+
+requirement_ref: "FR-ADM-011"
+requirement_text: >
+  Generalize /workspace/admin/users from invite-list-only (FR-ADM-005) into a
+  full user/role management screen: super-admins search any existing user,
+  view current role(s) in plain language, grant/revoke roles via form
+  controls, with a mandatory live re-read of Authentik group membership
+  after every change (closing the GitHub issue #107 silent-failure gap),
+  enforcing the ADR-0021 <=3-super-admin cap as a shared, reusable check
+  with FR-ADM-010's bootstrap-time cap logic.
+github_issue_url: ""
+
+branch: "feature/adm-011-150-user-role-management"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 10
+current_step_name: "quality-gate"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/06-test-design.md"
+  test-results:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/07-test-results.md"
+  doc-update:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 1
+    output_file: ".copilot/tasks/active/wf-20260729-feat-150/09-quality-gate.md"
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-021"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260729-feat-150/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260729-feat-150/09-quality-gate.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-ADM-011.md
+  - docs/03-requirements/FR-ADM-005.md
+  - docs/03-requirements/FR-ADM-007.md
+  - docs/03-requirements/FR-ADM-008.md
+  - docs/03-requirements/FR-ADM-010.md
+  - docs/adr/0021-rbac-manifest.md
+  - apps/api/src/modules/admin-invites/authentik.client.ts
+  - apps/api/src/modules/admin-invites/admin-bootstrap.service.ts
+  - apps/api/src/modules/admin-invites/super-admin.guard.ts
+  - apps/api/src/modules/admin-invites/admin-invites.controller.ts
+  - apps/api/src/modules/admin-invites/admin-invites.service.ts
+  - apps/api/src/modules/audit/audit-events.service.ts
+  - apps/web-next/src/lib/roles.ts
+  - apps/web-next/src/pages/workspace/admin/users/index.astro
+  - apps/web-next/src/blocks/workspace/InvitesList.tsx
+  - apps/web-next/src/lib/use-invites.ts
+  - apps/web-next/src/lib/types.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260729-feat-150/NEEDS_REVIEW.md"

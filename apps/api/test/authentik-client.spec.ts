@@ -160,6 +160,28 @@ describe('AuthentikClient.resolveGroupNames', () => {
   });
 });
 
+// FR-ADM-011 / FR-ADM-010 shared primitive — see MAX_SUPER_ADMINS and
+// getSuperAdminCount() in authentik.client.ts. Both FRs' cap comparisons
+// (>=1 for bootstrap, >3/<=1 for ongoing grant/revoke) read through this
+// one method.
+describe('AuthentikClient.getSuperAdminCount', () => {
+  it('returns the live member count of aiqadam-super-admin', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        results: [{ pk: 'grp-1', name: 'aiqadam-super-admin', is_superuser: true, users: [1, 2] }],
+      }),
+    );
+    const count = await client.getSuperAdminCount();
+    expect(count).toBe(2);
+  });
+
+  it('returns 0 when the group resolves to no result', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, { results: [] }));
+    const count = await client.getSuperAdminCount();
+    expect(count).toBe(0);
+  });
+});
+
 describe('AuthentikClient.setUserGroups + disableUser', () => {
   it('PATCHes groups onto the user', async () => {
     fetchSpy.mockResolvedValueOnce(emptyResponse(204));

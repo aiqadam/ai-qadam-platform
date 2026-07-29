@@ -88,10 +88,14 @@ export class AdminBootstrapService implements OnModuleInit {
   // exists" as "already bootstrapped" and never retries the group
   // assignment. Keying on membership count means the next boot always
   // re-attempts until the group actually has a member.
+  //
+  // FR-ADM-011: reads through AuthentikClient.getSuperAdminCount(), the
+  // same shared primitive FR-ADM-011's ongoing grant-time cap check
+  // uses — this method's own ">=1" comparison and FR-ADM-011's "> 3"
+  // comparison now always agree on what the live count actually is.
   private async hasSuperAdminMember(): Promise<boolean> {
-    const groups = await this.authentik.resolveGroupNames([SUPER_ADMIN_GROUP]);
-    const group = groups[0];
-    return (group?.users.length ?? 0) >= 1;
+    const count = await this.authentik.getSuperAdminCount();
+    return count >= 1;
   }
 
   private async seedAdmin(password: string): Promise<void> {

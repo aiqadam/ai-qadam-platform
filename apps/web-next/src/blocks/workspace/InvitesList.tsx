@@ -365,4 +365,5 @@ export function InvitesList(): ReactElement {
   );
 }
 
+export { InvitesListInner };
 export default InvitesList;

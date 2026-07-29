@@ -1,7 +1,7 @@
 ---
 code: FR-ADM-011
 name: Admin user and role management screen
-status: Proposed
+status: Implemented
 module: Admin / Operator (ADM)
 phase: Not phased
 business_process: [BP-UAT-021]

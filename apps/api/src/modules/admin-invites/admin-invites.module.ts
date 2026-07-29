@@ -5,6 +5,8 @@ import { DirectusModule } from '../directus/directus.module';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 import { AdminInvitesController } from './admin-invites.controller';
 import { AdminInvitesService } from './admin-invites.service';
+import { AdminUserRolesController } from './admin-user-roles.controller';
+import { AdminUserRolesService } from './admin-user-roles.service';
 import { AuthentikModule } from './authentik.module';
 import { OnboardingController } from './onboarding.controller';
 
@@ -28,11 +30,16 @@ import { OnboardingController } from './onboarding.controller';
 // here rather than a new module because it needs only AuthentikClient,
 // which this module already imports via AuthentikModule. See
 // admin-bootstrap.service.ts for the full design rationale.
+//
+// FR-ADM-011 (2026-07-29) — added AdminUserRolesController/Service
+// (/v1/admin/users/*). Same rationale as FR-ADM-010: needs only
+// AuthentikClient + AuditEventsService, both already imported here via
+// AuthentikModule/AuditModule, so no new module was warranted.
 
 @Module({
   imports: [DirectusModule, AuthModule, AuthentikModule, AuditModule],
-  providers: [AdminInvitesService, AdminBootstrapService],
-  controllers: [AdminInvitesController, OnboardingController],
+  providers: [AdminInvitesService, AdminBootstrapService, AdminUserRolesService],
+  controllers: [AdminInvitesController, OnboardingController, AdminUserRolesController],
   exports: [AdminInvitesService],
 })
 export class AdminInvitesModule {}

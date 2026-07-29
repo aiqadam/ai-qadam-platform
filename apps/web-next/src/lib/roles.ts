@@ -39,3 +39,62 @@ export function satisfiesRole(required: string, groups: readonly string[]): bool
   if (required === ROLE_SUPER_ADMIN) return isSuperAdmin(groups);
   return groups.includes(required);
 }
+
+// FR-ADM-011 — plain-language role labels. The admin user/role management
+// screen must never show a raw Authentik group slug (e.g.
+// "aiqadam-country-lead-uz") to a super-admin; it shows "Country Lead —
+// Uzbekistan" instead. Mirrors ADR-0021 §2's roles-inventory table.
+//
+// Per-country groups (organizer, country_lead) carry the country code as
+// a suffix — COUNTRY_NAMES resolves the code to a display name so the
+// label stays readable without a second lookup table at call sites.
+const COUNTRY_NAMES: Record<string, string> = {
+  uz: 'Uzbekistan',
+  kz: 'Kazakhstan',
+  tj: 'Tajikistan',
+  xx: 'Demo',
+};
+
+const PER_COUNTRY_PREFIXES: ReadonlyArray<{ prefix: string; label: string }> = [
+  { prefix: 'aiqadam-organizer-', label: 'Organizer' },
+  { prefix: 'aiqadam-country-lead-', label: 'Country Lead' },
+];
+
+const FIXED_LABELS: Record<string, string> = {
+  'aiqadam-member': 'Member',
+  'aiqadam-speaker': 'Speaker',
+  'aiqadam-sponsor-rep': 'Sponsor Rep',
+  'aiqadam-super-admin': 'Super Admin',
+  'aiqadam-svc-bot': 'Bot Service',
+  'aiqadam-svc-worker': 'Worker Service',
+};
+
+// Returns a human-readable label for a single raw Authentik group slug.
+// Unknown groups (e.g. a per-org sponsor-rep group
+// "aiqadam-sponsor-rep-<org-slug>", or a group not yet in this map) fall
+// back to the raw slug rather than throwing — the admin screen must
+// still render something for a group this mapping doesn't yet know
+// about, per AGENTS.md §3 "functions protect themselves from bad input."
+export function roleLabel(group: string): string {
+  const fixed = FIXED_LABELS[group];
+  if (fixed) return fixed;
+
+  for (const { prefix, label } of PER_COUNTRY_PREFIXES) {
+    if (group.startsWith(prefix)) {
+      const code = group.slice(prefix.length);
+      const country = COUNTRY_NAMES[code] ?? code.toUpperCase();
+      return `${label} — ${country}`;
+    }
+  }
+
+  if (group.startsWith('aiqadam-sponsor-rep-')) {
+    return `Sponsor Rep — ${group.slice('aiqadam-sponsor-rep-'.length)}`;
+  }
+
+  return group;
+}
+
+// Maps a full groups claim to plain-language labels, one per group.
+export function roleLabels(groups: readonly string[]): string[] {
+  return groups.map(roleLabel);
+}

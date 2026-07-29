@@ -361,6 +361,50 @@ export interface CreateInviteResult {
 }
 
 // ---------------------------------------------------------------------------
+// apps/api — /v1/admin/users/* (FR-ADM-011 — admin user/role management)
+//
+// Search + grant/revoke roles for any existing user. Every grant/revoke
+// returns the actually-re-read post-change state, never an optimistic
+// assumption — see admin-user-roles.service.ts on the API side.
+// ---------------------------------------------------------------------------
+
+export const HUMAN_ROLE_GROUPS = [
+  'aiqadam-member',
+  'aiqadam-speaker',
+  'aiqadam-sponsor-rep',
+  'aiqadam-organizer',
+  'aiqadam-country-lead',
+  'aiqadam-super-admin',
+] as const;
+export type HumanRoleGroup = (typeof HUMAN_ROLE_GROUPS)[number];
+
+export const ADMIN_USER_COUNTRIES = ['uz', 'kz', 'tj', 'xx'] as const;
+export type AdminUserCountry = (typeof ADMIN_USER_COUNTRIES)[number];
+
+// Both interfaces carry RAW Authentik group names — label translation
+// (roleLabel() in lib/roles.ts) happens at render time, client-side.
+export interface AdminUserSummary {
+  id: number;
+  email: string;
+  name: string;
+  isActive: boolean;
+  groups: string[];
+}
+
+export interface AdminUserRoles {
+  id: number;
+  email: string;
+  name: string;
+  groups: string[];
+}
+
+export interface GrantRevokeRoleBody {
+  grant?: HumanRoleGroup;
+  revoke?: HumanRoleGroup;
+  country?: AdminUserCountry;
+}
+
+// ---------------------------------------------------------------------------
 // apps/api — /v1/workspace/dashboard (operator KPI dashboard)
 //
 // Country-scoped event / registration / attendance / CSAT counters.
