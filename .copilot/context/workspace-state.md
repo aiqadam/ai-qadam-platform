@@ -214,6 +214,20 @@ snapshot, not a log.
 Only genuinely open items belong here. Resolved issues live in
 [`../issues/registry.md`](../issues/registry.md).
 
+- [ISS-WEB-NEXT-SSR-JSDOM-001](../issues/ISS-WEB-NEXT-SSR-JSDOM-001.md)
+  (blocker, web-next/ssr-runtime) — **live user-facing outage, confirmed
+  on QA 2026-07-29:** every `/workspace/*` SSR route on `apps/web-next`
+  returns 500, both locally (`:4322`) and on `qa.aiqadam.org` — every
+  operator (country lead, organizer, super-admin) is locked out of the
+  entire workspace cabinet system on QA right now. Root cause: `jsdom@28.1.0`
+  (pulled in via `isomorphic-dompurify`, used only by `AnnounceComposer.tsx`)
+  requires `undici/lib/handler/wrap-handler.js`, a path absent from the
+  lockfile-pinned `undici@8.8.0` — Astro's shared SSR bundle means this
+  one broken import takes down every workspace route, not just announce.
+  Pre-existing, unrelated to FR-ADM-011 (which discovered it while
+  attempting Step 13 live UAT). No follow-up fix workflow queued yet —
+  this should be picked up as the next priority given it's blocking real
+  QA usage, not just test automation.
 - [ISS-UAT-020-1](../issues/ISS-UAT-020-1.md) (blocker, uat/environment +
   admin/ADM) — BP-UAT-020 has no safe, executable fixture for its
   "zero-super-admin" precondition (only an unresolved design question:
