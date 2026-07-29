@@ -119,7 +119,7 @@ npx astro dev logs
 ## Resolution
 
 - **Workflow:** `wf-20260729-fix-151`
-- **PR:** `<pending>`
+- **PR:** https://github.com/aiqadam/ai-qadam-platform/pull/117
 - **Root cause:** the root `package.json`'s `pnpm.overrides.undici`
   (`">=7.28.0"`, open-ended, added for an unrelated CVE fix in
   `ISS-CI-001`) let pnpm resolve `jsdom`'s `undici` dependency to
