@@ -74,7 +74,7 @@ Add a bats regression test under `scripts/tests/uat-preflight.bats` that mocks b
 ## Resolution (wf-20260628-fix-031)
 
 **Resolved on:** 2026-06-28
-**Resolved by:** Orchestrator (Viktor) + CodeDeveloper + SecurityReviewer + TestStrategist + TestDesigner + TestRunner
+**Resolved by:** Orchestrator + CodeDeveloper + SecurityReviewer + TestStrategist + TestDesigner + TestRunner
 
 ### What was delivered
 
