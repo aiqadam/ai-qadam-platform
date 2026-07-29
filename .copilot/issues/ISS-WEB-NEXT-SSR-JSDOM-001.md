@@ -8,6 +8,7 @@
 | Business-Process | — |
 | Discovered by | wf-20260729-feat-150 (Step 13, post-merge UAT pre-flight for BP-UAT-021) |
 | Date | 2026-07-29 |
+| **Confirmed live on QA** | **2026-07-29, reported by user: `https://qa.aiqadam.org/workspace/admin/users` → 500. Same signature confirmed via curl: `/workspace/dashboard` and `/workspace/admin/audit` also 500 on QA; `/` and `/events` return 200. This is not a local-dev-only issue — it is live-broken on the shared QA deployment for every operator.** |
 
 ## Summary
 
@@ -31,21 +32,43 @@ import in `AnnounceComposer.tsx`'s dependency chain takes down every
 `/workspace/*` route's server render, not just the announce composer
 itself. Confirmed via direct `curl` against multiple unrelated routes:
 
-| Route | HTTP status |
-|---|---|
-| `/` (homepage) | 200 |
-| `/events` | 200 |
-| `/workspace/admin/users` | 500 |
-| `/workspace/admin/audit` | 500 |
-| `/workspace/admin/rbac-sync` | 500 |
-| `/workspace/dashboard` | 500 |
-| `/workspace/announce` | 500 |
+| Route | Local (`:4322`) | QA (`qa.aiqadam.org`) |
+|---|---|---|
+| `/` (homepage) | 200 | 200 |
+| `/events` | 200 | 200 |
+| `/workspace/admin/users` | 500 | 500 |
+| `/workspace/admin/audit` | 500 | 500 |
+| `/workspace/admin/rbac-sync` | 500 | not checked |
+| `/workspace/dashboard` | 500 | 500 |
+| `/workspace/announce` | 500 | not checked |
+
+**QA reproduction is not proof of the identical root cause** — QA runs a
+Docker-built image (`apps/web-next/Dockerfile`), not `astro dev`, so its
+`node_modules` resolution could in principle differ from the local
+`pnpm install` state this issue's root-cause analysis was performed
+against. No SSH/log access to the QA host is available to this agent
+session (per `docs/04-development/workflow.md`'s documented
+"commit-level confirmation is not currently self-serve" limitation) to
+directly confirm the QA container's stack trace matches. Treat "same
+jsdom/undici bug" as the leading hypothesis, not a confirmed fact, until
+someone with host access pulls the QA container logs. The identical
+failure *signature* (public routes fine, every `/workspace/*` route 500,
+same routes affected) is strong circumstantial evidence for the same
+cause, since QA is built from the same `pnpm-lock.yaml`.
 
 ## Impact
 
-Blocks **live browser verification of every `/workspace/*` cabinet** in
-local dev, including `BP-UAT-021` (the post-merge UAT script for
-`FR-ADM-011`, discovered while attempting Step 13 of
+**Confirmed live on QA — every operator is currently locked out of the
+entire `/workspace/*` cabinet system on `qa.aiqadam.org`.** This is not
+merely a local-dev blocker anymore: any real country lead, organizer, or
+super-admin trying to use QA today gets a 500 on every operator screen
+(dashboard, admin/users, admin/audit, and presumably every other
+`/workspace/*` route). Severity should be treated as user-facing outage
+on QA, not just an environment gap blocking test automation.
+
+Also blocks **live browser verification of every `/workspace/*`
+cabinet** in local dev, including `BP-UAT-021` (the post-merge UAT
+script for `FR-ADM-011`, discovered while attempting Step 13 of
 `wf-20260729-feat-150`). Also blocks any other pending/future BP-UAT
 script targeting a `/workspace/*` route on `web-next`.
 
