@@ -1,6 +1,51 @@
 # Workspace State
 
-**Last updated:** 2026-07-30 — `wf-20260707-fix-118-flaky-playwright-authentik`.
+**Last updated:** 2026-07-30 — `wf-20260730-feat-155`.
+**FR-EVT-004 (Event detail page) shipped — closes GitHub issue [#130](https://github.com/aiqadam/ai-qadam-platform/issues/130).**
+[wf-20260730-feat-155](../tasks/completed/wf-20260730-feat-155/handoff.yaml)
+(PR [#150](https://github.com/aiqadam/ai-qadam-platform/pull/150), squash
+`26a5c08`): `/events/[id]` in `apps/web-next` (V2) was previously a partial
+port (speakers/materials/sponsors/forum only per FR-EVT-004's own Notes).
+This workflow closed every remaining gap: lifecycle-adaptive tabs
+(upcoming/live/finished/forum via SSR-only `?tab=` routing, not V2's
+client-side Radix `kit/Tabs.tsx`), venue/map block (OSM iframe + Google/
+Yandex deep-links), Finished-tab photo gallery + recap + inline recording
+players, Live-tab livestream panel, fetch-level visibility gating for
+`members_only`/`invite_only` events (data never fetched for a gated
+visitor, not just hidden in the template), a real 404 (not the previous
+302) for not-found-or-wrong-country requests, and the dynamic OG card
+image route (`satori` + `@resvg/resvg-js`, new deps matching V1's
+versions). Also fixed a real, pre-existing architecture gap found during
+impact analysis: V2's `fetchEvent` called `GET /v1/events/:id`, a NestJS
+route that has never existed anywhere in `apps/api` — moved to
+`apps/web-next/src/lib/cms.ts` reading Directus directly, matching every
+sibling V2 event fetcher's existing convention. **A genuine
+security-relevant bug was caught by TestRunner via live E2E/HTTP testing,
+not by source review**: the initial 404 implementation used
+`new Response(null, {status: 404})`, which Astro's node-adapter runtime
+silently replaces with its own default error page that echoes the
+requested URL path — making two different nonexistent/wrong-country event
+ids produce byte-*different* 404 bodies, breaking the
+enumeration-resistance property the FR's AC-8 explicitly requires. Fixed
+in one CodeDeveloper retry (1 of 3 used) by returning a literal string
+body instead, matching the sibling `og-card.png.ts` route's already-correct
+convention; independently re-verified via a fresh TestRunner pass (curl/
+diff/hex comparison, not just the automated spec) before QualityGate
+passed. 1004/1004 unit tests pass (up from 943), new Playwright E2E
+coverage added for the previously-uncovered lifecycle/gating/404 surface.
+**Known, honestly-disclosed gaps** (recorded in `FR-EVT-004.md`'s own
+Notes, not silently dropped): AC-5 (forum posting) has no E2E coverage —
+this test lane (`apps/e2e/tests/smoke-*.spec.ts`) has no auth-session
+fixture mechanism at all, a bigger infra decision than this workflow;
+`invite_only` events currently behave identically to `members_only`
+(require sign-in) — confirmed this matches the Directus schema's own
+design note ("accessible only via direct link share"), not a bug, since
+no separate invite-list mechanism was ever built; `apps/api` has no public
+`GET /v1/events` listing route, a pre-existing gap (unrelated to this FR)
+that limited local E2E fixture-discovery depth for AC-1/2/3/6. Post-merge
+`uat-verification` against the linked `BP-UAT-010` (Event registration
+flow) is the next step per FR-WORKFLOW-004's mandatory post-merge check —
+see this file's own next entry for the outcome.
 **ISS-USR-PWRESET-001 resolved — the password-recovery flow shipped in PR #131 was never actually functional end-to-end; this workflow found and fixed the real gap (a missing password-entry stage binding) plus 11 other independent test/infra bugs, none a Lit-hydration flake as originally diagnosed.**
 [wf-20260707-fix-118-flaky-playwright-authentik](../tasks/completed/wf-20260707-fix-118-flaky-playwright-authentik/handoff.yaml)
 (PR [#148](https://github.com/aiqadam/ai-qadam-platform/pull/148), squash
