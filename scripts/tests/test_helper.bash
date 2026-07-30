@@ -95,6 +95,7 @@ EOF
   local proj_root
   proj_root="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   cp "$proj_root/scripts/check-workflow-state.sh" scripts/
+  cp "$proj_root/scripts/check-github-issue-links.sh" scripts/
   cp "$proj_root/scripts/workflow-finish.sh" scripts/
   chmod +x scripts/*.sh
   git add -A

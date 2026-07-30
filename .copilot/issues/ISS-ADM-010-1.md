@@ -10,6 +10,7 @@
 | Reporter | Orchestrator (`wf-20260729-fix-153`, live BP-UAT-020 verification for ISS-UAT-020-1) |
 | Related | FR-ADM-010 (shipped, PR #110), BP-UAT-020 |
 | Business-Process | BP-UAT-020 |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/164 |
 
 ## Symptom
 

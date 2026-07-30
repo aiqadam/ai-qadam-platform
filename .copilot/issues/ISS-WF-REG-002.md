@@ -5,8 +5,10 @@
 | ID | ISS-WF-REG-002 |
 | Severity | minor |
 | Module | workflow/registry |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-02 |
+| Resolved | 2026-07-03 |
+| Workflow | wf-20260703-fix-070 |
 | Reporter | BusinessAnalyst (UAT coverage audit) |
 | Related | ISS-WF-REG-001 (same failure class, different files) |
 

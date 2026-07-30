@@ -212,6 +212,21 @@ for iss_id in "${ISS_IDS[@]}"; do
   fi
 done
 
+# Check 5: non-terminal issues missing a GitHub-Issue link. Delegates to
+# the dedicated script (scripts/check-github-issue-links.sh) rather than
+# duplicating its logic — that script was added after a real incident
+# (wf-20260730-fix-157/-uat-158) where 4 locally-filed issues never got
+# pushed to GitHub and had no Project-board visibility until the user
+# asked directly. A missing link here is drift the same way an orphaned
+# reference is: it means registry.md and the outside world (GitHub) have
+# silently diverged.
+if ! bash "$(dirname "${BASH_SOURCE[0]}")/check-github-issue-links.sh" --base "$BASE_REF" >/dev/null 2>&1; then
+  emit_drift "one or more non-terminal issues in .copilot/issues/registry.md " \
+             "have no GitHub-Issue link — run " \
+             "'bash scripts/check-github-issue-links.sh --base ${BASE_REF}' for details"
+  drift_count=$((drift_count + 1))
+fi
+
 # ─── Result ──────────────────────────────────────────────────────────────────
 
 if [[ "$drift_count" -gt 0 ]]; then
