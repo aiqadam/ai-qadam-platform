@@ -9,7 +9,7 @@
 | Status | resolved |
 | Reported | 2026-07-28 |
 | Resolved | 2026-07-31 |
-| Workflow | `wf-20260728-fix-144` (policy.member own-row slice) → `wf-20260730-fix-160` (policy.member public-read/create-registration + policy.speaker, [PR #170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash `08932ab`) → `wf-20260731-fix-161` (remaining 5 policies: sponsor_rep/organizer/country_lead/svc_bot/svc_worker, PR TBD) |
+| Workflow | `wf-20260728-fix-144` (policy.member own-row slice) → `wf-20260730-fix-160` (policy.member public-read/create-registration + policy.speaker, [PR #170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash `08932ab`) → `wf-20260731-fix-161` (remaining 5 policies: sponsor_rep/organizer/country_lead/svc_bot/svc_worker, [PR #172](https://github.com/aiqadam/ai-qadam-platform/pull/172) squash `9b9e11c`) |
 | Reporter | Orchestrator (discovered while verifying the fix for [ISS-UAT-RBAC-001](ISS-UAT-RBAC-001.md)) |
 | Business-Process | BP-UAT-003, BP-UAT-016 (and, by the same mechanism, any BP-UAT that needs a fully-permissioned authenticated member session) |
 
@@ -265,7 +265,9 @@ state (no attached policy beyond what it started with, `country: null`,
   verified with temporary test fixtures (created, tested, deleted). All
   test data cleaned up; UAT fixture identity restored to its pre-test
   state (token cleared, job_title cleared, policy.speaker detached).
-- **Completed 2026-07-31 via `wf-20260731-fix-161`:** implemented the
+- **Completed 2026-07-31 via `wf-20260731-fix-161`**
+  ([PR #172](https://github.com/aiqadam/ai-qadam-platform/pull/172)
+  squash `9b9e11c`)**:** implemented the
   remaining 5 policies (`sponsor_rep`, `organizer`, `country_lead`,
   `svc_bot`, `svc_worker`), fixed 2 more real bugs found live (the
   `country_code`/`country` field-name mismatch in
