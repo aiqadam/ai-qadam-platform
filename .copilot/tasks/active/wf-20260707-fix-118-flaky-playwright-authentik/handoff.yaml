@@ -27,7 +27,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/122"
 
 branch: "fix/ISS-USR-PWRESET-001-playwright-authentik-flake"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/148"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
 
