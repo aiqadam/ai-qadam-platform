@@ -91,6 +91,8 @@ header was found and fixed in this same pass.
 ## Resolution
 
 **Workflow:** wf-20260730-fix-159
+**PR:** [#166](https://github.com/aiqadam/ai-qadam-platform/pull/166)
+**Merged:** `7a823b2b23110aa4a9b2ad0c978b23768d5c236d` (squash)
 **Root cause:** best-effort/non-blocking sync design (correct) had no
 mechanical backstop for a skipped call (the actual gap).
 **Fix:** new script + 2 enforcement wiring points + 2 pre-existing gaps
