@@ -100,7 +100,8 @@ step never captured as a repeatable script.
 ## Resolution
 
 **Workflow:** wf-20260730-fix-157
-**PR:** <pending>
+**PR:** [#155](https://github.com/aiqadam/ai-qadam-platform/pull/155)
+**Merged:** `2691907f3487f000d4bf46c8b7de952396ede9f9` (squash)
 **Root cause:** `scripts/uat-fixtures/BP-UAT-010.json` never existed and
 `scripts/uat-seed.sh --reset` had no notion of `events`/`registrations`/
 `point_awards` fixtures — the manifest-driven `--reset` convention
