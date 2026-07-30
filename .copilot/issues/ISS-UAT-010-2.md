@@ -10,7 +10,7 @@
 | Reporter | UATRunner/Orchestrator (`wf-20260730-uat-158`, post-merge BP-UAT-010 live verification for ISS-UAT-SEED-003) |
 | Related | ISS-UAT-SEED-003, ISS-UAT-010-1, BP-UAT-010 |
 | Business-Process | BP-UAT-010 |
-| GitHub-Issue | — (not yet filed; local-origin finding) |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/160 |
 
 ## Symptom
 
