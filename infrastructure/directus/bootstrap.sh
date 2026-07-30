@@ -1353,8 +1353,19 @@ ensure_perm() {
 # Per-collection LHS path differs: most use `country`; countries uses its
 # PK `code`; registrations traverse via `event.country`; directus_users
 # substitute the `is_test_user` field for the country check.
+#
+# ISS-RBAC-PERMS-001 (2026-07-30, live) — `$CURRENT_USER.is_test_user` as
+# a bare dotted filter KEY 400s ("Invalid filter key") on this Directus
+# version; `$CURRENT_USER` only resolves as a dynamic VALUE. The correct
+# form nests it as a relational filter object:
+# {"$CURRENT_USER":{"is_test_user":{"_eq":true}}}. This was never caught
+# before because POLICY_DEMO_TENANT (this section) is seeded but never
+# attached to any real user (see DIRECTUS_POLICY_UUIDS in
+# directus-policy-applier.ts) — policy.member below is the first policy
+# that both carries this filter AND is actually attached to a live user,
+# which is how the bug surfaced.
 
-COUNTRY_FILTER='{"_or":[{"country":{"_neq":"xx"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+COUNTRY_FILTER='{"_or":[{"country":{"_neq":"xx"}},{"$CURRENT_USER":{"is_test_user":{"_eq":true}}}]}'
 
 echo "[S0.1 — permissions: demo-tenant isolation]"
 ensure_perm "perm events/read"        events        read "$COUNTRY_FILTER"
@@ -1365,13 +1376,13 @@ ensure_perm "perm sponsors/read"      sponsors      read "$COUNTRY_FILTER"
 ensure_perm "perm speakers/read"      speakers      read "$COUNTRY_FILTER"
 
 ensure_perm "perm countries/read" countries read \
-  '{"_or":[{"code":{"_neq":"xx"}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+  '{"_or":[{"code":{"_neq":"xx"}},{"$CURRENT_USER":{"is_test_user":{"_eq":true}}}]}'
 
 ensure_perm "perm registrations/read" registrations read \
-  '{"_or":[{"event":{"country":{"_neq":"xx"}}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+  '{"_or":[{"event":{"country":{"_neq":"xx"}}},{"$CURRENT_USER":{"is_test_user":{"_eq":true}}}]}'
 
 ensure_perm "perm directus_users/read" directus_users read \
-  '{"_or":[{"is_test_user":{"_eq":false}},{"$CURRENT_USER.is_test_user":{"_eq":true}}]}'
+  '{"_or":[{"is_test_user":{"_eq":false}},{"$CURRENT_USER":{"is_test_user":{"_eq":true}}}]}'
 
 # ════════════════════════════════════════════════════════════════════════
 # F-S3.0 — Community member graph foundation (per ADR-0033 Part 1)
@@ -2617,9 +2628,13 @@ ensure "relation marketing_assets.approved_by -> directus_users.id" \
 # F-S2.2-pre — RBAC role policies (per ADR-0021 §4.1, Accepted 2026-05-21)
 # ════════════════════════════════════════════════════════════════════════
 #
-# Seeds the seven named policy containers from ADR-0021 §4.1. Each is an
-# empty container today — per-collection permission rows (the "Effect"
-# column in §4.1) land with F-S2.2 RBAC sync service.
+# Seeds the seven named policy containers from ADR-0021 §4.1, plus their
+# directus_permissions rows (the "Effect" column in §4.1) — ISS-RBAC-PERMS-001
+# found that nobody ever implemented the latter; this file is the sole
+# owner (ADR-0021 §4.1's own "Authoritative declaration" line). The RBAC
+# sync service (apps/api DirectusPolicyApplier) only ever attaches these
+# pre-existing policy ids to a user's directus_users.policies[] — it does
+# not create policies or permission rows.
 #
 # super_admin uses the Directus built-in Admin policy — no row to create.
 #
@@ -2647,7 +2662,7 @@ ensure "policy.member" \
     id:$id,
     name:"policy.member",
     icon:"badge",
-    description:"ADR-0021 §4.1: read public collections; CRUD on own directus_users row; create registrations + feedback_responses keyed to self. Per-collection permission rows land with F-S2.2 sync.",
+    description:"ADR-0021 §4.1: read public collections; CRUD on own directus_users row; create registrations keyed to self. (interaction_responses/\"feedback_responses\" create not yet implementable at the Directus-policy level — see ISS-RBAC-PERMS-001.)",
     admin_access:false,
     app_access:true,
     enforce_tfa:false
@@ -2657,8 +2672,19 @@ ensure "policy.member" \
 # hardcoded S0.1 demo-tenant policy ensure_perm() above assumes). Same
 # idempotency shape: identify by (policy, collection, action), POST
 # through the retry helper.
+#
+# Optional 7th arg `validation_json` (default "null"): Directus's
+# `permissions` field filters which EXISTING rows an action can touch —
+# for `create` there are no existing rows yet, so `permissions` alone
+# does NOT constrain the values in the submitted payload (confirmed live,
+# ISS-RBAC-PERMS-001: a `{"user":{"_eq":"$CURRENT_USER"}}` create
+# `permissions` filter let a member register a DIFFERENT user for an
+# event). The submitted-value constraint belongs in Directus's separate
+# `validation` field instead — pass it explicitly for every "create ...
+# keyed to self" grant.
 ensure_perm_for_policy() {
   local policy_id="$1" kind="$2" collection="$3" action="$4" filter="$5" fields_json="$6"
+  local validation_json="${7:-null}"
   local count
   count=$(curl -s -H "${H_AUTH}" \
     "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${policy_id}&filter%5Bcollection%5D%5B_eq%5D=${collection}&filter%5Baction%5D%5B_eq%5D=${action}&limit=1&fields=id" \
@@ -2669,8 +2695,8 @@ ensure_perm_for_policy() {
   fi
   local body
   body=$(jq -nc --arg pol "$policy_id" --arg col "$collection" --arg act "$action" \
-                --argjson f "$filter" --argjson flds "$fields_json" \
-    '{policy:$pol, collection:$col, action:$act, permissions:$f, fields:$flds}')
+                --argjson f "$filter" --argjson flds "$fields_json" --argjson val "$validation_json" \
+    '{policy:$pol, collection:$col, action:$act, permissions:$f, fields:$flds, validation:$val}')
   if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
        -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
     echo "  + ${kind} (created)"
@@ -2688,12 +2714,15 @@ ensure_perm_for_policy() {
 # on directus_users, per ADR-0021 §4.1's "CRUD on own directus_users row".
 # This is the minimum slice needed for /me/profile to load without the
 # whole combined-fields request 403ing (production incident: every member
-# got a 500 on their own profile page — see ISS-USR-PROFILE-002). The
-# remaining ADR-0021 §4.1 policies (speaker/sponsor_rep/organizer/
-# country_lead/svc_bot/svc_worker) and their per-collection grants are
-# still open — tracked in ISS-RBAC-PERMS-001, not implemented here.
+# got a 500 on their own profile page — see ISS-USR-PROFILE-002).
+# is_test_user is included so $CURRENT_USER.is_test_user resolves in the
+# COUNTRY_FILTER dynamic-variable expressions below (public-collections
+# reads) — Directus's $CURRENT_USER.<field> lookup requires the acting
+# policy to itself hold read on <field>, otherwise it 403s as "field ...
+# does not exist" even though the target collection's own filter is
+# unrelated (found live, ISS-RBAC-PERMS-001, this workflow).
 SELF_ROW_FILTER='{"id":{"_eq":"$CURRENT_USER"}}'
-MEMBER_PROFILE_FIELDS='["id","email","first_name","last_name","job_title","seniority","industry_tags","is_student","bio_md","appear_in_directory","appear_in_matches","appear_on_attendee_list","appear_on_public_leaderboard","show_company_on_public_profile","onboarded_at","country_code"]'
+MEMBER_PROFILE_FIELDS='["id","email","first_name","last_name","job_title","seniority","industry_tags","is_student","bio_md","appear_in_directory","appear_in_matches","appear_on_attendee_list","appear_on_public_leaderboard","show_company_on_public_profile","onboarded_at","country_code","is_test_user"]'
 
 echo "[policy.member — own-row directus_users grants]"
 ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member directus_users/read" \
@@ -2734,6 +2763,60 @@ ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_employme
 ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_employments/delete" \
   member_employments delete '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
 
+# ADR-0021 §4.1 "read public collections" — every collection the S0.1
+# demo-tenant policy (POLICY_DEMO_TENANT, ~line 1301) already scopes by
+# country, minus directus_users (already granted above with a narrower
+# own-row + custom-field allowlist than S0.1's blanket read). Not routed
+# through POLICY_DEMO_TENANT itself because that policy is never attached
+# to a user (see DIRECTUS_POLICY_UUIDS in directus-policy-applier.ts —
+# only the seven policy.* slugs are applied); policy.member must carry
+# its own copy of the same country filter.
+echo "[policy.member — read public collections]"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member events/read" \
+  events read "$COUNTRY_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member point_awards/read" \
+  point_awards read "$COUNTRY_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member partners/read" \
+  partners read "$COUNTRY_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member homepage_hero/read" \
+  homepage_hero read "$COUNTRY_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member sponsors/read" \
+  sponsors read "$COUNTRY_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member speakers/read" \
+  speakers read "$COUNTRY_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member countries/read" \
+  countries read '{"_or":[{"code":{"_neq":"xx"}},{"$CURRENT_USER":{"is_test_user":{"_eq":true}}}]}' '["*"]'
+
+# ADR-0021 §4.1 "create registrations ... keyed to self" — self-service
+# event signup. Row-level ownership is enforced via `validation` (see
+# ensure_perm_for_policy comment above) — `permissions` alone would let a
+# member submit an arbitrary `user` value on create.
+echo "[policy.member — create own registrations]"
+ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member registrations/create" \
+  registrations create '{}' '["*"]' '{"user":{"_eq":"$CURRENT_USER"}}'
+
+# ADR-0021 §4.1 "create ... feedback_responses keyed to self" — NOT
+# implemented here, deliberately. No `feedback_responses` collection
+# exists in the schema; the real collection for structured member
+# replies (CSAT/eNPS/RSVP/etc.) is `interaction_responses` (see
+# "[interaction_responses]" ~line 1219), which has no direct owner
+# column — ownership is one hop via delivery -> interaction_deliveries.
+# recipient_user. Tested live (ISS-RBAC-PERMS-001, 2026-07-30): neither
+# Directus `permissions` NOR `validation` can enforce this. `permissions`
+# has no effect on `create` (confirmed: a member could create a row for
+# ANY delivery id, including one addressed to a different user — same
+# class of gap `registrations` had before the `validation` fix above).
+# `validation` DOES apply on create, but cannot traverse a relational
+# field to check a column on the RELATED row — pointing it at
+# `delivery.recipient_user` made even the legitimate self-response
+# 400 ("Value is required"), not just the cross-user one. There is no
+# Directus-policy-level way to express "this FK must point at a row
+# matching a condition" for create. Enforcing this needs an API-layer
+# guard (validate delivery.recipient_user server-side before proxying
+# the create to Directus) — out of scope for a permissions-seeding PR.
+# Left unimplemented rather than shipping a grant that provides no real
+# ownership enforcement; follow-up tracked in ISS-RBAC-PERMS-001.
+
 ensure "policy.speaker" \
   "${DIRECTUS_URL}/policies/${POLICY_RBAC_SPEAKER}" \
   "${DIRECTUS_URL}/policies" \
@@ -2746,6 +2829,23 @@ ensure "policy.speaker" \
     app_access:true,
     enforce_tfa:false
   }')"
+
+# ADR-0021 §4.1 policy.speaker Effect: "+ update own speakers row, read
+# own event_speakers rows" — additive on top of policy.member (both
+# policies are attached together by DirectusPolicyApplier for a user in
+# the aiqadam-speaker Authentik group, so policy.member's own-row
+# directus_users grants and public-collection reads already apply; this
+# adds the speaker-specific rows only).
+SPEAKER_OWN_ROW_FILTER='{"user":{"_eq":"$CURRENT_USER"}}'
+
+echo "[policy.speaker — own speakers row]"
+ensure_perm_for_policy "$POLICY_RBAC_SPEAKER" "perm policy.speaker speakers/update" \
+  speakers update "$SPEAKER_OWN_ROW_FILTER" \
+  '["bio","headline","linkedin_url","twitter_handle","photo","slug"]'
+
+echo "[policy.speaker — own event_speakers rows]"
+ensure_perm_for_policy "$POLICY_RBAC_SPEAKER" "perm policy.speaker event_speakers/read" \
+  event_speakers read '{"speaker":{"user":{"_eq":"$CURRENT_USER"}}}' '["*"]'
 
 ensure "policy.sponsor_rep" \
   "${DIRECTUS_URL}/policies/${POLICY_RBAC_SPONSOR_REP}" \
