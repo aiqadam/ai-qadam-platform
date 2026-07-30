@@ -1,0 +1,107 @@
+---
+// L3 block — <VenueMap>.
+//
+// FR-EVT-004 gap-closure — venue address + embedded OpenStreetMap
+// iframe + deep-links to Google Maps / Yandex Maps. Renders on the
+// Upcoming tab of /events/[id], below the date/venue summary.
+//
+// Port of V1's inline map logic (apps/web/src/pages/events/[id].astro
+// `mapEmbedSrc` / `externalMaps`, lines ~190-218) extracted into its
+// own block per V2's block-composition convention (data-in/element-out,
+// no fetches of its own).
+//
+// OSM embed renders only when both coordinates are present; the
+// Google/Yandex deep-links prefer coordinates and fall back to a
+// free-text address query. `mapUrl` (operator-pasted click-through) is
+// an optional third link shown alongside the two auto-generated ones.
+//
+// Wiring: docs/04-development/architecture/wiring-map.md → events
+// (latitude/longitude/address/venue/location/map_url).
+
+import { getLocale, makeT } from '../../lib/i18n';
+
+interface Props {
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
+  address: string | null | undefined;
+  venue: string | null | undefined;
+  location: string | null | undefined;
+  mapUrl: string | null | undefined;
+}
+
+const { latitude, longitude, address, venue, location, mapUrl } = Astro.props;
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const hasCoords = latitude != null && longitude != null;
+
+// F-WebU2 — OpenStreetMap embed. A small bounding box (±0.005°, ~500m)
+// centered on the marker keeps the venue block readable at street
+// scale without operators needing to pick a zoom level.
+const COORD_PAD = 0.005;
+const mapEmbedSrc = hasCoords
+  ? `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - COORD_PAD},${latitude - COORD_PAD},${longitude + COORD_PAD},${latitude + COORD_PAD}&layer=mapnik&marker=${latitude},${longitude}`
+  : null;
+
+// Auto-generated Google + Yandex Maps deep-links. Operators don't pick
+// a provider — we generate both from whatever data is available,
+// preferring coordinates and falling back to the free-text address.
+const addressQuery = (address ?? venue ?? location ?? '').trim();
+const externalMaps: { google: string; yandex: string } | null = hasCoords
+  ? {
+      google: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+      yandex: `https://yandex.com/maps/?ll=${longitude},${latitude}&z=17&pt=${longitude},${latitude},pm2rdm`,
+    }
+  : addressQuery.length > 0
+    ? {
+        google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressQuery)}`,
+        yandex: `https://yandex.com/maps/?text=${encodeURIComponent(addressQuery)}`,
+      }
+    : null;
+---
+
+{
+  (mapEmbedSrc || externalMaps) && (
+    <section class="mb-8">
+      {mapEmbedSrc && (
+        <iframe
+          src={mapEmbedSrc}
+          title={t('event_detail.map_title')}
+          loading="lazy"
+          class="w-full h-72 rounded-lg border border-border block"
+        />
+      )}
+      {externalMaps && (
+        <div class="mt-3 flex flex-wrap gap-2">
+          <a
+            href={externalMaps.google}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-card text-xs no-underline text-foreground hover:border-primary/40 transition-colors"
+          >
+            {t('event_detail.open_google_maps')} ↗
+          </a>
+          <a
+            href={externalMaps.yandex}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-card text-xs no-underline text-foreground hover:border-primary/40 transition-colors"
+          >
+            {t('event_detail.open_yandex_maps')} ↗
+          </a>
+          {mapUrl && (
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-card text-xs no-underline text-foreground hover:border-primary/40 transition-colors"
+            >
+              {t('event_detail.view_map')} ↗
+            </a>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}

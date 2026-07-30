@@ -2,126 +2,257 @@
 // @generated-from gen:page
 // slug: events/[id]
 // generated: 2026-05-26
+// updated: 2026-07-30 (FR-EVT-004 gap-closure, wf-20260730-feat-155)
 //
 // Phase 1.3 + 1.4 — customer-facing event detail per ADR-0038.
+// FR-EVT-004 gap-closure adds: lifecycle tabs (upcoming/live/finished/
+// forum, SSR-only ?tab= routing — see VALID_TABS/tabHref below), the
+// venue/map block, the Finished-tab photo gallery + recap + recordings,
+// the Live-tab livestream panel, fetch-level visibility gating, and a
+// real 404 for not-found OR wrong-country (AC-8).
 //
-// Composition only (L4): fetch event detail from apps/api + speakers
-// / materials / sponsors from Directus, hand the typed payloads to
-// the L3 blocks. Sidebar (RegistrationCTA + ShareButtons) renders
-// via the EventDetail block's `sidebar` slot.
+// Composition only (L4): fetch event detail from Directus (lib/cms.ts)
+// + speakers/materials/sponsors/photos/questions, hand the typed
+// payloads to the L3 blocks. Sidebar (RegistrationCTA + ShareButtons)
+// renders via the EventDetail block's `sidebar` slot; tab bodies render
+// via the `venue-map` / (default) / `live` / `finished` / `forum` slots.
 //
-// Wiring: docs/04-development/architecture/wiring-map.md → events + event_speakers
-// + event_materials + event_sponsors + registrations.
+// Wiring: docs/04-development/architecture/wiring-map.md → events +
+// event_speakers + event_materials + event_sponsors + event_photos +
+// registrations.
 //
-// SSR — needs the request Host header to forward to /v1/events (the
-// API's per-country tenant filter).
+// SSR — needs the request Host header both to forward to Directus'
+// tenant resolution (countryFromHost) and to re-derive AC-8's
+// country-mismatch 404 (Directus itself has no notion of "wrong
+// tenant" — see lib/cms.ts::fetchEvent doc comment).
 export const prerender = false;
 
 import {
   EventDetail,
+  EventPhotoGallery,
+  EventRecap,
   ForumThread,
+  LivestreamPanel,
   MaterialsList,
   RegistrationCTA,
   ShareButtons,
   SpeakerGrid,
   SponsorWall,
+  VenueMap,
 } from '../../blocks/customer';
+import type { EventDetailTab } from '../../blocks/customer/EventDetail.astro';
+import { VALID_TABS } from '../../blocks/customer/EventDetail.astro';
 import { PageHead } from '../../blocks/common';
 import Layout from '../../layouts/Layout.astro';
-import { fetchEvent } from '../../lib/api-ssr';
 import {
+  fetchEvent,
   fetchEventMaterials,
+  fetchEventPhotos,
   fetchEventQuestions,
   fetchEventSpeakers,
   fetchEventSponsors,
 } from '../../lib/cms';
 import { getLocale, makeT } from '../../lib/i18n';
+import { splitRecordings } from '../../lib/video-embed';
 
 const { id } = Astro.params as { id: string };
 const event = await fetchEvent(Astro.request, id);
 
+// AC-8 — a real 404 (not a 302) for not-found, unpublished, OR
+// wrong-country. fetchEvent() (lib/cms.ts) already folds all three
+// cases into a single `null` return (resolving the country via the
+// request's Host header internally) — a wrong-country visitor gets
+// byte-identical output to a genuinely missing event, so no tenant
+// information leaks via a differentiated response.
+//
+// Body MUST be a real, constant, non-null string — a `null`/empty
+// body here lets Astro's node-adapter runtime substitute its own
+// built-in default error page, which echoes the *requested URL path*
+// into a `<pre>Path: ...</pre>` tag, making two different 404s
+// byte-DIFFERENT and reopening exactly the enumeration leak AC-8
+// forbids (confirmed via live HTTP testing in wf-20260730-feat-155
+// attempt 1 — see 07-test-results.md). Matches the sibling
+// og-card.png.ts route's literal-string-body convention for the same
+// reason.
 if (!event) {
-  return Astro.redirect('/events', 302);
+  return new Response('not_found', { status: 404 });
 }
 
-const [speakers, materials, sponsors, questions] = await Promise.all([
-  fetchEventSpeakers(event.id),
-  fetchEventMaterials(event.id),
-  fetchEventSponsors(event.id),
-  fetchEventQuestions(event.id),
-]);
+// members_only / invite_only: render the gate body and skip every
+// sub-fetch — not just hide it in the template. R-1 (security review
+// flag): gating must happen at the fetch level so gated data never
+// reaches the SSR response body, matching V1's `isGated ? [] :
+// await fetchX()` pattern. Auth uses V2's server-verified signal
+// (Astro.locals.auth?.me, populated by middleware.ts from a verified
+// refresh-token exchange) rather than V1's raw cookie-presence sniff —
+// see AppNav.astro's ISS-USR-REDIRECT-001 note for why that fix matters.
+const isGated =
+  (event.visibilityScope === 'members_only' || event.visibilityScope === 'invite_only') &&
+  Astro.locals.auth?.me == null;
 
-const canonicalUrl = `${Astro.url.protocol}//${Astro.url.host}/events/${event.id}`;
+const [speakers, allMaterials, photos, sponsors, questions] = isGated
+  ? [[], [], [], [], []]
+  : await Promise.all([
+      fetchEventSpeakers(event.id),
+      fetchEventMaterials(event.id),
+      fetchEventPhotos(event.id),
+      fetchEventSponsors(event.id),
+      fetchEventQuestions(event.id),
+    ]);
+
+const { recordings, materials } = splitRecordings(allMaterials);
+const hasFinishedContent = recordings.length > 0 || photos.length > 0 || Boolean(event.recapMd);
+
+// F-WebU8 — tab routing. Validate the ?tab= param against the closed
+// set; pick a sensible default from the event's clock relative to
+// (starts_at, ends_at). Fully empty content (no recordings on a past
+// event, no livestream URL) still falls back to the tab's own empty
+// state so the page never looks broken.
+const tabParam = Astro.url.searchParams.get('tab');
+const tabRequested: EventDetailTab | null =
+  tabParam && (VALID_TABS as readonly string[]).includes(tabParam)
+    ? (tabParam as EventDetailTab)
+    : null;
+const now = Date.now();
+const startsAtMs = Date.parse(event.startsAt);
+const endsAtMs = Date.parse(event.endsAt);
+const defaultTab: EventDetailTab =
+  now >= endsAtMs ? 'finished' : now >= startsAtMs ? 'live' : 'upcoming';
+const activeTab: EventDetailTab = tabRequested ?? defaultTab;
+
+const eventBasePath = `/events/${event.id}`;
+function tabHref(tab: EventDetailTab): string {
+  return tab === defaultTab && !tabRequested ? eventBasePath : `${eventBasePath}?tab=${tab}`;
+}
+
+const origin = `${Astro.url.protocol}//${Astro.url.host}`;
+const canonicalUrl = `${origin}/events/${event.id}`;
+
+// AC-7 — dynamic OG card, cache-busted by `updatedAt` so a
+// speaker_added / metadata edit invalidates every scraper's cached
+// preview. Only linked for public events — the og-card route itself
+// independently 404s non-public events (no session to gate against at
+// scrape time), so linking it for a gated event would just surface
+// that 404 as a broken preview image instead of a graceful fallback.
+const isPubliclyShareable = !event.visibilityScope || event.visibilityScope === 'public';
+const cacheBuster = event.updatedAt ? Date.parse(event.updatedAt) : Date.parse(event.startsAt);
+const ogImage = isPubliclyShareable
+  ? `${origin}/events/${event.id}/og-card.png?v=${cacheBuster}`
+  : undefined;
 
 const locale = getLocale(Astro);
 const t = makeT(locale);
 const pageTitle = t('event_detail.title', { title: event.title });
+const pageDescription = event.shortDescription ?? event.description.slice(0, 200);
 ---
 
-<Layout title={pageTitle} description={event.shortDescription ?? event.description.slice(0, 200)}>
-  <PageHead
-    slot="head"
-    title={pageTitle}
-    description={event.shortDescription ?? event.description.slice(0, 200)}
-  />
+<Layout title={pageTitle} description={pageDescription}>
+  <PageHead slot="head" title={pageTitle} description={pageDescription} ogImage={ogImage} />
   <main>
-    <EventDetail event={event}>
-      <RegistrationCTA
-        slot="sidebar"
-        eventId={event.id}
-        capacity={event.capacity}
-        registeredCount={event.registeredCount}
-        client:load
-        t={{
-          capacity: t('event_detail.capacity'),
-          spots: (count, capacity) => t('event_detail.spots', { count, capacity }),
-          going_count: (count) => t('event_card.going_count', { count }),
-          sign_in_to_join_waitlist: t('event_detail.sign_in_to_join_waitlist'),
-          sign_in_to_register: t('event_detail.sign_in_to_register'),
-          loading_registration: t('event_detail.loading_registration'),
-          join_waitlist: t('event_detail.join_waitlist'),
-          register: t('event_detail.register'),
-          busy: t('event_detail.busy'),
-          registered_confirmation: t('event_detail.registered_confirmation'),
-          cancel_registration: t('event_detail.cancel_registration'),
-          on_waitlist: t('event_detail.on_waitlist'),
-          leave_waitlist: t('event_detail.leave_waitlist'),
-        }}
-      />
-      <ShareButtons
-        slot="sidebar"
-        eventId={event.id}
-        eventTitle={event.title}
-        eventUrl={canonicalUrl}
-      />
-      <SpeakerGrid speakers={speakers} />
-      <MaterialsList materials={materials} />
-      <SponsorWall sponsors={sponsors} />
-      <ForumThread
-        client:load
-        eventId={event.id}
-        eventTitle={event.title}
-        initialQuestions={questions}
-        t={{
-          time_just_now: t('event_detail.forum_time_just_now'),
-          time_minutes_ago: (count) => t('event_detail.forum_time_minutes_ago', { count }),
-          time_hours_ago: (count) => t('event_detail.forum_time_hours_ago', { count }),
-          time_days_ago: (count) => t('event_detail.forum_time_days_ago', { count }),
-          signin_body: t('event_detail.forum_signin_body'),
-          signin_cta: t('event_detail.forum_signin_cta'),
-          form_label: t('event_detail.forum_form_label'),
-          form_placeholder: (eventTitle) => t('event_detail.forum_form_placeholder', { title: eventTitle }),
-          form_submit: t('event_detail.forum_form_submit'),
-          form_posting: t('event_detail.forum_form_posting'),
-          anon_label: t('event_detail.forum_anon_label'),
-          badge_pinned: t('event_detail.forum_badge_pinned'),
-          badge_answered: t('event_detail.forum_badge_answered'),
-          heading: t('event_detail.forum_heading'),
-          subheading: t('event_detail.forum_subheading'),
-          empty_title: t('event_detail.forum_empty_title'),
-          empty_body: t('event_detail.forum_empty_body'),
-        }}
-      />
-    </EventDetail>
+    {isGated ? (
+      <div class="mx-auto max-w-2xl px-6 py-16 text-center">
+        <h1 class="font-display text-xl font-semibold text-foreground mb-3">
+          {t('event_detail.members_only_title')}
+        </h1>
+        <p class="text-sm text-muted-foreground leading-relaxed mb-6">
+          {t('event_detail.members_only_body')}
+        </p>
+        <a
+          href={`/api/v1/auth/login?next=${encodeURIComponent(eventBasePath)}`}
+          class="inline-flex items-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium no-underline hover:bg-primary/90 transition-colors"
+        >
+          {t('nav.sign_in')}
+        </a>
+      </div>
+    ) : (
+      <EventDetail event={event} activeTab={activeTab} tabHref={tabHref}>
+        <VenueMap
+          slot="venue-map"
+          latitude={event.latitude}
+          longitude={event.longitude}
+          address={event.address}
+          venue={event.venue}
+          location={event.location}
+          mapUrl={event.mapUrl}
+        />
+
+        <RegistrationCTA
+          slot="sidebar"
+          eventId={event.id}
+          capacity={event.capacity}
+          registeredCount={event.registeredCount}
+          client:load
+          t={{
+            capacity: t('event_detail.capacity'),
+            spots: (count, capacity) => t('event_detail.spots', { count, capacity }),
+            going_count: (count) => t('event_card.going_count', { count }),
+            sign_in_to_join_waitlist: t('event_detail.sign_in_to_join_waitlist'),
+            sign_in_to_register: t('event_detail.sign_in_to_register'),
+            loading_registration: t('event_detail.loading_registration'),
+            join_waitlist: t('event_detail.join_waitlist'),
+            register: t('event_detail.register'),
+            busy: t('event_detail.busy'),
+            registered_confirmation: t('event_detail.registered_confirmation'),
+            cancel_registration: t('event_detail.cancel_registration'),
+            on_waitlist: t('event_detail.on_waitlist'),
+            leave_waitlist: t('event_detail.leave_waitlist'),
+          }}
+        />
+        <ShareButtons
+          slot="sidebar"
+          eventId={event.id}
+          eventTitle={event.title}
+          eventUrl={canonicalUrl}
+        />
+
+        <SpeakerGrid speakers={speakers} />
+        <MaterialsList materials={materials} />
+        <SponsorWall sponsors={sponsors} />
+
+        <LivestreamPanel slot="live" livestreamUrl={event.livestreamUrl} eventTitle={event.title} />
+
+        {hasFinishedContent && (
+          <Fragment slot="finished">
+            <EventRecap recapMd={event.recapMd} recordings={recordings} />
+            <EventPhotoGallery photos={photos} eventTitle={event.title} />
+          </Fragment>
+        )}
+        {!hasFinishedContent && (
+          <div slot="finished" class="my-6 rounded-lg border border-dashed border-border p-8 text-center">
+            <p class="font-display text-base font-semibold text-foreground mb-1">
+              {t('event_detail.tab_finished_empty_title')}
+            </p>
+            <p class="text-sm text-muted-foreground m-0">{t('event_detail.tab_finished_empty_body')}</p>
+          </div>
+        )}
+
+        <ForumThread
+          slot="forum"
+          client:load
+          eventId={event.id}
+          eventTitle={event.title}
+          initialQuestions={questions}
+          t={{
+            time_just_now: t('event_detail.forum_time_just_now'),
+            time_minutes_ago: (count) => t('event_detail.forum_time_minutes_ago', { count }),
+            time_hours_ago: (count) => t('event_detail.forum_time_hours_ago', { count }),
+            time_days_ago: (count) => t('event_detail.forum_time_days_ago', { count }),
+            signin_body: t('event_detail.forum_signin_body'),
+            signin_cta: t('event_detail.forum_signin_cta'),
+            form_label: t('event_detail.forum_form_label'),
+            form_placeholder: (eventTitle) => t('event_detail.forum_form_placeholder', { title: eventTitle }),
+            form_submit: t('event_detail.forum_form_submit'),
+            form_posting: t('event_detail.forum_form_posting'),
+            anon_label: t('event_detail.forum_anon_label'),
+            badge_pinned: t('event_detail.forum_badge_pinned'),
+            badge_answered: t('event_detail.forum_badge_answered'),
+            heading: t('event_detail.forum_heading'),
+            subheading: t('event_detail.forum_subheading'),
+            empty_title: t('event_detail.forum_empty_title'),
+            empty_body: t('event_detail.forum_empty_body'),
+          }}
+        />
+      </EventDetail>
+    )}
   </main>
 </Layout>

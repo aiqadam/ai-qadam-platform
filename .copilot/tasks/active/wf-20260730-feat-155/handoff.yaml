@@ -1,0 +1,139 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260730-feat-155"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-30T00:00:00Z"
+last_updated_at: "2026-07-30T00:00:00Z"
+
+requirement_ref: "FR-EVT-004"
+requirement_text: "Event detail page (/events/[id]): lifecycle-adaptive (upcoming/live/finished) with venue+map, registration sidebar, speakers, materials, photos gallery, sponsors, forum Q&A, visibility gating, and dynamic OG card. V2 (apps/web-next) currently only ports speakers/materials/sponsors/forum; lifecycle tabs, photos, recap/livestream embed, map, visibility gating, and country-mismatch 404 are missing."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/130"
+
+branch: "feature/EVT-004-event-detail-page"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/150"
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-30T00:30:00Z"
+    summary: "FR-EVT-004 confirmed well-formed and architecturally feasible; business_process and github_issue frontmatter set; 3 ambiguities resolved and recorded in the FR; GitHub sync succeeded."
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-30T01:00:00Z"
+    summary: "DB Changes Required: no. ~14 files change/create in apps/web-next only. No architecture violations."
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/02-impact-analysis.md"
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/01-requirement-validation.md"
+    timestamp: "2026-07-30T00:30:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/02-impact-analysis.md"
+    timestamp: "2026-07-30T01:00:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/03-code-summary.md"
+    timestamp: "2026-07-30T02:30:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/04-security-review.md"
+    timestamp: "2026-07-30T03:00:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/06-test-strategy.md"
+    timestamp: "2026-07-30T03:30:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/06-test-design.md"
+    timestamp: "2026-07-30T04:15:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/07-test-results.md"
+    timestamp: "2026-07-30T06:00:00Z"
+  doc-writer:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/08-doc-update.md"
+    timestamp: "2026-07-30T06:30:00Z"
+  quality-gate:
+    status: completed
+    step: 10
+    output_file: ".copilot/tasks/active/wf-20260730-feat-155/09-quality-gate.md"
+    timestamp: "2026-07-30T07:00:00Z"
+retry_counts:
+  code-developer: 1
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: [BP-UAT-010]
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-EVT-004.md
+  - apps/web-next/src/pages/events/[id].astro
+  - apps/web/src/pages/events/[id].astro
+
+merge_mode: "auto"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260730-feat-155/NEEDS_REVIEW.md"

@@ -76,7 +76,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 32 | [FR-REG-001](FR-REG-001.md) | Registration flow | Shipped | AUTH-001, EVT-001, NTF-001, GAM-001 |
 | 33 | [FR-SPK-002](FR-SPK-002.md) | Speaker management | Shipped | SPK-001, GAM-001 |
 | 34 | [FR-ADM-001](FR-ADM-001.md) | Operator dashboard | Shipped | EVT-001, REG-001 |
-| 35 | [FR-EVT-004](FR-EVT-004.md) | Event detail page | In Progress | EVT-001, REG-001, SPK-001 |
+| 35 | [FR-EVT-004](FR-EVT-004.md) | Event detail page | Shipped | EVT-001, REG-001, SPK-001 |
 | 36 | [FR-EVT-005](FR-EVT-005.md) | Event operator control panel | Shipped | EVT-001, REG-001 |
 | 37 | [FR-USR-003](FR-USR-003.md) | Member dashboard (/me) | Shipped | USR-001, REG-001, GAM-001, GAM-002 |
 | 38 | [FR-ADM-003](FR-ADM-003.md) | Announcement composer | Shipped | ADM-002, NTF-001 |

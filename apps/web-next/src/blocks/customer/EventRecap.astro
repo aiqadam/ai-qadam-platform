@@ -1,0 +1,71 @@
+---
+// L3 block — <EventRecap>.
+//
+// FR-EVT-004 gap-closure — Finished-tab recap prose + inline recording
+// players. Port of V1's Finished-tab recap/recordings section
+// (apps/web/src/pages/events/[id].astro lines ~551-583). The photos
+// gallery is a sibling block (<EventPhotoGallery>) composed alongside
+// this one on the page — kept separate since it has its own heading
+// and grid layout, matching V1's section boundaries.
+//
+// The page computes `hasFinishedContent` (recap present OR recordings
+// present OR photos present) and renders the tab's empty state itself
+// when all three are absent, since that requires knowledge of photos
+// too (out of this block's props).
+//
+// Data-in/element-out: receives pre-rendered recap HTML (via
+// MarkdownBody) and the pre-split recordings list from
+// lib/video-embed.ts::splitRecordings.
+
+import type { RecordingMaterial } from '../../lib/video-embed';
+import MarkdownBody from '../common/MarkdownBody.astro';
+import { getLocale, makeT } from '../../lib/i18n';
+
+interface Props {
+  recapMd: string | null | undefined;
+  recordings: RecordingMaterial[];
+}
+
+const { recapMd, recordings } = Astro.props;
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+---
+
+{
+  recapMd && (
+    <section class="mb-10">
+      <h2 class="font-display text-xl font-semibold text-foreground mb-3">
+        {t('event_detail.recap')}
+      </h2>
+      <MarkdownBody content={recapMd} variant="muted" class="text-base leading-relaxed" />
+    </section>
+  )
+}
+
+{
+  recordings.length > 0 && (
+    <section class="mb-10">
+      <h2 class="font-display text-xl font-semibold text-foreground mb-4">
+        {t('event_detail.recordings')}
+      </h2>
+      <ul class="flex flex-col gap-4 list-none p-0 m-0">
+        {recordings.map((r: RecordingMaterial) => (
+          <li>
+            <p class="text-xs text-muted-foreground mb-2">{r.title}</p>
+            <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-lg border border-border">
+              <iframe
+                src={r.embedSrc}
+                title={r.title}
+                loading="lazy"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                class="absolute inset-0 w-full h-full border-0"
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

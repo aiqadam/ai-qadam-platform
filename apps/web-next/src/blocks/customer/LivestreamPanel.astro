@@ -1,0 +1,69 @@
+---
+// L3 block — <LivestreamPanel>.
+//
+// FR-EVT-004 gap-closure — Live-tab content. Three states:
+//   1. `livestreamUrl` resolves to a YouTube/Vimeo embed → inline player.
+//   2. `livestreamUrl` set but not embeddable (other provider) → a
+//      click-through "Join livestream" button.
+//   3. No `livestreamUrl` → empty state ("stream not connected yet").
+//
+// Port of V1's Live-tab block (apps/web/src/pages/events/[id].astro
+// lines ~516-546), using the shared recordingEmbedSrc() detector from
+// lib/video-embed.ts (same YouTube/Vimeo → nocookie-embed rule used by
+// the Finished-tab recordings list).
+//
+// Data-in/element-out: receives the raw livestreamUrl + eventTitle: no
+// fetches of its own.
+
+import { recordingEmbedSrc } from '../../lib/video-embed';
+import { getLocale, makeT } from '../../lib/i18n';
+
+interface Props {
+  livestreamUrl: string | null | undefined;
+  eventTitle: string;
+}
+
+const { livestreamUrl: rawLivestreamUrl, eventTitle } = Astro.props;
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const livestreamUrl = rawLivestreamUrl?.trim() || null;
+const livestreamEmbedSrc = livestreamUrl ? recordingEmbedSrc(livestreamUrl) : null;
+---
+
+{
+  livestreamEmbedSrc ? (
+    <section class="mb-10">
+      <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-lg border border-border">
+        <iframe
+          src={livestreamEmbedSrc}
+          title={t('event_detail.livestream_title', { title: eventTitle })}
+          loading="lazy"
+          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+          class="absolute inset-0 w-full h-full border-0"
+        />
+      </div>
+    </section>
+  ) : livestreamUrl ? (
+    <section class="mb-10 flex flex-col items-start gap-3">
+      <p class="text-sm text-muted-foreground m-0">{t('event_detail.livestream_join_body')}</p>
+      <a
+        href={livestreamUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium no-underline hover:bg-primary/90 transition-colors"
+      >
+        {t('event_detail.livestream_join_cta')} ↗
+      </a>
+    </section>
+  ) : (
+    <div class="my-6 rounded-lg border border-dashed border-border p-8 text-center">
+      <p class="font-display text-base font-semibold text-foreground mb-1">
+        {t('event_detail.tab_live_empty_title')}
+      </p>
+      <p class="text-sm text-muted-foreground m-0">{t('event_detail.tab_live_empty_body')}</p>
+    </div>
+  )
+}

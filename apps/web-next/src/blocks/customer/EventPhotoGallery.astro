@@ -1,0 +1,59 @@
+---
+// L3 block — <EventPhotoGallery>.
+//
+// FR-EVT-004 gap-closure — grid of event_photos, Finished-tab only per
+// functional scope item 7. Port of V1's photos section
+// (apps/web/src/pages/events/[id].astro lines ~585-617).
+//
+// Data-in/element-out: receives EventPhoto[] the page fetched via
+// fetchEventPhotos() (gated: [] when isGated, per R-1).
+//
+// Wiring: docs/04-development/architecture/wiring-map.md → event_photos.
+
+import type { EventPhoto } from '../../lib/types';
+import { getLocale, makeT } from '../../lib/i18n';
+
+interface Props {
+  photos: EventPhoto[];
+  eventTitle: string;
+}
+
+const { photos, eventTitle } = Astro.props;
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+---
+
+{
+  photos.length > 0 && (
+    <section class="mb-10">
+      <h2 class="font-display text-xl font-semibold text-foreground mb-4">
+        {t('event_detail.photos')}
+      </h2>
+      <ul class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 list-none p-0 m-0">
+        {photos.map((p) => {
+          const src = p.fileUrl ?? p.url ?? '';
+          const alt = p.altText ?? p.caption ?? t('event_detail.photo_alt_fallback', { title: eventTitle });
+          return (
+            <li>
+              <a
+                href={src}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block rounded-lg border border-border overflow-hidden bg-muted aspect-[4/3]"
+              >
+                <img
+                  src={src}
+                  alt={alt}
+                  loading="lazy"
+                  class="w-full h-full object-cover block"
+                />
+              </a>
+              {p.caption && <p class="text-xs text-muted-foreground mt-1.5">{p.caption}</p>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  )
+}
