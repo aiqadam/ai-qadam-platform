@@ -122,6 +122,18 @@ services:
       AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:?set AUTHENTIK_BOOTSTRAP_PASSWORD in infrastructure/.env}
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+      # Local dev/test SMTP relay — routes recovery/notification emails to
+      # Mailpit (ISS-USR-PWRESET-001 follow-up: without this, Authentik
+      # falls back to Django's SMTP default of localhost:25, which no
+      # process listens on inside this container, so every email-stage
+      # send fails with ConnectionRefusedError and no email ever reaches
+      # Mailpit). Uses the Docker service hostname, not localhost — unlike
+      # apps/api's SMTP_HOST=localhost, which runs on the host network.
+      AUTHENTIK_EMAIL__HOST: ${AUTHENTIK_EMAIL_HOST:-mailpit}
+      AUTHENTIK_EMAIL__PORT: ${AUTHENTIK_EMAIL_PORT:-1025}
+      AUTHENTIK_EMAIL__USE_TLS: "false"
+      AUTHENTIK_EMAIL__USE_SSL: "false"
+      AUTHENTIK_EMAIL__FROM: ${AUTHENTIK_EMAIL_FROM:-authentik@localhost}
     ports:
       - "127.0.0.1:${AUTHENTIK_HOST_PORT:-9000}:9000"
     volumes:
@@ -153,6 +165,16 @@ services:
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+      # See authentik-server's identical block above for why this exists
+      # (ISS-USR-PWRESET-001 follow-up) — the worker is the process that
+      # actually executes the email-stage send task, so it needs this
+      # config independently; environment blocks are not shared between
+      # services even though both use the same image.
+      AUTHENTIK_EMAIL__HOST: ${AUTHENTIK_EMAIL_HOST:-mailpit}
+      AUTHENTIK_EMAIL__PORT: ${AUTHENTIK_EMAIL_PORT:-1025}
+      AUTHENTIK_EMAIL__USE_TLS: "false"
+      AUTHENTIK_EMAIL__USE_SSL: "false"
+      AUTHENTIK_EMAIL__FROM: ${AUTHENTIK_EMAIL_FROM:-authentik@localhost}
     volumes:
       - authentik-media:/media
       - authentik-templates:/templates

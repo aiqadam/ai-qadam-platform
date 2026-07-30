@@ -448,7 +448,20 @@ test.describe('BP-UAT-009 — Auth sign-in and sign-out', () => {
     // (points/registrations widgets) must not be visible to an anon
     // visitor, regardless of which UI path (redirect vs in-page CTA)
     // the app takes.
-    const authedOnlyContent = page.getByText(/your registrations|check-in qr|leaderboard points/i);
+    //
+    // Regression note (this workflow): the previous version of this
+    // assertion used page.getByText(/your registrations|check-in qr|.../i),
+    // a plain substring match. AnonView's own promotional subtitle
+    // ("Track your registrations, see your check-in QR codes...", see
+    // apps/web/src/components/MeDashboard.tsx's AnonView component)
+    // legitimately contains those same substrings, so the assertion
+    // false-failed on the correct, unauthenticated page. getByRole
+    // targets the authenticated dashboard's actual "Your registrations"
+    // <h2> section heading, which is structurally distinct from
+    // AnonView's <p> marketing copy (StatCard's "Upcoming"/"Attended"
+    // labels are also plain <p> text, not headings, so they are not
+    // usable here either) and cannot collide with it.
+    const authedOnlyContent = page.getByRole('heading', { name: /^your registrations$/i });
     await expect(authedOnlyContent).toHaveCount(0);
   });
 
