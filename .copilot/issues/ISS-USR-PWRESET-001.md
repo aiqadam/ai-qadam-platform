@@ -11,9 +11,9 @@
 | Reported | 2026-07-07 |
 | Reporter | User (chat: "I don't remember my password. I can't restore it.") |
 | Affected surface | `apps/web` (apps/web-next too) — sign-in / `/me` |
-| PR | [#131](https://github.com/tvolodi/aiqadam/pull/131) (Path A wiring), follow-up PR `<pending>` (this workflow — actual functional fix) |
-| Squash SHA | `c4ec5a040f43c48d66cf4e34ea5cc1bfd1a32934` (PR #131); `<pending>` (this workflow) |
-| Merged at | 2026-07-07T04:26:30Z (PR #131); `<pending>` (this workflow) |
+| PR | [#131](https://github.com/tvolodi/aiqadam/pull/131) (Path A wiring), [#148](https://github.com/aiqadam/ai-qadam-platform/pull/148) (this workflow — actual functional fix) |
+| Squash SHA | `c4ec5a040f43c48d66cf4e34ea5cc1bfd1a32934` (PR #131); `2310cded7bc1a4b197534e64b7a2c411cdc1b376` (PR #148) |
+| Merged at | 2026-07-07T04:26:30Z (PR #131); 2026-07-30 (PR #148) |
 | Workflow | wf-20260707-fix-117 (PR #131) → wf-20260707-fix-118-flaky-playwright-authentik (this workflow, resolved) |
 | Business-Process | BP-UAT-009, BP-USR-PWRESET |
 

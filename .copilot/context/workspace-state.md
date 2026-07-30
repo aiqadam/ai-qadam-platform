@@ -1,6 +1,52 @@
 # Workspace State
 
-**Last updated:** 2026-07-29 — `wf-20260729-fix-153`.
+**Last updated:** 2026-07-30 — `wf-20260707-fix-118-flaky-playwright-authentik`.
+**ISS-USR-PWRESET-001 resolved — the password-recovery flow shipped in PR #131 was never actually functional end-to-end; this workflow found and fixed the real gap (a missing password-entry stage binding) plus 11 other independent test/infra bugs, none a Lit-hydration flake as originally diagnosed.**
+[wf-20260707-fix-118-flaky-playwright-authentik](../tasks/completed/wf-20260707-fix-118-flaky-playwright-authentik/handoff.yaml)
+(PR [#148](https://github.com/aiqadam/ai-qadam-platform/pull/148), squash
+`2310cded7bc1a4b197534e64b7a2c411cdc1b376`): originally scoped only as
+"fix the Playwright/Lit-hydration timing flake blocking AC-3/AC-5" —
+that diagnosis was wrong and is retracted. Twelve independent,
+evidence-verified root causes were found instead. The most significant:
+Authentik's recovery flow (provisioned by the parent workflow,
+`wf-20260707-fix-117`, PR #131) had only an identification stage and an
+email stage bound — no password-entry stage existed at all, confirmed
+via `GET /api/v3/flows/bindings/?target=<flow-uuid>` returning exactly 2
+results. A real member could request a reset, receive the correctly
+branded email, click it, see "Successfully verified Email," and land
+back on the login page with no way to actually set a new password.
+Fixed by resolving and binding Authentik's own built-in
+`default-password-change-prompt` + `default-password-change-write`
+stages (the same pair Authentik's own default recovery flow blueprint
+uses) via a new `resolve_existing_stage_uuid()` helper in
+`scripts/provision-authentik-recovery-flow.sh`. The other 11 causes:
+test-invocation discipline (unseeded fixture email), a false-positive
+assertion regex on `MeDashboard.tsx`'s `AnonView` copy, wrong recovery
+URL + wrong flow-stage check for the "Forgot password?" link, Authentik
+containers missing `AUTHENTIK_EMAIL__*` entirely (`ConnectionRefusedError`
+on every `send_mail`, confirmed via worker logs + Django settings
+inspection), the `EmailStage` DB row's own `use_global_settings=false`
+independently overriding that fix (confirmed via ORM query — ADR-worthy
+gotcha: per-stage settings silently win over global config), a dead
+link-extraction plus a wrong same-session-password assumption, a
+never-verified expected-copy string, a too-narrow sign-in button regex,
+a navigation race against the recovery flow's own async success
+redirect, a nonexistent `/me/profile` password-change form silently
+corrupting the test fixture's password on every run, and a stale-message
+bug in the test's own Mailpit polling helper. `apps/e2e/tests/uat/BP-USR-PWRESET.spec.ts`
+went from 0/6 to **6/6** live-verified; `BP-UAT-009.spec.ts` from 1/9 to
+7/9 (2 remaining are pre-existing, already-documented, unrelated
+soft-assertion discrepancies — not a regression); the bats suite from
+7/7 to 8/8 with a new regression test guarding the `use_global_settings`
+drift. All 7 ACs of `ISS-USR-PWRESET-001` are now verified live,
+end-to-end, with zero deferrals. **Known open follow-up, not actioned
+this session:** whether QA/prod Authentik instances have this same
+missing-stage-binding gap is unknown — this session had no access to or
+visibility into QA/prod, and the provision script's own host allow-list
+would refuse to run against them regardless. A human or a future
+workflow with QA/prod access should check this before assuming those
+environments' recovery flows work.
+
 **ISS-UAT-020-1 resolved — BP-UAT-020 now has a safe, live-verified fixture-isolation mechanism; live run surfaced a real AC-3 defect, filed as ISS-ADM-010-1.**
 [wf-20260729-fix-153](../tasks/completed/wf-20260729-fix-153/handoff.yaml)
 (PR [#146](https://github.com/aiqadam/ai-qadam-platform/pull/146), squash
