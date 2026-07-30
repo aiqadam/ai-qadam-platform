@@ -1,6 +1,51 @@
 # Workspace State
 
-**Last updated:** 2026-07-30 — `wf-20260730-fix-159`.
+**Last updated:** 2026-07-30 — `wf-20260730-fix-160`.
+**ISS-RBAC-PERMS-001: `policy.member` completed (minus one deliberately-unimplementable clause) and `policy.speaker` shipped; 3 real Directus-permission-engine bugs found and fixed; 2 new issues split off.**
+[wf-20260730-fix-160](../tasks/completed/wf-20260730-fix-160/handoff.yaml)
+(PR [#170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash
+`08932ab`, admin-merged over a pre-existing unrelated `architecture-check`
+failure on `apps/web-next/.../og-card.png.ts`, file-path-verified untouched
+by this PR): implemented `policy.member`'s remaining ADR-0021 §4.1 Effect
+clauses (read public collections; create own `registrations`) and all of
+`policy.speaker` (update own `speakers` row; read own `event_speakers`
+rows). `interaction_responses` create ("feedback_responses" in the ADR's
+now-stale naming) was deliberately left unimplemented — live testing
+proved neither Directus `permissions` nor `validation` can enforce
+ownership through a relational FK at create time; shipping it would have
+been a silent no-op grant. Live verification against the local Directus
+stack (minted a real member-scoped token for `uat-member@example.com`,
+exercised every new grant directly, cleaned up all test data after) found
+and fixed 3 real, previously-unexercised bugs in the permission
+machinery: (1) `$CURRENT_USER.<field>` as a bare dotted filter key 400s
+on this Directus version — only resolves as a nested relational value,
+`{"$CURRENT_USER":{"field":{"_eq":v}}}`, a pre-existing bug in the S0.1
+`COUNTRY_FILTER` never caught before because that policy was never
+attached to a live user until this workflow's grants reused its filter;
+(2) Directus `permissions` has **no enforcement effect on `create`** — a
+member could register a different user for an event despite a
+`{"user":{"_eq":"$CURRENT_USER"}}` filter; the real constraint belongs in
+the separate `validation` field, which `ensure_perm_for_policy` gained as
+a new optional 7th argument; (3) `validation` in turn cannot traverse a
+relational FK to check a column on the *related* row (confirmed by
+testing — it broke the legitimate case too), which is what led to
+leaving `interaction_responses` unimplemented rather than shipping a
+broken grant. Two unrelated findings split into their own issues rather
+than expanding this PR's scope: `directus_users.onboarded_at` — the
+exact field named in this issue's original symptom — does not exist
+anywhere in the local schema despite 4 real `apps/api` modules depending
+on it ([ISS-RBAC-ONBOARDED-AT-001](../issues/ISS-RBAC-ONBOARDED-AT-001.md),
+[GitHub #168](https://github.com/aiqadam/ai-qadam-platform/issues/168));
+and `events`/`speakers`/`event_speakers` are fully world-readable via
+unmanaged Directus Public-role grants with no version-controlled source
+([ISS-SEC-PUBLIC-UNMANAGED-001](../issues/ISS-SEC-PUBLIC-UNMANAGED-001.md),
+[GitHub #169](https://github.com/aiqadam/ai-qadam-platform/issues/169)).
+ISS-RBAC-PERMS-001 stays `in-progress`, not `resolved` — 5 of 7 policies
+(`sponsor_rep`, `organizer`, `country_lead`, `svc_bot`, `svc_worker`)
+remain unimplemented, queued as
+[`wf-rbac-perms-001-remaining-policies`](../tasks/queued/wf-rbac-perms-001-remaining-policies/handoff.yaml).
+
+`wf-20260730-fix-159`.
 **New mechanical guard: locally-filed issues can no longer silently skip GitHub registration.**
 [wf-20260730-fix-159](../tasks/completed/wf-20260730-fix-159/handoff.yaml):
 prompted by the user asking directly why 4 issues filed during

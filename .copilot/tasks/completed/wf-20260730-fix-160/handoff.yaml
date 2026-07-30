@@ -5,7 +5,7 @@ workflow_type: "issue-resolution"
 workflow_version: "1.0"
 
 created_at: "2026-07-30T00:00:00Z"
-last_updated_at: "2026-07-30T17:30:00Z"
+last_updated_at: "2026-07-30T19:13:11Z"
 
 requirement_ref: "ISS-RBAC-PERMS-001"
 requirement_text: "The seven ADR-0021 §4.1 RBAC policies have zero directus_permissions rows; policy attachment alone grants no access. This slice completes policy.member's remaining Effect clauses (read public collections; create registrations keyed to self) and implements policy.speaker in full. interaction_responses (ADR's 'feedback_responses') create is deliberately NOT implemented -- tested live, cannot be enforced at the Directus-policy level. The other five policies (sponsor_rep, organizer, country_lead, svc_bot, svc_worker) need country-scoped/cross-collection filters and are deliberately deferred to a follow-up workflow, per the issue's own prior sizing note."
@@ -15,9 +15,9 @@ branch: "fix/ISS-RBAC-PERMS-001-member-speaker-permission-rows"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/170"
 
-current_step: 9
-current_step_name: "commit-push-pr"
-workflow_status: "running"
+current_step: 12
+current_step_name: "merged"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -34,7 +34,19 @@ blocking_issue: ""
 paused_at_step: 0
 paused_at_gate: ""
 
-gate_results: {}
+gate_results:
+  step11.4-pr-steward:
+    status: passed
+    decision: override
+    failure_class: "architecture-check: apps/web-next/src/pages/events/[id]/og-card.png.ts page-not-from-generator"
+    failing_job: "architecture-check"
+    pre_existing_evidence: "PR #170 file list (bootstrap.sh + .copilot/issues/*) does not intersect apps/web-next/**; confirmed the failing file exists on origin/main HEAD (2591979) via gh api contents lookup before merging"
+    owned_by_issue: ""
+    consecutive_override_count: 1
+    counter_after_decision: 1
+    auto_registered: false
+    justification: "Pre-existing failure unrelated to this PR's diff; per AGENTS.md §6.3 user opt-out, Orchestrator bypassed via gh pr merge --squash --admin --delete-branch. All other checks (ci, build x2, pnpm audit, gitleaks, storybook, utm-lint, voice-lint) passed."
+    timestamp: "2026-07-30T19:13:00Z"
 
 agent_assignments: {}
 
@@ -80,7 +92,7 @@ business_process: ["BP-UAT-003", "BP-UAT-016"]
 post_merge_uat_runs: []
 
 artifacts:
-  - ".copilot/tasks/active/wf-20260730-fix-160/handoff.yaml"
+  - ".copilot/tasks/completed/wf-20260730-fix-160/handoff.yaml"
 
 context_refs:
   - docs/adr/0021-rbac-manifest.md
@@ -93,4 +105,4 @@ needs_review:
   stopped_at_step: 0
   stopped_at_step_name: ""
   issue_ref: ""
-  artifact_file: ".copilot/tasks/active/wf-20260730-fix-160/NEEDS_REVIEW.md"
+  artifact_file: ""
