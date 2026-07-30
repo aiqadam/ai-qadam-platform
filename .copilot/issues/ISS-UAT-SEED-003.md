@@ -163,13 +163,29 @@ event won't render as full/waitlisted in the browser today — filed as
 [ISS-EVT-004-1](ISS-EVT-004-1.md). Neither is a defect in this workflow's
 own fix; both are pre-existing gaps this workflow's research uncovered.
 
-**Honesty disclosure (AGENTS.md §6.1):** this issue's own Step 13
-(post-merge UAT re-verification against `BP-UAT-010`, mandatory per its
-`Business-Process` field) will very likely record `MISMATCH` for AC-1/
-AC-6/AC-7 as BP-UAT-010.md currently words them — not because the seed
-or the product is broken, but because the doc's own wording is wrong
-(ISS-UAT-010-1). This is disclosed here in advance, not discovered as a
-surprise at Step 13.
+**Step 13 (post-merge UAT re-verification) outcome:** `wf-20260730-uat-158`
+drove a full live agent-driven browser session against `BP-UAT-010` — the
+first time this business process has ever actually been executed
+end-to-end in this repo. AC-1/AC-4/AC-5/Negative-002 verified `MATCH`;
+AC-2 `PARTIAL` (sidebar state correct, no QR element found — a
+pre-existing, already-documented gap in the doc's own Notes); AC-3
+legitimately deferred (no mail-catcher check performed, per the doc's own
+sanctioned deferral); AC-6/AC-7 `MISMATCH` as predicted above
+(ISS-UAT-010-1's doc-wording gap). **Two new, real, previously-undiscovered
+product bugs were also found and independently corroborated against
+Directus (not just DOM text)** — both pre-existing, neither caused by
+this workflow's own change:
+[ISS-BRIDGE-STALE-001](ISS-BRIDGE-STALE-001.md) (a stale
+`platform.users.directus_user_id` cache misattributes real registrations
+to a superseded Directus user — high severity, wide blast radius, not
+limited to this test fixture) and
+[ISS-UAT-010-2](ISS-UAT-010-2.md) (a genuinely `waitlisted` registration
+renders as "You're registered" in `apps/web`'s `RegistrationSidebar`).
+Per protocol.md's Step 13 outcome-handling rule, this workflow does NOT
+sync to `agent-verified` — a new finding on the same surface means
+verification is not clean; Status remains at `implemented` for a human to
+assess, or a future workflow to resolve and then correctly reach
+`agent-verified` on its own pass.
 
 ### Non-blocking findings from the same validation pass (recorded for whoever picks this up)
 
