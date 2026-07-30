@@ -10,7 +10,7 @@
 | Reporter | Orchestrator (`wf-20260730-fix-157`, Step 2 impact analysis for ISS-UAT-SEED-003) |
 | Related | ISS-UAT-SEED-003, BP-UAT-010, FR-EVT-004 |
 | Business-Process | BP-UAT-010 |
-| GitHub-Issue | — (not yet filed; local-origin finding, filed here per AGENTS.md §14 auto-registration precedent) |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/162 |
 
 ## Symptom
 
