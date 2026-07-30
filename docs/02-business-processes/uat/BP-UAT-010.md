@@ -5,8 +5,8 @@ status: Ready
 process_ref: "docs/03-requirements/FR-REG-001.md"
 environment: "http://localhost:4321"
 seed_required: true
-last_run: "2026-07-30 (wf-20260730-uat-156, script validation only — could not execute end-to-end, see linked_issues)"
-linked_issues: [ISS-UAT-SEED-003]
+last_run: "2026-07-30 (wf-20260730-uat-158, live end-to-end run — first real execution of this script; AC-1/AC-4/AC-5/Negative-002 MATCH, AC-2 PARTIAL, AC-3 deferred (no mail-catcher check), AC-6/AC-7 MISMATCH — see linked_issues)"
+linked_issues: [ISS-UAT-SEED-003, ISS-UAT-010-1, ISS-EVT-004-1, ISS-BRIDGE-STALE-001, ISS-UAT-010-2]
 ---
 
 # BP-UAT-010 — Event Registration Flow
