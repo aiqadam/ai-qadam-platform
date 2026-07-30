@@ -34,7 +34,7 @@ at-capacity / waitlist path. Source: [FR-REG-001](../../03-requirements/FR-REG-0
 
 | Fixture | Description |
 |---|---|
-| `uat-member` | Member account (`uat-member@aiqadam.test`, password from `.env.test`), country=`uz` |
+| `uat-member` | Member account (`uat-member@example.com`, password from `.env.uat`), country=`uz` |
 | `uat-event-open-uz` | Published event in `uz`, capacity=10, 0 confirmed registrations, `starts_at` = 7 days from now |
 | `uat-event-full-uz` | Published event in `uz`, capacity=2, already 2 confirmed registrations (from other seed accounts), `starts_at` = 14 days from now |
 | `uat-member-points-baseline` | Record of `uat-member`'s `points_total` before registration (for AC-7 delta check) |
@@ -61,7 +61,7 @@ at-capacity / waitlist path. Source: [FR-REG-001](../../03-requirements/FR-REG-0
 
 **Precondition:** Step 001 completed (on event detail page or navigated away).
 
-**Action:** Navigate to `/auth/sign-in`. Sign in as `uat-member@aiqadam.test` with `UAT_MEMBER_PASSWORD`. After sign-in, navigate back to the event detail page for `uat-event-open-uz`.
+**Action:** Navigate to `/auth/sign-in`. Sign in as `uat-member@example.com` with `UAT_MEMBER_PASSWORD`. After sign-in, navigate back to the event detail page for `uat-event-open-uz`.
 
 **Expected UI state:** `RegistrationSidebar` now shows a **Register** button. User is recognized as signed in (account chip visible in nav).
 

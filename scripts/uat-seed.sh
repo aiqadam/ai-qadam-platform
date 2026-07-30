@@ -755,12 +755,27 @@ reset_identity_fixture() {
 # argument entirely and queries Directus directly.
 reset_domain_fixture() {
   local fixture_json="$1" sibling_fixtures_json="${2:-[]}"
-  local id collection lookup_field lookup_value member_email
+  local id collection lookup_field lookup_value member_email event_ref user_email
   id=$(jq -r '.id' <<<"$fixture_json")
   collection=$(jq -r '.collection' <<<"$fixture_json")
   lookup_field=$(jq -r '.lookup_field' <<<"$fixture_json")
   lookup_value=$(jq -r '.lookup_value' <<<"$fixture_json")
   member_email=$(jq -r '.payload.member_email // empty' <<<"$fixture_json")
+  # ISS-UAT-SEED-003 — BP-UAT-010's registrations fixtures need TWO FK
+  # resolutions (event + user), unlike member_consents' single member_email.
+  # event_ref names a sibling domain fixture's "id" (this manifest's own
+  # fixture id, e.g. "uat-event-full-uz") whose real Directus row was just
+  # created earlier in this same reset pass — resolved by re-querying
+  # Directus for that fixture's declared lookup_field/lookup_value (the
+  # events fixture's own title), same as this function's own delete-lookup
+  # a few lines below, just against a different collection. user_email
+  # resolves exactly like member_email (directus_user_pk_by_email), kept as
+  # a separate hint name because "member" (member_consents) and "user"
+  # (registrations) are different column names on different collections —
+  # reusing member_email's name for a different target field would be
+  # confusing to a future manifest author.
+  event_ref=$(jq -r '.payload.event_ref // empty' <<<"$fixture_json")
+  user_email=$(jq -r '.payload.user_email // empty' <<<"$fixture_json")
 
   if [[ "$UAT_SEED_DIRECTUS_MOCK" == "1" ]]; then
     if [[ -n "$member_email" ]]; then
@@ -777,6 +792,30 @@ reset_domain_fixture() {
       fi
       ok "fixture ${id} (mock, delete collection=${collection} lookup=${lookup_field}=${lookup_value})"
       ok "fixture ${id} (mock, create collection=${collection}, member_email=${member_email} resolved to member=${mock_member_id})"
+      return
+    fi
+    if [[ -n "$event_ref" || -n "$user_email" ]]; then
+      # Mock resolution for registrations fixtures: event_ref resolves
+      # against a sibling domain fixture's id in this manifest; user_email
+      # resolves against a sibling identity fixture's email — same
+      # no-network-call spirit as the member_email mock branch above.
+      local mock_event_id mock_user_id
+      mock_event_id=$(jq -r --arg r "$event_ref" \
+        '[.[] | select(.kind=="domain" and .id==$r)][0].id // empty' \
+        <<<"$sibling_fixtures_json")
+      mock_user_id=$(jq -r --arg e "$user_email" \
+        '[.[] | select(.kind=="identity" and .email==$e)][0].id // empty' \
+        <<<"$sibling_fixtures_json")
+      if [[ -n "$event_ref" && -z "$mock_event_id" ]]; then
+        fail "fixture ${id}: event_ref '${event_ref}' did not resolve to any domain fixture in this manifest (mock mode) — fixture-authoring bug, refusing to POST a broken registrations row."
+      fi
+      if [[ -n "$user_email" && -z "$mock_user_id" ]]; then
+        fail "fixture ${id}: user_email '${user_email}' did not resolve to any identity fixture in this manifest (mock mode) — fixture-authoring bug, refusing to POST a broken registrations row."
+      fi
+      local mock_event_ref_field
+      mock_event_ref_field=$(jq -r '.payload.event_ref_field // "event"' <<<"$fixture_json")
+      ok "fixture ${id} (mock, delete collection=${collection} lookup=${lookup_field}=${lookup_value})"
+      ok "fixture ${id} (mock, create collection=${collection}, event_ref=${event_ref} resolved to ${mock_event_ref_field}=${mock_event_id}, user_email=${user_email} resolved to user=${mock_user_id})"
       return
     fi
     ok "fixture ${id} (mock, delete collection=${collection} lookup=${lookup_field}=${lookup_value})"
@@ -808,6 +847,50 @@ reset_domain_fixture() {
     fi
     resolved_payload=$(jq -c --arg m "$member_id" '.member = $m' <<<"$resolved_payload")
     info "fixture ${id}: member_email '${member_email}' resolved to member=${member_id}"
+  fi
+
+  # ISS-UAT-SEED-003 — resolve an "events" FK declared by event_ref.
+  # event_ref names ANOTHER domain fixture in the same manifest by its "id"
+  # (not a Directus column) — looked up by re-reading that fixture's own
+  # lookup_field/lookup_value from the manifest and querying Directus for
+  # the row it should already have created. Requires event_ref's target
+  # fixture to appear EARLIER in the manifest's fixtures[] array (domain
+  # fixtures are processed in array order — see run_reset_for_bp's Pass 2)
+  # so the events row already exists at this point. event_ref_field names
+  # the TARGET column to write the resolved uuid onto (default "event") —
+  # different collections FK to events via different column names
+  # (registrations.event vs. point_awards.source_ref), so this cannot be
+  # hardcoded the way member_email hardcodes "member" (member_consents is
+  # the only collection member_email is used for today).
+  if [[ -n "$event_ref" ]]; then
+    local ref_fixture ref_lookup_field ref_lookup_value ref_encoded event_id event_ref_field
+    event_ref_field=$(jq -r '.payload.event_ref_field // "event"' <<<"$fixture_json")
+    ref_fixture=$(jq -c --arg r "$event_ref" '[.[] | select(.id==$r)][0]' <<<"$sibling_fixtures_json")
+    if [[ "$ref_fixture" == "null" || -z "$ref_fixture" ]]; then
+      fail "fixture ${id}: event_ref '${event_ref}' does not name any fixture id in this manifest — fixture-authoring bug."
+    fi
+    ref_lookup_field=$(jq -r '.lookup_field' <<<"$ref_fixture")
+    ref_lookup_value=$(jq -r '.lookup_value' <<<"$ref_fixture")
+    ref_encoded=$(printf '%s' "$ref_lookup_value" | jq -sRr @uri)
+    event_id=$("$CURL_BIN" -sgf \
+      -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
+      "${DIRECTUS_URL}/items/events?filter[${ref_lookup_field}][_eq]=${ref_encoded}&fields=id&limit=1" \
+      2>/dev/null | jq -r '.data[0].id // empty' 2>/dev/null || true)
+    if [[ -z "$event_id" ]]; then
+      fail "fixture ${id}: event_ref '${event_ref}' (${ref_lookup_field}=${ref_lookup_value}) did not resolve to any events row — ensure that fixture appears earlier in the manifest's fixtures[] array so it is created first."
+    fi
+    resolved_payload=$(jq -c --arg e "$event_id" --arg f "$event_ref_field" 'del(.event_ref, .event_ref_field) | .[$f] = $e' <<<"$resolved_payload")
+    info "fixture ${id}: event_ref '${event_ref}' resolved to ${event_ref_field}=${event_id}"
+  fi
+
+  if [[ -n "$user_email" ]]; then
+    local reg_user_id
+    reg_user_id=$(directus_user_pk_by_email "$DIRECTUS_URL" "$DIRECTUS_TOKEN" "$user_email")
+    if [[ -z "$reg_user_id" ]]; then
+      fail "fixture ${id}: user_email '${user_email}' did not resolve to any Directus user — fixture-authoring bug (create the identity fixture first), refusing to POST a broken registrations row."
+    fi
+    resolved_payload=$(jq -c --arg u "$reg_user_id" 'del(.user_email) | .user = $u' <<<"$resolved_payload")
+    info "fixture ${id}: user_email '${user_email}' resolved to user=${reg_user_id}"
   fi
 
   # ISS-UAT-013-14 fix: derive token_hash + token_prefix from the manifest's
@@ -859,8 +942,28 @@ reset_domain_fixture() {
   fi
 
   # Delete existing row(s) matching the lookup filter, if any.
+  #
+  # ISS-UAT-SEED-003: when lookup_field names a column this function just
+  # FK-resolved above (event/user, via event_ref/user_email — registrations
+  # has no natural pre-known-string unique column the way events.title or
+  # operator_invites.token_hash do), the manifest's declared lookup_value is
+  # a placeholder ("__resolved__") and the REAL filter value is read back
+  # out of resolved_payload instead. Every other collection's lookup_field
+  # (title, token_hash, member_email, …) is a plain string already known
+  # before resolution, so this branch is a no-op for them — resolved_payload
+  # simply doesn't contain lookup_field as a key in that case, and the
+  # declared lookup_value is used unchanged (unless the fixture's payload
+  # itself happens to also use the same key name).
   # `-g` disables curl's URL-bracket parsing (see directus_user_pk_by_email).
   local encoded_value existing_ids existing_id
+  local resolved_lookup_value
+  resolved_lookup_value=$(jq -r --arg f "$lookup_field" '.[$f] // empty' <<<"$resolved_payload")
+  if [[ "$lookup_value" == "__resolved__" ]]; then
+    if [[ -z "$resolved_lookup_value" ]]; then
+      fail "reset_domain_fixture ${id}: lookup_value is '__resolved__' but resolved_payload has no '${lookup_field}' key — fixture-authoring bug (event_ref/user_email must resolve into the same field named by lookup_field)."
+    fi
+    lookup_value="$resolved_lookup_value"
+  fi
   encoded_value=$(printf '%s' "$lookup_value" | jq -sRr @uri)
   existing_ids=$("$CURL_BIN" -sgf \
     -H "Authorization: Bearer ${DIRECTUS_TOKEN}" \
@@ -904,7 +1007,21 @@ resolve_payload_offsets() {
   local fixture_json="$1"
   local payload keys k
   payload=$(jq -c '.payload' <<<"$fixture_json")
-  keys=$(jq -r '.payload | keys[] | select(endswith("_offset"))' <<<"$fixture_json")
+  # ISS-UAT-SEED-003: the native Windows jq.exe on this machine emits CRLF
+  # line endings for jq -r's multi-line output (confirmed via xxd: each
+  # line but the last ends "...\r\n"). `for k in $keys` word-splits on
+  # IFS whitespace, which includes \r — every key except the LAST one in
+  # the list then carries a trailing \r (e.g. "ends_at_offset\r"), so its
+  # .payload["ends_at_offset\r"] lookup below finds no such key and
+  # silently resolves to `null`, which date_offset() then rejects with
+  # "unknown unit 'null'". This was a LATENT pre-existing bug (also
+  # affects BP-UAT-001.json's uat-event-draft-uz, which has the same
+  # 2-offset-key shape) — mock mode never calls this function at all, so
+  # bats never exercised it; it only surfaced on this machine's first-ever
+  # live `--reset` run against a fixture with 2+ *_offset keys. `tr -d
+  # '\r'` is the same fix idiom env_get() already uses for the identical
+  # class of Windows-CRLF-in-captured-output problem.
+  keys=$(jq -r '.payload | keys[] | select(endswith("_offset"))' <<<"$fixture_json" | tr -d '\r')
   for k in $keys; do
     local spec unit resolved base_key
     spec=$(jq -r ".payload[\"$k\"].spec" <<<"$fixture_json")

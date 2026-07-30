@@ -1014,3 +1014,158 @@ manifest_sha256() {
   grep -qE 'user_pk_by_email' "$REPO_ROOT/scripts/uat-seed.sh"
   grep -qE 'authentik_user_id.*ak_user_pk_reset|ak_user_pk_reset.*authentik_user_id' "$REPO_ROOT/scripts/uat-seed.sh"
 }
+
+# ─── ISS-UAT-SEED-003: BP-UAT-010 seed fixtures (events/registrations/points) ──
+# scripts/uat-fixtures/BP-UAT-010.json is a new manifest introducing two FK
+# resolution hints reset_domain_fixture() did not previously support:
+#   event_ref        — resolves another domain fixture's id (by re-reading
+#                       its own lookup_field/lookup_value from the manifest)
+#                       into a target column (default "event"; overridable
+#                       via event_ref_field, e.g. "source_ref" for
+#                       point_awards).
+#   user_email       — resolves to a Directus user id onto ".user" (same
+#                       spirit as member_email -> ".member", different
+#                       target column name since registrations/point_awards
+#                       are not member_consents).
+#   "__resolved__"   — a lookup_value sentinel: registrations/point_awards
+#                       have no natural pre-known-string unique column, so
+#                       the delete-lookup step reads the ALREADY-RESOLVED
+#                       payload's lookup_field value instead of the literal
+#                       manifest string.
+# These tests exercise all three in mock mode (no live Directus needed).
+
+@test "ISS-UAT-SEED-003 AC-1: BP-UAT-010.json is valid JSON with the expected fixture ids" {
+  run jq -r '.fixtures[].id' "$REPO_ROOT/scripts/uat-fixtures/BP-UAT-010.json"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "uat-member"
+  echo "$output" | grep -qx "uat-event-full-filler-1"
+  echo "$output" | grep -qx "uat-event-full-filler-2"
+  echo "$output" | grep -qx "uat-event-open-uz"
+  echo "$output" | grep -qx "uat-event-full-uz"
+  echo "$output" | grep -qx "uat-event-full-reg-1"
+  echo "$output" | grep -qx "uat-event-full-reg-2"
+  echo "$output" | grep -qx "uat-member-points-baseline"
+}
+
+@test "ISS-UAT-SEED-003 AC-2: --reset BP-UAT-010 mock mode exits 0 and resets all 8 fixtures" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-010 2>&1'
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "BP-UAT-010 reset complete (8 fixture(s))"
+}
+
+@test "ISS-UAT-SEED-003: registrations fixtures resolve event_ref + user_email in mock mode" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-010 2>&1'
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "event_ref=uat-event-full-uz resolved to event=uat-event-full-uz"
+  echo "$output" | grep -q "user_email=uat-event-full-filler-1@example.com resolved to user=uat-event-full-filler-1"
+  echo "$output" | grep -q "user_email=uat-event-full-filler-2@example.com resolved to user=uat-event-full-filler-2"
+}
+
+@test "ISS-UAT-SEED-003: point_awards fixture resolves event_ref onto the overridden source_ref field, not event" {
+  # event_ref_field="source_ref" in the manifest must change the TARGET
+  # column the resolved event id is written to — point_awards has no
+  # "event" column at all (its FK to events is named source_ref).
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-010 2>&1'
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "event_ref=uat-event-open-uz resolved to source_ref=uat-event-open-uz"
+}
+
+@test "ISS-UAT-SEED-003: uat-member identity fixture is reset (not recreated) matching the unconditional STEP 3 user" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset BP-UAT-010 2>&1'
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "identity uat-member (mock, reset username=uat-member, email=uat-member@example.com, groups=aiqadam-member)"
+}
+
+@test "ISS-UAT-SEED-003: --reset all still resets BP-UAT-001/013/020 unchanged alongside the new BP-UAT-010 (no cross-manifest regression)" {
+  run bash -c 'UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash "$REPO_ROOT/scripts/uat-seed.sh" --reset all 2>&1'
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "BP-UAT-001 reset complete (5 fixture(s))"
+  echo "$output" | grep -q "BP-UAT-010 reset complete (8 fixture(s))"
+  echo "$output" | grep -q "BP-UAT-013 reset complete (4 fixture(s))"
+  echo "$output" | grep -q "BP-UAT-020 reset complete (1 fixture(s))"
+}
+
+@test "ISS-UAT-SEED-003: unresolvable event_ref fails loudly in mock mode, refusing to POST a broken registrations row" {
+  # Copies uat-seed.sh + fixtures into an isolated tmpdir (same technique
+  # the existing FR-WORKFLOW-003 corruption tests use) so a deliberately
+  # broken event_ref can be tested without touching the real manifest.
+  local tmp="$BATS_TEST_TMPDIR/broken-event-ref"
+  mkdir -p "$tmp/scripts/uat-fixtures"
+  cp "$REPO_ROOT/scripts/uat-seed.sh" "$tmp/scripts/uat-seed.sh"
+  jq '.fixtures[] |= (if .id == "uat-event-full-reg-1" then .payload.event_ref = "nonexistent-fixture-id" else . end)' \
+    "$REPO_ROOT/scripts/uat-fixtures/BP-UAT-010.json" > "$tmp/scripts/uat-fixtures/BP-UAT-010.json"
+
+  run bash -c "UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash '$tmp/scripts/uat-seed.sh' --reset BP-UAT-010 2>&1"
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -q "event_ref 'nonexistent-fixture-id' did not resolve to any domain fixture"
+}
+
+@test "ISS-UAT-SEED-003: unresolvable user_email fails loudly in mock mode, refusing to POST a broken registrations row" {
+  local tmp="$BATS_TEST_TMPDIR/broken-user-email"
+  mkdir -p "$tmp/scripts/uat-fixtures"
+  cp "$REPO_ROOT/scripts/uat-seed.sh" "$tmp/scripts/uat-seed.sh"
+  jq '.fixtures[] |= (if .id == "uat-event-full-reg-1" then .payload.user_email = "nobody@example.com" else . end)' \
+    "$REPO_ROOT/scripts/uat-fixtures/BP-UAT-010.json" > "$tmp/scripts/uat-fixtures/BP-UAT-010.json"
+
+  run bash -c "UAT_SEED_DIRECTUS_MOCK=1 DIRECTUS_TOKEN=mock-token bash '$tmp/scripts/uat-seed.sh' --reset BP-UAT-010 2>&1"
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -q "user_email 'nobody@example.com' did not resolve to any identity fixture"
+}
+
+@test "ISS-UAT-SEED-003: registrations.status uses real values (registered/waitlisted), never BP-UAT-010.md's old confirmed/waitlist wording" {
+  # Guards against a future edit accidentally reintroducing the wrong
+  # field values that ISS-UAT-010-1 documents as a real discrepancy
+  # between BP-UAT-010.md's prose and the actual Directus schema.
+  run jq -r '.fixtures[] | select(.collection == "registrations") | .payload.status' \
+    "$REPO_ROOT/scripts/uat-fixtures/BP-UAT-010.json"
+  [ "$status" -eq 0 ]
+  ! echo "$output" | grep -qE "confirmed|waitlist$"
+  echo "$output" | grep -q "^registered$"
+}
+
+@test "ISS-UAT-SEED-003: resolve_payload_offsets resolves ALL *_offset keys, not just the last, even under jq.exe's CRLF multi-line output" {
+  # Regression for a real bug found live on this machine: the native
+  # Windows jq.exe build emits CRLF line endings for jq -r's multi-line
+  # output (confirmed via xxd). `for k in $keys` word-splits on IFS
+  # (which includes \r), so every key except the LAST in the list
+  # carried a trailing \r (e.g. "ends_at_offset\r") — its
+  # .payload["ends_at_offset\r"] lookup then silently resolved to `null`,
+  # and date_offset() rejected it with "unknown unit 'null'". This was
+  # ALREADY a latent bug before this workflow (BP-UAT-001.json's
+  # uat-event-draft-uz fixture has the same 2-offset-key shape) — mock
+  # mode never calls resolve_payload_offsets() at all, so no existing
+  # bats test ever exercised the live date_offset() path. Fixed with
+  # `tr -d '\r'` on the keys= line, mirroring env_get()'s existing fix
+  # for the identical class of problem. This test sources both functions
+  # directly (same technique as uat-seed-iss-001.bats's env_get test)
+  # and drives resolve_payload_offsets on a fixture with 2 offset keys
+  # where the FIRST alphabetically (ends_at_offset) is the one that used
+  # to break.
+  run bash -c "
+    source <(sed -n '/^date_offset()/,/^}/p' '$REPO_ROOT/scripts/uat-seed.sh')
+    source <(sed -n '/^resolve_payload_offsets()/,/^}/p' '$REPO_ROOT/scripts/uat-seed.sh')
+    fixture_json='{\"payload\":{\"title\":\"x\",\"starts_at_offset\":{\"spec\":\"+7\",\"unit\":\"days\"},\"ends_at_offset\":{\"spec\":\"+7\",\"unit\":\"days\"}}}'
+    resolve_payload_offsets \"\$fixture_json\"
+  "
+  [ "$status" -eq 0 ]
+  # Both starts_at and ends_at must be resolved to real ISO timestamps —
+  # neither may be null, and neither key name may retain a literal offset
+  # suffix or an embedded \r.
+  echo "$output" | jq -e '.starts_at != null and .ends_at != null' >/dev/null
+  echo "$output" | jq -e '.starts_at_offset == null and .ends_at_offset == null' >/dev/null
+  ! echo "$output" | grep -qP '\r'
+}
+
+@test "ISS-UAT-SEED-003 AC-3: no manifest declares an identity/payload email at the retired @aiqadam.test domain" {
+  # Deliberately narrower than a blanket grep: BP-UAT-010.json's own note
+  # field legitimately MENTIONS uat-member@aiqadam.test prose ("NOT
+  # uat-member@aiqadam.test, which ... incorrectly still reference") to
+  # document what was fixed — that is not a live fixture value and must
+  # not fail this test. This checks the actual .email / .payload.*email*
+  # JSON values only, across every manifest.
+  local f emails
+  for f in "$REPO_ROOT"/scripts/uat-fixtures/*.json; do
+    emails=$(jq -r '[.fixtures[] | (.email // empty), (.payload.email // empty), (.payload.member_email // empty), (.payload.user_email // empty)] | .[]' "$f")
+    ! echo "$emails" | grep -q "@aiqadam.test"
+  done
+}
