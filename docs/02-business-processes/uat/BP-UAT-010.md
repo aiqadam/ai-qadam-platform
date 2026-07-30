@@ -5,7 +5,8 @@ status: Ready
 process_ref: "docs/03-requirements/FR-REG-001.md"
 environment: "http://localhost:4321"
 seed_required: true
-last_run: ""
+last_run: "2026-07-30 (wf-20260730-uat-156, script validation only — could not execute end-to-end, see linked_issues)"
+linked_issues: [ISS-UAT-SEED-003]
 ---
 
 # BP-UAT-010 — Event Registration Flow
