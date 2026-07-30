@@ -1,6 +1,36 @@
 # Workspace State
 
-**Last updated:** 2026-07-30 — `wf-20260730-uat-158`.
+**Last updated:** 2026-07-30 — `wf-20260730-fix-159`.
+**New mechanical guard: locally-filed issues can no longer silently skip GitHub registration.**
+[wf-20260730-fix-159](../tasks/completed/wf-20260730-fix-159/handoff.yaml):
+prompted by the user asking directly why 4 issues filed during
+`wf-20260730-fix-157`/`-uat-158` never got pushed to GitHub — the sync
+call is deliberately best-effort/non-blocking, so a skipped call produces
+no error anywhere. New `scripts/check-github-issue-links.sh` scans
+`registry.md` and fails if any issue whose own file's `Status` header is
+non-terminal has no real `GitHub-Issue` link (placeholder text and empty
+fields both count as missing). Wired into two enforcement points:
+`check-workflow-state.sh` Step 0.5 (every workflow start, full-registry
+scan against the base ref) and `QualityGate` §8.5 (scoped to workflows
+that themselves touch an issue file). Found and fixed 2 real pre-existing
+gaps while building this — `ISS-ADM-010-1` had no GitHub link at all
+(created as issue #164) and `ISS-WF-REG-002`'s own file header still said
+`Status: open` despite its Resolution section documenting all 4 ACs
+already verified (the registry row correctly said `resolved` — the
+file's own header had simply never been flipped, the exact drift class
+`ISS-WF-REG-001`/`002` themselves already document) — flipped to match.
+Both fixed in this same PR so the new check ships green against `main`
+rather than immediately blocking every future workflow. 12 new bats
+tests, including a regression test for a real bug found while writing
+the script itself: an older-format issue file with no `\| Status \|`
+table row caused an unguarded `grep -m1` no-match to exit 1, which under
+this script's `set -e` silently aborted the entire scan mid-loop with no
+error printed — every ID alphabetically after that file (including
+`ISS-WF-REG-002`, this change's own motivating example) went unchecked.
+Fixed with `|| true` on both grep pipelines that can legitimately
+find-nothing.
+
+`wf-20260730-uat-158`.
 **BP-UAT-010 executed live end-to-end for the first time ever in this repo (Step 13 post-merge re-verification for ISS-UAT-SEED-003) — mostly clean, but surfaced 2 new real product bugs unrelated to the seed-fixture fix itself.**
 [wf-20260730-uat-158](../tasks/completed/wf-20260730-uat-158/handoff.yaml)
 (PR [#157](https://github.com/aiqadam/ai-qadam-platform/pull/157)):

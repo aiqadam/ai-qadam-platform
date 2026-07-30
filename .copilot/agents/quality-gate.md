@@ -138,6 +138,42 @@ step) and message:
 This check is **additive** to checks 1–7. The post-merge verification in
 Step 11.5 / 12.5 re-runs sub-check 8b against `main` after the merge lands.
 
+### 8.5. GitHub-Issue Link Check (added after wf-20260730-fix-157/-uat-158)
+
+Guards against the exact gap found live in that workflow: 4 new
+`ISS-*.md` files were created and registered in `registry.md` but never
+pushed to GitHub via `scripts/sync-github-project.sh` — the sync call is
+documented as best-effort/non-blocking (so a missed call produces no
+error anywhere), which is how it went unnoticed until the user asked
+directly.
+
+**Only relevant when this workflow created or modified an issue file**
+(`issues_created` is non-empty in `handoff.yaml`, or `issue_ref` was
+newly registered this run). Otherwise skip.
+
+**Check:**
+```bash
+bash scripts/check-github-issue-links.sh
+```
+
+- Exit 0 → passed, no action needed.
+- Exit 1 → **GATE FAILURE**. The output lists which `ISS-<n>` lacks a
+  real `GitHub-Issue` link. Fix by running, for each listed issue:
+  ```bash
+  scripts/sync-github-project.sh --ref ISS-<n> --status todo \
+    --title "<issue title>" --body-file <path-to-symptom-text> \
+    --severity <severity>
+  ```
+  then back-fill the returned `GITHUB_ISSUE_URL` into the issue file's
+  `GitHub-Issue` header field, per the existing Step 1 convention.
+- Exit 2 → invocation error (missing files, not a git repo) — fix the
+  underlying problem, do not treat as a pass.
+
+This check does NOT require every historical issue in the repo to have a
+link — only issues this workflow itself touched. (The full-registry scan
+is what Step 0.5's `check-workflow-state.sh` runs on every workflow
+start, covering drift from ANY prior workflow, not just this one.)
+
 ### 7. Branch and Commit Readiness
 - **CLEAN TREE INVARIANT (mandatory):** Run `git status -sb` and verify output shows `[up to date with 'origin/<branch>']`. A state of `[ahead N]`, `[behind N]`, or diverged is a **GATE FAILURE**.
 - **FORMATTER CLEANLINESS (mandatory):** Run `pnpm biome check .` and verify no output. Any dirty file is a GATE FAILURE even if the tree is otherwise clean. This guards against formatter drift that only surfaces after commit.
@@ -205,6 +241,7 @@ Required sections:
 - `## Branch and Commit Readiness` — `git status --porcelain` empty; `git status -sb` shows `[up to date with origin/<branch>]`; `pnpm biome check` clean; `handoff.yaml.github_pr_url` non-empty
 - `## Documentation Check` — required docs updated; feature marked ✅ implemented
 - `## Status-Consistency Check` (FEAT-WORKFLOW-003) — both files in pair present in diff; status values agree; terminal value correct; atomicity noted
+- `## GitHub-Issue Link Check` — result of `scripts/check-github-issue-links.sh` for any issue this workflow created/modified (or "N/A — no issue files touched this workflow")
 - `## Final Assessment` — one paragraph
 - `## Gate Result` — per `.copilot/schemas/protocol.md` format
 

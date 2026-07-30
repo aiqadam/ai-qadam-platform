@@ -310,6 +310,39 @@ on `ISS-<n>.md`; `FR-<CODE>` refs are always Feature):
 | `enhancement`, `minor`, `operational` | Task |
 | (any FR-* requirement) | Feature |
 
+### Mechanical guard: `scripts/check-github-issue-links.sh` (added after wf-20260730-fix-157/-uat-158)
+
+The sync call above is documented as best-effort/non-blocking — correctly,
+since a transient GitHub API failure shouldn't fail a workflow's gate —
+but that same design means a step that simply forgets to make the call
+produces no error anywhere. This happened live: 4 new `ISS-*.md` files
+were created and registered in `registry.md` during a single session but
+never synced, and the gap wasn't noticed until the user asked directly
+whether new issues get registered in GitHub.
+
+`scripts/check-github-issue-links.sh` is the mechanical backstop. It
+scans `.copilot/issues/registry.md`, and for every issue whose own
+`ISS-<n>.md` header `Status` field is non-terminal (anything other than
+`resolved` or a `closed (...)` variant), verifies that file's
+`GitHub-Issue` field holds a real link — not empty, not a `—`/"not yet
+filed" placeholder. It is wired into two enforcement points:
+
+- **`scripts/check-workflow-state.sh`** (Step 0.5, every workflow start)
+  — runs the full-registry scan against the base ref, so drift from ANY
+  prior workflow blocks the next workflow from starting until reconciled.
+- **QualityGate** (`.copilot/agents/quality-gate.md` §8.5) — runs at the
+  end of a workflow that itself created/modified an issue file, so the
+  gap is caught before the workflow reports itself done, not just at the
+  next workflow's start.
+
+Deliberately reads each issue file's own `Status` header field as
+authoritative, not `registry.md`'s Status column — the two can drift
+(found live while writing this check: `ISS-WF-REG-002`'s registry row
+said `resolved` while its own file still said `open`, the exact drift
+class `ISS-WF-REG-001`/`ISS-WF-REG-002` already document), and trusting
+the issue file catches that drift too rather than silently propagating
+whichever one happens to be wrong.
+
 ### Deferred: full GitHub-as-source-of-truth (Phase 2, not designed here)
 
 Whether the markdown files (`registry.md`, `ISS-<n>.md`, `FR-<CODE>.md`,
