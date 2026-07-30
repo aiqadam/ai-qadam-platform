@@ -9,7 +9,7 @@
 | Status | in-progress (`policy.member` + `policy.speaker` done; 5 policies remain) |
 | Reported | 2026-07-28 |
 | Resolved | — |
-| Workflow | `wf-20260728-fix-144` (policy.member own-row slice) → `wf-20260730-fix-160` (policy.member public-read/create-registration + policy.speaker); remaining 5 policies still queued, not yet a task directory |
+| Workflow | `wf-20260728-fix-144` (policy.member own-row slice) → `wf-20260730-fix-160` (policy.member public-read/create-registration + policy.speaker, [PR #170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash `08932ab`); remaining 5 policies queued as `wf-rbac-perms-001-remaining-policies` |
 | Reporter | Orchestrator (discovered while verifying the fix for [ISS-UAT-RBAC-001](ISS-UAT-RBAC-001.md)) |
 | Business-Process | BP-UAT-003, BP-UAT-016 (and, by the same mechanism, any BP-UAT that needs a fully-permissioned authenticated member session) |
 
@@ -147,7 +147,7 @@ Suggested Approach below, items 3–7 — still accurate). Queued as
 ## Resolution (partial — this issue stays `in-progress`, not `resolved`)
 
 - **Workflow:** `wf-20260730-fix-160`
-- **PR:** <pending — set by workflow-finish.sh>
+- **PR:** [#170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash `08932ab` (merged 2026-07-30, admin override on pre-existing unrelated `architecture-check` failure — see PR-Steward gate record in `wf-20260730-fix-160`'s archived `handoff.yaml`)
 - **Shipped:** `policy.member`'s remaining two Effect clauses (public
   reads, create-own-registration) and `policy.speaker` in full, plus 3
   real Directus-behavior bug fixes discovered while proving the grants
