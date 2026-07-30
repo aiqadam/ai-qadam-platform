@@ -126,6 +126,64 @@ docker compose exec authentik-server ak shell -c \
 
 This is **local-dev only**. The production password lives in 1Password and is rotated via the admin UI.
 
+### Any Authentik email-stage feature silently fails to deliver mail (recovery flow, invitations, notifications, etc.)
+
+Discovered while fixing ISS-USR-PWRESET-001 (`wf-20260707-fix-118-flaky-playwright-authentik`):
+by default, `docker-compose.yml`'s `authentik-server`/`authentik-worker`
+services do **not** configure `AUTHENTIK_EMAIL__*` at all, so Authentik
+falls back to Django's SMTP default (`localhost:25`), which nothing
+listens on inside either container. Every `send_mail` task fails with
+`ConnectionRefusedError` and no email ever reaches Mailpit — this
+affects **any** Authentik flow that uses an email stage, not just
+password recovery (invitation emails, notification emails, etc., would
+hit the same wall).
+
+**Two separate things must both be correct** — this bit us twice
+because fixing only one looked like it worked but didn't:
+
+1. **Global config** — `infrastructure/docker-compose.yml` sets
+   `AUTHENTIK_EMAIL__HOST=mailpit`, `AUTHENTIK_EMAIL__PORT=1025`,
+   `AUTHENTIK_EMAIL__USE_TLS=false`, `AUTHENTIK_EMAIL__USE_SSL=false`,
+   `AUTHENTIK_EMAIL__FROM` on **both** `authentik-server` and
+   `authentik-worker` (the worker is the process that actually executes
+   `send_mail` — environment blocks are not shared between services
+   even though both use the same image).
+2. **Per-stage override** — any individual `EmailStage` row in the
+   database has its own `use_global_settings` boolean. If it's `false`,
+   the stage uses its own `host`/`port` fields directly, **ignoring**
+   the global config from (1) entirely (see
+   `authentik/stages/email/models.py`'s `EmailStage.backend` property).
+   A stage created with `use_global_settings=false` — or one that
+   silently drifted to `false` via a partial API PATCH — will still
+   fail with the exact same `ConnectionRefusedError` even after (1) is
+   fixed. Check via Django shell:
+   ```bash
+   docker exec aiqadam-authentik-worker python3 -c "
+   import django, os
+   os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'authentik.root.settings')
+   django.setup()
+   from authentik.stages.email.models import EmailStage
+   for s in EmailStage.objects.all():
+       print(s.name, s.use_global_settings, s.host, s.port)
+   "
+   ```
+   If any stage shows `False` with a stale `host`/`port`, PATCH it to
+   `use_global_settings: true` (or use
+   `scripts/provision-authentik-recovery-flow.sh`'s
+   `ensure_email_stage()` as a reference — it now idempotently
+   re-asserts this on every run).
+
+Separately, if the flow itself sends a confirmation/verification email
+but then never lets the user act on it (e.g. no follow-up stage
+mounts), check the flow's actual `FlowStageBinding`s —
+`GET /api/v3/flows/bindings/?target=<flow-uuid>` — for a missing stage.
+The password-recovery flow originally shipped with only an
+identification + email stage bound; it needed Authentik's own built-in
+`default-password-change-prompt` + `default-password-change-write`
+stages bound afterward for the flow to actually let a user set a new
+password. Don't assume a flow that "sends the email successfully" is
+functionally complete — check its full stage binding list.
+
 ## What's next
 
 PR #7 wires the API against this OIDC application. PR #8 wires the web. After both land, this runbook becomes a true end-to-end smoke test for the auth stack.

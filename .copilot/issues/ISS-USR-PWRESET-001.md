@@ -6,14 +6,16 @@
 | GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/122 |
 | Severity | blocker |
 | Module | auth / member self-service |
-| Status | **in-progress** |
+| Status | **resolved** |
+| Resolved | 2026-07-30 |
 | Reported | 2026-07-07 |
 | Reporter | User (chat: "I don't remember my password. I can't restore it.") |
 | Affected surface | `apps/web` (apps/web-next too) — sign-in / `/me` |
-| PR | [#131](https://github.com/tvolodi/aiqadam/pull/131) |
-| Squash SHA | `c4ec5a040f43c48d66cf4e34ea5cc1bfd1a32934` |
-| Merged at | 2026-07-07T04:26:30Z |
-| Workflow | wf-20260707-fix-117 (squashed into PR #131) |
+| PR | [#131](https://github.com/tvolodi/aiqadam/pull/131) (Path A wiring), follow-up PR `<pending>` (this workflow — actual functional fix) |
+| Squash SHA | `c4ec5a040f43c48d66cf4e34ea5cc1bfd1a32934` (PR #131); `<pending>` (this workflow) |
+| Merged at | 2026-07-07T04:26:30Z (PR #131); `<pending>` (this workflow) |
+| Workflow | wf-20260707-fix-117 (PR #131) → wf-20260707-fix-118-flaky-playwright-authentik (this workflow, resolved) |
+| Business-Process | BP-UAT-009, BP-USR-PWRESET |
 
 ## Symptom
 
@@ -141,90 +143,100 @@ API. See [docs/04-development/infrastructure/runbooks/authentik-ropc.md](../04-d
 "Password reset" section. The user must then sign in with the new
 password and change it via `/me`.
 
-## Resolution (in-progress, AC-by-AC)
+## Resolution
 
-As of 2026-07-07, the fix is **substantively landed** on
-`fix/ISS-USR-PWRESET-001-authentik-recovery-flow` (branch). The
-earlier "image missing ak-stage-email" diagnosis (committed at
-`1b95d27`) was **wrong**; the image is the upstream
-`ghcr.io/goauthentik/server:2024.12.3`, and the provision script v2
-(created in commit `3d16a2f`) successfully instantiates the email
-stage via `POST /api/v3/stages/email/` against the running container.
+### Summary — this is bigger than "fixed flaky tests"
 
-The issue remains `in-progress` because two of the seven ACs depend
-on the Playwright suite, which is currently affected by a
-pre-existing test-infra flake (not introduced by this PR — see
-below).
+**The password-recovery feature shipped in PR #131 (merged
+2026-07-07, `wf-20260707-fix-117`) was never actually functional
+end-to-end.** Authentik's recovery flow had only an identification
+stage and an email stage bound — no password-entry stage existed at
+all. A real member could request a reset, receive the correctly
+branded email, click the link, and see "Successfully verified
+Email" — and then land back on the login page with **no way to
+actually set a new password**. This was not visible in the parent
+workflow's own testing because that workflow's Playwright suite never
+got far enough to reach the missing stage; its 0/6 failure was
+misdiagnosed as a Playwright/Lit-hydration timing flake, and the
+workflow deferred verification rather than discovering the real gap.
+
+This workflow (`wf-20260707-fix-118-flaky-playwright-authentik`,
+originally scoped only as "fix the Playwright flake") instead found
+and fixed **12 independent, evidence-backed root causes** — none of
+them a timing flake. The most significant is the missing password-entry
+stage above. Full detail, with the exact evidence for each cause, is
+in `.copilot/tasks/completed/wf-20260707-fix-118-flaky-playwright-authentik/06-test-strategy.md`.
+
+The recovery flow is now, for the first time, **live-verified working
+end-to-end**: a member can request a reset, receive the email, click
+the link, set a new password, and sign in with it — confirmed via a
+real Playwright browser session against a live Authentik instance,
+Mailpit, and the app, with no mocks.
 
 ### AC-by-AC disposition (per AGENTS.md §6.1)
 
 | AC | Description | Disposition | Evidence |
 |---|---|---|---|
-| **AC-1** | Anonymous user can navigate to recovery flow URL | **verified** | bats #3: `curl /if/flow/default-recovery-flow/` → 200 |
-| **AC-2** | "Forgot password?" link on Authentik login UI | **verified (protocol-level)** | Brand config exposes `flow_recovery: default-recovery-flow`; Authentik renders the link from brand config (not from Astro) |
-| **AC-3** | Submitting recovery form sends email to Mailpit | **deferred** | bats covers subject + template; end-to-end via Playwright Step 002 deferred to `wf-20260707-fix-118-flaky-playwright-authentik` |
-| **AC-4** | Recovery email subject is branded | **verified** | bats #2: PATCH then GET, subject="Reset your AI Qadam password" |
-| **AC-5** | User can complete recovery + sign in with new password | **deferred** | Playwright Steps 002 + 005 deferred to `wf-20260707-fix-118-flaky-playwright-authentik` |
-| **AC-6** | BP-UAT-009 sign-in not regressed | **verified-not-regressed-by-this-PR** | BP-UAT-009 baseline 1/9 on this stack BEFORE any PR changes — the failure is pre-existing test-infra, not introduced here |
-| **AC-7** | Host allow-list prevents non-allow-listed origin | **verified** | bats #5: allow-list rejects unknown host; provision script enforces it |
+| **AC-1** | Anonymous user can navigate to recovery flow URL | **verified** | bats: `curl /if/flow/default-recovery-flow/` → 200 |
+| **AC-2** | "Forgot password?" link on Authentik login UI | **verified** | Playwright `BP-USR-PWRESET.spec.ts` Step 001 — passes live |
+| **AC-3** | Submitting recovery form sends email to Mailpit | **verified end-to-end** (was deferred) | Playwright Step 002 — a real recovery email is received in Mailpit, correctly branded |
+| **AC-4** | Recovery email subject is branded | **verified** | bats + Playwright Step 004 |
+| **AC-5** | User can complete recovery + sign in with new password | **verified end-to-end** (was deferred) | Playwright Step 002 — the FULL flow now works: identifier → email → link → new password → session established → confirmed at `/me` |
+| **AC-6** | BP-UAT-009 sign-in not regressed | **verified-not-regressed** | 7/9 this session vs. 1/9 documented baseline — an improvement; the 2 remaining failures are pre-existing, already-documented, unrelated soft-assertion discrepancies (see below) |
+| **AC-7** | Host allow-list prevents non-allow-listed origin | **verified** | bats — unchanged, still enforced |
 
-### What's verified end-to-end (bats 7/7)
+**All 7 ACs are verified. No deferrals remain.**
 
-- `scripts/provision-authentik-recovery-flow.sh` (v2, 316 lines, idempotent).
-  Successfully created on this Authentik instance:
-  - Brand UUID `83c02944-ed75-49f1-83c8-a27fdeb0a562`
-  - Recovery flow `793de1f2-a5b0-4350-bf0c-a04921b1e74c` (slug=`default-recovery-flow`)
-  - IdentificationStage `d7af7ff9-b289-4a20-8199-5b79fda7b2a6`
-  - EmailStage `12fdd5d7-6f94-4655-8746-ba20ff18ce47` (subject="Reset your AI Qadam password")
-  - Both FlowStageBindings active
-  - Brand.flow_recovery bound
-- `scripts/uat-env-setup.sh` was updated to invoke the provision
-  script as STEP 7b/9.
-- `scripts/tests/provision-authentik-recovery-flow.bats` — 7/7 passing
-  end-to-end against live Authentik. Includes a deliberate
-  before-fix 404 / after-fix 200 assertion in test #3 against the
-  slug URL `/if/flow/default-recovery-flow/` (the brand-keyed
-  `/if/flow/recovery/` requires Host domain match, which local dev
-  lacks — documented in the test comment).
-- `apps/e2e/tests/uat/BP-USR-PWRESET.spec.ts` — 6 tests committed
-  (in `08670ef`), but cannot pass on this stack due to the
-  pre-existing Playwright timing flake (see below).
-- `docs/02-business-processes/operations/member-password-reset.md`
-  and `docs/02-business-processes/uat/BP-USR-PWRESET.md` written.
-- `docs/04-development/architecture/auth-architecture.md` §6.6
-  updated from "TODO" to "Wired via scripts/provision-authentik-recovery-flow.sh".
+### What was fixed (12 root causes — see `06-test-strategy.md` for full evidence per cause)
 
-### What's deferred and why
-
-AC-3 and AC-5 depend on Playwright reaching the Authentik-rendered
-form fields. The Playwright suite fails at the Authentik Lit web-
-component hydration timing point. To rule out a regression
-introduced by this PR, BP-UAT-009 (the production sign-in baseline)
-was re-run on the same stack with no changes — it returned **1/9**,
-confirming the failure is pre-existing. The flake affects every
-Authentik-backed Playwright spec on this stack, not just
-BP-USR-PWRESET.
-
-The deferred ACs are bounded and named: follow-up workflow
-**`wf-20260707-fix-118-flaky-playwright-authentik`** is queued at
-`.copilot/tasks/queued/wf-20260707-fix-118-flaky-playwright-authentik/`
-with handoff.yaml. That workflow will fix the Lit hydration wait
-pattern across BP-UAT-009 + BP-USR-PWRESET in one PR, re-run both
-to ≥ previous pass count + 1, and flip this issue to `resolved`.
+1. Test-invocation discipline gap (unseeded email when `.env.uat` wasn't loaded) — documented, not a code fix.
+2. `BP-UAT-009` false-positive assertion regex on `AnonView`'s own marketing copy.
+3. Wrong recovery URL (brand-keyed 404s locally by design) + wrong flow-stage check for the forgot-password link.
+4. Authentik containers never configured `AUTHENTIK_EMAIL__*` at all — recovery emails failed with `ConnectionRefusedError` and never reached Mailpit.
+5. The `EmailStage` database row's `use_global_settings=false` independently overrode the env-var fix (#4) with a stale `host=localhost, port=25`.
+6. `BP-USR-PWRESET` Step 002 extracted the reset link from the email but never navigated to it, and wrongly assumed password entry happens in the same browser session as the identifier submission.
+7. Step 003's expected "neutral copy" text was a never-verified guess, not the real Authentik copy.
+8. **The recovery flow was missing its password-entry stage bindings entirely** — the single most significant finding, described above.
+9. `signInViaAuthentik`'s button-text regex was too narrow, missing the "Log in" label variant.
+10. A navigation race against the recovery flow's own async success redirect, plus a wrong assumption that a fresh Authentik sign-in round-trip was always required afterward (Authentik's write stage auto-establishes a session).
+11. `/me/profile` has no password-change form at all, so the test's password-restore mechanism silently no-op'd every run, permanently corrupting the test fixture's password.
+12. `waitForRecoveryEmail`'s polling had no way to distinguish a genuinely new message from an already-consumed one, which broke the fix for #11.
 
 ### Honesty disclosures (per AGENTS.md §6.1)
 
-- **5 of 7 ACs verified** end-to-end in this workflow; **2 deferred**
-  with named, queued follow-up workflow ID.
-- The current workflow does **NOT** flip this issue to `resolved`
-  based on the deferred verification alone — the issue remains
-  `in-progress` until `wf-20260707-fix-118` lands its verification.
-- The "image missing ak-stage-email" diagnosis from commit `1b95d27`
-  is retracted. The image is the upstream Authentik build. The
-  provision script v2 was needed because the flow was empty, not
-  because the stage type was unavailable.
-- A related issue `ISS-AUTH-AKSTAGE-EMAIL-MISSING.md` (which
-  tracked the wrong diagnosis) is closed with that correction.
+- **All 7 ACs verified end-to-end**, live, in this session — no
+  deferrals.
+- The parent workflow's (`wf-20260707-fix-117`) "Lit hydration timing
+  flake" diagnosis is **retracted**. It was never verified against a
+  correctly-invoked test run; every failure had a distinct, specific,
+  non-timing root cause.
+- **Not a "test flakiness" fix** — the primary outcome of this
+  workflow is that the shipped feature (PR #131) is now, for the
+  first time, actually functional. Prior to this workflow, every
+  member who used the "Forgot password?" link would have hit a dead
+  end after clicking their reset email, with no recovery path other
+  than the operator-runbook workaround documented above.
+- The earlier "image missing ak-stage-email" diagnosis (commit
+  `1b95d27`, retracted in the prior workflow) remains retracted; this
+  workflow found a different, unrelated gap (missing stage
+  *bindings*, not a missing stage *type*).
+
+### ⚠️ Open follow-up — NOT actioned this session
+
+**Whether QA and/or production environments have this same missing
+password-entry-stage gap is unknown and unverified.** This session
+has no visibility into whether QA/prod's Authentik instances were
+provisioned via this exact script, a different process, or manually —
+and this session did **not** connect to or modify any QA/prod
+Authentik instance (the provision script's own host allow-list would
+refuse to run against anything but `localhost`/`127.0.0.1`/
+`auth.aiqadam.org` in any case). If `provision-authentik-recovery-flow.sh`
+was ever run against QA or prod using an earlier version of this
+script (i.e., before this workflow's fix), those environments most
+likely have the same non-functional recovery flow that was just found
+and fixed here, and would need the same stage-binding remediation
+applied. **A human, or a future workflow with QA/prod access, should
+check this before assuming QA/prod recovery flows work.**
 
 ## Open questions
 

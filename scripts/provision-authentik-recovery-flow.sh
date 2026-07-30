@@ -194,22 +194,35 @@ ensure_identification_stage() {
 # the EmailStage.template field as "email/password_reset.html".
 ensure_email_stage() {
   local name="${AIQADAM_EMAIL_STAGE_NAME:-aiqadam-recovery-email}"
-  local pk current_subject
+  local pk current_subject current_use_global
   pk=$(ak_get "$AUTHENTIK_URL/api/v3/stages/email/?name=$name&page_size=200" \
        | jq -r --arg n "$name" \
               '.results[] | select(.name == $n) | .pk' | head -1)
   if [[ -n "$pk" ]]; then
-    current_subject=$(ak_get "$AUTHENTIK_URL/api/v3/stages/email/$pk/" \
-                       | jq -r '.subject // empty')
-    if [[ "$current_subject" == "$BRANDED_RECOVERY_SUBJECT" ]]; then
-      echo "    · email stage: $pk (subject already branded)" >&2
+    local current_json
+    current_json=$(ak_get "$AUTHENTIK_URL/api/v3/stages/email/$pk/")
+    current_subject=$(printf '%s' "$current_json" | jq -r '.subject // empty')
+    current_use_global=$(printf '%s' "$current_json" | jq -r '.use_global_settings')
+    # Regression note (ISS-USR-PWRESET-001 follow-up, this workflow): this
+    # stage's own row can carry use_global_settings=false with a stale
+    # host/port (observed: host=localhost, port=25 — Django's SMTP
+    # default), which silently overrides the AUTHENTIK_EMAIL__* env vars
+    # at send-time (see authentik/stages/email/models.py's
+    # EmailStage.backend property — it only reads global CONFIG when
+    # use_global_settings is true). The subject-only early-return below
+    # previously skipped re-checking this flag once the subject was
+    # already branded, so a drifted flag was never repaired on re-run.
+    # Always re-assert use_global_settings: true here, independent of
+    # whether the subject needs rebranding.
+    if [[ "$current_subject" == "$BRANDED_RECOVERY_SUBJECT" && "$current_use_global" == "true" ]]; then
+      echo "    · email stage: $pk (subject branded, use_global_settings=true)" >&2
       printf '%s' "$pk"
       return 0
     fi
     local body
-    body=$(jq -nc --arg s "$BRANDED_RECOVERY_SUBJECT" '{subject: $s}')
+    body=$(jq -nc --arg s "$BRANDED_RECOVERY_SUBJECT" '{subject: $s, use_global_settings: true}')
     ak_patch "$AUTHENTIK_URL/api/v3/stages/email/$pk/" "$body" >/dev/null
-    echo "    ~ email stage $pk subject rebranded" >&2
+    echo "    ~ email stage $pk rebranded + use_global_settings enforced (was: $current_use_global)" >&2
     printf '%s' "$pk"
     return 0
   fi
@@ -224,6 +237,33 @@ ensure_email_stage() {
   fi
   echo "    + email stage created: $pk" >&2
   printf '%s' "$pk"
+}
+
+# ── Resolve an existing stage's UUID by API path + exact name ───────────────
+# Regression note (ISS-USR-PWRESET-001 follow-up, this workflow): the
+# recovery flow previously had ONLY the identification + email stages
+# bound (orders 10/20). This is not sufficient — after email
+# verification, Authentik had no further stage to hand off to and fell
+# through to a default flow redirect (observed live: the flow_token
+# link showed "Successfully verified Email." then landed on
+# /if/flow/default-authentication-flow/ instead of a password-set
+# form). Authentik ships built-in stages for exactly this purpose —
+# `default-password-change-prompt` (PromptStage: new password + confirm
+# fields) and `default-password-change-write` (UserWriteStage: persists
+# the submitted password) — the same pair its own default recovery flow
+# blueprint uses. This resolves those EXISTING built-in stages by name
+# rather than creating new ones, so no duplicate stage objects are
+# introduced.
+resolve_existing_stage_uuid() {
+  local api_path="$1" name="$2"
+  local uuid
+  uuid=$(ak_get "$AUTHENTIK_URL/api/v3/stages/$api_path/?name=$name&page_size=200" \
+         | jq -r --arg n "$name" '.results[] | select(.name == $n) | .pk' | head -1)
+  if [[ -z "$uuid" ]]; then
+    echo "FATAL: built-in stage '$name' not found at /api/v3/stages/$api_path/ — cannot wire the recovery flow's password-set step." >&2
+    return 3
+  fi
+  printf '%s' "$uuid"
 }
 
 # ── Bind a stage into a flow at the given order (idempotent) ────────────────
@@ -291,16 +331,22 @@ echo "[2/5] Resolving or creating Recovery Flow (slug=$RECOVERY_FLOW_SLUG)..."
 recovery_uuid=$(resolve_recovery_flow_uuid)
 echo "       recovery_uuid=$recovery_uuid"
 
-echo "[3/5] Ensuring identification + email stages + bindings..."
+echo "[3/6] Ensuring identification + email stages + bindings..."
 ident_stage_uuid=$(ensure_identification_stage)
 email_stage_uuid=$(ensure_email_stage)
 ensure_flow_stage_binding "$recovery_uuid" "$ident_stage_uuid" 10
 ensure_flow_stage_binding "$recovery_uuid" "$email_stage_uuid" 20
 
-echo "[4/5] Binding Brand → Recovery Flow..."
+echo "[4/6] Binding built-in password-set stages (new-password + persist)..."
+password_prompt_stage_uuid=$(resolve_existing_stage_uuid "prompt/stages" "${AIQADAM_PASSWORD_PROMPT_STAGE_NAME:-default-password-change-prompt}")
+password_write_stage_uuid=$(resolve_existing_stage_uuid "user_write" "${AIQADAM_PASSWORD_WRITE_STAGE_NAME:-default-password-change-write}")
+ensure_flow_stage_binding "$recovery_uuid" "$password_prompt_stage_uuid" 30
+ensure_flow_stage_binding "$recovery_uuid" "$password_write_stage_uuid" 40
+
+echo "[5/6] Binding Brand → Recovery Flow..."
 bind_brand_recovery_flow "$brand_uuid" "$recovery_uuid"
 
-echo "[5/5] AC-1 local reachability check..."
+echo "[6/6] AC-1 local reachability check..."
 assert_local_recovery_url
 
 echo

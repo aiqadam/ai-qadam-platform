@@ -211,6 +211,78 @@ resolve_brand_uuid() {
     || { echo "expected subject='$BRANDED_SUBJECT', got '$current_subject'"; return 1; }
 }
 
+# ─── Test 2b: regression — use_global_settings drift silently breaks mail delivery ───
+
+@test "regression-use-global-settings-repaired-by-rerun" {
+  # ────────────────────────────────────────────────────────────────────
+  # KEY CONSTRAINT (ISS-USR-PWRESET-001 follow-up, wf-20260707-fix-118):
+  #
+  #   authentik/stages/email/models.py's EmailStage.backend property only
+  #   reads the global AUTHENTIK_EMAIL__* config (host/port/tls/ssl) when
+  #   use_global_settings is true; otherwise it uses the stage row's own
+  #   host/port fields directly. Observed live on this stack: the
+  #   aiqadam-recovery-email stage had use_global_settings=false with a
+  #   stale host=localhost/port=25 (Django's SMTP default — nothing
+  #   listens there inside the authentik-worker container), so every
+  #   recovery-flow email silently failed with ConnectionRefusedError and
+  #   never reached Mailpit, even though docker-compose correctly wired
+  #   AUTHENTIK_EMAIL__HOST=mailpit / AUTHENTIK_EMAIL__PORT=1025 for the
+  #   global fallback and the flow/brand/subject were all provisioned
+  #   correctly. The provision script's own idempotent re-run path
+  #   previously only patched `subject` once it drifted, never
+  #   `use_global_settings` — so re-running the script did not repair
+  #   this. This test forces that exact drifted state, re-runs the
+  #   script, and asserts it is repaired.
+  # ────────────────────────────────────────────────────────────────────
+  auth_reachable
+  AK_API_TOKEN="$(cat "$AK_TOKEN_FILE" 2>/dev/null || true)"
+  [[ -z "$AK_API_TOKEN" ]] && skip "no AK_API_TOKEN at $AK_TOKEN_FILE"
+
+  local stage_uuid
+  stage_uuid="$("$CURL_BIN" --silent --max-time 10 \
+                --header "Authorization: Bearer ${AK_API_TOKEN}" \
+                "${AUTHENTIK_URL}/api/v3/stages/email/?name=aiqadam-recovery-email" \
+              | jq -r '.results // [] | .[0].pk // empty')"
+  [[ -n "$stage_uuid" ]] || skip "aiqadam-recovery-email stage not present (provision script may not have run)"
+
+  # Force the drifted state: use_global_settings=false + stale localhost:25.
+  local corrupt_http
+  corrupt_http="$("$CURL_BIN" --silent --max-time 10 \
+                  --header "Authorization: Bearer ${AK_API_TOKEN}" \
+                  --output /dev/null --write-out '%{http_code}' \
+                  -X PATCH \
+                  --header 'Content-Type: application/json' \
+                  --data '{"use_global_settings": false, "host": "localhost", "port": 25}' \
+                  "${AUTHENTIK_URL}/api/v3/stages/email/${stage_uuid}/")"
+  [[ "$corrupt_http" == "200" || "$corrupt_http" == "204" ]] \
+    || { echo "expected 200/204 forcing drifted state, got $corrupt_http"; return 1; }
+
+  # Regression baseline: confirm the would-have-failed-before-fix state is
+  # actually in place before re-running the script (would-have-failed
+  # contract, same shape as test #3 above).
+  local before_global before_host
+  before_global="$("$CURL_BIN" --silent --max-time 10 \
+                   --header "Authorization: Bearer ${AK_API_TOKEN}" \
+                   "${AUTHENTIK_URL}/api/v3/stages/email/${stage_uuid}/" \
+                 | jq -r '.use_global_settings')"
+  [[ "$before_global" == "false" ]] \
+    || { echo "failed to force use_global_settings=false; got '$before_global'"; return 1; }
+
+  # Re-run the provision script (idempotent — same invocation as test #7).
+  [[ -x "$REPO_ROOT/scripts/provision-authentik-recovery-flow.sh" ]] \
+    || skip "provision script not executable at $REPO_ROOT"
+  AK_API_TOKEN="$AK_API_TOKEN" AUTHENTIK_URL="$AUTHENTIK_URL" \
+    bash "$REPO_ROOT/scripts/provision-authentik-recovery-flow.sh" >/dev/null 2>&1 || true
+
+  local after_global after_host after_port
+  after_global="$("$CURL_BIN" --silent --max-time 10 \
+                  --header "Authorization: Bearer ${AK_API_TOKEN}" \
+                  "${AUTHENTIK_URL}/api/v3/stages/email/${stage_uuid}/" \
+                | jq -r '.use_global_settings')"
+  [[ "$after_global" == "true" ]] \
+    || { echo "expected use_global_settings=true after re-run, got '$after_global'"; return 1; }
+}
+
 # ─── Test 3: regression — recovery URL was 404 before fix ──────────────
 
 @test "regression-recovery-url-was-404-before-fix" {
