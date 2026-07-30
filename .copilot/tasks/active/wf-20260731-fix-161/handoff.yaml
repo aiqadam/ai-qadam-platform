@@ -1,11 +1,11 @@
 schema_version: "1.0"
 
-workflow_instance_id: "wf-rbac-perms-001-remaining-policies"
+workflow_instance_id: "wf-20260731-fix-161"
 workflow_type: "issue-resolution"
 workflow_version: "1.0"
 
 created_at: "2026-07-30T00:00:00Z"
-last_updated_at: "2026-07-30T00:00:00Z"
+last_updated_at: "2026-07-31T00:00:00Z"
 
 requirement_ref: "ISS-RBAC-PERMS-001"
 requirement_text: |
@@ -21,13 +21,19 @@ requirement_text: |
   are unrelated to this follow-up's scope but worth being aware of.
 
   Suggested Approach items 3-7 in ISS-RBAC-PERMS-001.md remain accurate:
-  3. policy.sponsor_rep — read own org's sponsorships/opt-in leads via a
-     dynamic filter keyed off $CURRENT_USER's linked company (rep_user on
-     `sponsors`, per the real collection name — ADR-0021's own text says
-     "sponsorships" but no such collection exists; same naming-drift
-     class already found for feedback_responses/interaction_responses in
-     wf-20260730-fix-160 — verify against the real schema, don't trust
-     the ADR literally).
+  3. policy.sponsor_rep — CONFIRMED with user 2026-07-31: implement
+     against `sponsors.rep_user` (the real FK to directus_users used for
+     cabinet-login gating), NOT `companies.rep_user` (referenced by
+     ADR-0021 §4.2 and the existing policy.sponsor_rep description in
+     bootstrap.sh, but that field does not exist anywhere in the schema
+     — companies is a separate cohort/entitlement primitive with no
+     rep-linking field). Read own org's sponsors row + event_sponsors
+     rows scoped via sponsor.rep_user == $CURRENT_USER. The
+     partner_audiences/cohort-entitlement half (which links to
+     companies, not sponsors) is out of scope for this slice pending
+     further reconciliation of the sponsors/companies relationship —
+     note this explicitly rather than guessing a link that doesn't
+     exist.
   4. policy.organizer — CRUD events/registrations/event_speakers scoped
      to country via directus_users.country_code; PII fields gated on
      opt-in flag per the PII data-flow doc referenced in ADR-0021 §3.
@@ -44,13 +50,13 @@ requirement_text: |
   wf-20260730-fix-160 itself used relative to wf-20260728-fix-144.
 github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/124"
 
-branch: ""
+branch: "fix/ISS-RBAC-PERMS-001-remaining-policies"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/172"
 
-current_step: 0
-current_step_name: "not-started"
-workflow_status: "queued"
+current_step: 9
+current_step_name: "commit-push-pr"
+workflow_status: "running"
 
 parent_link:
   parent_workflow_id: "wf-20260730-fix-160"
@@ -86,7 +92,12 @@ retry_limits:
 issues_created: []
 issue_ref: "ISS-RBAC-PERMS-001"
 
-deferrals: []
+deferrals:
+  - from_feature: "ISS-RBAC-PERMS-001"
+    to_feature: "ISS-RBAC-PERMS-001"
+    reason: "policy.sponsor_rep's partner_audiences/cohort-entitlement half is out of scope -- it links to companies, not sponsors, and that relationship needs reconciling first. Not a separate issue yet; noted in the issue file's Resolution for a future pickup."
+    step: 4
+    timestamp: "2026-07-31T00:00:00Z"
 
 expects_registry_update: true
 context_sync_commits: 0
@@ -98,7 +109,7 @@ business_process: ["BP-UAT-003", "BP-UAT-016"]
 post_merge_uat_runs: []
 
 artifacts:
-  - ".copilot/tasks/queued/wf-rbac-perms-001-remaining-policies/handoff.yaml"
+  - ".copilot/tasks/active/wf-20260731-fix-161/handoff.yaml"
 
 context_refs:
   - docs/adr/0021-rbac-manifest.md

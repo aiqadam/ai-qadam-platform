@@ -6,8 +6,8 @@ import type { DirectusPolicySlug, ExpectedDirectusState } from './group-mapping'
 // to the deterministic UUIDs seeded by F-S2.2-pre (bootstrap.sh
 // POLICY_RBAC_*) and PATCHes directus_users.policies[] to match.
 //
-// Country filter ({ country_code: { _eq: <c> } } per ADR-0021 §4.1) is
-// applied via the directus_users.country_code attribute the same sync
+// Country filter ({ country: { _eq: <c> } } per ADR-0021 §4.1) is
+// applied via the directus_users.country attribute the same sync
 // writes. Per-collection permission rows that ADR-0021 §4.1 references
 // are seeded at policy creation time (bootstrap.sh) — this PR just
 // attaches the right policy mix to the user.
@@ -36,7 +36,7 @@ export class DirectusPolicyApplier {
   constructor(private readonly directus: DirectusClient) {}
 
   /**
-   * PATCHes the Directus user's policies + country_code to match the
+   * PATCHes the Directus user's policies + country to match the
    * expected state. Idempotent: if the user already has the right
    * policies + country, the PATCH is a no-op on Directus' side.
    *
@@ -64,7 +64,13 @@ export class DirectusPolicyApplier {
           update: [],
           delete: existingRowIds,
         },
-        country_code: expected.filter_country,
+        // directus_users' real field is `country` (2-letter code), not
+        // `country_code` -- the latter silently no-ops on PATCH since
+        // Directus ignores unknown body keys instead of erroring
+        // (found live, ISS-RBAC-PERMS-001, wf-20260731-fix-161: every
+        // country-scoped policy grant depends on this field actually
+        // being set, and it never was).
+        country: expected.filter_country,
       };
       await this.directus.patch(`/users/${encodeURIComponent(directusUserId)}`, body);
       this.logger.log({

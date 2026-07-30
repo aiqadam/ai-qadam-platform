@@ -57,7 +57,7 @@ describe('DirectusPolicyApplier.apply', () => {
       update: [],
       delete: [],
     });
-    expect(body.country_code).toBe('kz');
+    expect(body.country).toBe('kz');
   });
 
   it('deletes existing access rows when replacing the policy set', async () => {
@@ -71,10 +71,10 @@ describe('DirectusPolicyApplier.apply', () => {
     expect(policies.delete).toEqual(['old-access-row-id']);
   });
 
-  it('sends country_code=null when filter is null (super-admin)', async () => {
+  it('sends country=null when filter is null (super-admin)', async () => {
     await applier.apply('uuid', { policies: ['policy.member'], filter_country: null });
     const body = directus.patch.mock.calls[0]?.[1] as Record<string, unknown>;
-    expect(body.country_code).toBeNull();
+    expect(body.country).toBeNull();
   });
 
   it('returns { status: failed, error } on DirectusError without throwing', async () => {

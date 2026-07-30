@@ -2854,11 +2854,29 @@ ensure "policy.sponsor_rep" \
     id:$id,
     name:"policy.sponsor_rep",
     icon:"verified",
-    description:"ADR-0021 §4.1: read own org events + opt-in leads only, scoped via partner_audiences entitlement (per ADR-0033 sponsor PII boundary). Per-row filter $CURRENT_USER.companies linking via companies.rep_user — wired by F-S2.2 sync.",
+    description:"ADR-0021 §4.1: read own sponsors row + own event_sponsors rows, scoped via sponsors.rep_user == $CURRENT_USER. (Not companies.rep_user -- that field does not exist; companies is a separate cohort/entitlement primitive per ADR-0033, reconciling it with sponsors is out of scope here -- see ISS-RBAC-PERMS-001 2026-07-31 update.)",
     admin_access:false,
     app_access:true,
     enforce_tfa:false
   }')"
+
+# ADR-0021 §4.1 policy.sponsor_rep Effect: "read own org's sponsorships
+# and opt-in leads only". Implemented against the real sponsors.rep_user
+# FK (confirmed live 2026-07-31: companies.rep_user, which the ADR and
+# this policy's prior description named, does not exist in the schema —
+# companies is a separate ADR-0033 cohort/entitlement primitive with no
+# rep-linking field of its own). The partner_audiences/cohort-entitlement
+# half of the Effect (which links to companies, not sponsors) needs that
+# relationship reconciled first -- not implemented in this slice.
+SPONSOR_REP_OWN_ROW_FILTER='{"rep_user":{"_eq":"$CURRENT_USER"}}'
+
+echo "[policy.sponsor_rep — own sponsors row]"
+ensure_perm_for_policy "$POLICY_RBAC_SPONSOR_REP" "perm policy.sponsor_rep sponsors/read" \
+  sponsors read "$SPONSOR_REP_OWN_ROW_FILTER" '["*"]'
+
+echo "[policy.sponsor_rep — own event_sponsors rows]"
+ensure_perm_for_policy "$POLICY_RBAC_SPONSOR_REP" "perm policy.sponsor_rep event_sponsors/read" \
+  event_sponsors read '{"sponsor":{"rep_user":{"_eq":"$CURRENT_USER"}}}' '["*"]'
 
 ensure "policy.organizer" \
   "${DIRECTUS_URL}/policies/${POLICY_RBAC_ORGANIZER}" \
@@ -2867,11 +2885,63 @@ ensure "policy.organizer" \
     id:$id,
     name:"policy.organizer",
     icon:"engineering",
-    description:"ADR-0021 §4.1: CRUD events, registrations, event_speakers in country. Country scope applied at sync time via $CURRENT_USER.country_codes (Authentik group claim) — F-S2.2 wires this.",
+    description:"ADR-0021 §4.1: CRUD events, registrations, event_speakers in country, scoped via directus_users.country == $CURRENT_USER.country (the real field name -- see ISS-RBAC-PERMS-001 2026-07-31 update on the country_code/country applier bug this depends on). registrations.user PII (email etc.) gated on the registering members own appear_on_attendee_list opt-in.",
     admin_access:false,
     app_access:true,
     enforce_tfa:false
   }')"
+
+# ADR-0021 §4.1 policy.organizer Effect: "CRUD events, registrations,
+# event_speakers in country ... Read PII fields per PII data-flow §3
+# only on opt-in flag." Country scope uses directus_users.country (the
+# real field DirectusPolicyApplier now writes correctly, per this
+# workflow's fix) compared against the requesting organizer's own
+# country via $CURRENT_USER. PII gating: registrations don't carry PII
+# directly, but the linked user row's opt-in flag
+# (appear_on_attendee_list, the established consent mechanism already
+# used by /me/profile for this exact "shown to organizers on an
+# attendee list" purpose) gates whether the row is visible at all --
+# rather than trying to gate individual fields, which Directus's
+# collection-level `fields` allowlist can't do conditionally per-row.
+ORGANIZER_COUNTRY_FILTER='{"country":{"_eq":"$CURRENT_USER.country"}}'
+
+# $CURRENT_USER.country (used throughout this policy's filters) only
+# resolves if the acting policy itself holds read on directus_users.country
+# for its own row -- same class of bug found + fixed for policy.member's
+# is_test_user dependency earlier in this file. Narrow, read-only,
+# self-row-scoped grant (organizer already gets policy.member's own-row
+# directus_users grant too, via multi-policy attachment, but that grant's
+# MEMBER_PROFILE_FIELDS allowlist doesn't include country -- add it here
+# rather than widening an unrelated policy's field list).
+echo '[policy.organizer — own-row directus_users.country read (for $CURRENT_USER.country resolution)]'
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer directus_users/read" \
+  directus_users read '{"id":{"_eq":"$CURRENT_USER"}}' '["id","country"]'
+
+echo "[policy.organizer — events in own country]"
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer events/read" \
+  events read "$ORGANIZER_COUNTRY_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer events/create" \
+  events create '{}' '["*"]' "$ORGANIZER_COUNTRY_FILTER"
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer events/update" \
+  events update "$ORGANIZER_COUNTRY_FILTER" '["*"]'
+
+echo "[policy.organizer — registrations in own country, PII gated on opt-in]"
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer registrations/read" \
+  registrations read \
+  '{"_and":[{"event":{"country":{"_eq":"$CURRENT_USER.country"}}},{"user":{"appear_on_attendee_list":{"_eq":true}}}]}' \
+  '["id","event","user","status","checkin_code","checked_in_at","cancelled_at","date_created"]'
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer registrations/update" \
+  registrations update \
+  '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' \
+  '["status","checked_in_at","cancelled_at"]'
+
+echo "[policy.organizer — event_speakers in own country]"
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer event_speakers/read" \
+  event_speakers read '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer event_speakers/create" \
+  event_speakers create '{}' '["*"]' '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}'
+ensure_perm_for_policy "$POLICY_RBAC_ORGANIZER" "perm policy.organizer event_speakers/update" \
+  event_speakers update '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' '["*"]'
 
 ensure "policy.country_lead" \
   "${DIRECTUS_URL}/policies/${POLICY_RBAC_COUNTRY_LEAD}" \
@@ -2880,11 +2950,64 @@ ensure "policy.country_lead" \
     id:$id,
     name:"policy.country_lead",
     icon:"shield_person",
-    description:"ADR-0021 §4.1: organizer permissions + roster management + sponsor pipeline + see PII (per consent). Country scope per Authentik group claim — wired by F-S2.2 sync.",
+    description:"ADR-0021 §4.1: organizer permissions (events/registrations/event_speakers CRUD in country) + roster management (directus_users read in country) + sponsor pipeline (sponsors/event_sponsors read in country) + see PII without the opt-in gate policy.organizer applies. Country scope via directus_users.country == $CURRENT_USER.country. NOTE: unlike the ADR wording implies, group-mapping.ts attaches ONLY policy.country_lead for the aiqadam-country-lead-<c> group, never policy.organizer alongside it -- so this policy must carry a full, standalone copy of the organizer-equivalent grants, not rely on multi-policy composition.",
     admin_access:false,
     app_access:true,
     enforce_tfa:false
   }')"
+
+# ADR-0021 §4.1 policy.country_lead Effect: "organizer permissions +
+# roster management + sponsor pipeline + see PII (per consent)". Country
+# scope identical mechanism to policy.organizer above ($CURRENT_USER.
+# country). Differs from policy.organizer in two ways: (1) registrations
+# read has NO appear_on_attendee_list gate -- country leads see PII
+# unconditionally within their own country, matching "see PII" in the
+# Effect column (vs. organizer's "only on opt-in flag"); (2) additional
+# roster (directus_users) and sponsor-pipeline (sponsors, event_sponsors)
+# grants organizer doesn't have.
+COUNTRY_LEAD_FILTER='{"country":{"_eq":"$CURRENT_USER.country"}}'
+
+echo "[policy.country_lead — events in own country]"
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead events/read" \
+  events read "$COUNTRY_LEAD_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead events/create" \
+  events create '{}' '["*"]' "$COUNTRY_LEAD_FILTER"
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead events/update" \
+  events update "$COUNTRY_LEAD_FILTER" '["*"]'
+
+echo "[policy.country_lead — registrations in own country, full PII]"
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead registrations/read" \
+  registrations read '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead registrations/update" \
+  registrations update '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' \
+  '["status","checked_in_at","cancelled_at"]'
+
+echo "[policy.country_lead — event_speakers in own country]"
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead event_speakers/read" \
+  event_speakers read '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead event_speakers/create" \
+  event_speakers create '{}' '["*"]' '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}'
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead event_speakers/update" \
+  event_speakers update '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' '["*"]'
+
+# Directus permits only ONE row per (policy, collection, action) --
+# this single grant does double duty as both the roster-browsing read
+# AND the source of $CURRENT_USER.country resolution for every other
+# filter in this policy (a country_lead's own row satisfies its own
+# filter: their own country always equals their own country). A separate
+# narrower "self-only" grant was tried first and collided on the same
+# idempotency key (policy+collection+action), silently no-opping --
+# found live 2026-07-31, this consolidated single grant is the fix.
+echo "[policy.country_lead — roster: directus_users read in own country]"
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead directus_users/read" \
+  directus_users read "$COUNTRY_LEAD_FILTER" \
+  '["id","email","first_name","last_name","job_title","country","state","actor_kinds","appear_on_attendee_list"]'
+
+echo "[policy.country_lead — sponsor pipeline: sponsors + event_sponsors in own country]"
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead sponsors/read" \
+  sponsors read "$COUNTRY_LEAD_FILTER" '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_COUNTRY_LEAD" "perm policy.country_lead event_sponsors/read" \
+  event_sponsors read '{"event":{"country":{"_eq":"$CURRENT_USER.country"}}}' '["*"]'
 
 ensure "policy.svc_bot" \
   "${DIRECTUS_URL}/policies/${POLICY_RBAC_SVC_BOT}" \
@@ -2899,6 +3022,31 @@ ensure "policy.svc_bot" \
     enforce_tfa:false
   }')"
 
+# ADR-0021 §4.1 + §8 policy.svc_bot Effect: "Read all events, write
+# registrations.checked_in_at, read point_awards. No PII except
+# telegram_user_id." Service-account policy -- no per-row $CURRENT_USER
+# scoping needed (unlike the human-facing policies above), just
+# collection-wide grants with a narrow field allowlist. "No PII except
+# telegram_user_id" is expressed by NOT granting any directus_users read
+# at all here -- the bot looks up telegram_user_id via
+# registrations.telegram_user_id (already captured on the registration
+# row at signup time per F-S3.9, not via a directus_users join), so no
+# directus_users grant is needed for this policy to do its job.
+echo "[policy.svc_bot — read all events]"
+ensure_perm_for_policy "$POLICY_RBAC_SVC_BOT" "perm policy.svc_bot events/read" \
+  events read '{}' '["*"]'
+
+echo "[policy.svc_bot — write registrations.checked_in_at]"
+ensure_perm_for_policy "$POLICY_RBAC_SVC_BOT" "perm policy.svc_bot registrations/read" \
+  registrations read '{}' \
+  '["id","event","user","status","checkin_code","checked_in_at","telegram_user_id","telegram_username"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_BOT" "perm policy.svc_bot registrations/update" \
+  registrations update '{}' '["checked_in_at","status"]'
+
+echo "[policy.svc_bot — read point_awards]"
+ensure_perm_for_policy "$POLICY_RBAC_SVC_BOT" "perm policy.svc_bot point_awards/read" \
+  point_awards read '{}' '["*"]'
+
 ensure "policy.svc_worker" \
   "${DIRECTUS_URL}/policies/${POLICY_RBAC_SVC_WORKER}" \
   "${DIRECTUS_URL}/policies" \
@@ -2911,6 +3059,44 @@ ensure "policy.svc_worker" \
     app_access:true,
     enforce_tfa:false
   }')"
+
+# ADR-0021 §4.1 + §8 policy.svc_worker Effect: "CRUD interactions,
+# deliveries, responses. No registration writes." Real collection names
+# (per "[interactions]"/"[interaction_deliveries]"/"[interaction_responses]"
+# ~line 1122 onward) are interactions / interaction_deliveries /
+# interaction_responses -- the ADR's shorthand "deliveries"/"responses"
+# match the same naming-drift pattern already found and corrected
+# elsewhere in this file (feedback_responses -> interaction_responses).
+# Service-account policy, collection-wide, no $CURRENT_USER scoping.
+echo "[policy.svc_worker — CRUD interactions]"
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interactions/read" \
+  interactions read '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interactions/create" \
+  interactions create '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interactions/update" \
+  interactions update '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interactions/delete" \
+  interactions delete '{}' '["*"]'
+
+echo "[policy.svc_worker — CRUD interaction_deliveries]"
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_deliveries/read" \
+  interaction_deliveries read '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_deliveries/create" \
+  interaction_deliveries create '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_deliveries/update" \
+  interaction_deliveries update '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_deliveries/delete" \
+  interaction_deliveries delete '{}' '["*"]'
+
+echo "[policy.svc_worker — CRUD interaction_responses]"
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_responses/read" \
+  interaction_responses read '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_responses/create" \
+  interaction_responses create '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_responses/update" \
+  interaction_responses update '{}' '["*"]'
+ensure_perm_for_policy "$POLICY_RBAC_SVC_WORKER" "perm policy.svc_worker interaction_responses/delete" \
+  interaction_responses delete '{}' '["*"]'
 
 # ════════════════════════════════════════════════════════════════════════
 # F-S1.6 — Lead capture + nurture
