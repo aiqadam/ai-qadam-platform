@@ -13,7 +13,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/130"
 
 branch: "feature/EVT-004-event-detail-page"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/150"
 
 current_step: 11
 current_step_name: "commit-push-pr"
