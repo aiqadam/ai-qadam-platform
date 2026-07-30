@@ -1,0 +1,111 @@
+{
+  "bp_uat": "BP-UAT-010",
+  "description": "Event registration flow (ISS-UAT-SEED-003). Unlike BP-UAT-001/013/020, this manifest's identity fixture (uat-member) is the SAME Authentik user scripts/uat-seed.sh already creates unconditionally at STEP 3 (uat-member@example.com) — it is declared here only so --reset BP-UAT-010 restores its group membership, mirroring how BP-UAT-001.json's uat-operator entry documents an already-unconditionally-seeded identity. The two 'filler' identities exist solely to hold the 2 pre-existing confirmed registrations uat-event-full-uz needs at capacity — a real member cannot register twice for the same event, so two distinct accounts are required to reach capacity=2 without involving uat-member itself. Real field values used throughout (status=registered/waitlisted, not the confirmed/waitlist wording in BP-UAT-010.md's current AC-1/AC-6 text — see ISS-UAT-SEED-003 Resolution and the 2 follow-up issues filed alongside this manifest for the doc-level correction, out of scope here).",
+  "fixtures": [
+    {
+      "id": "uat-member",
+      "kind": "identity",
+      "note": "Already seeded unconditionally by STEP 3 (ensure_test_user). Reset semantics: restore group membership (aiqadam-member) via the existing FORCE_REGEN path — never delete/recreate (would invalidate Authentik sessions/PKs per FR-WORKFLOW-003 functional-scope item 3). Email is uat-member@example.com, matching uat-seed.sh's own MEMBER_EMAIL default (line 992) and every other BP-UAT manifest's @example.com convention — NOT uat-member@aiqadam.test, which BP-UAT-010.md/BP-UAT-010.spec.ts incorrectly still reference (fixed alongside this manifest, AC-3).",
+      "username": "uat-member",
+      "email": "uat-member@example.com",
+      "display_name": "UAT Member",
+      "groups_csv": "aiqadam-member"
+    },
+    {
+      "id": "uat-event-full-filler-1",
+      "kind": "identity",
+      "note": "Filler account #1 of 2 occupying uat-event-full-uz's capacity=2. Not created by uat-seed.sh's unconditional flow today. A member cannot register twice for the same event (registrations has an effective one-row-per-event-per-user expectation enforced by the reg-capacity-decision Directus Flow's own per-event/per-user semantics), so reaching capacity requires two distinct identities rather than reusing uat-member.",
+      "username": "uat-event-full-filler-1",
+      "email": "uat-event-full-filler-1@example.com",
+      "display_name": "UAT Event-Full Filler 1",
+      "groups_csv": "aiqadam-member"
+    },
+    {
+      "id": "uat-event-full-filler-2",
+      "kind": "identity",
+      "note": "Filler account #2 of 2 — see uat-event-full-filler-1's note.",
+      "username": "uat-event-full-filler-2",
+      "email": "uat-event-full-filler-2@example.com",
+      "display_name": "UAT Event-Full Filler 2",
+      "groups_csv": "aiqadam-member"
+    },
+    {
+      "id": "uat-event-open-uz",
+      "kind": "domain",
+      "collection": "events",
+      "lookup_field": "title",
+      "lookup_value": "UAT Event Open UZ",
+      "note": "Real events.status enum is draft|published|cancelled (infrastructure/directus/bootstrap.sh field 'status') — 'published' is required for the event to be registration-eligible (registrations-directus.service.ts's eligibility check) and visible on the public detail page (apps/web-next/src/lib/cms.ts's status==='published' gate). format='meetup' matches an existing seeded event_types.key (bootstrap.sh seed_type calls). starts_at/ends_at use the _offset convention (+7d) per BP-UAT-010.md's Seed Fixtures Required table so the event stays in the lifecycle-adaptive 'upcoming' tab (FR-EVT-004) on every reset.",
+      "payload": {
+        "title": "UAT Event Open UZ",
+        "description": "UAT fixture event for BP-UAT-010 (event registration flow) — open capacity, no pre-existing registrations.",
+        "status": "published",
+        "format": "meetup",
+        "starts_at_offset": { "spec": "+7", "unit": "days" },
+        "ends_at_offset": { "spec": "+7", "unit": "days" },
+        "capacity": 10,
+        "country": "uz"
+      }
+    },
+    {
+      "id": "uat-event-full-uz",
+      "kind": "domain",
+      "collection": "events",
+      "lookup_field": "title",
+      "lookup_value": "UAT Event Full UZ",
+      "note": "capacity=2, paired with the 2 'registered' rows below (uat-event-full-reg-1/2) so the event is genuinely at capacity after --reset. starts_at = +14d (BP-UAT-010.md's Seed Fixtures Required table) — later than uat-event-open-uz so the two fixtures stay independently identifiable by date if the title lookup is ever ambiguous.",
+      "payload": {
+        "title": "UAT Event Full UZ",
+        "description": "UAT fixture event for BP-UAT-010 (event registration flow) — at capacity, exercises the waitlist path.",
+        "status": "published",
+        "format": "meetup",
+        "starts_at_offset": { "spec": "+14", "unit": "days" },
+        "ends_at_offset": { "spec": "+14", "unit": "days" },
+        "capacity": 2,
+        "country": "uz"
+      }
+    },
+    {
+      "id": "uat-event-full-reg-1",
+      "kind": "domain",
+      "collection": "registrations",
+      "lookup_field": "user",
+      "lookup_value": "__resolved__",
+      "note": "registrations has no natural pre-known-string unique column (unlike events.title or operator_invites.token_hash), so lookup_field names the FK column ('user') that event_ref/user_email resolution fills in below, and lookup_value is the '__resolved__' sentinel scripts/uat-seed.sh's reset_domain_fixture() reads back out of the resolved payload after resolution runs — see that function's comment above its delete-lookup block. lookup_field='user' (not 'event') because uat-event-full-filler-1 only ever registers for ONE event in this manifest, making 'user' alone a unique-enough filter for this fixture; 'event' alone would NOT be unique once reg-1 and reg-2 both target the same event. registrations.status enum is registered|waitlisted|cancelled|attended (infrastructure/directus/bootstrap.sh) — 'registered' is correct here, NOT 'confirmed' (BP-UAT-010.md's own AC-1/AC-6 wording is wrong per the research recorded in 01-issue-lookup.md; deferred to a follow-up issue, not fixed in this manifest's field values since the manifest must match the REAL schema, not the doc's wrong wording).",
+      "payload": {
+        "event_ref": "uat-event-full-uz",
+        "user_email": "uat-event-full-filler-1@example.com",
+        "status": "registered"
+      }
+    },
+    {
+      "id": "uat-event-full-reg-2",
+      "kind": "domain",
+      "collection": "registrations",
+      "lookup_field": "user",
+      "lookup_value": "__resolved__",
+      "note": "Second of the 2 pre-existing 'registered' rows filling uat-event-full-uz to capacity=2. See uat-event-full-reg-1's note for the lookup_field='user' + '__resolved__' sentinel mechanism — uat-event-full-filler-2 is a distinct user from filler-1, so 'user' remains unique-enough per fixture even though both rows share the same 'event'.",
+      "payload": {
+        "event_ref": "uat-event-full-uz",
+        "user_email": "uat-event-full-filler-2@example.com",
+        "status": "registered"
+      }
+    },
+    {
+      "id": "uat-member-points-baseline",
+      "kind": "domain",
+      "collection": "point_awards",
+      "lookup_field": "user",
+      "lookup_value": "__resolved__",
+      "note": "Points are NOT awarded at registration time anywhere in the real codebase (see 01-issue-lookup.md's research: only infrastructure/directus/flows-bootstrap.sh's reg-checkin-points Flow awards points, +10 on check-in, source='event_attended' — there is no registration-time points path, contradicting BP-UAT-010.md's current AC-7 wording of '+5 on confirmed registration', deferred to a follow-up issue). This fixture instead seeds a FIXED, reproducible point_awards baseline row for uat-member tied to uat-event-open-uz's id (reused only as a valid source_ref FK target via event_ref — not implying registration itself granted these points), so a --reset always leaves uat-member's points_total at a known, deterministic value a future corrected AC-7 can diff against, rather than depending on whatever points already accumulated from prior manual testing. lookup_field='user' is unique-enough because uat-member has exactly one point_awards row in this manifest.",
+      "payload": {
+        "user_email": "uat-member@example.com",
+        "country": "uz",
+        "source": "event_attended",
+        "event_ref": "uat-event-open-uz",
+        "event_ref_field": "source_ref",
+        "points": 10
+      }
+    }
+  ]
+}

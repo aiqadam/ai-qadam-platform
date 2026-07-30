@@ -20,7 +20,7 @@
  *   AC-7 — +5 points are awarded on confirmed registration.
  *
  * Seed fixtures required (per docs/02-business-processes/uat/BP-UAT-010.md):
- *   - uat-member            (uat-member@aiqadam.test, password from .env.uat)
+ *   - uat-member            (uat-member@example.com, password from .env.uat)
  *   - uat-event-open-uz     (capacity=10, 0 confirmed, starts_at = +7d)
  *   - uat-event-full-uz     (capacity=2, 2 confirmed from other seed accounts,
  *                            starts_at = +14d)
@@ -63,7 +63,7 @@ const __dirname = path.dirname(__filename);
 
 const BASE_URL = process.env.UAT_BASE_URL ?? process.env.BASE_URL ?? 'http://localhost:4321';
 const API_URL = process.env.UAT_API_URL ?? process.env.API_URL ?? 'http://localhost:3001';
-const UAT_MEMBER_EMAIL = process.env.UAT_MEMBER_EMAIL ?? 'uat-member@aiqadam.test';
+const UAT_MEMBER_EMAIL = process.env.UAT_MEMBER_EMAIL ?? 'uat-member@example.com';
 const UAT_MEMBER_PASSWORD = process.env.UAT_MEMBER_PASSWORD ?? '';
 
 // Screenshot output: apps/e2e/uat-results/BP-UAT-010/<step-label>.png
