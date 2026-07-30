@@ -6,10 +6,10 @@
 | GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/124 |
 | Severity | blocker |
 | Module | infrastructure/directus-bootstrap, api/rbac-sync |
-| Status | in-progress (`policy.member` + `policy.speaker` done; 5 policies remain) |
+| Status | resolved |
 | Reported | 2026-07-28 |
-| Resolved | — |
-| Workflow | `wf-20260728-fix-144` (policy.member own-row slice) → `wf-20260730-fix-160` (policy.member public-read/create-registration + policy.speaker, [PR #170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash `08932ab`); remaining 5 policies queued as `wf-rbac-perms-001-remaining-policies` |
+| Resolved | 2026-07-31 |
+| Workflow | `wf-20260728-fix-144` (policy.member own-row slice) → `wf-20260730-fix-160` (policy.member public-read/create-registration + policy.speaker, [PR #170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash `08932ab`) → `wf-20260731-fix-161` (remaining 5 policies: sponsor_rep/organizer/country_lead/svc_bot/svc_worker, PR TBD) |
 | Reporter | Orchestrator (discovered while verifying the fix for [ISS-UAT-RBAC-001](ISS-UAT-RBAC-001.md)) |
 | Business-Process | BP-UAT-003, BP-UAT-016 (and, by the same mechanism, any BP-UAT that needs a fully-permissioned authenticated member session) |
 
@@ -135,16 +135,111 @@ needs either a manual `PATCH /permissions/<id>` per affected row, or a
 full re-seed. Not automated in this PR; flagging so whoever next
 bootstraps or re-bootstraps a shared environment knows to check.
 
-### Still not implemented (unchanged scope)
+## Update 2026-07-31 (`wf-20260731-fix-161`) — all 7 policies now implemented; 2 more real bugs found and fixed
 
-`policy.sponsor_rep`, `policy.organizer`, `policy.country_lead`,
-`policy.svc_bot`, `policy.svc_worker` — all five still have zero
-permission rows. Each needs country-scoped or cross-collection dynamic
-filters materially different from what this workflow shipped (see
-Suggested Approach below, items 3–7 — still accurate). Queued as
-[`wf-rbac-perms-001-remaining-policies`](../tasks/queued/wf-rbac-perms-001-remaining-policies/handoff.yaml).
+Implemented and live-verified the remaining 5 policies:
 
-## Resolution (partial — this issue stays `in-progress`, not `resolved`)
+- **`policy.sponsor_rep`:** read own `sponsors` row + own `event_sponsors`
+  rows, scoped via `sponsors.rep_user == $CURRENT_USER`. **Confirmed with
+  the user before implementing:** the ADR-0021 §4.2 / prior policy
+  description referenced `companies.rep_user`, which does not exist —
+  `companies` is a separate ADR-0033 cohort/entitlement primitive with no
+  rep-linking field. The `partner_audiences`/cohort-entitlement half of
+  the Effect (which links to `companies`, not `sponsors`) is out of
+  scope pending that relationship being reconciled — not guessed at.
+- **`policy.organizer`:** CRUD `events`/`event_speakers` and read/update
+  `registrations` scoped to `directus_users.country == $CURRENT_USER.country`.
+  `registrations` PII gated on the registrant's own
+  `appear_on_attendee_list` opt-in (the pre-existing, already-shipped
+  consent mechanism for exactly this "shown to organizers" purpose).
+- **`policy.country_lead`:** same country-scoped events/registrations/
+  event_speakers as organizer, but WITHOUT the opt-in PII gate (matches
+  the Effect column's "see PII" vs organizer's "only on opt-in flag"),
+  plus roster (`directus_users` read in-country) and sponsor-pipeline
+  (`sponsors`/`event_sponsors` read in-country) grants. Implemented as a
+  full standalone grant set, not additive on `policy.organizer` — found
+  live that `group-mapping.ts` attaches ONLY `policy.country_lead` for
+  the `aiqadam-country-lead-<c>` group, never `policy.organizer`
+  alongside it, contrary to what the ADR's "organizer permissions +"
+  phrasing implies.
+- **`policy.svc_bot`:** read all `events`, read/write `registrations`
+  (fields limited to `checked_in_at`/`status` for write), read
+  `point_awards`. No `directus_users` grant at all (verified live that
+  the bot still can't read a *different* user's PII — its own built-in
+  self-read of `email` is a separate Directus system default unrelated
+  to this policy, not a leak).
+- **`policy.svc_worker`:** full CRUD on `interactions`/
+  `interaction_deliveries`/`interaction_responses` (ADR's shorthand
+  "deliveries"/"responses" — same naming-shorthand pattern already seen
+  elsewhere in this file). Verified live it correctly CANNOT write
+  `registrations` (403), matching "no registration writes".
+
+### Two more real bugs found and fixed (bringing this issue's live-bug-discovery total to 5)
+
+1. **`DirectusPolicyApplier` PATCHed the wrong field name.**
+   `apps/api/src/modules/rbac-sync/directus-policy-applier.ts` sent
+   `country_code: expected.filter_country` in its PATCH body — but the
+   real field on `directus_users` is named `country`, not `country_code`.
+   Directus silently ignores unknown body keys rather than erroring, so
+   this PATCH always 200'd while writing nothing: confirmed live, every
+   country-scoped RBAC policy (`organizer`, `country_lead`, and this
+   workflow's own new grants) depended on this field and it had never
+   actually been set by the sync service, ever. Fixed the field name
+   in both the applier and its unit test (`rbac-directus-applier.spec.ts`,
+   which mirrored the same bug in its assertions — same "test mirrors
+   the bug" class already seen in `ISS-USR-REG-002`).
+2. **`ensure_perm_for_policy`'s idempotency key silently collides when a
+   policy needs two different-purpose grants on the SAME
+   `(collection, action)`.** Tried to add `policy.country_lead` a narrow
+   "self-only" `directus_users/read` grant (for `$CURRENT_USER.country`
+   resolution) separate from its broader "roster" `directus_users/read`
+   grant — Directus only permits ONE row per `(policy, collection,
+   action)`, so the second `ensure_perm_for_policy` call silently no-op'd
+   ("exists") against the first row instead of erroring. Fixed by
+   consolidating into a single grant whose field list and filter cover
+   both purposes (a country_lead's own row satisfies its own country
+   filter, so no separate self-grant is needed). Documented as a
+   reusable gotcha in the code comment for the next policy that needs
+   two purposes on one collection+action.
+
+### Live verification (2026-07-31)
+
+Ran `bootstrap.sh` three times against local Directus: first run created
+all new rows, second/third runs showed 100% "exists" (fully idempotent,
+zero duplicate rows). Directly exercised every new grant with real
+member-scoped Directus tokens, swapping the UAT fixture's attached
+policy between runs and restoring it to a clean, no-policy state after:
+
+- `policy.sponsor_rep`: created two `sponsors` rows (one `rep_user`'d to
+  the test identity, one not) — confirmed the rep only sees their own
+  org once the broader `policy.member` public-read grant was removed
+  from the test identity (the two grants legitimately compose for a
+  real user who holds both roles; this was a test-isolation artifact,
+  not a bug).
+- `policy.organizer`: confirmed events/registrations/event_speakers
+  scoped strictly to the organizer's own `country` (a real `kz`-country
+  user in the roster was correctly invisible to a `uz` organizer).
+  Confirmed the `appear_on_attendee_list` PII gate with a genuine
+  negative test — flipped a registrant's opt-in off, watched the exact
+  affected rows (not just a count) disappear from the organizer's view,
+  then restored it.
+- `policy.country_lead`: same country-scoping verification; confirmed
+  registrations are visible WITHOUT the opt-in gate (the "see PII"
+  distinction from organizer).
+- `policy.svc_bot`: confirmed collection-wide reads, a real
+  `checked_in_at` write, and — critically — a 403 when attempting to
+  read a DIFFERENT user's PII (proving "no PII except telegram_user_id"
+  actually holds, not just that the policy has no grant on paper).
+- `policy.svc_worker`: confirmed full interactions CRUD and a 403 on
+  attempting to write `registrations`.
+
+All test fixtures (sponsors, event_sponsors, interactions,
+event_speakers rows) created during verification were deleted; the UAT
+member identity (`uat-member@example.com`) was restored to its original
+state (no attached policy beyond what it started with, `country: null`,
+`token: null`).
+
+## Resolution
 
 - **Workflow:** `wf-20260730-fix-160`
 - **PR:** [#170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash `08932ab` (merged 2026-07-30, admin override on pre-existing unrelated `architecture-check` failure — see PR-Steward gate record in `wf-20260730-fix-160`'s archived `handoff.yaml`)
@@ -170,12 +265,31 @@ Suggested Approach below, items 3–7 — still accurate). Queued as
   verified with temporary test fixtures (created, tested, deleted). All
   test data cleaned up; UAT fixture identity restored to its pre-test
   state (token cleared, job_title cleared, policy.speaker detached).
-- **NOT resolved by this workflow** — 5 of 7 policies remain
-  unimplemented (queued follow-up above), and the issue's own original
-  Symptom (`onboarded_at` 403) turned out to be two stacked bugs; only
-  the permission-row half is fixed here (see
-  [ISS-RBAC-ONBOARDED-AT-001](ISS-RBAC-ONBOARDED-AT-001.md) for the
-  other half). Status intentionally stays `in-progress`.
+- **Completed 2026-07-31 via `wf-20260731-fix-161`:** implemented the
+  remaining 5 policies (`sponsor_rep`, `organizer`, `country_lead`,
+  `svc_bot`, `svc_worker`), fixed 2 more real bugs found live (the
+  `country_code`/`country` field-name mismatch in
+  `DirectusPolicyApplier`, and an `ensure_perm_for_policy` idempotency-
+  key collision when a policy needs two grants on the same
+  collection+action) — see the 2026-07-31 update above for full detail
+  and live-verification evidence. **All seven ADR-0021 §4.1 policies now
+  have real, live-verified permission rows.** This issue's original
+  Symptom (`onboarded_at` 403) turned out to be two stacked bugs; the
+  permission-row half is fully fixed by this issue, but the field itself
+  still doesn't exist in the schema — tracked separately at
+  [ISS-RBAC-ONBOARDED-AT-001](ISS-RBAC-ONBOARDED-AT-001.md)
+  ([GitHub #168](https://github.com/aiqadam/ai-qadam-platform/issues/168)),
+  which is NOT resolved by closing this issue.
+- **Known remaining gaps, deliberately out of scope, each with its own
+  tracking:** `policy.member`'s `interaction_responses`/
+  "feedback_responses" create clause (Directus-policy-level enforcement
+  is architecturally impossible, needs an API-layer guard — see the
+  2026-07-30 update above); `policy.sponsor_rep`'s
+  `partner_audiences`/cohort-entitlement half (needs the `sponsors` ↔
+  `companies` relationship reconciled first); the unmanaged Public-role
+  grants on `events`/`speakers`/`event_speakers` found along the way
+  ([ISS-SEC-PUBLIC-UNMANAGED-001](ISS-SEC-PUBLIC-UNMANAGED-001.md),
+  [GitHub #169](https://github.com/aiqadam/ai-qadam-platform/issues/169)).
 
 ## Symptom
 
@@ -247,21 +361,30 @@ alongside the existing empty-container seeding (~line 2561 onward):
    update above — not implementable at the Directus-policy level).
 2. ~~`policy.speaker` — + update own `speakers` row, read own
    `event_speakers` rows.~~ **Done as of `wf-20260730-fix-160`.**
-3. `policy.sponsor_rep` — read own org's `sponsorships`/opt-in leads via
+3. ~~`policy.sponsor_rep` — read own org's `sponsorships`/opt-in leads via
    dynamic filter `{ sponsorships: { sponsor_id: { _eq:
-   $CURRENT_USER.sponsor_id } } }`.
-4. `policy.organizer` — CRUD `events`/`registrations`/`event_speakers` in
+   $CURRENT_USER.sponsor_id } } }`.~~ **Done as of `wf-20260731-fix-161`**
+   — implemented against the real `sponsors.rep_user` FK (confirmed with
+   user; `sponsorships`/`companies.rep_user` don't exist), the
+   `partner_audiences` cohort half remains out of scope.
+4. ~~`policy.organizer` — CRUD `events`/`registrations`/`event_speakers` in
    country, via `{ country_code: { _eq: "<country>" } }` filter; PII
    fields gated on opt-in flag per the PII data-flow doc referenced in
-   ADR-0021 §3.
-5. `policy.country_lead` — organizer permissions + roster management +
-   sponsor pipeline + PII.
-6. `policy.svc_bot` — read all `events`, write
+   ADR-0021 §3.~~ **Done as of `wf-20260731-fix-161`** — the real field
+   is `country`, not `country_code` (also fixed in `DirectusPolicyApplier`,
+   see 2026-07-31 update); PII gate uses `appear_on_attendee_list`.
+5. ~~`policy.country_lead` — organizer permissions + roster management +
+   sponsor pipeline + PII.~~ **Done as of `wf-20260731-fix-161`** — as a
+   full standalone grant set, not additive on `policy.organizer` (see
+   2026-07-31 update for why).
+6. ~~`policy.svc_bot` — read all `events`, write
    `registrations.checked_in_at`, read `point_awards`; no PII except
-   `telegram_user_id`.
-7. `policy.svc_worker` — CRUD `interactions`/`deliveries`/`responses`; no
-   registration writes.
+   `telegram_user_id`.~~ **Done as of `wf-20260731-fix-161`.**
+7. ~~`policy.svc_worker` — CRUD `interactions`/`deliveries`/`responses`; no
+   registration writes.~~ **Done as of `wf-20260731-fix-161`** — real
+   collection names `interactions`/`interaction_deliveries`/
+   `interaction_responses`.
 
-This is a substantial, multi-collection permission-authoring task (likely
-its own PR, possibly split further) — sizing it precisely is this issue's
-first step when picked up, not ISS-UAT-RBAC-001's.
+All seven policies now have live-verified permission rows. Remaining
+gaps are tracked separately (see the 2026-07-31 Resolution update
+above) rather than blocking this issue's closure.
