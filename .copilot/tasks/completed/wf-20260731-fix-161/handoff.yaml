@@ -5,7 +5,7 @@ workflow_type: "issue-resolution"
 workflow_version: "1.0"
 
 created_at: "2026-07-30T00:00:00Z"
-last_updated_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-07-30T19:53:41Z"
 
 requirement_ref: "ISS-RBAC-PERMS-001"
 requirement_text: |
@@ -54,9 +54,9 @@ branch: "fix/ISS-RBAC-PERMS-001-remaining-policies"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/172"
 
-current_step: 9
-current_step_name: "commit-push-pr"
-workflow_status: "running"
+current_step: 12
+current_step_name: "merged"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: "wf-20260730-fix-160"
@@ -109,7 +109,7 @@ business_process: ["BP-UAT-003", "BP-UAT-016"]
 post_merge_uat_runs: []
 
 artifacts:
-  - ".copilot/tasks/active/wf-20260731-fix-161/handoff.yaml"
+  - ".copilot/tasks/completed/wf-20260731-fix-161/handoff.yaml"
 
 context_refs:
   - docs/adr/0021-rbac-manifest.md

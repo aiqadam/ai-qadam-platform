@@ -1,6 +1,43 @@
 # Workspace State
 
-**Last updated:** 2026-07-30 — `wf-20260730-fix-160`.
+**Last updated:** 2026-07-31 — `wf-20260731-fix-161`.
+**ISS-RBAC-PERMS-001 fully resolved — all seven ADR-0021 policies now have live-verified permission rows.**
+[wf-20260731-fix-161](../tasks/completed/wf-20260731-fix-161/handoff.yaml)
+(PR [#172](https://github.com/aiqadam/ai-qadam-platform/pull/172) squash
+`9b9e11c`): implemented the final 5 policies (`sponsor_rep`,
+`organizer`, `country_lead`, `svc_bot`, `svc_worker`), completing the
+work `wf-20260730-fix-160` (PR #170) started. `policy.sponsor_rep`
+needed a user decision first — the ADR/prior code referenced
+`companies.rep_user`, which does not exist; confirmed implementing
+against the real `sponsors.rep_user` FK instead, with the
+`partner_audiences` cohort-entitlement half left out of scope pending
+that relationship being reconciled. `policy.organizer`/`policy.country_lead`
+scope events/registrations/event_speakers to the acting user's own
+`directus_users.country`; organizer additionally gates registrations PII
+on the registrant's `appear_on_attendee_list` opt-in, country_lead does
+not (matches the ADR's "see PII" vs "only on opt-in flag" distinction).
+`country_lead` ships as a full standalone grant set rather than additive
+on `organizer`, since `group-mapping.ts` never attaches both together
+for the country-lead Authentik group. Found and fixed 2 more real bugs
+while proving these live (bringing this issue's total to 5 across both
+workflows): `DirectusPolicyApplier` PATCHed a `country_code` field that
+doesn't exist on `directus_users` (the real field is `country`) — since
+Directus silently ignores unknown PATCH keys instead of erroring, every
+country-scoped policy had silently never worked, ever, on any
+environment; and `ensure_perm_for_policy`'s `(policy, collection,
+action)` idempotency key silently collides when a policy needs two
+different-purpose grants on the same collection+action (found trying to
+give `country_lead` a narrow self-read alongside a broader roster-read
+on `directus_users` — consolidated into one grant). Live-verified every
+grant with real member-scoped Directus tokens, including a genuine
+negative test for the PII opt-in gate (flipped a registrant's opt-in
+off, watched the specific row disappear from the organizer's view) and
+confirmation that `svc_bot` cannot read a different user's PII despite
+reading its own via an unrelated Directus system default. All test
+fixtures cleaned up; the UAT member identity restored to its original
+state.
+
+`wf-20260730-fix-160`.
 **ISS-RBAC-PERMS-001: `policy.member` completed (minus one deliberately-unimplementable clause) and `policy.speaker` shipped; 3 real Directus-permission-engine bugs found and fixed; 2 new issues split off.**
 [wf-20260730-fix-160](../tasks/completed/wf-20260730-fix-160/handoff.yaml)
 (PR [#170](https://github.com/aiqadam/ai-qadam-platform/pull/170) squash
