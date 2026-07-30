@@ -1,6 +1,54 @@
 # Workspace State
 
-**Last updated:** 2026-07-30 — `wf-20260730-uat-156`.
+**Last updated:** 2026-07-30 — `wf-20260730-fix-157`.
+**ISS-UAT-SEED-003 resolved — BP-UAT-010 now has a real, live-verified seed manifest; a second, independently-discovered CRLF bug in the shared `--reset` machinery was found and fixed in the same session.**
+[wf-20260730-fix-157](../tasks/completed/wf-20260730-fix-157/handoff.yaml)
+(PR [#155](https://github.com/aiqadam/ai-qadam-platform/pull/155), squash
+`2691907f3487f000d4bf46c8b7de952396ede9f9`): authored
+`scripts/uat-fixtures/BP-UAT-010.json` (8 fixtures: `uat-member` restored
+via the existing STEP 3 identity, 2 new filler identities so
+`uat-event-full-uz` can carry 2 real pre-existing `registered` rows at
+capacity=2, `uat-event-open-uz`/`uat-event-full-uz` events, and a fixed
+`point_awards` baseline row for `uat-member`) and generalized
+`reset_domain_fixture()`/`resolve_payload_offsets()` in
+`scripts/uat-seed.sh` with two new manifest hints (`event_ref`/
+`event_ref_field`, `user_email`) plus a `"__resolved__"` lookup-value
+sentinel — the same FK-resolution pattern `member_email` already
+established, extended because `registrations`/`point_awards` FK to
+`events` via different column names and have no natural pre-known-string
+unique column of their own. Deliberately used the REAL Directus field
+values throughout (`status: registered`/`waitlisted`, no registration-time
+points) rather than the wrong `confirmed`/`waitlist`/"+5 points" wording
+`BP-UAT-010.md`'s own ACs currently state — that discrepancy, plus a
+separate `registeredCount=0` rendering gap on the event-detail page found
+during the same research pass, were split off to their own follow-up
+issues ([ISS-UAT-010-1](../issues/ISS-UAT-010-1.md),
+[ISS-EVT-004-1](../issues/ISS-EVT-004-1.md)) rather than silently expanded
+into this PR's scope, per a user-confirmed scope decision recorded in the
+workflow's own Step 1 output. **A second, real, live-only bug was found
+and fixed in the same session**: the native Windows `jq.exe` build on this
+machine emits CRLF line endings for `jq -r`'s multi-line output;
+`resolve_payload_offsets()`'s `for k in $keys` word-split on the embedded
+`\r`, silently corrupting every `*_offset` key but the last in any fixture
+declaring 2+ of them — a pre-existing, latent bug (also present in
+`BP-UAT-001.json`'s `uat-event-draft-uz`, same 2-offset-key shape) that
+mock mode structurally cannot exercise (it returns before ever calling
+this function), so no prior bats run had ever caught it. Fixed with `tr -d
+'\r'`, the same idiom `env_get()` already uses for the identical class of
+problem; a dedicated fail-before/pass-after regression test was added.
+11 new bats tests, 76/76 total pass across the 3 `uat-seed*.bats` files.
+Live-verified end-to-end against the real local Directus/Authentik stack
+(not mocked) — direct Directus queries confirmed both events, both
+registrations, and the points baseline row landed correctly; a second
+`--reset` run confirmed idempotency (no row accumulation, via the
+existing `ON DELETE CASCADE` FK). **Honestly disclosed, not silently
+dropped:** this issue's Step 13 post-merge UAT re-verification against
+`BP-UAT-010` (mandatory per its `Business-Process` field) is expected to
+report `MISMATCH` on AC-1/AC-6/AC-7 as `BP-UAT-010.md` currently words
+them — a known, disclosed consequence of ISS-UAT-010-1's doc-wording gap,
+not a product regression; see this file's own next entry for the outcome.
+
+`wf-20260730-uat-156`.
 **Post-merge BP-UAT-010 re-verification for FR-EVT-004 completed with an honestly-disclosed environment blocker, not a clean pass — new issue ISS-UAT-SEED-003 filed.**
 [wf-20260730-uat-156](../tasks/completed/wf-20260730-uat-156/handoff.yaml)
 (PR [#153](https://github.com/aiqadam/ai-qadam-platform/pull/153)):
