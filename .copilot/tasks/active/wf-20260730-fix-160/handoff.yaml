@@ -1,0 +1,96 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260730-fix-160"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-30T00:00:00Z"
+last_updated_at: "2026-07-30T17:30:00Z"
+
+requirement_ref: "ISS-RBAC-PERMS-001"
+requirement_text: "The seven ADR-0021 §4.1 RBAC policies have zero directus_permissions rows; policy attachment alone grants no access. This slice completes policy.member's remaining Effect clauses (read public collections; create registrations keyed to self) and implements policy.speaker in full. interaction_responses (ADR's 'feedback_responses') create is deliberately NOT implemented -- tested live, cannot be enforced at the Directus-policy level. The other five policies (sponsor_rep, organizer, country_lead, svc_bot, svc_worker) need country-scoped/cross-collection filters and are deliberately deferred to a follow-up workflow, per the issue's own prior sizing note."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/124"
+
+branch: "fix/ISS-RBAC-PERMS-001-member-speaker-permission-rows"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/170"
+
+current_step: 9
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: ["ISS-RBAC-ONBOARDED-AT-001", "ISS-SEC-PUBLIC-UNMANAGED-001"]
+issue_ref: "ISS-RBAC-PERMS-001"
+
+deferrals:
+  - from_feature: "ISS-RBAC-PERMS-001"
+    to_feature: "ISS-RBAC-PERMS-001"
+    reason: "This workflow implements policy.member's remaining Effect clauses and policy.speaker only. policy.sponsor_rep, policy.organizer, policy.country_lead, policy.svc_bot, policy.svc_worker still have zero permission rows -- each needs country-scoped or cross-collection dynamic filters that are materially different, larger work. Queued as wf-rbac-perms-001-remaining-policies (.copilot/tasks/queued/wf-rbac-perms-001-remaining-policies/) rather than expanding this PR past the 400-line/5-file limit."
+    step: 1
+    timestamp: "2026-07-30T00:00:00Z"
+  - from_feature: "ISS-RBAC-PERMS-001"
+    to_feature: "ISS-RBAC-ONBOARDED-AT-001"
+    reason: "Live verification found directus_users.onboarded_at -- the exact field named in ISS-RBAC-PERMS-001's original symptom -- does not exist anywhere in the local schema. The permission-row gap (this workflow's actual scope) is fixed, but the field itself is a separate, unfixed bug. Split into its own issue rather than expanding this PR's scope into schema authorship."
+    step: 8
+    timestamp: "2026-07-30T17:00:00Z"
+  - from_feature: "ISS-RBAC-PERMS-001"
+    to_feature: "ISS-SEC-PUBLIC-UNMANAGED-001"
+    reason: "Live verification found events/speakers/event_speakers are fully world-readable via unmanaged Directus Public-role grants that exist nowhere in bootstrap.sh or version control -- unrelated to this workflow's actual RBAC-policy scope, security-classed finding needing product-owner triage on intended exposure before any fix. Split into its own issue rather than silently revoking a possibly-intentional grant."
+    step: 8
+    timestamp: "2026-07-30T17:00:00Z"
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-003", "BP-UAT-016"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260730-fix-160/handoff.yaml"
+
+context_refs:
+  - docs/adr/0021-rbac-manifest.md
+  - infrastructure/directus/bootstrap.sh
+  - apps/api/src/modules/rbac-sync/directus-policy-applier.ts
+  - .copilot/issues/ISS-RBAC-PERMS-001.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260730-fix-160/NEEDS_REVIEW.md"
