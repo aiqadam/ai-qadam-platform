@@ -1,6 +1,47 @@
 # Workspace State
 
-**Last updated:** 2026-07-30 — `wf-20260730-fix-157`.
+**Last updated:** 2026-07-30 — `wf-20260730-uat-158`.
+**BP-UAT-010 executed live end-to-end for the first time ever in this repo (Step 13 post-merge re-verification for ISS-UAT-SEED-003) — mostly clean, but surfaced 2 new real product bugs unrelated to the seed-fixture fix itself.**
+[wf-20260730-uat-158](../tasks/completed/wf-20260730-uat-158/handoff.yaml)
+(PR [#157](https://github.com/aiqadam/ai-qadam-platform/pull/157)):
+a full agent-driven browser session (sign-in via Authentik, register for
+an open event, idempotency re-check, register for an at-capacity event)
+against `apps/web` locally. AC-1/AC-4/AC-5/Negative-002 verified `MATCH`;
+AC-2 `PARTIAL` (no QR element in the sidebar — pre-existing, already
+documented as an open question in `BP-UAT-010.md`'s own Notes); AC-3
+deferred (no mail-catcher check, doc-sanctioned); AC-6/AC-7 `MISMATCH` as
+predicted by the already-filed `ISS-UAT-010-1` (the doc's own AC wording
+uses field values that don't exist in the real implementation). **Two
+new, real, previously-undiscovered bugs found and corroborated directly
+against Directus, not just DOM text**: `platform.users.directus_user_id`
+is a write-once cache in `DirectusUsersBridgeService` that is never
+re-validated against a user's current email — a live registration by
+`uat-member@example.com` attached to a stale, superseded Directus user
+row still carrying the old, retired `@aiqadam.test` email, filed as
+[ISS-BRIDGE-STALE-001](../issues/ISS-BRIDGE-STALE-001.md) (high severity —
+blast radius is any real user whose email ever changes or whose Directus
+mirror is ever recreated, not just this test fixture). Separately, a
+registration on an at-capacity event correctly wrote `status=waitlisted`
+to Directus (server-side capacity enforcement works), but `apps/web`'s
+`RegistrationSidebar` rendered the "✓ You're registered" success state
+instead of the waitlist state — a genuine visual-vs-DOM divergence this
+session's independent corroboration step caught (a DOM-text-only
+assertion would have missed it, since "you're registered" literally
+appears in the markup), filed as
+[ISS-UAT-010-2](../issues/ISS-UAT-010-2.md). Also discovered and
+worked around live (not filed as a new issue, no code change needed):
+`apps/web`'s dev server needs `CMS_URL` exported as an actual shell
+environment variable to reach local Directus — its pre-existing,
+gitignored `.env.local` override alone was not being picked up by plain
+`astro dev` on this machine, and without it `apps/web`'s own `cms.ts`
+silently falls back to the LIVE PRODUCTION Directus URL (`https://cms.aiqadam.org`,
+which itself returned HTTP 523) for every event-detail request. Per
+protocol.md's Step 13 outcome rule, `ISS-UAT-SEED-003` does NOT sync to
+`agent-verified` (new findings on the same surface mean verification
+isn't clean) — Status stays `implemented`/`resolved` for a human to
+review, or a future workflow to resolve the 2 new issues and re-verify.
+
+`wf-20260730-fix-157`.
 **ISS-UAT-SEED-003 resolved — BP-UAT-010 now has a real, live-verified seed manifest; a second, independently-discovered CRLF bug in the shared `--reset` machinery was found and fixed in the same session.**
 [wf-20260730-fix-157](../tasks/completed/wf-20260730-fix-157/handoff.yaml)
 (PR [#155](https://github.com/aiqadam/ai-qadam-platform/pull/155), squash
