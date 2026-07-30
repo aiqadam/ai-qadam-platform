@@ -1,6 +1,33 @@
 # Workspace State
 
-**Last updated:** 2026-07-30 — `wf-20260730-feat-155`.
+**Last updated:** 2026-07-30 — `wf-20260730-uat-156`.
+**Post-merge BP-UAT-010 re-verification for FR-EVT-004 completed with an honestly-disclosed environment blocker, not a clean pass — new issue ISS-UAT-SEED-003 filed.**
+[wf-20260730-uat-156](../tasks/completed/wf-20260730-uat-156/handoff.yaml)
+(PR [#153](https://github.com/aiqadam/ai-qadam-platform/pull/153)):
+Step 13 of `wf-20260730-feat-155` (FR-EVT-004) required re-verifying
+`BP-UAT-010` (Event registration flow) live, since that's the business
+process the modified `/events/[id]` page hosts. BusinessAnalyst's script
+validation confirmed FR-EVT-004 did not structurally break BP-UAT-010 (the
+registration sidebar renders unconditionally regardless of the new
+lifecycle-tab state) — but found BP-UAT-010's own seed fixtures
+(`uat-event-open-uz`, `uat-event-full-uz`, `uat-member-points-baseline`)
+are not produced by `scripts/uat-seed.sh` or any fixture manifest anywhere
+in this repo, so the script cannot actually run end-to-end against a
+freshly seeded stack. This is a **pre-existing gap unrelated to
+FR-EVT-004** — discovered only because this was the first time anyone
+tried to actually execute BP-UAT-010 live since it was authored. Filed
+[ISS-UAT-SEED-003](../issues/ISS-UAT-SEED-003.md) (GitHub
+[#152](https://github.com/aiqadam/ai-qadam-platform/pull/152), open, not
+yet scheduled) with a concrete AC-driven fix (author a
+`scripts/uat-fixtures/BP-UAT-010.json` manifest, extend `uat-seed.sh`,
+reconcile a `uat-member@aiqadam.test` vs. `uat-member@example.com`
+email-domain mismatch also found in the same pass). FR-EVT-004 itself
+remains `Implemented`/`Shipped` — its own independently-passing
+unit/E2E/security verification stands regardless of this UAT gap; per
+protocol this is recorded as a disclosed deferral (env issue, not a
+product finding), so its GitHub Project sync stays at `implemented`, not
+`agent-verified`.
+
 **FR-EVT-004 (Event detail page) shipped — closes GitHub issue [#130](https://github.com/aiqadam/ai-qadam-platform/issues/130).**
 [wf-20260730-feat-155](../tasks/completed/wf-20260730-feat-155/handoff.yaml)
 (PR [#150](https://github.com/aiqadam/ai-qadam-platform/pull/150), squash

@@ -105,6 +105,26 @@ Public / Members.
   not added in this workflow — out of the 11 enumerated implementation tasks
   and not referenced by any of the 8 ACs. V1's page already emits this; a
   future pass can port it if needed.
+- **Post-merge `BP-UAT-010` re-verification (`wf-20260730-uat-156`) could not
+  execute end-to-end.** Per protocol, this FR's linked business process
+  (`BP-UAT-010`, Event registration flow) must be re-checked live after
+  merge. BusinessAnalyst's script-validation pass (Step 1) confirmed the
+  script survives this workflow's page changes structurally — the
+  registration sidebar (`RegistrationCTA`) renders unconditionally
+  regardless of the new lifecycle-tab state — but found the script's own
+  seed fixtures (`uat-event-open-uz`, `uat-event-full-uz`,
+  `uat-member-points-baseline`) are not produced by any seed mechanism in
+  this repo (`scripts/uat-seed.sh` seeds RBAC/Directus bootstrap and two
+  Authentik users only; no `scripts/uat-fixtures/BP-UAT-010.json` manifest
+  exists). This is a **pre-existing environment gap, not a regression from
+  this FR** — registered as
+  [ISS-UAT-SEED-003](https://github.com/aiqadam/ai-qadam-platform/issues/152)
+  with a concrete, AC-driven fix (author the missing seed manifest, extend
+  `uat-seed.sh`, reconcile an email-domain mismatch), per AGENTS.md §6.1's
+  honesty-disclosure rule rather than silently marking this FR fully
+  UAT-verified. This FR's own `Implemented`/`Shipped` status stands —
+  unaffected, since it rests on the independently-passing unit/E2E/security
+  verification already recorded above, not on BP-UAT-010's live re-run.
 
 ### Architectural findings from requirement validation (2026-07-30, wf-20260730-feat-155)
 
