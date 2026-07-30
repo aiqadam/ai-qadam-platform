@@ -177,21 +177,6 @@ async function fetchUpcomingEvents(baseUrl: string, mockFetch: MockFetch): Promi
   }
 }
 
-// ─── fetchEvent ───────────────────────────────────────────────────────────────
-
-async function fetchEvent(
-  id: string,
-  baseUrl: string,
-  mockFetch: MockFetch,
-): Promise<ApiEvent | null> {
-  if (!id || id.length === 0) return null;
-  try {
-    return await get<ApiEvent>(baseUrl, `/v1/events/${encodeURIComponent(id)}`, mockFetch);
-  } catch {
-    return null;
-  }
-}
-
 // ─── fetchActiveEvents ────────────────────────────────────────────────────────
 
 async function fetchActiveEvents(
@@ -566,56 +551,10 @@ describe('fetchUpcomingEvents', () => {
   });
 });
 
-// ─── Tests: fetchEvent ────────────────────────────────────────────────────────
-
-describe('fetchEvent', () => {
-  let mockFetch: MockFetch;
-
-  beforeEach(() => {
-    mockFetch = vi.fn();
-  });
-
-  const mockEvent: ApiEvent = {
-    id: 'evt-123',
-    title: 'AI Workshop',
-    startsAt: '2026-07-01T10:00:00Z',
-    endsAt: '2026-07-01T14:00:00Z',
-    location: 'Tashkent',
-  };
-
-  it('returns event on success', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockEvent,
-    });
-
-    const result = await fetchEvent('evt-123', 'http://api:3000', mockFetch);
-
-    expect(result).toEqual(mockEvent);
-  });
-
-  it('returns null when id is empty', async () => {
-    const result = await fetchEvent('', 'http://api:3000', mockFetch);
-    expect(result).toBeNull();
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('returns null on 404', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
-
-    const result = await fetchEvent('evt-missing', 'http://api:3000', mockFetch);
-
-    expect(result).toBeNull();
-  });
-
-  it('returns null on network error', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
-
-    const result = await fetchEvent('evt-123', 'http://api:3000', mockFetch);
-
-    expect(result).toBeNull();
-  });
-});
+// NOTE: fetchEvent moved from lib/api-ssr.ts to lib/cms.ts (FR-EVT-004
+// gap-closure, wf-20260730-feat-155) — it now reads Directus directly
+// instead of the nonexistent `GET /v1/events/:id` Nest route this file
+// used to mirror. Its test coverage lives in lib/cms.test.ts.
 
 // ─── Tests: fetchActiveEvents ─────────────────────────────────────────────────
 

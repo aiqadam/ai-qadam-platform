@@ -68,22 +68,6 @@ export async function fetchUpcomingEvents(req: Request): Promise<ApiEvent[]> {
 }
 
 // ---------------------------------------------------------------------------
-// /v1/events/:id — single-event detail (with all enrichment fields).
-// ---------------------------------------------------------------------------
-
-export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
-  if (!id || id.length === 0) return null;
-  try {
-    return await get<ApiEvent>(req, `/v1/events/${encodeURIComponent(id)}`);
-  } catch (err) {
-    // 404 + network failure: same return — page handles null with a
-    // friendly "event not found" surface or 302 to /events.
-    console.error(`[api-ssr] /v1/events/${id} failed:`, err instanceof Error ? err.message : err);
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // /v1/events/checkin/active — active events for check-in operator dropdown (FR-MIG-021).
 // Returns events where startsAt <= now <= endsAt + 24h. Public endpoint.
 // ---------------------------------------------------------------------------

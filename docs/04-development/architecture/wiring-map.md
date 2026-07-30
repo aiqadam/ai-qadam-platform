@@ -74,9 +74,16 @@ operator_blocks:
     cabinet: /workspace/events/[id]
     operation: both
 
-ssr_fetcher: apps/web-next/src/lib/api-ssr.ts → fetchUpcomingEvents(req) AND fetchEvent(req, id)
-api_endpoint: GET /v1/events (host header → country filter) AND GET /v1/events/:id (single detail)
-fallback: empty array / null (page renders EmptyState block OR 302 to /events; API outage doesn't break page)
+ssr_fetcher: apps/web-next/src/lib/api-ssr.ts → fetchUpcomingEvents(req)
+            apps/web-next/src/lib/cms.ts → fetchEvent(req, id)   # moved here in wf-20260730-feat-155 (FR-EVT-004 gap-closure)
+api_endpoint: GET /v1/events (host header → country filter, apps/api)
+              fetchEvent reads Directus `/items/events/:id` directly (no NestJS route — apps/api has
+              no controller for GET /v1/events/:id; matches V1's apps/web/src/lib/cms.ts precedent and
+              every other V2 event sub-fetcher already in cms.ts)
+fallback: empty array / null (page renders EmptyState block OR a real 404 via
+          `new Response('not_found', { status: 404 })`; not-found, unpublished, and
+          wrong-country all collapse into this same null/404 path — no longer a 302 to
+          /events, changed in wf-20260730-feat-155; API outage doesn't break the listing page)
 
 aggregates:
   events_this_month:
@@ -175,9 +182,23 @@ ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchEventQuestions(eventId)
 fallback: [] (block still renders composer; existing list comes back empty)
 ```
 
-### `event_photos`
+### `event_photos` — LIVE under apps/web-next/ as of wf-20260730-feat-155 (FR-EVT-004)
 
-> Placeholder — filled in a future finished-tab follow-up (photos).
+```yaml
+data_source: event_photos
+description: Per-event photo grid, shown on the Finished tab only.
+
+customer_blocks:
+  - block: EventPhotoGallery
+    page: apps/web-next/src/pages/events/[id].astro
+    operation: read
+    filter: event = X, Finished tab only, gated by isGated (skipped entirely when gated)
+
+operator_blocks: []   # placeholder — no operator-side photo management cabinet yet
+
+ssr_fetcher: apps/web-next/src/lib/cms.ts → fetchEventPhotos(eventId)
+fallback: [] (block renders nothing; rest of Finished tab unaffected)
+```
 
 ### `registrations` — LIVE under apps/web-next/ as of PR 1.4
 

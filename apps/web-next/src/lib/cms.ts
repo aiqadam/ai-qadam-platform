@@ -177,14 +177,191 @@ export async function updateSiteSettings(data: Partial<SiteSettings>): Promise<v
 }
 
 // ---------------------------------------------------------------------------
+// events — single-event detail for /events/[id] (FR-EVT-004).
+//
+// Reads Directus directly, matching every sibling fetcher in this file
+// (and V1's own `fetchEvent`) rather than the NestJS API — no public
+// `GET /v1/events/:id` route exists on apps/api today. Returns
+// `ApiEvent | null`, matching this file's null-on-miss convention; the
+// page itself re-derives the country-mismatch case via `countryFromHost`
+// (see AC-8 / R-3 in the impact analysis) since Directus has no notion
+// of "wrong tenant" — it only knows whether the row exists.
+// ---------------------------------------------------------------------------
+
+import type {
+  ApiEvent,
+  EventMaterial,
+  EventPhoto,
+  EventQuestion,
+  EventSpeaker,
+  EventSponsor,
+} from './types';
+
+interface CmsEventRow {
+  id: string;
+  title: string;
+  description: string;
+  status: ApiEvent['status'];
+  format: ApiEvent['format'];
+  starts_at: string;
+  ends_at: string;
+  capacity: number | null;
+  location: string | null;
+  country: string;
+  short_description?: string | null;
+  slug?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  map_url?: string | null;
+  hero_image?: string | null;
+  agenda_md?: string | null;
+  visibility_scope?: ApiEvent['visibilityScope'];
+  external_links?: unknown;
+  // Directus decimal fields come back as strings via the REST adapter
+  // when the driver uses pg's `numeric` type — accept either shape and
+  // coerce in toApiEvent.
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  recap_md?: string | null;
+  livestream_url?: string | null;
+  date_updated?: string | null;
+}
+
+type ExternalLinks = NonNullable<ApiEvent['externalLinks']>;
+type ExternalLinkKind = NonNullable<ExternalLinks[number]['kind']>;
+const ALLOWED_LINK_KINDS = new Set<ExternalLinkKind>([
+  'website',
+  'registration',
+  'sponsor',
+  'livestream',
+  'recording',
+  'other',
+]);
+
+function isHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function normalizeLinkRow(item: unknown): ExternalLinks[number] | null {
+  if (!item || typeof item !== 'object') return null;
+  const row = item as { label?: unknown; url?: unknown; kind?: unknown };
+  const label = typeof row.label === 'string' ? row.label.trim() : '';
+  const url = typeof row.url === 'string' ? row.url.trim() : '';
+  if (label.length === 0 || url.length === 0) return null;
+  if (!isHttpUrl(url)) return null;
+  const kind =
+    typeof row.kind === 'string' && ALLOWED_LINK_KINDS.has(row.kind as ExternalLinkKind)
+      ? (row.kind as ExternalLinkKind)
+      : null;
+  return { label, url, kind };
+}
+
+function normalizeExternalLinks(raw: unknown): ExternalLinks | null {
+  if (!Array.isArray(raw)) return null;
+  const out: ExternalLinks = [];
+  for (const item of raw) {
+    const row = normalizeLinkRow(item);
+    if (row) out.push(row);
+  }
+  return out.length > 0 ? out : null;
+}
+
+// Coerce a Directus decimal (string | number) to a finite number in the
+// valid range; null otherwise. Both lat and lng must resolve for the
+// page's OSM embed to render.
+function parseCoord(raw: unknown, min: number, max: number): number | null {
+  if (raw == null) return null;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n)) return null;
+  if (n < min || n > max) return null;
+  return n;
+}
+
+function toApiEvent(row: CmsEventRow, registeredCount = 0): ApiEvent {
+  const heroImageUrl = row.hero_image ? `${directusBase()}/assets/${row.hero_image}` : null;
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    format: row.format,
+    status: row.status,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    capacity: row.capacity,
+    registeredCount,
+    location: row.location,
+    countryCode: row.country,
+    shortDescription: row.short_description ?? null,
+    slug: row.slug ?? null,
+    venue: row.venue ?? null,
+    address: row.address ?? null,
+    mapUrl: row.map_url ?? null,
+    heroImageUrl,
+    agendaMd: row.agenda_md ?? null,
+    visibilityScope: row.visibility_scope ?? 'public',
+    externalLinks: normalizeExternalLinks(row.external_links),
+    latitude: parseCoord(row.latitude, -90, 90),
+    longitude: parseCoord(row.longitude, -180, 180),
+    recapMd: row.recap_md ?? null,
+    livestreamUrl: row.livestream_url ?? null,
+    updatedAt: row.date_updated ?? null,
+  };
+}
+
+const EVENT_FIELDS =
+  'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,latitude,longitude,recap_md,livestream_url,date_updated';
+
+// Country code from a request's Host header. Mirrors V1's
+// countryFromHost (apps/web/src/lib/cms.ts) and the API's tenant
+// middleware so SSR + API agree on which country to query. Defaults to
+// 'uz' for unknown/missing hosts (e.g. local dev on localhost).
+export function countryFromHost(host: string | null | undefined): string {
+  if (!host) return 'uz';
+  const label = host.split(':')[0]?.toLowerCase().split('.')[0] ?? '';
+  if (label === 'uz' || label === 'kz' || label === 'tj') return label;
+  return 'uz';
+}
+
+/**
+ * Single event for /events/[id]. Returns `null` on miss, unpublished,
+ * OR wrong-country (AC-8: a KZ event requested via uz.aiqadam.org must
+ * 404 exactly like a nonexistent id — no differentiated response that
+ * could leak which country a private event belongs to). Country is
+ * resolved the same way V1's fetchEvent does: `countryFromHost` against
+ * the incoming request's Host header. `null` also covers any
+ * Directus-reachability failure — same convention as every sibling
+ * fetcher in this file.
+ */
+export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
+  if (!id || id.length === 0) return null;
+  const country = countryFromHost(req.headers.get('host'));
+  try {
+    const params = new URLSearchParams({ fields: EVENT_FIELDS });
+    const body = await get<{ data: CmsEventRow | null }>(
+      `/items/events/${encodeURIComponent(id)}?${params.toString()}`,
+    );
+    if (!body.data || body.data.status !== 'published' || body.data.country !== country) {
+      return null;
+    }
+    return toApiEvent(body.data);
+  } catch (err) {
+    console.error(`[cms] fetchEvent(${id}) failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // event_speakers, event_materials, event_sponsors (Directus joins).
 //
 // PR 1.3 — these back the <SpeakerGrid>, <MaterialsList>, <SponsorWall>
 // blocks on /events/[id]. Each returns [] on failure so the page still
 // renders the rest of the surface.
 // ---------------------------------------------------------------------------
-
-import type { EventMaterial, EventQuestion, EventSpeaker, EventSponsor } from './types';
 
 interface CmsEventSpeakerRow {
   id: string;
@@ -279,6 +456,56 @@ export async function fetchEventMaterials(eventId: string): Promise<EventMateria
     return body.data.map(rowToMaterial).filter((m): m is EventMaterial => m !== null);
   } catch (err) {
     console.error('[cms] fetchEventMaterials failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// event_photos — Finished-tab photo gallery (F-WebU9).
+//
+// Public read, sorted by order_index. Either `file` (Directus-hosted,
+// preferred) or `url` (external CDN) resolves to an <img src>; rows
+// producing neither are dropped. Mirrors V1's apps/web/src/lib/cms.ts
+// fetchEventPhotos.
+// ---------------------------------------------------------------------------
+
+interface CmsEventPhotoRow {
+  id: string;
+  file: string | null;
+  url: string | null;
+  caption: string | null;
+  alt_text: string | null;
+  order_index: number | null;
+}
+
+export async function fetchEventPhotos(eventId: string): Promise<EventPhoto[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      fields: 'id,file,url,caption,alt_text,order_index',
+      sort: 'order_index',
+      limit: '60',
+    });
+    const body = await get<{ data: CmsEventPhotoRow[] }>(
+      `/items/event_photos?${params.toString()}`,
+    );
+    return body.data
+      .map((row): EventPhoto | null => {
+        const fileUrl = row.file ? `${directusBase()}/assets/${row.file}` : null;
+        const url = row.url ? row.url : null;
+        if (!fileUrl && !url) return null;
+        return {
+          id: row.id,
+          fileUrl,
+          url,
+          caption: row.caption?.trim() || null,
+          altText: row.alt_text?.trim() || null,
+          orderIndex: row.order_index ?? 0,
+        };
+      })
+      .filter((p): p is EventPhoto => p !== null);
+  } catch (err) {
+    console.error('[cms] fetchEventPhotos failed:', err instanceof Error ? err.message : err);
     return [];
   }
 }

@@ -38,6 +38,27 @@ export interface ApiEvent {
     url: string;
     kind?: 'website' | 'registration' | 'sponsor' | 'livestream' | 'recording' | 'other' | null;
   }> | null;
+  // F-WebU2 — venue coordinates in decimal degrees. Both must be present
+  // for the OpenStreetMap embed to render; otherwise the page falls back
+  // to the free-text address / mapUrl click-through.
+  latitude?: number | null;
+  longitude?: number | null;
+  // Operator-provided click-through map link (e.g. a Google Maps share
+  // URL pasted directly), distinct from the auto-generated Google/Yandex
+  // deep-links derived from latitude/longitude or address.
+  mapUrl?: string | null;
+  // F-WebU9 — public post-event recap rendered on the Finished tab.
+  // Distinct from `event_retrospective` which stays operator-internal.
+  recapMd?: string | null;
+  // F-WebU10 — public livestream URL rendered on the Live tab. YouTube
+  // + Vimeo auto-embed; other providers render as a click-through Join
+  // button. Distinct from `online_meeting_url` (private virtual
+  // meetings sent only to registered attendees).
+  livestreamUrl?: string | null;
+  // F-S5.4 — Directus `date_updated`. Used as the OG-card cache buster
+  // (`?v=<epoch>`) so a speaker_added / metadata edit invalidates every
+  // scraper's cached preview.
+  updatedAt?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +97,24 @@ export interface EventSponsor {
     logoUrl: string | null;
     website: string | null;
   };
+}
+
+// ---------------------------------------------------------------------------
+// Directus — event-detail Finished-tab photo gallery
+// ---------------------------------------------------------------------------
+
+// F-WebU9 — post-event photos shown on the Finished tab as a gallery.
+// Separate collection from event_materials because the render is
+// different (grid + caption + alt text vs pill row). Either `fileUrl`
+// (Directus-hosted, preferred) or `url` (external CDN) resolves to an
+// <img src>; the cms layer rejects rows that produce neither.
+export interface EventPhoto {
+  id: string;
+  fileUrl: string | null;
+  url: string | null;
+  caption: string | null;
+  altText: string | null;
+  orderIndex: number;
 }
 
 // ---------------------------------------------------------------------------
