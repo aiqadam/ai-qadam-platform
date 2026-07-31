@@ -496,8 +496,12 @@ Immediately after Step 12.5 (`issue-resolution`) / Step 11.5
    parallel in spirit to `subworkflow_history[]`.
 4. **Outcome handling:**
    - `uat-verification` passes clean (no new issues triaged) → note the
-     pass in the parent issue/requirement's Resolution section, proceed
-     to parent workflow completion.
+     pass in the parent issue/requirement's Resolution section, sync
+     **every stakeholder** of the linked BP-UAT to `agent-verified` (see
+     "Syncing ALL stakeholders, not just the current workflow's own ref"
+     below — this is not optional, it is what this step's own outcome
+     means for every FR/ISS on this surface, not only the one that
+     triggered the run), then proceed to parent workflow completion.
    - `uat-verification` triages one or more new `ISS-<n>` issues → those
      issues are registered normally (per `uat-verification.md` Step 4);
      the parent issue/requirement workflow still completes (its own fix
@@ -522,6 +526,53 @@ required at `issue-resolution.md` Step 6 / `requirement-development.md`
 Step 6-7 — the regression test proves the specific defect is fixed; the
 post-merge UAT run proves the business process built from that surface
 still works end-to-end.
+
+### Syncing ALL stakeholders, not just the current workflow's own ref (added 2026-07-31, `ISS-WF-PARENT-SYNC-001`)
+
+**A clean `uat-verification` pass for `BP-UAT-NNN` means "every FR/ISS
+whose surface this business process covers is agent-verified" — not just
+the one `ISS-<n>`/`FR-<CODE>` the current workflow happens to be closing.**
+Before this fix, the Step 13/11.5 sync only ever called
+`sync-github-project.sh --status agent-verified` for the current
+workflow's own ref. `FR-EVT-004`/GitHub issue
+[#130](https://github.com/aiqadam/ai-qadam-platform/issues/130) sat at
+Project-board Status `Implemented` for its entire lifetime despite its
+linked `BP-UAT-010` passing **four** separate clean post-merge
+re-verifications across four different follow-up workflows — each one
+correctly synced its OWN issue (`ISS-BRIDGE-STALE-001`,
+`ISS-UAT-010-2`, `ISS-UAT-010-1`) but none of them ever asked whether
+some other FR/ISS also had a stake in the same business process. The gap
+was invisible to every mechanical check that existed at the time; the
+user had to notice and ask directly. This is the same bug **class** as
+`ISS-WF-GH-CLOSE-001` (two independent "is this done" signals silently
+unwired) on a different axis: a parent item's board status drifting from
+the verification history of the business process it owns.
+
+**Rule:** whenever outcome 4's "passes clean" branch above fires, run:
+
+```bash
+scripts/find-bp-uat-stakeholders.sh <BP-UAT-NNN>
+```
+
+and call `sync-github-project.sh --ref <ref> --status agent-verified
+--existing-url <that ref's GitHub-Issue/github_issue field>` for **every**
+ref the script returns — not only the current workflow's own
+`requirement_ref`. The sync call is already idempotent (re-setting an
+already-`agent-verified` item is a no-op), so there is no need to first
+check each ref's current status; just call it for the full list. Skip a
+ref silently if it has no `GitHub-Issue`/`github_issue` value set (same
+best-effort rule as every other sync call in this file).
+
+`scripts/find-bp-uat-stakeholders.sh` unions two sources, because
+neither one alone is sufficient (confirmed live: `BP-UAT-010.md`'s own
+`linked_issues` list never contained `FR-EVT-004` — only its child
+follow-up issues were ever added to that list as each was independently
+filed; the parent FR that originally declared the `process_ref`
+relationship was never itself added):
+
+1. The BP-UAT file's own `linked_issues` frontmatter list.
+2. A direct scan of every `FR-*.md`/`ISS-*.md` file's own
+   `business_process`/`Business-Process` field for a match.
 
 ---
 

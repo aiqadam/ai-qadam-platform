@@ -1,0 +1,44 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-fix-170"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-07-31T00:00:00Z"
+
+requirement_ref: "ISS-WF-PARENT-SYNC-001"
+requirement_text: "Post-merge UAT re-verification only ever synced the current workflow's own ISS-<n>/FR-<CODE> to agent-verified on the GitHub Project board, never checking whether some OTHER FR/ISS also declares the same Business-Process linkage. FR-EVT-004/#130 sat at Implemented through 4 separate clean BP-UAT-010 re-verifications because none of those follow-up workflows ever synced #130's own row. Fix: new scripts/find-bp-uat-stakeholders.sh + both workflows' Step 13 looping the sync over every stakeholder ref."
+github_issue_url: "—"
+
+branch: "fix/ISS-WF-PARENT-SYNC-001-fr-agent-verified-gap"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/192"
+
+current_step: 12
+current_step_name: "commit-push-create-pr"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+post_merge_uat_runs: []
+issue_resolution: "resolved"

@@ -541,16 +541,28 @@ Step 8. Record each run in `handoff.yaml.post_merge_uat_runs[]`.
 
 **Gate:**
 - All linked BP-UATs pass clean → note the pass(es) in `FR-<CODE>.md`,
-  workflow complete. **Sync GitHub Project Status to `agent-verified`**
-  (best-effort, only if `github_issue` frontmatter is set):
+  workflow complete. **Sync GitHub Project Status to `agent-verified` for
+  EVERY stakeholder of the linked BP-UAT(s), not just this workflow's own
+  `FR-<CODE>`** (added 2026-07-31, `ISS-WF-PARENT-SYNC-001` — see
+  `protocol.md`'s "Syncing ALL stakeholders" subsection; a prior version
+  of this step only synced the current ref, which is how `FR-EVT-004`/#130
+  itself sat at `Implemented` through 4 clean BP-UAT-010 passes triggered
+  by OTHER workflows' follow-up issues):
   ```bash
-  scripts/sync-github-project.sh --ref FR-<CODE> --status agent-verified \
-    --existing-url "<github_issue frontmatter value>"
+  for ref in $(scripts/find-bp-uat-stakeholders.sh <BP-UAT-NNN>) FR-<CODE>; do
+    scripts/sync-github-project.sh --ref "$ref" --status agent-verified \
+      --existing-url "<that ref's GitHub-Issue/github_issue value>"
+    # best-effort, non-blocking — skip silently if the ref has no linked
+    # GitHub issue yet; run once per linked BP-UAT-NNN if more than one.
+  done
   ```
-  **Then close the GitHub issue here** (added 2026-07-31,
-  `ISS-WF-GH-CLOSE-001` — this is the correct moment, not the earlier
-  shipping commit; see `protocol.md`'s "Two independent 'is this done'
-  signals" subsection):
+  **Then close the GitHub issue for THIS workflow's own `FR-<CODE>` only**
+  (added 2026-07-31, `ISS-WF-GH-CLOSE-001` — this is the correct moment,
+  not the earlier shipping commit; see `protocol.md`'s "Two independent
+  'is this done' signals" subsection). Do NOT close other stakeholders'
+  GitHub issues here — the stakeholder sync above only touches Project
+  board Status, never issue open/closed state, for any ref other than
+  the current one:
   ```bash
   gh issue close <gh-n> --repo aiqadam/ai-qadam-platform \
     --comment "Verified via Step 13 post-merge re-verification of <BP-UAT-NNN> (workflow <wf-id>). Tracked internally as \`FR-<CODE>\`."
