@@ -45,9 +45,9 @@ Members (including temporary Telegram-only accounts).
 - [x] Registering for a fully-booked event returns a waitlist confirmation.
 - [x] `/cancel 5` cancels the user's registration and triggers waitlist promotion.
 - [x] `/me` correctly shows all active registrations with status badges.
-- [ ] `/leaderboard` shows top 10 members; the caller's row is highlighted if they appear.
+- [x] `/leaderboard` shows top 10 members; the caller's row is highlighted if they appear.
 - [ ] `/upgrade` starts the email verification flow and sends the magic-link email.
-- [ ] A temporary user is excluded from `/leaderboard` results.
+- [x] A temporary user is excluded from `/leaderboard` results.
 - [ ] All commands respond within 3 seconds under normal conditions.
 
 ## Notes
@@ -184,11 +184,70 @@ and this PR ships only command 6 of 10 (4 remain); closing it now would
 misrepresent unimplemented commands as done. See
 `.copilot/tasks/completed/wf-20260801-feat-176/` for full detail.
 
+**PR 4/6 (this PR) — shipped:** `/leaderboard` — top 10 members for the
+user's country, temp-user exclusion, caller-row highlight if present.
+API: new `GET /v1/internal/telegram/leaderboard`
+(`InternalAuthGuard`-protected, Zod-validated), reusing
+`PointsDirectusService.leaderboard()` and
+`DirectusUsersBridgeService.resolveUserIdFromDirectusId()` (both PR
+2/3-era services) completely unchanged — no new Directus query, no new
+DB migration. The response narrows the underlying `LeaderboardEntry`
+shape down to `{ displayName, points, isCaller }` per row, dropping
+`email`/`handle`/`userId` before it leaves the API boundary (PII
+narrowing flagged at impact analysis, confirmed by a dedicated test that
+the actual returned object has no such fields, not just a type-level
+check). `isCaller` is resolved server-side by comparing the caller's
+resolved `platform.users.id` against each entry's — the bot never learns
+another user's identifier. Unlike `/me`'s `getMeSummary` (which 404s on
+an unresolvable caller identity), `/leaderboard` degrades to "no row
+highlighted" instead of failing the whole request, since the ranked list
+is still valid content either way. Bot: new `/leaderboard` command
+handler + `render_leaderboard()`, reusing the same `<b>...</b>` HTML bold
+convention `/me`/`/event` already established for emphasis (no new
+markup mechanism); no pagination (the FR AC only ever asks for "top
+10"). `/help`'s `help.leaderboard` line lost its "(coming soon)"/"(скоро)"
+suffix, matching the exact pattern PR 2/3 established for their own
+commands.
+
+**Temp-user exclusion needed no new filtering code — confirmed by
+reading the query AND by live verification, not just trusted from an
+earlier research pass.** `leaderboard()`'s aggregate is
+`GET /items/point_awards?...&groupBy=user`; it enumerates `point_awards`
+rows, and a temp (Authentik-only) user has never earned one, so they
+cannot appear. Live-verified end-to-end against the real local stack:
+seeded a genuine temp user via the real `upsert-temp-user` endpoint
+(response confirmed `directusUserId: null` — no Directus footprint at
+all) alongside a genuine new Directus member with a real 250-point
+`point_awards` row and a `platform.users` bridge row; called the real
+`/leaderboard` endpoint and confirmed the full member appeared
+(`isCaller: true`, ranked #1) while the temp user was absent, then
+cross-referenced directly against Directus (`GET /items/point_awards`,
+`GET /users`) showing zero rows for the temp identity. All seed fixtures
+cleaned up afterward, endpoint output confirmed back to baseline. See
+`.copilot/tasks/completed/wf-20260801-feat-177/` (once archived) for
+full detail, including an incidental finding: the pre-existing "orphan
+aggregate row" drop in `leaderboard()` (unmodified by this PR) is
+actually broader than temp-user exclusion alone — it excludes ANY
+`point_awards` row lacking a `platform.users` bridge row, a safe,
+intentional superset rather than a gap.
+
+**`business_process` linkage:** checked `BP-UAT-012` ("Points engine and
+leaderboard") — a clean topical name match, but its registry row shows
+`Process Ref: —, Status: —, Last Run: —` (never run, no spec authored).
+Not force-linked per `protocol.md`'s "don't force a link" guidance — this
+workflow's own Step 13 would have nothing live to re-verify against.
+`FR-BOT-002.md`'s frontmatter `business_process` stays `[BP-UAT-010]`
+unchanged (still correct for this FR's PR 2/3 registration-surface
+commands; the field represents the FR as a whole, not per-PR surfaces).
+This is a legitimate, recorded gap, not a silent omission — a future
+`BP-UAT-012` authoring effort would need to cover both this command and
+the pre-existing web leaderboard surface `PointsDirectusService.leaderboard()`
+already serves.
+
 **Planned follow-up PRs (queued, no workflow IDs assigned yet):**
 
 | PR | Scope | Depends on |
 |---|---|---|
-| 4/6 | `/leaderboard` — top 10 for the user's country, temp-user exclusion, caller-row highlight | Independent of PR 2/3, but sequenced after for command-surface continuity |
 | 5/6 | `/interests` — topic interest toggle buttons | Independent |
 | 6/6 | `/upgrade` — email collection + magic-link (FR-AUTH-006 dependency) | FR-AUTH-006 |
 

@@ -42,6 +42,7 @@ import {
   listTelegramEventsQuerySchema,
   lookupUserBodySchema,
   telegramCancelBodySchema,
+  telegramLeaderboardQuerySchema,
   telegramMeQuerySchema,
   telegramRegisterBodySchema,
   telegramWidgetPayloadSchema,
@@ -52,6 +53,7 @@ import type {
   TelegramCancelResult,
   TelegramEventDetailResult,
   TelegramEventListResult,
+  TelegramLeaderboardResult,
   TelegramMeResult,
   TelegramRegisterResult,
   UpsertTempUserResult,
@@ -657,5 +659,23 @@ export class TelegramInternalController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.telegramAuth.getMeSummary(parsed.data.directusUserId, parsed.data.country);
+  }
+
+  // GET /v1/internal/telegram/leaderboard — InternalAuthGuard protected.
+  // FEAT-BOT-2 (FR-BOT-002 PR 4/6) — called by the bot's /leaderboard
+  // handler. Top 10 members for the caller's country, reusing
+  // PointsDirectusService.leaderboard() unchanged; temp users never
+  // appear (no point_awards row to aggregate — see
+  // telegram-auth.service.ts's getLeaderboard doc comment). Query params
+  // (not a route param), matching listEvents/me's own convention above —
+  // this endpoint takes no resource identifier either.
+  @Get('leaderboard')
+  @HttpCode(HttpStatus.OK)
+  async leaderboard(@Query() query: unknown): Promise<TelegramLeaderboardResult> {
+    const parsed = telegramLeaderboardQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.getLeaderboard(parsed.data.directusUserId, parsed.data.country);
   }
 }

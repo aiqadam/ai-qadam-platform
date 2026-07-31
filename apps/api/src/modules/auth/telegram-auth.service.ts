@@ -13,7 +13,7 @@ import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
-import { PointsDirectusService } from '../points/points-directus.service';
+import { PointsDirectusService, type LeaderboardEntry } from '../points/points-directus.service';
 import {
   RegistrationConsentRequiredError,
   RegistrationIneligibleError,
@@ -196,6 +196,40 @@ export interface TelegramMeRegistration {
 export interface TelegramMeResult {
   registrations: TelegramMeRegistration[];
   pointsTotal: number;
+}
+
+// ── FEAT-BOT-2 (FR-BOT-002 PR 4/6) — /leaderboard schemas ──────────────────
+
+// GET /v1/internal/telegram/leaderboard query schema. Same two fields the
+// /me query schema already requires (directusUserId, country) — the caller
+// identity is needed to compute isCaller per-row, and country scopes the
+// tenant the same way every other bot-facing route does.
+export const telegramLeaderboardQuerySchema = z.object({
+  directusUserId: z.string().uuid(),
+  country: countrySchema,
+});
+export type TelegramLeaderboardQuery = z.infer<typeof telegramLeaderboardQuerySchema>;
+
+// Top-N size mirrors FR-BOT-002's own AC ("shows top 10 members") — not
+// caller-configurable, unlike /events' offset/limit (this command has no
+// pagination in scope).
+const LEADERBOARD_SIZE = 10;
+
+export interface TelegramLeaderboardEntry {
+  // No raw email — see 02-impact-analysis.md's PII risk flag. displayName
+  // falls back to a safe placeholder when null (rare — platform.users
+  // is seeded with a displayName on every signup path); handle is not
+  // returned either, since no AC calls for it and it's PII-adjacent.
+  displayName: string;
+  points: number;
+  // True only for the row matching the caller's OWN platform.users.id.
+  // At most one entry has isCaller: true; false (never omitted) on every
+  // other row so the bot doesn't need a separate "did we find them" check.
+  isCaller: boolean;
+}
+
+export interface TelegramLeaderboardResult {
+  entries: TelegramLeaderboardEntry[];
 }
 
 // ── Result shapes ────────────────────────────────────────────────────────
@@ -693,6 +727,41 @@ export class TelegramAuthService {
     }));
 
     return { registrations, pointsTotal };
+  }
+
+  // GET /v1/internal/telegram/leaderboard service logic (FR-BOT-002 PR
+  // 4/6). Reuses PointsDirectusService.leaderboard() UNCHANGED — no new
+  // points-calculation rule, no new Directus query shape. Temp-user
+  // exclusion needs no code here: leaderboard() aggregates
+  // directus point_awards rows, and a temp (Authentik-only) user has
+  // never earned one, so they structurally never appear in `entries`
+  // (confirmed by reading the query in 01-requirement-validation.md's
+  // Architectural Feasibility section, and live-verified per this
+  // workflow's Step 8 infra pre-flight).
+  //
+  // isCaller is resolved HERE (API side), not bot-side — the bot never
+  // needs to learn another user's platform.users.id to render the
+  // highlight; we just tell it which row (if any) is theirs. Unlike
+  // getMeSummary's requirePlatformUserId (which 404s the whole request
+  // when the bridge can't resolve an identity), an unresolvable caller
+  // identity here degrades to "no row highlighted" rather than failing
+  // the whole leaderboard — the leaderboard itself is still valid,
+  // useful content even if we can't say which row is "you" (e.g. a
+  // brand-new bridge race, or a caller who has literally never earned
+  // points and so isn't asking "where am I" in the first place).
+  async getLeaderboard(directusUserId: string, country: string): Promise<TelegramLeaderboardResult> {
+    const [entries, callerUserId] = await Promise.all([
+      this.points.leaderboard({ countryCode: country, limit: LEADERBOARD_SIZE }),
+      this.directusBridge.resolveUserIdFromDirectusId(directusUserId),
+    ]);
+
+    return {
+      entries: entries.map((entry: LeaderboardEntry) => ({
+        displayName: entry.displayName ?? entry.handle ?? 'Member',
+        points: entry.totalPoints,
+        isCaller: callerUserId !== null && entry.userId === callerUserId,
+      })),
+    };
   }
 
   // Shared by registerViaTelegram/cancelViaTelegram. 404s (matching
