@@ -5,9 +5,9 @@
 | ID | ISS-USR-CLOCK-001 |
 | Severity | minor |
 | Module | api/users |
-| Status | open |
+| Status | closed (duplicate) |
 | Reported | 2026-07-31 |
-| Resolved | — |
+| Resolved | 2026-07-31 (closed as duplicate, not fixed) |
 | Workflow | wf-20260731-feat-171 (discovered during FR-BOT-001's TestRunner pass; not caused by that workflow's diff) |
 | Reporter | TestRunner (autonomous discovery during unrelated feature's Step 8) |
 | Related | FR-BOT-001 |
@@ -58,4 +58,17 @@ will keep resurfacing for unrelated PRs' TestRunner passes until fixed.
 
 ## Resolution
 
-_Not yet resolved — filed for follow-up, not blocking FR-BOT-001._
+**Closed as duplicate, not fixed.** This exact bug
+(`apps/api/test/users.spec.ts:65`'s `lastLoginAt` ordering flake) was
+already queued as item 1 of
+`wf-20260704-fix-096-pre-existing-api-test-flakes`
+(`.copilot/tasks/queued/wf-20260704-fix-096-pre-existing-api-test-flakes/handoff.yaml`,
+filed 2026-07-04 under `ISS-TEST-WEB-001`'s honesty-disclosure
+follow-ups), discovered independently here before that pre-existing
+queue entry was found. GitHub issue
+[#196](https://github.com/aiqadam/ai-qadam-platform/issues/196) closed
+as duplicate. No new tracking needed — the fix (when it lands) belongs
+to the existing queued workflow, not a new one. Left this file in place
+(rather than deleting it) as a discovery-trail record and to avoid
+re-filing the same duplicate if TestRunner encounters this flake again
+before the queued workflow runs.

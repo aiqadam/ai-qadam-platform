@@ -1,13 +1,65 @@
 # Documentation Update — FEAT-BOT-1 / FR-BOT-001 (wf-20260731-feat-171)
 
 workflow: wf-20260731-feat-171
-agent: DocWriter
-attempt: 2 (retry, after QualityGate `failed-retry` — see `09-quality-gate.md`)
+agent: DocWriter (attempt 3 performed directly by Orchestrator)
+attempt: 3 (retry, after QualityGate attempt-2 `failed-retry` — see `09-quality-gate.md`)
 
-This file supersedes attempt 1 in full. It is a complete, self-contained
-record of Step 9's total output across both DocWriter passes: attempt 1's
-FR-status flip work (unchanged, restated below) plus attempt 2's two new
-`workspace-state.md` fixes required by QualityGate's retry.
+This file supersedes attempts 1 and 2 in full. It is a complete,
+self-contained record of Step 9's total output across all three
+DocWriter passes: attempt 1's FR-status flip work, attempt 2's
+`workspace-state.md` fixes, and attempt 3's corrections (below).
+
+## Attempt 3 (Orchestrator, performed directly)
+
+QualityGate attempt 2 found the AC-6/AC-11 backing still incomplete —
+the workspace-state.md Open Issues entry from attempt 2 supplied
+concrete verification commands but not the required
+"follow-up-ID-and-queue-position" component (a conjunction, not an
+either/or), and cited the existing `### Queued follow-up workflows`
+section's own established placeholder convention
+(`**(no workflow id assigned yet — not yet a task directory)**`, see the
+pre-existing `ISS-RBAC-PERMS-001` entry) as the correct mechanism.
+
+**While closing that gap, a second, more serious problem was found and
+fixed:** the `wf-20260704-fix-096-pre-existing-api-test-flakes` entry
+already sitting in that same `Queued follow-up workflows` section (an
+unrelated pre-existing entry, not something either DocWriter pass wrote)
+describes its own item 1 as `users.spec.ts:65` — the **exact same bug**
+TestRunner discovered and DocWriter filed as `ISS-USR-CLOCK-001` in
+attempt 1/2, unaware a queued fix already existed for it (filed
+2026-07-04, three weeks before this workflow). `ISS-USR-CLOCK-001` and
+its GitHub issue #196 were therefore a duplicate, not a new finding.
+
+**Corrective actions taken (Orchestrator, directly, not via a fresh
+DocWriter agent invocation — a small, mechanical, already-diagnosed
+fix):**
+1. Closed GitHub issue #196 as duplicate, comment linking to
+   `wf-20260704-fix-096-pre-existing-api-test-flakes`.
+2. `.copilot/issues/ISS-USR-CLOCK-001.md` — `Status` → `closed
+   (duplicate)`, `Resolved` filled in, `## Resolution` section rewritten
+   to record the duplicate finding and point at the real owning queued
+   workflow. Left in place (not deleted) as a discovery-trail record.
+3. `.copilot/issues/registry.md` — row updated to `closed (duplicate)`,
+   summary rewritten to state the duplicate finding plainly.
+4. `.copilot/context/workspace-state.md`:
+   - Removed the standalone `ISS-USR-CLOCK-001` Open Issues entry
+     (Open Issues is for genuinely open items per that section's own
+     header) — replaced with a one-line pointer to the existing
+     `Queued follow-up workflows` entry.
+   - Updated the top-level workflow summary entry's "see
+     `ISS-USR-CLOCK-001` below" reference to instead point at the
+     existing queued-workflow entry.
+   - Added the actually-required placeholder entry under
+     `### Queued follow-up workflows` for the AC-6/AC-11 deferral,
+     matching the `ISS-RBAC-PERMS-001` entry's exact format (no workflow
+     id assigned yet, not yet a task directory), naming both ACs, the
+     owner (UATRunner), the trigger condition, and both concrete
+     verification commands.
+
+This satisfies QualityGate attempt 2's exact required fix (the
+placeholder-entry format) while also correcting a real duplicate-issue
+mistake discovered in the process of doing so, rather than compounding
+it by leaving a stale duplicate issue open alongside the correction.
 
 ---
 

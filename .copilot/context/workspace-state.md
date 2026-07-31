@@ -22,8 +22,10 @@ regression-tested). This is the first workflow in this repo to span two
 git repositories end-to-end — QualityGate's Step 9 pass added a dedicated
 "Submodule Cross-Repo Check" verifying the outer repo's gitlink pointer
 matches the submodule's actual pushed `HEAD` exactly. 0 BLOCKER/MAJOR
-security findings; apps/api 1374/1375 (1 pre-existing, unrelated failure,
-see `ISS-USR-CLOCK-001` below); apps/bot 29/29. Two ACs (AC-6's 3-second
+security findings; apps/api 1374/1375 (1 pre-existing, unrelated failure —
+turned out to be a duplicate of the already-queued
+`wf-20260704-fix-096-pre-existing-api-test-flakes` item 1, see Queued
+follow-up workflows below); apps/bot 29/29. Two ACs (AC-6's 3-second
 `/start` response bound, AC-11's Grafana/Loki log-delivery confirmation)
 are honestly deferred pending a live `aiqadam-bot` Coolify deployment that
 does not exist yet — see this file's own Open Issues entry below for the
@@ -902,6 +904,16 @@ snapshot, not a log.
   bugs unmasked by `wf-20260704-fix-095` (`users.spec.ts:65` timestamp race;
   `telegram-auth-controller.spec.ts:161` reflect-metadata; `port-guard.spec.ts`
   cases 4+8 Linux-only mocks).
+- **(no workflow id assigned yet — not yet a task directory)** verify
+  FR-BOT-001's AC-6 (`/start` responds within 3 seconds) and AC-11
+  (structured JSON logs reach Grafana/Loki) once `aiqadam-bot` exists as
+  a live Coolify service — neither is verifiable pre-deployment. Owner:
+  UATRunner. AC-6: send `/start` to the deployed bot from a real Telegram
+  client, time the round-trip (< 3s). AC-11: after that same interaction,
+  query Grafana/Loki for the bot's structured JSON log line and confirm
+  it contains `telegram_id`, `command`, `duration_ms`, `status`. See
+  FR-BOT-001.md and `.copilot/tasks/completed/wf-20260731-feat-171/`
+  (once archived) for full context.
 - **uat-bp-uat-coverage-batch** — 17 workflows queued at
   `.copilot/tasks/queued/uat-bp-uat-coverage-batch/handoff.yaml`.
 
@@ -927,16 +939,8 @@ Only genuinely open items belong here. Resolved issues live in
     for the bot's structured JSON log line (e.g. a LogQL query scoped to
     the bot's log stream, or `curl` against the Loki HTTP API) and confirm
     it contains `telegram_id`, `command`, `duration_ms`, `status`.
-  No follow-up workflow queued yet — filing one is blocked on the Coolify
-  deployment itself existing first.
-- [ISS-USR-CLOCK-001](../issues/ISS-USR-CLOCK-001.md) (minor, api/users) —
-  `users.spec.ts`'s `lastLoginAt` ordering assertion is flaky under
-  Testcontainers/host clock drift (`defaultNow()` on insert vs. Node-side
-  `new Date()` on update). Discovered 2026-07-31 during
-  `wf-20260731-feat-171`'s TestRunner pass; confirmed pre-existing on
-  `main`, unrelated to that workflow's diff. GitHub issue
-  [#196](https://github.com/aiqadam/ai-qadam-platform/issues/196). No
-  follow-up workflow queued yet.
+  Tracked as a placeholder under Queued follow-up workflows below
+  (see that section) since no workflow id exists yet.
 - [ISS-ADM-010-1](../issues/ISS-ADM-010-1.md) (blocker for AC-3 only,
   admin/ADM + infra/authentik) — `AdminBootstrapService`'s
   `ak_login_password_change_required` attribute does not force
