@@ -3,7 +3,8 @@
 **Last updated:** 2026-07-31 — `wf-20260731-fix-164`.
 **ISS-WF-GH-CLOSE-001 resolved — GitHub issues can no longer auto-close before their own Step 13 verification has run.**
 [wf-20260731-fix-164](../tasks/completed/wf-20260731-fix-164/handoff.yaml)
-(PR `<pending>`): prompted directly by the user, who noticed issue #130
+(PR [#179](https://github.com/aiqadam/ai-qadam-platform/pull/179) squash
+`3a4e8cf`): prompted directly by the user, who noticed issue #130
 (FR-EVT-004) was `CLOSED` on GitHub despite 2 of its own follow-up bugs
 (#160, #161, found by its Step 13 post-merge BP-UAT-010 re-verification)
 still being open. Root cause: two independent "is this done" signals —

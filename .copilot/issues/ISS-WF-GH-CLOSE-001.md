@@ -127,7 +127,7 @@ says the requirement isn't done-done until Step 13 passes.
 ## Resolution
 
 **Workflow:** wf-20260731-fix-164
-**PR:** `<pending>`
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/179
 **Root cause:** Two independent, unwired mechanisms both claimed to
 signal "is this done": the Project board's Status field (correctly
 script-driven, distinguishes `implemented` from `agent-verified`) and
@@ -161,4 +161,4 @@ run exits 0.
 to filing this issue) via a manual cross-reference comment
 (issuecomment-5139399170) naming its 3 open follow-ups — not re-done
 here; see AC-5.
-**Merged:** `<pending>`
+**Merged:** `3a4e8cf59a6d163693e83f64b58d10739cce1570` (squash)
