@@ -99,7 +99,7 @@ whoever picks it up, rather than guessing the fix without evidence).
 ## Resolution
 
 **Workflow:** wf-20260731-fix-165
-**PR:** <pending>
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/181
 
 **Root cause:** `RegistrationsDirectusService.register()` re-read the
 newly created registration exactly once, immediately after `POST` —

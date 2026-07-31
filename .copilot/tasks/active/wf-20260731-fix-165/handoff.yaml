@@ -13,10 +13,10 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/160"
 
 branch: "fix/ISS-UAT-010-2-registration-waitlist-race"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/181"
 
-current_step: 11
-current_step_name: "quality-gate"
+current_step: 12
+current_step_name: "commit-push-pr"
 workflow_status: "running"
 
 parent_link:
