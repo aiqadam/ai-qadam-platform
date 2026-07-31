@@ -2,8 +2,9 @@
 
 **Last updated:** 2026-07-31 — `wf-20260731-fix-162`.
 **ISS-BRIDGE-STALE-001 resolved — `directus_user_id` cache now self-heals on email drift instead of misattributing writes forever.**
-[wf-20260731-fix-162](../tasks/active/wf-20260731-fix-162/handoff.yaml)
-(PR `<pending>`): `DirectusUsersBridgeService.ensureLinked()`'s cache-hit
+[wf-20260731-fix-162](../tasks/completed/wf-20260731-fix-162/handoff.yaml)
+(PR [#174](https://github.com/aiqadam/ai-qadam-platform/pull/174) squash
+`9e933bb`): `DirectusUsersBridgeService.ensureLinked()`'s cache-hit
 branch used to trust `platform.users.directus_user_id` unconditionally,
 forever — the live consequence, found during `wf-20260730-uat-158`'s
 BP-UAT-010 verification, was `uat-member@example.com`'s registrations
