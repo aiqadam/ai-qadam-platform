@@ -1,10 +1,11 @@
 ---
 code: FR-BOT-001
 name: Telegram bot scaffold and deployment
-status: Planned
+status: Implemented
 module: Telegram Bot (BOT)
 phase: Roadmap Sprint 6
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/137
+business_process: —
 ---
 
 ## Description
