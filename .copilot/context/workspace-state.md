@@ -1,5 +1,41 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-fix-169`.
+**ISS-UAT-010-1 resolved — BP-UAT-010's doc + Playwright spec now describe the real Directus-backed registration implementation instead of a superseded V1 spec.**
+[wf-20260731-fix-169](../tasks/completed/wf-20260731-fix-169/handoff.yaml)
+(PR [#189](https://github.com/aiqadam/ai-qadam-platform/pull/189) squash
+`d74c464`): `BP-UAT-010.md`'s AC-1/AC-6/AC-7 and its Playwright spec both
+described `FR-REG-001.md` (a superseded Phase-1/V1 spec: `status=confirmed`/
+`waitlist`, "+5 points on registration", `apps/web` +
+`POST /v1/registrations` + `GET /v1/points/me`) — none of which exists in
+the real Directus-backed `apps/api`/`apps/web-next` implementation
+(`status=registered`/`waitlisted`, +10 points only on check-in via the
+`reg-checkin-points` Flow, `POST /v1/events/:eventId/register` → 200 OK).
+This is why BP-UAT-010 could never get a genuinely clean live UAT pass —
+correct product behavior always MISMATCHED wording describing a different
+system. Rewrote both files; the one open product decision this issue's
+own AC-3 flagged (redefine AC-7 around check-in vs. escalate "+5 on
+registration" as a missing feature) was decided as **redefine** — no
+evidence anywhere (FR docs, ADRs, code comments) that a registration-time
+points award was ever an intended, unbuilt feature, and
+`registrations.controller.ts`'s own comment already assigns points
+ownership to check-in-time Directus flows. Also dropped AC-2's QR-code
+clause — no QR element exists anywhere in the current `RegistrationCTA` UI.
+Live-verified 6/6 tests passing against the real local stack, with AC-1/AC-6
+independently cross-referenced against the actual Directus row (not just
+DOM text): `status=registered` (open event), `status=waitlisted` (full
+event). Two environment quirks hit and fixed during verification, both
+already-documented classes from prior BP-UAT-010 workflows, not new:
+`uat-member`'s Authentik password drifting from the seed script's claimed
+default despite `--reset` (fixed via direct `set_password` API call), and
+a wrong `API_URL` port default (`:3001`) carried over from the old spec
+being rewritten, corrected to the real `:3000` matching every sibling spec.
+Also fixed, mid-verification, an own test-design race in the new spec: the
+`RegistrationCTA` React island (`client:load`) renders a transient
+"Loading registration…" state before settling, and a snap `isVisible()`
+check could read stale state — fixed with a `waitForCtaSettled()` helper
+that waits for any of the three settled states first.
+
 **Last updated:** 2026-07-31 — `wf-20260731-fix-168`.
 **ISS-EVT-004-1's own Step 13 caught that its merged registeredCount fix
 (PR #185) silently didn't work in a real environment — Directus's Public

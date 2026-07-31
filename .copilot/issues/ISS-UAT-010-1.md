@@ -111,7 +111,7 @@ to `apps/web-next`.
 ## Resolution
 
 **Workflow:** wf-20260731-fix-169
-**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/189
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/189 (squash `d74c464`)
 **Root cause:** `BP-UAT-010.md` and `BP-UAT-010.spec.ts` were both authored
 against `FR-REG-001.md`, a superseded Phase-1/V1 spec, and never updated
 when the real Directus-backed `apps/api` implementation diverged (nor when
@@ -137,7 +137,7 @@ never pass against the real stack; the NEW spec is live-verified passing
 6/6 against the real local stack (see below), with both status-sensitive
 ACs (AC-1, AC-6) independently cross-referenced against the actual
 Directus row, not just DOM text.
-**Merged:** <pending>
+**Merged:** `d74c464` (2026-07-31T10:07:02Z)
 
 **Live verification (2026-07-31, this workflow):**
 ```

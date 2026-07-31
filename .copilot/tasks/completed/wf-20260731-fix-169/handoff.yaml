@@ -15,8 +15,8 @@ branch: "fix/ISS-UAT-010-1-bp-uat-010-doc-spec-correction"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/189"
 
-current_step: 12
-current_step_name: "commit-push-create-pr"
+current_step: 12.5
+current_step_name: "merge-pull-verify"
 workflow_status: "running"
 
 merge_mode: "auto"
