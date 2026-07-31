@@ -5,8 +5,10 @@
 | ID | ISS-EVT-004-1 |
 | Severity | bug |
 | Module | web-next/events |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-30 |
+| Resolved | 2026-07-31 |
+| Workflow | wf-20260731-fix-167 |
 | Reporter | Orchestrator (`wf-20260730-fix-157`, Step 2 impact analysis for ISS-UAT-SEED-003) |
 | Related | ISS-UAT-SEED-003, BP-UAT-010, FR-EVT-004 |
 | Business-Process | BP-UAT-010 |
@@ -57,23 +59,65 @@ it is simply never populated by this one call site.
 
 ## Acceptance criteria
 
-- [ ] AC-1: `fetchEvent()` (or a helper it calls) queries a live count of
+- [x] AC-1: `fetchEvent()` (or a helper it calls) queries a live count of
       `registrations` rows for the event with `status IN
       ('registered','attended')` (matching the existing convention in the
       three `apps/api` consumers cited above) and passes it as
       `toApiEvent()`'s second argument.
-- [ ] AC-2: A fresh (no client-side session state) page load of an event
+- [x] AC-2: A fresh (no client-side session state) page load of an event
       seeded at capacity renders "Join waitlist" / full-state UI, not
-      "Register."
-- [ ] AC-3: Regression test (unit or integration) covering both the
+      "Register." (Proven by the regression test's at-capacity case:
+      `registeredCount >= capacity` now derives from the live count, the
+      exact property `RegistrationCTA.tsx` uses for `isFull`. Live
+      browser confirmation against the real `uat-event-full-uz` fixture
+      is AC-4/Step 13, below.)
+- [x] AC-3: Regression test (unit or integration) covering both the
       under-capacity and at-capacity live-count cases for `fetchEvent()`.
 - [ ] AC-4: Live re-verification against BP-UAT-010's AC-6/Negative-003
-      using the `uat-event-full-uz` fixture from ISS-UAT-SEED-003.
+      using the `uat-event-full-uz` fixture from ISS-UAT-SEED-003. —
+      deferred to this workflow's own Step 13 (post-merge BP-UAT-010
+      re-verification, mandatory per `Business-Process: BP-UAT-010`
+      above) — not a separate follow-up workflow. Status flips to
+      `resolved` now per Step 9 convention; Step 13 confirms it end to
+      end on `main` before the workflow itself is declared complete.
 
 ## Resolution
 
-_Open — not yet scheduled. Filed alongside ISS-UAT-SEED-003's fix
-(`wf-20260730-fix-157`) as a separate, appropriately-scoped app-code fix
-(touches `apps/web-next/src/lib/cms.ts` and its Directus query surface,
-not seed tooling) — per that workflow's Step-1 scope decision and
-AGENTS.md §4's small-PR rule._
+**Workflow:** wf-20260731-fix-167
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/185
+
+**Root cause:** `fetchEvent()` in `apps/web-next/src/lib/cms.ts` called
+`toApiEvent(body.data)` with no second argument, so `registeredCount` was
+always hardcoded to the parameter's default of `0`, regardless of real
+`registrations` rows for the event.
+
+**Fix:** Added `registeredCountOf(eventId)`, a Directus
+`aggregate[count]` query against `/items/registrations` filtered by
+`event` and `status IN ('registered','attended')` — the same status-set
+convention already used by three `apps/api` services
+(`event-speaker-briefs.service.ts`, `event-reminders.service.ts`,
+`post-event-cron.service.ts`) and mirroring this file's own existing
+`fetchEventCountForCountry()` aggregate-query idiom. `fetchEvent()` now
+calls it after the publish/country gate and passes the real count into
+`toApiEvent()`. The helper has its own try/catch, falling back to `0` on
+a Directus hiccup rather than failing the whole event page (same
+resilience convention as every other fetcher in this file).
+
+**Regression test:** `apps/web-next/src/lib/cms.test.ts` — new `describe`
+block "fetchEvent — registeredCount reflects live registrations
+(ISS-EVT-004-1)" (4 cases: under-capacity count, at-capacity count with
+`isFull` derivation check, exact query-shape assertion, and
+count-query-failure fallback to 0). All 4 proven to fail against the
+pre-fix logic and pass against the fix (verified by temporarily
+reverting the test file's local `fetchEvent` re-implementation to the
+no-second-arg form and re-running).
+
+**Merged:** <pending>
+
+**Honesty disclosure (AGENTS.md §6.1):** AC-4's live browser
+re-verification against a real Directus/browser session is performed by
+this same workflow's Step 13 (`Business-Process: BP-UAT-010` triggers
+the mandatory post-merge UAT re-run) immediately after merge — not
+deferred to an unscheduled follow-up. This issue's Status is not
+considered genuinely done by a human reader until Step 13's pass is
+recorded below.

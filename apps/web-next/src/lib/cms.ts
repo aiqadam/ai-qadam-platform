@@ -327,6 +327,34 @@ export function countryFromHost(host: string | null | undefined): string {
   return 'uz';
 }
 
+// Live count of an event's registrations that hold capacity — mirrors the
+// `status IN ('registered','attended')` convention already established in
+// apps/api/src/modules/workspace/event-speaker-briefs.service.ts's
+// `registeredCountOf()` (and event-reminders.service.ts /
+// post-event-cron.service.ts's identical filter for the same collection).
+// `waitlisted`/`cancelled` rows must not count toward capacity. Uses
+// Directus's `aggregate[count]` query param, same idiom as this file's own
+// fetchEventCountForCountry() below — best-effort: a Directus hiccup here
+// falls back to 0 rather than failing the whole event page.
+async function registeredCountOf(eventId: string): Promise<number> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      'filter[status][_in]': 'registered,attended',
+      'aggregate[count]': 'id',
+    });
+    type AggRow = Array<{ count: { id: number | string } }>;
+    const body = await get<{ data: AggRow }>(`/items/registrations?${params.toString()}`);
+    return Number(body.data[0]?.count?.id ?? 0);
+  } catch (err) {
+    console.error(
+      `[cms] registeredCountOf(${eventId}) failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return 0;
+  }
+}
+
 /**
  * Single event for /events/[id]. Returns `null` on miss, unpublished,
  * OR wrong-country (AC-8: a KZ event requested via uz.aiqadam.org must
@@ -348,7 +376,8 @@ export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | n
     if (!body.data || body.data.status !== 'published' || body.data.country !== country) {
       return null;
     }
-    return toApiEvent(body.data);
+    const registeredCount = await registeredCountOf(body.data.id);
+    return toApiEvent(body.data, registeredCount);
   } catch (err) {
     console.error(`[cms] fetchEvent(${id}) failed:`, err instanceof Error ? err.message : err);
     return null;

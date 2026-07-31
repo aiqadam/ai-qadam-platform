@@ -120,7 +120,7 @@ function parseCoord(raw: unknown, min: number, max: number): number | null {
 
 // ─── Local re-implementation: toApiEvent (mirrors lib/cms.ts) ────────────────
 
-function toApiEvent(row: CmsEventRow): ApiEvent {
+function toApiEvent(row: CmsEventRow, registeredCount = 0): ApiEvent {
   const heroImageUrl = row.hero_image ? `${DIRECTUS_BASE}/assets/${row.hero_image}` : null;
   return {
     id: row.id,
@@ -131,7 +131,7 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     capacity: row.capacity,
-    registeredCount: 0,
+    registeredCount,
     location: row.location,
     countryCode: row.country,
     shortDescription: row.short_description ?? null,
@@ -153,6 +153,33 @@ function toApiEvent(row: CmsEventRow): ApiEvent {
 
 const EVENT_FIELDS =
   'id,title,description,status,format,starts_at,ends_at,capacity,location,country,short_description,slug,venue,address,map_url,hero_image,agenda_md,visibility_scope,external_links,latitude,longitude,recap_md,livestream_url,date_updated';
+
+// ─── Local re-implementation: registeredCountOf (mirrors lib/cms.ts) ─────────
+
+async function registeredCountOf(eventId: string, mockFetch: MockFetch): Promise<number> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      'filter[status][_in]': 'registered,attended',
+      'aggregate[count]': 'id',
+    });
+    const res = await mockFetch(`${DIRECTUS_BASE}/items/registrations?${params.toString()}`, {
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(`Directus /items/registrations → HTTP ${res.status}`);
+    }
+    type AggRow = Array<{ count: { id: number | string } }>;
+    const body = (await res.json()) as { data: AggRow };
+    return Number(body.data[0]?.count?.id ?? 0);
+  } catch (err) {
+    console.error(
+      `[cms] registeredCountOf(${eventId}) failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return 0;
+  }
+}
 
 // ─── Local re-implementation: fetchEvent (mirrors lib/cms.ts) ────────────────
 
@@ -176,7 +203,8 @@ async function fetchEvent(
     if (!body.data || body.data.status !== 'published' || body.data.country !== country) {
       return null;
     }
-    return toApiEvent(body.data);
+    const registeredCount = await registeredCountOf(body.data.id, mockFetch);
+    return toApiEvent(body.data, registeredCount);
   } catch (err) {
     console.error(`[cms] fetchEvent(${id}) failed:`, err instanceof Error ? err.message : err);
     return null;
@@ -302,6 +330,10 @@ describe('fetchEvent — happy path', () => {
       ok: true,
       json: async () => ({ data: publishedRow }),
     });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ count: { id: 0 } }] }),
+    });
 
     const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-1', mockFetch);
 
@@ -312,6 +344,101 @@ describe('fetchEvent — happy path', () => {
     expect(result?.recapMd).toBe('It went great.');
     expect(result?.livestreamUrl).toBe('https://youtu.be/dQw4w9WgXcQ');
     expect(result?.updatedAt).toBe('2026-07-29T00:00:00Z');
+  });
+});
+
+// ─── Tests: fetchEvent — registeredCount (ISS-EVT-004-1 regression) ──────────
+//
+// Before the fix, fetchEvent() called toApiEvent(body.data) with no second
+// argument, so registeredCount was always hardcoded to 0 regardless of how
+// many real `registrations` rows existed for the event — these cases would
+// have failed against the pre-fix implementation (registeredCount always 0).
+
+describe('fetchEvent — registeredCount reflects live registrations (ISS-EVT-004-1)', () => {
+  let mockFetch: MockFetch;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+  });
+
+  const baseRow: CmsEventRow = {
+    id: 'evt-full',
+    title: 'Full Event',
+    description: '',
+    status: 'published',
+    format: 'meetup',
+    starts_at: '2026-08-01T10:00:00Z',
+    ends_at: '2026-08-01T14:00:00Z',
+    capacity: 2,
+    location: null,
+    country: 'uz',
+  };
+
+  it('populates registeredCount from the live Directus aggregate (under capacity)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: { ...baseRow, id: 'evt-open', capacity: 10 } }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ count: { id: 3 } }] }),
+    });
+
+    const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-open', mockFetch);
+
+    expect(result?.registeredCount).toBe(3);
+  });
+
+  it('populates registeredCount so an at-capacity event reflects real registrations, not 0', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: baseRow }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ count: { id: 2 } }] }),
+    });
+
+    const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-full', mockFetch);
+
+    expect(result?.registeredCount).toBe(2);
+    expect(result?.capacity).toBe(2);
+    // The exact property RegistrationCTA.tsx derives isFull from.
+    expect(result != null && result.capacity != null && result.registeredCount >= result.capacity).toBe(
+      true,
+    );
+  });
+
+  it('queries /items/registrations filtered by event id and status IN (registered, attended)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: baseRow }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ count: { id: 2 } }] }),
+    });
+
+    await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-full', mockFetch);
+
+    const [countUrl] = mockFetch.mock.calls[1]!;
+    expect(countUrl).toContain('/items/registrations');
+    expect(countUrl).toContain('filter%5Bevent%5D%5B_eq%5D=evt-full');
+    expect(countUrl).toContain('filter%5Bstatus%5D%5B_in%5D=registered%2Cattended');
+    expect(countUrl).toContain('aggregate%5Bcount%5D=id');
+  });
+
+  it('falls back to registeredCount 0 (not a throw) when the count query fails', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: baseRow }),
+    });
+    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+    const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-full', mockFetch);
+
+    expect(result).not.toBeNull();
+    expect(result?.registeredCount).toBe(0);
   });
 });
 
@@ -696,6 +823,7 @@ describe('parseCoord (via fetchEvent latitude/longitude mapping) — bounds-chec
       ok: true,
       json: async () => ({ data: rowWithCoords('41.31', '69.24') }),
     });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
 
     const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-coords', mockFetch);
 
@@ -708,6 +836,7 @@ describe('parseCoord (via fetchEvent latitude/longitude mapping) — bounds-chec
       ok: true,
       json: async () => ({ data: rowWithCoords(95, 69.24) }),
     });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
 
     const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-coords', mockFetch);
 
@@ -719,6 +848,7 @@ describe('parseCoord (via fetchEvent latitude/longitude mapping) — bounds-chec
       ok: true,
       json: async () => ({ data: rowWithCoords(41.31, -200) }),
     });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
 
     const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-coords', mockFetch);
 
@@ -730,6 +860,7 @@ describe('parseCoord (via fetchEvent latitude/longitude mapping) — bounds-chec
       ok: true,
       json: async () => ({ data: rowWithCoords('not-a-number', 69.24) }),
     });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
 
     const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-coords', mockFetch);
 
@@ -741,6 +872,7 @@ describe('parseCoord (via fetchEvent latitude/longitude mapping) — bounds-chec
       ok: true,
       json: async () => ({ data: rowWithCoords(null, null) }),
     });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
 
     const result = await fetchEvent(makeReq('uz.aiqadam.org'), 'evt-coords', mockFetch);
 
