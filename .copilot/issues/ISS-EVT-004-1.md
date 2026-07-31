@@ -112,7 +112,7 @@ pre-fix logic and pass against the fix (verified by temporarily
 reverting the test file's local `fetchEvent` re-implementation to the
 no-second-arg form and re-running).
 
-**Merged:** <pending>
+**Merged:** `146f269` ([PR #185](https://github.com/aiqadam/ai-qadam-platform/pull/185), merged 2026-07-31T07:21:46Z)
 
 **Honesty disclosure (AGENTS.md §6.1):** AC-4's live browser
 re-verification against a real Directus/browser session is performed by
