@@ -1,14 +1,25 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import {
+  ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
+import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
+import {
+  RegistrationConsentRequiredError,
+  RegistrationIneligibleError,
+  RegistrationNotFoundError,
+  RegistrationsDirectusService,
+  type Status as RegistrationStatus,
+} from '../registrations/registrations-directus.service';
 
 // FEAT-BOT-2 (FR-BOT-002, PR 1/6) — read-only event browsing for the bot's
 // /events and /event <N> commands. Deliberately NOT reusing
@@ -119,6 +130,36 @@ export const eventDetailQuerySchema = z.object({
 export type EventDetailParams = z.infer<typeof eventDetailParamsSchema>;
 export type EventDetailQuery = z.infer<typeof eventDetailQuerySchema>;
 
+// ── FEAT-BOT-2 (FR-BOT-002 PR 2/6) — register/cancel schemas ──────────────
+
+// POST /v1/internal/telegram/register body. `country` mirrors
+// listTelegramEventsQuerySchema's own `country` field — the bot always has
+// it on hand from TenantMiddleware, same source as the /events call.
+export const telegramRegisterBodySchema = z.object({
+  directusUserId: z.string().uuid(),
+  eventId: z.string().uuid(),
+  country: countrySchema,
+});
+export type TelegramRegisterBody = z.infer<typeof telegramRegisterBodySchema>;
+
+// DELETE /v1/internal/telegram/register body — same shape, no acceptance
+// (cancellation never needs EULA consent).
+export const telegramCancelBodySchema = z.object({
+  directusUserId: z.string().uuid(),
+  eventId: z.string().uuid(),
+  country: countrySchema,
+});
+export type TelegramCancelBody = z.infer<typeof telegramCancelBodySchema>;
+
+export interface TelegramRegisterResult {
+  status: RegistrationStatus;
+  eventTitle: string;
+}
+
+export interface TelegramCancelResult {
+  status: 'cancelled' | 'not_registered';
+}
+
 // ── Result shapes ────────────────────────────────────────────────────────
 
 // One row of GET /events. Kept intentionally narrow — only what the bot's
@@ -180,6 +221,21 @@ export class TelegramAuthService {
   constructor(
     private readonly authentik: AuthentikClient,
     private readonly directus: DirectusClient,
+    // FEAT-BOT-2 (FR-BOT-002 PR 2/6) — bridge for the reverse
+    // directusUserId -> platform users.id lookup, and the registrations
+    // service itself, reused directly rather than duplicated (see
+    // registrations-directus.service.ts's own header comment).
+    // RegistrationsDirectusService comes from RegistrationsModule, which
+    // AuthModule imports via forwardRef (see auth.module.ts's comment) —
+    // Nest's reflection-based design:paramtypes metadata can't resolve a
+    // forwardRef'd provider through the constructor-parameter type alone,
+    // so this needs an explicit @Inject(forwardRef(...)) too (confirmed
+    // live: omitting this produced `UnknownDependenciesException ...
+    // Function at index [3]`, not a module-graph error — the module cycle
+    // fix alone is necessary but not sufficient).
+    private readonly directusBridge: DirectusUsersBridgeService,
+    @Inject(forwardRef(() => RegistrationsDirectusService))
+    private readonly registrations: RegistrationsDirectusService,
   ) {}
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -494,6 +550,107 @@ export class TelegramAuthService {
       `/items/registrations?${query}`,
     );
     return res.data.length > 0;
+  }
+
+  // ── FEAT-BOT-2 (FR-BOT-002 PR 2/6) — register / cancel ─────────────────
+
+  // POST /v1/internal/telegram/register service logic. Resolves the given
+  // directusUserId to a platform users.id (reverse of every other bridge
+  // consumer — see directus-users-bridge.service.ts's own comment on
+  // resolveUserIdFromDirectusId), then delegates to
+  // RegistrationsDirectusService.register() unchanged — capacity/waitlist
+  // assignment happens server-side there (Directus flow), so `status` is
+  // passed through faithfully rather than re-derived here. No `acceptance`
+  // is passed: this PR does not build a bot-side EULA consent flow (see
+  // 01-requirement-validation.md's finding — the web UI itself has none
+  // either yet); RegistrationConsentRequiredError is caught and re-thrown
+  // as a ConflictException so the bot can show a distinct message instead
+  // of a generic error.
+  async registerViaTelegram(
+    directusUserId: string,
+    eventId: string,
+    country: string,
+  ): Promise<TelegramRegisterResult> {
+    const userId = await this.requirePlatformUserId(directusUserId);
+
+    try {
+      // Title is fetched AFTER register() succeeds, not before — register()
+      // already runs assertEventInTenant (published + tenant-scoped) and
+      // throws RegistrationNotFoundError for a bad id, which we map to a
+      // clean 404 below. Fetching the title first (an earlier version of
+      // this method did) let an unguarded raw GET reach Directus for a
+      // nonexistent id, which surfaced as an unhandled 403
+      // DirectusError -> 500, not a 404 — caught live in Step 13
+      // verification against the real stack (curl with a bogus eventId).
+      const row = await this.registrations.register({ userId, eventId, countryCode: country });
+      const eventTitle = await this.requireEventTitle(eventId);
+      return { status: row.status, eventTitle };
+    } catch (err) {
+      if (err instanceof RegistrationNotFoundError) {
+        throw new NotFoundException({ error: 'event_not_found' });
+      }
+      if (err instanceof RegistrationConsentRequiredError) {
+        throw new ConflictException({ error: 'consent_required' });
+      }
+      if (err instanceof RegistrationIneligibleError) {
+        throw new ConflictException({ error: 'registration_ineligible' });
+      }
+      throw err;
+    }
+  }
+
+  // DELETE /v1/internal/telegram/register service logic. `cancel()`
+  // returns null (not a throw) when no active registration exists —
+  // surfaced here as status: 'not_registered' so the bot can show a
+  // one-line "you're not registered" message rather than a generic error.
+  // Waitlist promotion on cancel is handled entirely by the existing
+  // Directus flow (registrations-directus.service.ts's own doc comment) —
+  // this method does not build any promotion logic.
+  async cancelViaTelegram(
+    directusUserId: string,
+    eventId: string,
+    country: string,
+  ): Promise<TelegramCancelResult> {
+    const userId = await this.requirePlatformUserId(directusUserId);
+
+    try {
+      const row = await this.registrations.cancel({ userId, eventId, countryCode: country });
+      return { status: row === null ? 'not_registered' : 'cancelled' };
+    } catch (err) {
+      if (err instanceof RegistrationNotFoundError) {
+        throw new NotFoundException({ error: 'event_not_found' });
+      }
+      throw err;
+    }
+  }
+
+  // Shared by registerViaTelegram/cancelViaTelegram. 404s (matching
+  // lookupUser's own "unresolvable identity" convention) when the bridge
+  // has no platform user linked to this directusUserId — this should be
+  // rare in practice (the bot only ever has a directusUserId because
+  // lookupUser resolved one moments earlier) but is not impossible (a
+  // directus_users row without a matching platform.users row, e.g. a
+  // Directus-only account never bridged).
+  private async requirePlatformUserId(directusUserId: string): Promise<string> {
+    const userId = await this.directusBridge.resolveUserIdFromDirectusId(directusUserId);
+    if (!userId) {
+      throw new NotFoundException({ error: 'telegram_user_not_found' });
+    }
+    return userId;
+  }
+
+  // Register's confirmation message needs the event title; the events/:id
+  // endpoint already fetches title this same way via findPublishedEvent,
+  // but register's target event may be full/waitlist-eligible so we can't
+  // reuse the published-only guard there — this fetch is guard-free
+  // (RegistrationsDirectusService.assertEventInTenant already enforces
+  // published + tenant-scoped before the registration insert; this is
+  // purely for display copy after that check has already passed).
+  private async requireEventTitle(eventId: string): Promise<string> {
+    const res = await this.directus.get<{ data: { title: string } | null }>(
+      `/items/events/${eventId}?fields=title`,
+    );
+    return res.data?.title ?? '';
   }
 }
 

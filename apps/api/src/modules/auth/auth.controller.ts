@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -40,13 +41,17 @@ import {
   eventDetailQuerySchema,
   listTelegramEventsQuerySchema,
   lookupUserBodySchema,
+  telegramCancelBodySchema,
+  telegramRegisterBodySchema,
   telegramWidgetPayloadSchema,
   upsertTempUserBodySchema,
 } from './telegram-auth.service';
 import type {
   LookupUserResult,
+  TelegramCancelResult,
   TelegramEventDetailResult,
   TelegramEventListResult,
+  TelegramRegisterResult,
   UpsertTempUserResult,
 } from './telegram-auth.service';
 
@@ -584,6 +589,52 @@ export class TelegramInternalController {
     return this.telegramAuth.getEventDetail(
       parsedParams.data.id,
       parsedQuery.data.directusUserId ?? null,
+    );
+  }
+
+  // POST /v1/internal/telegram/register — InternalAuthGuard protected.
+  // FEAT-BOT-2 (FR-BOT-002 PR 2/6) — called by the bot's /register <N>
+  // handler and by the "Register"/"I'm going" button PR 1 left as a
+  // placeholder callback. Proxies to RegistrationsDirectusService.register
+  // (same service the browser-facing RegistrationsController uses) via
+  // TelegramAuthService.registerViaTelegram, which also does the
+  // directusUserId -> platform users.id reverse lookup. Returns the
+  // service's own status faithfully ('registered' | 'waitlisted' | ...) —
+  // the bot renders two distinct confirmation copies from that field, no
+  // separate waitlist-detection logic here.
+  @Post('register')
+  @HttpCode(HttpStatus.OK)
+  async register(@Body() body: unknown): Promise<TelegramRegisterResult> {
+    const parsed = telegramRegisterBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.registerViaTelegram(
+      parsed.data.directusUserId,
+      parsed.data.eventId,
+      parsed.data.country,
+    );
+  }
+
+  // DELETE /v1/internal/telegram/register — InternalAuthGuard protected.
+  // FEAT-BOT-2 (FR-BOT-002 PR 2/6) — called by the bot's /cancel <N>
+  // handler. Body (not query params/path) is used deliberately — this is
+  // an internal service-to-service call over the Docker network, not a
+  // browser fetch bound by proxy/cache conventions that sometimes drop
+  // DELETE bodies; see 02-impact-analysis.md Risk Flag #2. Waitlist
+  // promotion on cancel happens entirely via the existing Directus flow —
+  // see registrations-directus.service.ts's own doc comment.
+  @Delete('register')
+  @HttpCode(HttpStatus.OK)
+  async cancel(@Body() body: unknown): Promise<TelegramCancelResult> {
+    const parsed = telegramCancelBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.cancelViaTelegram(
+      parsed.data.directusUserId,
+      parsed.data.eventId,
+      parsed.data.country,
     );
   }
 }

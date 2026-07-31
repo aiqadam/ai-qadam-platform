@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
-import type { DirectusClient } from '../src/modules/directus/directus.client';
+import { DirectusError, type DirectusClient } from '../src/modules/directus/directus.client';
 import type { EulaService } from '../src/modules/eula/eula.service';
 import {
   CheckinIneligibleError,
@@ -203,6 +203,34 @@ describe('register', () => {
     await expect(
       svc.register({ userId: USER, eventId: EVENT, countryCode: COUNTRY }),
     ).rejects.toBeInstanceOf(RegistrationIneligibleError);
+  });
+
+  // ISS-BOT-REG-001 — found live during FR-BOT-002 PR 2/6 Step 13
+  // verification (curl against a genuinely nonexistent eventId hit an
+  // unhandled 500, not the intended 404). This Directus instance returns
+  // 403 (not 404) for a single-item GET on an id outside the requester's
+  // accessible set — assertEventInTenant's catch clause previously only
+  // matched status 404, letting the raw DirectusError escape as a 500.
+  it('rejects with NotFound (not a raw 500) when the event GET 404s', async () => {
+    fake.get.mockRejectedValueOnce(new DirectusError(404, '/items/events/x', '{}'));
+    await expect(
+      svc.register({ userId: USER, eventId: EVENT, countryCode: COUNTRY }),
+    ).rejects.toBeInstanceOf(RegistrationNotFoundError);
+  });
+
+  it('rejects with NotFound (not a raw 500) when the event GET 403s — ISS-BOT-REG-001 regression guard', async () => {
+    fake.get.mockRejectedValueOnce(new DirectusError(403, '/items/events/x', '{}'));
+    await expect(
+      svc.register({ userId: USER, eventId: EVENT, countryCode: COUNTRY }),
+    ).rejects.toBeInstanceOf(RegistrationNotFoundError);
+  });
+
+  it('propagates a DirectusError of any other status unchanged (e.g. 500)', async () => {
+    const serverError = new DirectusError(500, '/items/events/x', '{}');
+    fake.get.mockRejectedValueOnce(serverError);
+    await expect(
+      svc.register({ userId: USER, eventId: EVENT, countryCode: COUNTRY }),
+    ).rejects.toBe(serverError);
   });
 });
 

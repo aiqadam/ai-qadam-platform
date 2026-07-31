@@ -690,7 +690,21 @@ export class RegistrationsDirectusService {
         throw new RegistrationNotFoundError(`event ${eventId} not available in ${countryCode}`);
       }
     } catch (err) {
-      if (err instanceof DirectusError && err.status === 404) {
+      // ISS-BOT-REG-001 (found live during FR-BOT-002 PR 2/6 Step 13
+      // verification, pre-existing on this exact surface — the browser
+      // controller hits the identical bug for a bogus eventId, it just had
+      // no test coverage that used a genuinely nonexistent UUID): this
+      // Directus instance's single-item GET returns 403 (permission-denied
+      // framing), not 404, for an id outside the requester's accessible
+      // set — confirmed live via curl against a random UUID. The 404-only
+      // check below silently let a real DirectusError escape as an
+      // unhandled 500 instead of the intended RegistrationNotFoundError.
+      // Both statuses are treated as "not found" here since neither
+      // discloses whether the row exists (a 403 SHOULD arguably 404 for a
+      // truly nonexistent id, but this codebase doesn't control Directus's
+      // permission-check ordering) — same "don't leak existence" posture
+      // telegram-auth.service.ts's getEventDetail already documents.
+      if (err instanceof DirectusError && (err.status === 404 || err.status === 403)) {
         throw new RegistrationNotFoundError(`event ${eventId} not found`);
       }
       throw err;
