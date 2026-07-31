@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   Req,
@@ -35,11 +36,19 @@ import {
 import { RegistrationService } from './registration.service';
 import {
   TelegramAuthService,
+  eventDetailParamsSchema,
+  eventDetailQuerySchema,
+  listTelegramEventsQuerySchema,
   lookupUserBodySchema,
   telegramWidgetPayloadSchema,
   upsertTempUserBodySchema,
 } from './telegram-auth.service';
-import type { LookupUserResult, UpsertTempUserResult } from './telegram-auth.service';
+import type {
+  LookupUserResult,
+  TelegramEventDetailResult,
+  TelegramEventListResult,
+  UpsertTempUserResult,
+} from './telegram-auth.service';
 
 // POST /v1/auth/register body — inline schema, matching this codebase's
 // established convention (packages/shared-types is an empty, unused
@@ -532,5 +541,49 @@ export class TelegramInternalController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.telegramAuth.lookupUser(parsed.data.telegramId);
+  }
+
+  // GET /v1/internal/telegram/events — InternalAuthGuard protected.
+  // FEAT-BOT-2 (FR-BOT-002 PR 1/6) — called by the bot's /events handler.
+  // Offset-based pagination per FR-BOT-002 Notes. See
+  // telegram-auth.service.ts's "Reuse vs. duplicate" comment for why this
+  // doesn't call into TelegramEventsService.
+  @Get('events')
+  @HttpCode(HttpStatus.OK)
+  async listEvents(@Query() query: unknown): Promise<TelegramEventListResult> {
+    const parsed = listTelegramEventsQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.listUpcomingEvents(
+      parsed.data.country,
+      parsed.data.offset,
+      parsed.data.limit,
+    );
+  }
+
+  // GET /v1/internal/telegram/events/:id — InternalAuthGuard protected.
+  // FEAT-BOT-2 (FR-BOT-002 PR 1/6) — called by the bot's /event <N>
+  // handler. `isRegistered` is returned now (query param `directusUserId`,
+  // optional) so PR 2 (/register) doesn't need to touch this endpoint
+  // again — see the task brief's explicit instruction to front-load this.
+  @Get('events/:id')
+  @HttpCode(HttpStatus.OK)
+  async getEventDetail(
+    @Param() params: unknown,
+    @Query() query: unknown,
+  ): Promise<TelegramEventDetailResult> {
+    const parsedParams = eventDetailParamsSchema.safeParse(params);
+    if (!parsedParams.success) {
+      throw new BadRequestException(parsedParams.error.flatten());
+    }
+    const parsedQuery = eventDetailQuerySchema.safeParse(query);
+    if (!parsedQuery.success) {
+      throw new BadRequestException(parsedQuery.error.flatten());
+    }
+    return this.telegramAuth.getEventDetail(
+      parsedParams.data.id,
+      parsedQuery.data.directusUserId ?? null,
+    );
   }
 }

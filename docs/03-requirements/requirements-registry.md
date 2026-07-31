@@ -99,7 +99,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 55 | [FR-BOT-001](FR-BOT-001.md) | Telegram bot scaffold | Shipped | AUTH-002 |
 | 56 | [FR-AUTH-005](FR-AUTH-005.md) | Account linking | Planned | AUTH-002, BOT-001 |
 | 57 | [FR-AUTH-006](FR-AUTH-006.md) | Temporary account upgrade | Planned | AUTH-002, AUTH-004, GAM-001 |
-| 58 | [FR-BOT-002](FR-BOT-002.md) | Member bot commands | Planned | BOT-001, REG-001, GAM-003, EVT-003 |
+| 58 | [FR-BOT-002](FR-BOT-002.md) | Member bot commands | In Progress | BOT-001, REG-001, GAM-003, EVT-003 |
 | 59 | [FR-BOT-003](FR-BOT-003.md) | Operator runtime commands | Planned | BOT-001, REG-004 |
 | 60 | [FR-NTF-004](FR-NTF-004.md) | Telegram channel notification adapter | Planned | NTF-001, BOT-001, AUTH-002 |
 | 61 | [FR-AUTH-007](FR-AUTH-007.md) | Linked identity surface | Planned | AUTH-002, AUTH-003, AUTH-005 |

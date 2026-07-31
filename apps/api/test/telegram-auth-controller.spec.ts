@@ -38,6 +38,10 @@ function makeTelegramAuthService(
     exchangeWidgetPayload: vi.fn(),
     upsertTempUser: vi.fn(),
     lookupUser: vi.fn(),
+    // FEAT-BOT-2 (FR-BOT-002 PR 1/6) — see telegram-events-internal.spec.ts
+    // for the dedicated listEvents/getEventDetail controller+service tests.
+    listUpcomingEvents: vi.fn(),
+    getEventDetail: vi.fn(),
     ...overrides,
   } as unknown as TelegramAuthService;
 }
