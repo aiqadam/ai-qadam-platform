@@ -113,6 +113,66 @@ describe('register', () => {
     });
   });
 
+  it('ISS-UAT-010-2: polls past a stale first re-read to catch a delayed capacity-flow demotion', async () => {
+    // The capacity flow (Directus action hook) can patch status to
+    // 'waitlisted' slightly after the API's first re-read — this
+    // reproduces that race: first re-read still says 'registered'
+    // (pre-flow default), second re-read reflects the flow's patch.
+    // mockImplementation (path-routed) rather than a shared call queue,
+    // so this is immune to maybeFireFirstEventWelcome's own unrelated
+    // fake.get calls (directus_users / events lookups) interleaving.
+    let reReadCount = 0;
+    const regPath = `/items/registrations/${REG}`;
+    fake.get.mockImplementation((path: string) => {
+      if (path === '/items/events/cccccccc-cccc-4000-8000-000000000003?fields=id,country,status') {
+        return Promise.resolve(happyEvent());
+      }
+      if (path.startsWith('/items/registrations?')) {
+        return Promise.resolve({ data: [] }); // findActiveByUserEvent — none exists
+      }
+      if (path === regPath) {
+        reReadCount += 1;
+        return Promise.resolve({
+          data: regRow({ status: reReadCount === 1 ? 'registered' : 'waitlisted' }),
+        });
+      }
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+    fake.post.mockResolvedValueOnce({ data: regRow() }); // create
+
+    const view = await svc.register({ userId: USER, eventId: EVENT, countryCode: COUNTRY });
+
+    expect(view.status).toBe('waitlisted');
+    expect(reReadCount).toBe(2);
+  });
+
+  it('ISS-UAT-010-2: gives up after the poll bound and returns the last-read status honestly', async () => {
+    // Flow never demotes (or is slower than the bound) — every re-read
+    // still says 'registered'. Must NOT loop forever or throw; returns
+    // the last observed value, bounded at SETTLE_POLL_MAX_ATTEMPTS (3).
+    let reReadCount = 0;
+    const regPath = `/items/registrations/${REG}`;
+    fake.get.mockImplementation((path: string) => {
+      if (path === '/items/events/cccccccc-cccc-4000-8000-000000000003?fields=id,country,status') {
+        return Promise.resolve(happyEvent());
+      }
+      if (path.startsWith('/items/registrations?')) {
+        return Promise.resolve({ data: [] });
+      }
+      if (path === regPath) {
+        reReadCount += 1;
+        return Promise.resolve({ data: regRow({ status: 'registered' }) });
+      }
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+    fake.post.mockResolvedValueOnce({ data: regRow() });
+
+    const view = await svc.register({ userId: USER, eventId: EVENT, countryCode: COUNTRY });
+
+    expect(view.status).toBe('registered');
+    expect(reReadCount).toBe(3);
+  });
+
   it('is idempotent: returns the existing active row without creating a duplicate', async () => {
     fake.get.mockResolvedValueOnce(happyEvent()).mockResolvedValueOnce({ data: [regRow()] }); // findActive returns existing
     const view = await svc.register({ userId: USER, eventId: EVENT, countryCode: COUNTRY });

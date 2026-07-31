@@ -20,6 +20,15 @@ import {
 
 export type Status = 'registered' | 'waitlisted' | 'cancelled' | 'attended';
 
+// ISS-UAT-010-2: reg-capacity-decision runs as an async Directus action
+// hook (not inside the insert transaction — see flows-bootstrap.sh's own
+// comment on that trade-off), so a single immediate re-read can race the
+// flow's status patch and return a stale 'registered' for a registration
+// the flow is about to demote to 'waitlisted'. Bounded poll closes that
+// window without duplicating the flow's own capacity-counting logic here.
+const SETTLE_POLL_MAX_ATTEMPTS = 3;
+const SETTLE_POLL_DELAY_MS = 150;
+
 export interface RegistrationRow {
   id: string;
   event: string;
@@ -141,10 +150,9 @@ export class RegistrationsDirectusService {
       });
     }
 
-    // Re-read so the capacity flow's status patch is reflected.
-    const settled = await this.directus.get<{ data: RegistrationRow }>(
-      `/items/registrations/${created.data.id}`,
-    );
+    // Re-read so the capacity flow's status patch is reflected. Polled —
+    // see ISS-UAT-010-2 comment above.
+    const settled = await this.pollForSettledStatus(created.data.id);
 
     await this.maybeFireFirstEventWelcome({
       directusUserId,
@@ -152,7 +160,7 @@ export class RegistrationsDirectusService {
       registrationId: created.data.id,
     });
 
-    return toView(settled.data);
+    return toView(settled);
   }
 
   // C-4b-2b — first-event welcome trigger. Extracted so register() stays
@@ -621,6 +629,31 @@ export class RegistrationsDirectusService {
 
   // ─── helpers ──────────────────────────────────────────────────────────
 
+  // ISS-UAT-010-2: re-reads a just-created registration up to
+  // SETTLE_POLL_MAX_ATTEMPTS times, returning as soon as the row is no
+  // longer at the pre-flow default ('registered') — i.e. the capacity
+  // flow has demoted it to 'waitlisted' — or the row is any other
+  // non-default status. If the flow never demotes it (the common case:
+  // event has room), the loop exhausts its attempts and returns the last
+  // read, which is correctly 'registered'. Never throws on its own —
+  // worst case is returning the same possibly-stale read this replaced.
+  private async pollForSettledStatus(registrationId: string): Promise<RegistrationRow> {
+    let latest = await this.directus.get<{ data: RegistrationRow }>(
+      `/items/registrations/${registrationId}`,
+    );
+    for (
+      let attempt = 1;
+      attempt < SETTLE_POLL_MAX_ATTEMPTS && latest.data.status === 'registered';
+      attempt++
+    ) {
+      await sleep(SETTLE_POLL_DELAY_MS);
+      latest = await this.directus.get<{ data: RegistrationRow }>(
+        `/items/registrations/${registrationId}`,
+      );
+    }
+    return latest.data;
+  }
+
   private async recordAcceptanceOrThrow(input: {
     userId: string;
     eventId: string;
@@ -681,6 +714,10 @@ export class RegistrationsDirectusService {
     );
     return body.data[0];
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function toView(row: RegistrationRow): RegistrationView {

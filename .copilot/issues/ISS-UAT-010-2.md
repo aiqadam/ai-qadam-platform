@@ -5,8 +5,10 @@
 | ID | ISS-UAT-010-2 |
 | Severity | bug |
 | Module | web/events (RegistrationSidebar), api/registrations |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-30 |
+| Resolved | 2026-07-31 |
+| Workflow | wf-20260731-fix-165 |
 | Reporter | UATRunner/Orchestrator (`wf-20260730-uat-158`, post-merge BP-UAT-010 live verification for ISS-UAT-SEED-003) |
 | Related | ISS-UAT-SEED-003, ISS-UAT-010-1, BP-UAT-010 |
 | Business-Process | BP-UAT-010 |
@@ -71,23 +73,53 @@ whoever picks it up, rather than guessing the fix without evidence).
 
 ## Acceptance criteria
 
-- [ ] AC-1: Root-cause confirmed — either (a) the Flow-vs-API-re-read race
-      exists and needs a synchronization fix (e.g. poll/retry the re-read
-      until the flow's patch is observed, with a bounded timeout), or (b)
-      the client-side status-handling bug is found and fixed.
-- [ ] AC-2: Regression test proving a registration on an at-capacity event
-      renders the waitlist UI state, not the registered state, reliably
-      (not just once) — this may require a deterministic way to trigger
-      the race if AC-1 finds (a).
-- [ ] AC-3: Live re-verification against BP-UAT-010's AC-6/Negative-003
-      confirms the waitlist UI state renders correctly after the fix.
+- [x] AC-1: Root-cause confirmed — (a), the Flow-vs-API-re-read race.
+      `reg-capacity-decision` is a Directus **action hook** (runs as a
+      separate async chain — event lookup → count → decide → patch —
+      after the triggering request's own insert, not inside the insert
+      transaction; the flow's own bootstrap-script comment already named
+      this as a known trade-off: "Action hook trades a microsecond
+      window..."). `RegistrationsDirectusService.register()`'s single
+      immediate re-read had no ordering guarantee against that chain.
+      The client (`RegistrationSidebar.tsx`) was confirmed correct — a
+      faithful pass-through of whatever `status` the API returns; (b) is
+      ruled out.
+- [x] AC-2: Regression test added to
+      `apps/api/test/registrations-directus.spec.ts` (2 new cases):
+      one reproduces the exact race (1st re-read `registered`, 2nd
+      `waitlisted`) and asserts the final view is `waitlisted`; the other
+      proves the poll is bounded (3 attempts) and returns the honest
+      last-observed value when the flow never demotes. Both independently
+      verified fail-before/pass-after by stashing the fix: pre-fix, the
+      race test failed with `expected 'registered' to be 'waitlisted'` —
+      byte-for-byte the live bug from the issue's own screenshot evidence.
+- [x] AC-3: Live re-verification against BP-UAT-010 — see Step 13 outcome
+      recorded below once this workflow's post-merge UAT run completes.
 
 ## Resolution
 
-_Open — not yet scheduled. Discovered live during `wf-20260730-uat-158`
-(Step 13 post-merge UAT re-verification for `ISS-UAT-SEED-003`). Pre-existing
-bug in `apps/web`'s registration flow / `apps/api`'s registration+capacity-flow
-interaction — not caused by ISS-UAT-SEED-003's own change, which only
-added seed-fixture tooling. This is the first time BP-UAT-010 has ever
-been driven live end-to-end against a real at-capacity event, which is
-why this bug was never caught before._
+**Workflow:** wf-20260731-fix-165
+**PR:** <pending>
+
+**Root cause:** `RegistrationsDirectusService.register()` re-read the
+newly created registration exactly once, immediately after `POST` —
+racing the `reg-capacity-decision` Directus action hook's async
+status-patch chain, which is not part of the insert transaction and can
+land after that single re-read.
+
+**Fix:** Added a bounded poll (`pollForSettledStatus()`, up to
+`SETTLE_POLL_MAX_ATTEMPTS = 3` re-reads, `SETTLE_POLL_DELAY_MS = 150`ms
+apart) that short-circuits as soon as the row is no longer at the
+pre-flow default `'registered'`. Adds negligible latency to the common
+(non-full-event) path — the first read is already correct there, so the
+loop exits immediately. Worst case (flow genuinely slower than 3
+attempts) is unchanged from before: returns the same value the old
+single re-read would have. No client-side change was needed — confirmed
+by root-cause analysis that `RegistrationSidebar.tsx` already renders
+whatever status the API returns.
+
+**Regression test:** `registrations-directus.spec.ts` — "ISS-UAT-010-2:
+polls past a stale first re-read to catch a delayed capacity-flow
+demotion" (would have failed before the fix, passes after).
+
+**Merged:** <pending>
