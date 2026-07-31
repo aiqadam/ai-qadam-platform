@@ -1,14 +1,26 @@
 # ADR-0034: Telegram bot + outbound sender — separate repo, ESB-ready contract
 
 ## Status
-Proposed, 2026-05-21
+Accepted, 2026-07-31
 
 > Drafted by Claude Code in conversation on 2026-05-21 after the user asked
-> for a plan to build the Telegram bot + sender. The scaffold repo
-> already exists at `/home/drukker/aiqadam-telegram-bot/` (commit `f2eee50`,
-> not yet pushed to GitHub) — this ADR codifies the architectural decisions
-> that scaffold encodes, for PM acceptance via the
+> for a plan to build the Telegram bot + sender; this ADR codifies the
+> architectural decisions for PM acceptance via the
 > [decision-batch process](../02-business-processes/decision-batch-process.md).
+>
+> **2026-07-31 update:** an earlier draft of this ADR referenced a local,
+> never-pushed scaffold under a personal machine path and a personal
+> GitHub namespace (`viktordrukker/aiqadam-telegram-bot`). That scaffold
+> was never published. The repo has since been created fresh, directly
+> under the `aiqadam` GitHub org, public (matching this repo's
+> visibility), at
+> [aiqadam/aiqadam-telegram-bot](https://github.com/aiqadam/aiqadam-telegram-bot) —
+> project-owned infrastructure, not tied to any individual's account. It
+> is vendored into this repo as a **git submodule at `apps/bot/`** so a
+> single VS Code workspace and the same agent fleet manage both projects,
+> per the user's explicit condition for accepting the separate-repo
+> design (see Q1 below). All repo-name/path references below are updated
+> accordingly.
 
 ## Context
 
@@ -57,9 +69,10 @@ Proposed, 2026-05-21
 
 ## Decision
 
-### Q1 — Separate repo: `viktordrukker/aiqadam-telegram-bot`
+### Q1 — Separate repo: `aiqadam/aiqadam-telegram-bot`, nested as a submodule
 
-A new GitHub repo, private, with its own Coolify resource. Reasons:
+A new GitHub repo, public (matching this repo's visibility), owned by the
+`aiqadam` org, with its own Coolify resource. Reasons:
 
 - **Clear deployment boundary.** One container resource, one CI, one
   Coolify webhook. Bot redeploys never touch web/api.
@@ -67,12 +80,20 @@ A new GitHub repo, private, with its own Coolify resource. Reasons:
   Cross-monorepo tooling has limited value here.
 - **Smaller blast radius.** A bot bug doesn't risk the web build.
 - **Secret isolation.** Bot token + service token live in their own
-  Coolify env, not co-mingled with the API's secrets.
+  Coolify env, not co-mingled with the API's secrets. (No source-level
+  secrets live in either repo, so this doesn't drive visibility —
+  visibility matches the main repo's public status instead.)
 - **Reversible.** If we want a monorepo later, we vendor it back.
 
-`apps/bot/` and `apps/workers/` in the aiqadam monorepo become **unused
-stubs to be removed** in a follow-up cleanup PR (or kept as `.gitkeep`
-markers for a Phase ζ Python-in-monorepo decision).
+**Condition of acceptance:** the separate repo must still read as one
+workspace. It is vendored into this repo as a **git submodule at
+`apps/bot/`** — a single VS Code workspace, one Source Control pane per
+repo, and the same agent fleet manages both. Agents commit inside
+`apps/bot/` against the submodule's own history, then a small follow-up
+commit in this repo bumps the submodule pointer. `apps/workers/` (a
+separate, TypeScript-hosted concern, not part of the bot/notifier split)
+remains an **unused stub to be removed** in a follow-up cleanup PR (or
+kept as a `.gitkeep` marker for a Phase ζ decision).
 
 ### Q2 + Q6 — ESB-ready: sync HTTP **and** async Streams, contract-first
 
@@ -148,7 +169,8 @@ send-log) copy-ported from `viktordrukker/tgblaster` bot-stack (MIT).
 ## Component layout
 
 ```
-viktordrukker/aiqadam-telegram-bot/   (NEW REPO, private, Coolify)
+aiqadam/aiqadam-telegram-bot/   (NEW REPO, public, Coolify; vendored as
+                                 git submodule at apps/bot/ in this repo)
 ├── src/aiqadam_telegram_bot/
 │   ├── contracts/           # envelopes + payload schemas (source of truth)
 │   ├── shared/              # config, logging, redis pool, aiqadam HTTP client
@@ -162,7 +184,7 @@ viktordrukker/aiqadam-telegram-bot/   (NEW REPO, private, Coolify)
 ├── pyproject.toml           # aiogram 3, httpx, pydantic, redis, structlog
 └── .github/workflows/ci.yml # ruff + mypy + pytest + GHCR push
 
-viktordrukker/aiqadam  (THIS REPO)
+aiqadam/ai-qadam-platform  (THIS REPO)
 └── apps/api/src/modules/telegram/  (TO BUILD)
     ├── telegram.module.ts
     ├── telegram.controller.ts          # OpenAPI endpoints
@@ -296,9 +318,13 @@ In the **aiqadam repo**:
   is a new consumer-group on the same stream.
 - ✅ NestJS Interactions dispatcher gains a TelegramAdapter; templates
   stay server-side.
-- ✅ `apps/bot/` and `apps/workers/` stubs become removable.
+- ✅ `apps/bot/` becomes the submodule checkout (see Q1); `apps/workers/`
+  stub becomes removable.
+- ✅ Vendored as a submodule at `apps/bot/`, so it's still one VS Code
+  workspace and one agent fleet, despite being two git histories.
 - ⚠️ Two repos to maintain. Cross-repo PRs needed for envelope schema
-  changes (rare — schema is locked at v1).
+  changes (rare — schema is locked at v1). Submodule pointer bumps are
+  an extra small commit in this repo after every bot-repo change.
 - ⚠️ NestJS-side build (six PRs) is the long pole. The new repo can't
   fully test against prod until A1–A6 ship.
 - 📝 Bot is currently a Python anomaly in a TypeScript stack. Acceptable
