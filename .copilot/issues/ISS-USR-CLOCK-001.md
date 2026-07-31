@@ -12,7 +12,7 @@
 | Reporter | TestRunner (autonomous discovery during unrelated feature's Step 8) |
 | Related | FR-BOT-001 |
 | Business-Process | — |
-| GitHub-Issue | — |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/196 |
 
 ## Symptom
 
