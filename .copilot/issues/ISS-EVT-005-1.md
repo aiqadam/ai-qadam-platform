@@ -121,7 +121,7 @@ BP-UAT-010's registration flow.
 ## Resolution
 
 **Workflow:** wf-20260731-fix-168 (subworkflow of wf-20260731-fix-167)
-**PR:** <pending>
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/187
 
 **Root cause:** Three independent bugs, all masked by unit-level testing
 alone: (1) `registeredCountOf()` queried Directus unauthenticated, 403ing
