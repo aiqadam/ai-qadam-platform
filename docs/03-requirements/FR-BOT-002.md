@@ -162,10 +162,27 @@ page, zero overlap) and `BP-UAT-012` (points/leaderboard — never run, no
 spec, titled around PR 4/6's leaderboard surface, not a single-user
 readout); neither is a clean fit, so no new code was invented per
 `protocol.md`'s "don't force a link" guidance. `/me`'s registration
-rendering is still within BP-UAT-010's existing domain and is
-re-verified as part of that script's Step 13 re-run. See
-`.copilot/tasks/completed/wf-20260801-feat-176/` (once archived) for full
-detail.
+rendering is still within BP-UAT-010's existing domain — **Step 13
+post-merge re-verification ran for real** (direct HTTP verification
+against the merged `main` commit `767ec06`, same format PR 2 established,
+not a spawned Playwright subworkflow): registered `uat-member@example.com`
+for `UAT Open Event (UZ)` via the internal register route, confirmed
+`/me` immediately reflected it (registration id + status matched the real
+Directus row exactly, `pointsTotal` incremented 135→140 from the real
+`point_awards` register-time award), cancelled via the exact route `/me`'s
+new Cancel button calls, confirmed `/me` correctly excluded it afterward
+(cross-referenced against the Directus row's `status: cancelled` +
+`cancelled_at`), and confirmed idempotent re-cancel returns
+`not_registered` without erroring. No new issues found; all 8
+stakeholders of `BP-UAT-010` (`FR-BOT-002`, `FR-EVT-004`,
+`ISS-BRIDGE-STALE-001`, `ISS-EVT-004-1`, `ISS-EVT-005-1`,
+`ISS-UAT-010-1`, `ISS-UAT-010-2`, `ISS-UAT-SEED-003`) synced to
+Project-board status `agent-verified`. Did **not** close GitHub issue
+`#140` (`FR-BOT-002`'s own tracking issue) — same judgement call PR 2
+already made and documented: issue #140 tracks the entire 10-command FR,
+and this PR ships only command 6 of 10 (4 remain); closing it now would
+misrepresent unimplemented commands as done. See
+`.copilot/tasks/completed/wf-20260801-feat-176/` for full detail.
 
 **Planned follow-up PRs (queued, no workflow IDs assigned yet):**
 
