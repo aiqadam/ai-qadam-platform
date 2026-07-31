@@ -122,4 +122,4 @@ whatever status the API returns.
 polls past a stale first re-read to catch a delayed capacity-flow
 demotion" (would have failed before the fix, passes after).
 
-**Merged:** <pending>
+**Merged:** `a91a9c6` (PR [#181](https://github.com/aiqadam/ai-qadam-platform/pull/181), squashed)
