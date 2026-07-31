@@ -155,7 +155,7 @@ post-fix. Screenshots show correct "3/2 spots" + "Leave waitlist" and
 "✓ You're registered" states, cross-referenced against the exact Directus
 rows (`status=registered`/`status=waitlisted`).
 
-**Merged:** <pending>
+**Merged:** `850b9f0` ([PR #187](https://github.com/aiqadam/ai-qadam-platform/pull/187), merged 2026-07-31T09:25:36Z)
 
 **Honesty disclosure:** This issue exists because `wf-20260731-fix-167`'s
 own Step 13 (mandatory live BP-UAT-010 re-verification, AGENTS.md §6.1)
