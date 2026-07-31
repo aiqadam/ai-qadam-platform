@@ -1,5 +1,31 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-fix-164`.
+**ISS-WF-GH-CLOSE-001 resolved — GitHub issues can no longer auto-close before their own Step 13 verification has run.**
+[wf-20260731-fix-164](../tasks/completed/wf-20260731-fix-164/handoff.yaml)
+(PR `<pending>`): prompted directly by the user, who noticed issue #130
+(FR-EVT-004) was `CLOSED` on GitHub despite 2 of its own follow-up bugs
+(#160, #161, found by its Step 13 post-merge BP-UAT-010 re-verification)
+still being open. Root cause: two independent "is this done" signals —
+the Project board's Status field (correctly script-driven, distinguishes
+`implemented` from `agent-verified`) and GitHub's own commit-message
+closing-keyword scanner (fires on ANY commit reaching `main`, regardless
+of verification state) — were never wired together. CodeDeveloper's
+FR-EVT-004 shipping commit contained an unreviewed `Closes #130`, a
+convention documented nowhere, which auto-closed the issue at merge time,
+before Step 13 had run. Fixed with a new mechanical guard
+(`scripts/check-closing-keyword.sh`, 12 bats tests) wired into both
+workflows' commit step, and moved the actual `gh issue close` call to
+each workflow's Step 13 gate — the moment verification is genuinely
+complete. **Also found and fixed a second instance of the identical bug
+class** while reading `issue-resolution.md` closely: Step 12.5's own
+action 6 was unconditionally closing the GitHub issue at merge time via
+an explicit `gh issue close` call, regardless of `Business-Process` — now
+conditioned on `Business-Process` being `—`. Issue #130 itself was
+already patched separately (same session, before this issue was filed)
+via a manual cross-reference comment naming its open follow-ups — not
+re-done here.
+
 **Last updated:** 2026-07-31 — `wf-20260731-uat-163`.
 **Step 13 post-merge BP-UAT-010 re-verification for ISS-BRIDGE-STALE-001 — clean pass, fix confirmed working live.**
 [wf-20260731-uat-163](../tasks/completed/wf-20260731-uat-163/handoff.yaml)

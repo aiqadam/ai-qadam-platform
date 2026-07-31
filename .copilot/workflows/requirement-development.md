@@ -362,6 +362,20 @@ Delegate to `scripts/workflow-finish.sh` per the **Workflow-Finish Protocol** in
 `.copilot/schemas/protocol.md`. Do not reimplement commit/push/PR logic here.
 Run the pre-push gate checks defined in the protocol before invoking the script.
 
+**Commit message closing-keyword check (added 2026-07-31, ISS-WF-GH-CLOSE-001):**
+Before writing the substantive shipping commit, run:
+```bash
+scripts/check-closing-keyword.sh --message-file <path-to-drafted-commit-message> --issue-ref FR-<CODE>
+```
+If it exits 1, the drafted message contains a closing keyword
+(`Closes`/`Fixes`/`Resolves #N`) for an FR whose `business_process` is
+non-empty — rewrite that line to a neutral `Refs #N` instead before
+committing. See `protocol.md`'s "Two independent 'is this done' signals"
+subsection for why: closing the GitHub issue via a commit keyword before
+Step 13 has run means the issue reads as done while the Project board's
+own Status field correctly still says `implemented`, not
+`agent-verified` — a real incident (issue #130) shipped this exact drift.
+
 **MANDATORY: After workflow-finish.sh completes, the Orchestrator MUST output
 the PR URL to the user in the final response.** Read `handoff.yaml` to extract
 `github_pr_url` and surface it as a markdown link. Example:**
@@ -520,15 +534,32 @@ Step 8. Record each run in `handoff.yaml.post_merge_uat_runs[]`.
   scripts/sync-github-project.sh --ref FR-<CODE> --status agent-verified \
     --existing-url "<github_issue frontmatter value>"
   ```
+  **Then close the GitHub issue here** (added 2026-07-31,
+  `ISS-WF-GH-CLOSE-001` — this is the correct moment, not the earlier
+  shipping commit; see `protocol.md`'s "Two independent 'is this done'
+  signals" subsection):
+  ```bash
+  gh issue close <gh-n> --repo aiqadam/ai-qadam-platform \
+    --comment "Verified via Step 13 post-merge re-verification of <BP-UAT-NNN> (workflow <wf-id>). Tracked internally as \`FR-<CODE>\`."
+  ```
+  Skip silently if `github_issue` is unset, or if the issue is already
+  closed (e.g. an earlier commit's own keyword already closed it before
+  this rule existed — closing an already-closed issue is a harmless
+  no-op via `gh issue close`, not an error).
 - One or more triaged a new issue → issue registered normally; this
   workflow still completes, but note the new finding(s) in `FR-<CODE>.md`
   and state whether they're believed related to this feature. Do NOT sync
-  to `agent-verified` in this case — leave Status at `implemented`.
+  to `agent-verified` in this case — leave Status at `implemented`. Do
+  NOT close the GitHub issue — if it is already closed (see the
+  `check-closing-keyword.sh` guard at Step 11, or a pre-existing commit
+  from before this rule existed), reopen it with a comment naming the new
+  finding(s), mirroring exactly what happened with issue #130.
 - A `uat-verification` run itself hit `failed-escalate` (environment, not
   product) → register the env issue per that workflow's own rules, disclose
   the deferral in `FR-<CODE>.md` per AGENTS.md §6.1, workflow completes
   with the disclosure recorded (not silently). Do NOT sync to
-  `agent-verified` — nothing was actually verified.
+  `agent-verified` — nothing was actually verified. Do NOT close the
+  GitHub issue for the same reason.
 
 ---
 
