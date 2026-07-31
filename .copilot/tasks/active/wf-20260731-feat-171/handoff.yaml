@@ -5,7 +5,7 @@ workflow_type: "requirement-development"
 workflow_version: "1.0"
 
 created_at: "2026-07-31T00:00:00Z"
-last_updated_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-07-31T22:00:00Z"
 
 requirement_ref: "FR-BOT-001"
 requirement_text: "Telegram bot scaffold and deployment — Python/aiogram long-polling service in apps/bot/ (git submodule, aiqadam/aiqadam-telegram-bot) that handles inbound commands from members and operators, calling the NestJS API for all business logic. Requires a new POST /v1/internal/telegram/lookup endpoint on the API side (does not yet exist) to resolve telegram_id -> {directusUserId, isTemp, country}."
@@ -15,8 +15,8 @@ branch: "feature/BOT-001-telegram-bot-scaffold"
 base_branch: "main"
 github_pr_url: ""
 
-current_step: 1
-current_step_name: "requirement-validation"
+current_step: 11
+current_step_name: "commit-push-pr"
 workflow_status: "running"
 
 merge_mode: "auto"
@@ -36,11 +36,112 @@ blocking_issue: ""
 paused_at_step: 0
 paused_at_gate: ""
 
-gate_results: {}
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:20:00Z"
+    summary: "FR-BOT-001 specific, testable, non-conflicting, architecturally feasible. Formalized POST /v1/internal/telegram/lookup as explicit in-scope work (AC-1..AC-5) rather than the FR's original silent assumption."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:45:00Z"
+    summary: "DB Changes Required: No. Module placement: modules/auth (TelegramInternalController), reusing InternalAuthGuard. Security review flagged for new trust boundary."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T02:30:00Z"
+    summary: "API-side: POST /v1/internal/telegram/lookup + TelegramAuthService.lookupUser. Bot-side: aiogram scaffold in apps/bot/ submodule (aiqadam-telegram-bot@1980894, later c524089), middleware stack, /start + unknown-command handlers. Both self-validated clean (typecheck/lint/build; ruff/pytest)."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T03:15:00Z"
+    summary: "0 BLOCKER, 0 MAJOR. INV-6 (rate limiting) judged acceptable risk matching existing /v1/internal/* sibling convention. AC-5 idempotency independently verified via grep (zero write calls)."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T03:45:00Z"
+    summary: "Rubric score 4 (new endpoint +2, cross-module call +1, new Directus query +1). Integration tests required, E2E not required. All 11 ACs mapped."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:30:00Z"
+    summary: "apps/api: 15 new tests (telegram-auth-service.spec.ts, telegram-auth-controller.spec.ts). apps/bot: 13 new pytest tests closing TestStrategist-identified gaps (TenantMiddleware, log shape, error handler)."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/06-test-design.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T05:30:00Z"
+    summary: "apps/bot: 29/29 passing. apps/api: 1374/1375 passing (1 pre-existing, unrelated flake in users.spec.ts, later confirmed to duplicate an already-queued fix wf-20260704-fix-096). Typecheck/biome clean."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/07-test-results.md"
+  doc-update:
+    status: passed
+    attempt: 3
+    timestamp: "2026-07-31T22:00:00Z"
+    summary: "Attempt 1: atomic FR status flip + business_process: — decision. Attempt 2: workspace-state.md entry + AC-6/AC-11 Open Issues backing (QualityGate found this incomplete). Attempt 3 (Orchestrator-direct): corrected ISS-USR-CLOCK-001 duplicate-issue mistake (closed GH #196, pointed at the real owning queued workflow wf-20260704-fix-096) and added the actually-required Queued-follow-up-workflows placeholder entry for AC-6/AC-11."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 3
+    timestamp: "2026-07-31T22:15:00Z"
+    summary: "Attempt 1 failed-retry (workspace-state.md untouched; AC-6/AC-11 deferral unbacked). Attempt 2 failed-retry (AC backing needed the Queued-follow-up-workflows placeholder format specifically, not just an Open Issues note). Attempt 3 passed: placeholder entry verified, duplicate-issue correction independently verified (GH #196 closed, issue file/registry/workspace-state.md consistent), all other checks re-confirmed with no regression."
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/09-quality-gate.md"
 
-agent_assignments: {}
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/01-requirement-validation.md"
+    timestamp: "2026-07-31T00:20:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/02-impact-analysis.md"
+    timestamp: "2026-07-31T00:45:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/03-code-summary.md"
+    timestamp: "2026-07-31T02:30:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/04-security-review.md"
+    timestamp: "2026-07-31T03:15:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/06-test-strategy.md"
+    timestamp: "2026-07-31T03:45:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/06-test-design.md"
+    timestamp: "2026-07-31T04:30:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/07-test-results.md"
+    timestamp: "2026-07-31T05:30:00Z"
+  doc-writer:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/08-doc-update.md"
+    timestamp: "2026-07-31T22:00:00Z"
+  quality-gate:
+    status: completed
+    step: 10
+    output_file: ".copilot/tasks/active/wf-20260731-feat-171/09-quality-gate.md"
+    timestamp: "2026-07-31T22:15:00Z"
 
-retry_counts: {}
+retry_counts:
+  doc-writer: 2
+  quality-gate: 2
 
 retry_limits:
   requirement-analyst: 1
@@ -52,7 +153,8 @@ retry_limits:
   quality-gate: 3
   subworkflow: 3
 
-issues_created: []
+issues_created:
+  - "ISS-USR-CLOCK-001"
 issue_ref: ""
 
 deferrals: []
@@ -67,7 +169,25 @@ business_process: []
 
 post_merge_uat_runs: []
 
-artifacts: []
+artifacts:
+  - ".copilot/tasks/active/wf-20260731-feat-171/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/03b-code-summary-bot.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260731-feat-171/09-quality-gate.md"
+  - "apps/api/src/modules/auth/telegram-auth.service.ts"
+  - "apps/api/src/modules/auth/auth.controller.ts"
+  - "apps/api/test/telegram-auth-service.spec.ts"
+  - "apps/api/test/telegram-auth-controller.spec.ts"
+  - "apps/bot/ (submodule, aiqadam/aiqadam-telegram-bot@c524089)"
+  - "docs/03-requirements/FR-BOT-001.md"
+  - "docs/03-requirements/requirements-registry.md"
+  - ".copilot/context/workspace-state.md"
 
 context_refs:
   - docs/03-requirements/FR-BOT-001.md
