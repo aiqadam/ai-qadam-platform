@@ -15,9 +15,9 @@ branch: "feature/FEAT-BOT-2-interests-slice"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/209"
 
-current_step: 11
-current_step_name: "commit-push-pr"
-workflow_status: "running"
+current_step: 11.5
+current_step_name: "merge-pull-verify-complete"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -158,9 +158,48 @@ context_sync_commits: 0
 
 uat_target: "local"
 
-business_process: ["BP-UAT-010"]
+business_process: []
+# Corrected post-merge (2026-08-01) — mirrors PR 4/6's (wf-20260801-feat-177)
+# own precedent exactly: Step 13 gates on what THIS workflow's PR actually
+# touches, not FR-BOT-002.md's cumulative frontmatter value (which stays
+# [BP-UAT-010] because PR 2/3's registration/me surfaces genuinely touch
+# it). This PR's surface (/interests -> member_interests) does not touch
+# BP-UAT-010's registration/waitlist flow -- confirmed by reading
+# BP-UAT-010.md directly (zero mentions of interest/member_interests/
+# topic_tag anywhere in that file). BP-UAT-003 (the genuinely topically-
+# adjacent spec for interests-as-a-resource) is web-only with zero
+# bot-surface steps, per 01-requirement-validation.md's own finding -- not
+# a clean Step-13 target either. Initially set to ["BP-UAT-010"] at Step 0
+# by carrying the FR frontmatter value forward without re-deriving it
+# against this PR's actual diff -- the same class of mistake PR 4's own
+# workflow caught for itself at Step 1 (see wf-20260801-feat-177's
+# 01-requirement-validation.md "Correction to FR-BOT-002.md's frontmatter"
+# section). Step 13 is therefore correctly skipped for this workflow.
 
 post_merge_uat_runs: []
+# Step 13 skipped (business_process corrected to [] above). This PR's own
+# live end-to-end verification WAS still performed directly in-session,
+# independent of the BP-UAT machinery, per the task brief's explicit
+# instruction to live-verify the toggle round-trip:
+#   1. GET /v1/internal/telegram/interests for a real member
+#      (uat-member@example.com, directusUserId bb110099-c215-433b-8930-
+#      81e7f4dab21a) — baseline: selected=[], available=[7 slugs].
+#   2. POST .../interests/toggle {topic: "llm"} — selected=["llm"].
+#   3. Confirmed via direct Directus GET /items/member_interests: a real
+#      row exists (topic_tag=llm, intent=learn).
+#   4. POST .../interests/toggle {topic: "llm"} again — selected=[].
+#   5. Confirmed via direct Directus GET: 0 rows remain — genuinely
+#      deleted, not just filtered.
+#   6. AC-7 live check: created a topic_tag=llm/intent=mentor row
+#      directly (simulating the web /me/profile cabinet), then called the
+#      bot's toggle route once — confirmed via direct Directus GET that
+#      the mentor row survived completely untouched (matching the unit
+#      test's "mentor-only, zero-iteration" case exactly).
+#   7. All seed fixtures cleaned up; final row count confirmed back to 0
+#      (baseline restored).
+# API server was a stale `dist/main` process pre-dating this PR's merge —
+# rebuilt (`pnpm --filter api build`) and restarted (reversible local
+# dev-loop action per AGENTS.md §16) before verification.
 
 artifacts:
   - ".copilot/tasks/active/wf-20260801-feat-178/01-requirement-validation.md"
