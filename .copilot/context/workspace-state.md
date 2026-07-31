@@ -1,5 +1,34 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-feat-171`.
+**FR-BOT-001 (FEAT-BOT-1) shipped — the Telegram bot's first real code lands: a new internal API lookup endpoint plus the Python/aiogram bot scaffold, this project's first two-repo (submodule) feature workflow.**
+[wf-20260731-feat-171](../tasks/active/wf-20260731-feat-171/handoff.yaml)
+(branch `feature/BOT-001-telegram-bot-scaffold`, not yet merged): shipped
+two coordinated halves. On `apps/api`: a new
+`POST /v1/internal/telegram/lookup` endpoint on
+`TelegramInternalController`, guarded by the existing `InternalAuthGuard`
+(shared-secret, matching the sibling `upsert-temp-user` route's
+convention), resolving a raw `telegramId` to
+`{ directusUserId, isTemp, country }` via `AuthentikClient.getUserByTelegramId`
++ a scoped Directus email lookup — zero Postgres/Drizzle calls, read-only,
+idempotent. On `apps/bot/` (git submodule `aiqadam/aiqadam-telegram-bot`,
+pushed to SHA `c524089...`): the actual bootstrap of that repo's first
+real code — a Python/aiogram 3 long-polling scaffold with a middleware
+stack (rate-limiting, `AuthMiddleware` calling the new lookup endpoint,
+`TenantMiddleware` deriving country context, structured JSON logging) and
+`/start` + unknown-command handlers, per ADR-0034's thin-bot design (no
+live reference to any of the three forbidden credential env vars,
+regression-tested). This is the first workflow in this repo to span two
+git repositories end-to-end — QualityGate's Step 9 pass added a dedicated
+"Submodule Cross-Repo Check" verifying the outer repo's gitlink pointer
+matches the submodule's actual pushed `HEAD` exactly. 0 BLOCKER/MAJOR
+security findings; apps/api 1374/1375 (1 pre-existing, unrelated failure,
+see `ISS-USR-CLOCK-001` below); apps/bot 29/29. Two ACs (AC-6's 3-second
+`/start` response bound, AC-11's Grafana/Loki log-delivery confirmation)
+are honestly deferred pending a live `aiqadam-bot` Coolify deployment that
+does not exist yet — see this file's own Open Issues entry below for the
+concrete verification plan.
+
 **Last updated:** 2026-07-31 — `wf-20260731-fix-170`.
 **ISS-WF-PARENT-SYNC-001 resolved — post-merge UAT re-verification now syncs `agent-verified` for EVERY FR/ISS sharing a `Business-Process` linkage, not just the current workflow's own ref.**
 [wf-20260731-fix-170](../tasks/completed/wf-20260731-fix-170/handoff.yaml)
@@ -883,6 +912,31 @@ snapshot, not a log.
 Only genuinely open items belong here. Resolved issues live in
 [`../issues/registry.md`](../issues/registry.md).
 
+- **FR-BOT-001 AC-6 / AC-11 deferred verification** (blocker, bot/deploy) —
+  TestStrategist/TestDesigner/TestRunner all consistently deferred two ACs
+  to live-deployment verification (`.copilot/tasks/active/wf-20260731-feat-171/06-test-strategy.md`):
+  **AC-6** (`/start` must respond within 3 seconds) and **AC-11**
+  (structured JSON logs must actually arrive in Grafana/Loki). Both share
+  the same root blocker: no `aiqadam-bot` Coolify service has ever been
+  deployed for this brand-new bot repo, so neither is verifiable from a
+  local pytest run or this repo's CI. Owner: **UATRunner**, once
+  `aiqadam-bot` exists as a live Coolify service. Concrete verification:
+  - AC-6: send `/start` to the deployed bot from a real Telegram client
+    and time the round-trip to the welcome-message reply; must be < 3s.
+  - AC-11: after that same live `/start` interaction, query Grafana/Loki
+    for the bot's structured JSON log line (e.g. a LogQL query scoped to
+    the bot's log stream, or `curl` against the Loki HTTP API) and confirm
+    it contains `telegram_id`, `command`, `duration_ms`, `status`.
+  No follow-up workflow queued yet — filing one is blocked on the Coolify
+  deployment itself existing first.
+- [ISS-USR-CLOCK-001](../issues/ISS-USR-CLOCK-001.md) (minor, api/users) —
+  `users.spec.ts`'s `lastLoginAt` ordering assertion is flaky under
+  Testcontainers/host clock drift (`defaultNow()` on insert vs. Node-side
+  `new Date()` on update). Discovered 2026-07-31 during
+  `wf-20260731-feat-171`'s TestRunner pass; confirmed pre-existing on
+  `main`, unrelated to that workflow's diff. GitHub issue
+  [#196](https://github.com/aiqadam/ai-qadam-platform/issues/196). No
+  follow-up workflow queued yet.
 - [ISS-ADM-010-1](../issues/ISS-ADM-010-1.md) (blocker for AC-3 only,
   admin/ADM + infra/authentik) — `AdminBootstrapService`'s
   `ak_login_password_change_required` attribute does not force
