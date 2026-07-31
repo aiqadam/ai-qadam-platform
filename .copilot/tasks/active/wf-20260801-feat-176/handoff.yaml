@@ -30,7 +30,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/140"
 
 branch: "feature/FEAT-BOT-2-me-command-slice"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/205"
 
 current_step: 11
 current_step_name: "commit-push-pr"
