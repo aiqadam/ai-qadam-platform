@@ -80,7 +80,20 @@ uat_target: "local"
 
 business_process: ["BP-UAT-010"]
 
-post_merge_uat_runs: []
+# Step 13 ran as direct HTTP verification against the merged main commit
+# (767ec06), same rigor/format PR 2 (wf-20260801-feat-175) established —
+# not a spawned uat-verification/Playwright subworkflow. Full
+# register -> /me-shows-it -> cancel-via-/me's-own-route -> /me-excludes-it
+# cycle run against real Directus data for uat-member@example.com /
+# UAT Open Event (UZ), every step cross-referenced against the real
+# registrations row (id, status, cancelled_at). Idempotent-cancel
+# (not_registered) also verified. No new issues found.
+post_merge_uat_runs:
+  - bp_uat_code: "BP-UAT-010"
+    uat_workflow_id: "wf-20260801-feat-176 (in-session direct HTTP, not a spawned subworkflow)"
+    outcome: "passed"
+    pr_url: ""
+    issues_found: []
 
 artifacts: []
 

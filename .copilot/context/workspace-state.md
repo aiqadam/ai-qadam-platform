@@ -1,5 +1,84 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260801-feat-176`.
+**FR-BOT-002 PR 3/6 shipped — /me, the bot's first member-facing dashboard command: active registrations with status badges + a Cancel button per row, and lifetime points total.**
+[wf-20260801-feat-176](../tasks/completed/wf-20260801-feat-176/handoff.yaml)
+(PR [#205](https://github.com/aiqadam/ai-qadam-platform/pull/205), merged):
+third of the planned 6-PR sequence implementing `FR-BOT-002`. On
+`apps/api`: one new `InternalAuthGuard`-protected, Zod-validated route —
+`GET /v1/internal/telegram/me` on `TelegramInternalController` —
+aggregating `RegistrationsDirectusService.listMine()` (PR 2's reused
+registration path, unchanged) and a new
+`PointsDirectusService.totalForUser()`, a single-user variant of the
+existing `leaderboard()` aggregate query (same Directus primitive, no new
+points-calculation rule, just a narrower `filter[user][_eq]` instead of
+`groupBy`). `PointsModule` wired into `AuthModule` as a plain import — no
+`forwardRef` needed this time, unlike PR 2's `RegistrationsModule` edge,
+since `PointsModule` has no import path back to `AuthModule` (confirmed
+both by reading `points.module.ts` and by a live `pnpm --filter api dev`
+boot trace). On `apps/bot/` (submodule, pushed to SHA `39da86c`): new
+`/me` command handler rendering active registrations with per-status
+badges (registered/waitlisted/attended) and a Cancel button per row
+(fulfilling a PR-1-era comment in `event_detail.py` that explicitly
+deferred this button to "PR 3's /me registration list" — reuses PR 2's
+`cancel_registration` call unchanged, no new cancellation logic), lifetime
+points total, and a temp-account upgrade nudge. Added to `BOT_COMMANDS`
+(argument-less, unlike `/event`/`/register`/`/cancel`).
+
+Two scope decisions made explicit rather than silently resolved, per the
+task's own framing under AGENTS.md §13/§14 (product-behavior decisions
+are not a CodeDeveloper's call to make silently): **streak is NOT
+built** — a targeted search across the API, bot, Directus collections,
+and docs found zero references to a streak concept anywhere in this
+codebase, no FR-BOT-002 AC tests one, and inventing a scoring definition
+(consecutive events? consecutive active weeks?) would be a genuine
+product decision with real user-facing consequences. `/me` simply omits
+it, documented as a gap (not a silent drop, not a fabricated number), with
+a dedicated regression test (`test_render_me_never_mentions_streak`)
+guarding against silently reintroducing a placeholder later. **The "link
+Telegram to web" CTA is static copy, not a computed boolean** — the only
+"linked" concept anywhere in this repo
+(`directus_users.telegram_user_id`/`telegram_linked_at`, ADR-0033) is
+owned by the OLD, ADR-0034-superseded `apps/api/src/modules/telegram/`
+module, a different auth surface with no relationship to this bot's
+Authentik-attribute-based identity model — reading that column from the
+new bot would conflate two unrelated auth systems for a non-AC-tested
+nicety, so `/me` always shows a generic CTA pointing at `/upgrade`
+(PR 6/6's scope) instead. `business_process` frontmatter cross-checked
+against `BP-UAT-003` (member self-service profile — covers the unrelated
+`/me/profile` web page, zero overlap) and `BP-UAT-012` (points/
+leaderboard — never run, no spec); neither is a clean fit, so
+`[BP-UAT-010]` stays unchanged, no new code invented, matching
+`protocol.md`'s "don't force a link" guidance. 0 BLOCKER/MAJOR security
+findings. apps/api 1433/1434 (1 pre-existing, unrelated clock-race flake
+at `users.spec.ts:65`, same one PR 1/PR 2 already cross-referenced —
+confirmed untouched by this PR's diff via `git diff --stat`); apps/bot
+111/111 (95 pre-existing + 16 new/modified). Live-verified the new
+endpoint twice: once ahead of Step 8 against real Directus data (a
+bridged UAT fixture user, confirming the single-user Directus aggregate
+row shape has NO `user` key — `{"sum":{"points":...}}`, unlike
+`leaderboard()`'s grouped shape — a risk flag from Step 2's impact
+analysis that Step 4 confirmed and encoded into both the implementation
+and a regression test), and again at **Step 13**, which ran as direct
+HTTP verification against the merged `main` commit (`767ec06`), same
+format PR 2 established: registered `uat-member@example.com` for `UAT
+Open Event (UZ)`, confirmed `/me` immediately reflected it (registration
+id + status matched the real Directus row exactly, `pointsTotal`
+incremented 135→140 matching the real register-time points award),
+cancelled via the exact route `/me`'s new Cancel button calls, confirmed
+`/me` correctly excluded it afterward (cross-referenced against the
+Directus row's `status: cancelled`), and confirmed idempotent re-cancel
+returns `not_registered` cleanly. No new issues found. Synced all 8
+`BP-UAT-010` stakeholders (same set PR 2 identified: `FR-BOT-002`,
+`FR-EVT-004`, `ISS-BRIDGE-STALE-001`, `ISS-EVT-004-1`, `ISS-EVT-005-1`,
+`ISS-UAT-010-1`, `ISS-UAT-010-2`, `ISS-UAT-SEED-003`) to Project-board
+status `agent-verified`. **Did NOT close GitHub issue #140** — same
+judgement call PR 2 already made and documented: #140 tracks the entire
+10-command FR, and this PR ships only command 6 of 10 (4 remain: `/leaderboard`,
+`/interests`, `/upgrade`). `requirements-registry.md` row 58 stays `In
+Progress` (unchanged); `FR-BOT-002.md`'s own `status:` frontmatter stays
+`Planned` (same multi-PR-FR rationale as PR 1/PR 2).
+
 **Last updated:** 2026-08-01 — `wf-20260801-feat-175`.
 **FR-BOT-002 PR 2/6 shipped — /register <N> and /cancel <N>, wiring PR 1's placeholder Register button to real registration/waitlist/cancellation.**
 [wf-20260801-feat-175](../tasks/completed/wf-20260801-feat-175/handoff.yaml)
