@@ -1,0 +1,44 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-fix-169"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-07-31T00:00:00Z"
+
+requirement_ref: "ISS-UAT-010-1"
+requirement_text: "BP-UAT-010.md's own AC-1/AC-6/AC-7 wording (status=confirmed/waitlist, +5 points on registration) and apps/e2e/tests/uat/BP-UAT-010.spec.ts (targets apps/web V1, POST /v1/registrations, GET /v1/points/me) both describe a different implementation than the real apps/api + apps/web-next system (status=registered/waitlisted, +10 points on check-in only via reg-checkin-points Directus Flow, POST /v1/events/:eventId/register returning 200, no points-query endpoint)."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/162"
+
+branch: "fix/ISS-UAT-010-1-bp-uat-010-doc-spec-correction"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/189"
+
+current_step: 12
+current_step_name: "commit-push-create-pr"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+post_merge_uat_runs: []
+issue_resolution: "resolved"
