@@ -24,7 +24,7 @@ Members, Organizers (via different command sets).
    - `INTERNAL_API_URL` (e.g., `https://uz.aiqadam.org/api`)
    - `INTERNAL_API_TOKEN` (shared secret for internal endpoints)
    - Bot stores ONLY `(telegram_id → directusUserId)` in a local SQLite for fast lookup on every command. No other state.
-3. **Coolify stack** — New `aiqadam-bot` service in Coolify. No public FQDN (internal only; Telegram reaches it via outbound long-polling).
+3. **Deploy target** — New `aiqadam-bot` service per [ADR-0040](../adr/0040-deployment-target-pro-data-tech.md)'s pro-data.tech/docker-compose model (not Coolify — Coolify was retired project-wide, see [ADR-0007](../adr/0007-coolify-orchestration.md)). No public FQDN needed (internal only; Telegram reaches it via outbound long-polling). The specific compose service block is not yet designed — out of scope for this FR.
 4. **Project structure** —
    ```
    apps/bot/
@@ -45,7 +45,7 @@ Members, Organizers (via different command sets).
 
 ## Acceptance criteria
 
-- [ ] Bot deployed to Coolify and responds to `/start` with a welcome message within 3 seconds.
+- [ ] Bot deployed (per ADR-0040's deploy model) and responds to `/start` with a welcome message within 3 seconds.
 - [ ] Bot calls `POST /v1/internal/telegram/lookup` on every command and resolves the user context.
 - [ ] Unknown commands receive a friendly "I don't know that command — try /help" response.
 - [ ] Structured logs from the bot appear in Grafana/Loki.
