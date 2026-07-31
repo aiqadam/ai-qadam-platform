@@ -1,7 +1,86 @@
 # Workspace State
 
-**Last updated:** 2026-08-01 — `wf-20260801-feat-177`.
-**FR-BOT-002 PR 4/6 shipped — /leaderboard, top 10 country leaderboard with caller-row highlight and temp-user exclusion.**
+**Last updated:** 2026-08-01 — `wf-20260801-feat-178`.
+**FR-BOT-002 PR 5/6 shipped — /interests, view and toggle topic interests via inline-keyboard buttons.**
+[wf-20260801-feat-178](../tasks/completed/wf-20260801-feat-178/handoff.yaml)
+(PR [#209](https://github.com/aiqadam/ai-qadam-platform/pull/209), merged):
+fifth of the planned 6-PR sequence implementing `FR-BOT-002`. On `apps/api`:
+two new `InternalAuthGuard`-protected, Zod-validated routes — `GET
+/v1/internal/telegram/interests` and `POST
+/v1/internal/telegram/interests/toggle` on `TelegramInternalController` —
+proxying through the existing `MeProfileService.listInterests`/
+`addInterest`/`removeInterest`, the same service and `member_interests`
+collection the web `/me/profile` cabinet already uses (F-S3.6b, ADR-0033
+cabinet #5). No new DB migration, no competing write path. Candidate topic
+list is a duplicated 7-slug constant (`TelegramEventTopicsService` isn't
+exported from `TelegramModule`, so it can't be imported — same precedent
+PR 1/6 set for `TelegramEventsService`'s own duplication).
+
+Module wiring required `forwardRef(MeProfileModule)` in `AuthModule`, plus
+a real gap **not anticipated by impact-analysis**: `me-profile.module.ts`'s
+own plain import of `AuthModule` also needed wrapping in `forwardRef` —
+not just the new edge on `AuthModule`'s side. Caught live by
+`main-bootstrap.spec.ts`'s Nest DI boot check (`UndefinedModuleException`),
+the exact failure mode `registrations.module.ts`'s own header comment
+already documents for the `RegistrationsModule` edge. Lesson: both sides of
+a new bidirectional module edge need `forwardRef`, not just the side
+introducing it.
+
+**Scope decision, documented explicitly** (same posture as PR 3's streak
+gap): `member_interests` rows require an `intent` the bot's one-button-
+per-topic UX has no slot for. The bot hardcodes `intent='learn'` for adds;
+toggle-off removes only the `'learn'`-intent row, never touching
+other-intent rows a member set via the web cabinet. AC-7 is the regression
+guard — live-verified end-to-end below, not just unit-tested.
+
+On `apps/bot/` (submodule, pushed to SHA `c1be007`): new `/interests`
+command handler + toggle callback (in-place `edit_text` re-render,
+matching `/events`' pagination precedent), `[x]`/`[ ]` bracket-marker
+toggle keyboard (plain ASCII, not emoji-as-state — deliberately different
+from this bot's existing emoji-as-navigation-affordance usage elsewhere),
+`api_client.get_interests()`/`toggle_interest()`. `help.interests` line
+lost its "(coming soon)"/"(скоро)" suffix.
+
+apps/api: 1470/1471 full suite (1 pre-existing, unrelated clock-flake,
+independently git-stash-verified against unmodified `main`). apps/bot:
+146/146. 0 BLOCKER/MAJOR security findings.
+
+**Live end-to-end verification against the real local stack** (not just
+mocked unit tests), performed directly in this session: toggled `llm` ON
+for a real member (`uat-member@example.com`) via the real API, confirmed a
+real `member_interests` row (`topic_tag=llm, intent=learn`) via direct
+Directus GET; toggled OFF, confirmed the row genuinely deleted (0 rows,
+not just filtered). **AC-7 live check**: created a `topic_tag=llm,
+intent=mentor` row directly (simulating the web `/me/profile` cabinet),
+called the bot's toggle route once, confirmed via direct Directus GET that
+the mentor row survived completely untouched — the exact cross-surface
+data-safety guarantee this PR's scope-narrowing decision depends on,
+proven live, not just asserted by a mock. All seed fixtures cleaned up
+afterward, confirmed back to baseline (0 rows).
+
+**`business_process` linkage — two distinct decisions, correctly kept
+separate.** `FR-BOT-002.md`'s own frontmatter stays `[BP-UAT-010]`
+unchanged (represents the FR as a whole; PR 2/3's registration/`/me`
+surfaces genuinely touch it). This workflow's own `handoff.yaml.business_process`
+was corrected post-merge from an initially-carried-forward `["BP-UAT-010"]`
+to `[]`, mirroring PR 4's own precedent exactly (Step 13 gates on what
+THIS PR's surface touches, not the FR's cumulative value) — confirmed by
+reading `BP-UAT-010.md` directly: zero mentions of interests/
+`member_interests`/`topic_tag` anywhere in it. `BP-UAT-003` (the genuinely
+adjacent spec — same `member_interests` resource, `MeProfileService`,
+AC-3/Steps 006-008) is web-only with zero bot-surface steps, so it isn't a
+clean Step-13 target either; recorded as a documented adjacency in
+`FR-BOT-002.md`, a candidate follow-up for a future BP-UAT-003 revision
+adding bot steps. **Step 13 correctly skipped** for this workflow — no new
+`agent-verified` sync beyond the direct `implemented` sync already applied
+to `FR-BOT-002`'s GitHub Project item.
+
+**Planned follow-up PRs table** in `FR-BOT-002.md` now shows only PR 6/6
+(`/upgrade`, depends on FR-AUTH-006) remaining — this is the
+second-to-last PR in the sequence.
+
+---
+
 [wf-20260801-feat-177](../tasks/completed/wf-20260801-feat-177/handoff.yaml)
 (PR [#207](https://github.com/aiqadam/ai-qadam-platform/pull/207),
 merged): fourth of the planned 6-PR sequence implementing `FR-BOT-002`.
