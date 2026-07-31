@@ -35,10 +35,11 @@ import {
 import { RegistrationService } from './registration.service';
 import {
   TelegramAuthService,
+  lookupUserBodySchema,
   telegramWidgetPayloadSchema,
   upsertTempUserBodySchema,
 } from './telegram-auth.service';
-import type { UpsertTempUserResult } from './telegram-auth.service';
+import type { LookupUserResult, UpsertTempUserResult } from './telegram-auth.service';
 
 // POST /v1/auth/register body — inline schema, matching this codebase's
 // established convention (packages/shared-types is an empty, unused
@@ -513,5 +514,23 @@ export class TelegramInternalController {
       parsed.data.firstName,
       parsed.data.username,
     );
+  }
+
+  // POST /v1/internal/telegram/lookup — InternalAuthGuard protected.
+  // FEAT-BOT-1 — called by the bot's auth middleware on every inbound
+  // update to resolve a telegram_id to { directusUserId, isTemp, country }.
+  // Pure read: never creates/mutates an Authentik or Directus record
+  // (unlike its sibling upsert-temp-user above) — see
+  // TelegramAuthService.lookupUser for the AC-5 idempotency contract.
+  // 404s (structured body) when no Authentik user exists for the id, so
+  // the bot can distinguish "unknown user, prompt /start" from "API down."
+  @Post('lookup')
+  @HttpCode(HttpStatus.OK)
+  async lookup(@Body() body: unknown): Promise<LookupUserResult> {
+    const parsed = lookupUserBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.lookupUser(parsed.data.telegramId);
   }
 }

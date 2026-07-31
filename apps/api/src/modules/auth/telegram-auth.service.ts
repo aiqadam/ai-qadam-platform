@@ -1,8 +1,14 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { z } from 'zod';
 import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
+import { DirectusClient } from '../directus/directus.client';
 
 // FR-AUTH-002 — Telegram authentication service.
 //
@@ -58,6 +64,14 @@ export const upsertTempUserBodySchema = z.object({
 
 export type UpsertTempUserBody = z.infer<typeof upsertTempUserBodySchema>;
 
+// Lookup input schema (bot → internal endpoint). FEAT-BOT-1 — resolves a
+// raw telegram_id to identity + tenant info; read-only, no create/upsert.
+export const lookupUserBodySchema = z.object({
+  telegramId: telegramIdSchema,
+});
+
+export type LookupUserBody = z.infer<typeof lookupUserBodySchema>;
+
 // ── Result type ───────────────────────────────────────────────────────────────
 
 export interface UpsertTempUserResult {
@@ -66,11 +80,27 @@ export interface UpsertTempUserResult {
   isNew: boolean;
 }
 
+export interface LookupUserResult {
+  directusUserId: string | null;
+  isTemp: boolean;
+  country: string | null;
+}
+
+// Minimal shape we read off the Directus /users list — mirrors the
+// `?fields=` projection so we never over-fetch PII we don't return.
+interface DirectusUserLookupRow {
+  id: string;
+  country: string | null;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class TelegramAuthService {
-  constructor(private readonly authentik: AuthentikClient) {}
+  constructor(
+    private readonly authentik: AuthentikClient,
+    private readonly directus: DirectusClient,
+  ) {}
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -215,5 +245,56 @@ export class TelegramAuthService {
     });
 
     return { authentikUserId: created.pk, directusUserId: null, isNew: true };
+  }
+
+  // FEAT-BOT-1 — POST /v1/internal/telegram/lookup's service logic.
+  // Pure read/compose: resolves a raw telegram_id to
+  // { directusUserId, isTemp, country } by
+  //   1. looking up the Authentik user by attributes.telegram_id, and
+  //   2. reading (never creating) the paired Directus user by email, for
+  //      the `country` field.
+  //
+  // AC-3: no Authentik user at all → NotFoundException (structured body,
+  // this repo's convention — see telegram-preferences.service.ts's
+  // `{ error: 'member_not_found' }`), so the bot's auth middleware can
+  // distinguish "unknown user, prompt /start" from "API down, retry."
+  //
+  // AC-5 (read-path idempotency): deliberately does NOT call
+  // upsertTempUser or any Authentik/Directus write method — unlike its
+  // sibling upsert-temp-user, this is a resolve, not an upsert. Do not
+  // "fix" upsertTempUser's hardcoded-null directusUserId stub here; that
+  // method is intentionally left unchanged (out of scope for this FR).
+  async lookupUser(telegramId: string): Promise<LookupUserResult> {
+    // Validate at the service boundary too (belt-and-suspenders after the
+    // controller's Zod parse), matching upsertTempUser's own pattern.
+    lookupUserBodySchema.shape.telegramId.parse(telegramId);
+
+    const authentikUser = await this.authentik.getUserByTelegramId(telegramId);
+    if (!authentikUser) {
+      throw new NotFoundException({ error: 'telegram_user_not_found' });
+    }
+
+    const isTemp = authentikUser.attributes.is_temporary === true;
+    const directusRow = await this.findDirectusUserByEmail(authentikUser.email);
+
+    return {
+      directusUserId: directusRow?.id ?? null,
+      isTemp,
+      country: directusRow?.country ?? null,
+    };
+  }
+
+  // Read-only Directus lookup by email — deliberately does NOT fall back
+  // to creating a row (unlike DirectusUsersBridgeService.findOrCreate /
+  // ensureLinkedByEmail, which upsert). Mirrors the `?fields=` projection
+  // style used by telegram-preferences.service.ts's findMember and the
+  // `filter[email][_eq]` lookup used by directus-users-bridge.service.ts's
+  // findOrCreate — same primitive, read-only half only.
+  private async findDirectusUserByEmail(email: string): Promise<DirectusUserLookupRow | null> {
+    const encodedEmail = encodeURIComponent(email);
+    const res = await this.directus.get<{ data: DirectusUserLookupRow[] }>(
+      `/users?filter[email][_eq]=${encodedEmail}&fields=id,country&limit=1`,
+    );
+    return res.data[0] ?? null;
   }
 }
