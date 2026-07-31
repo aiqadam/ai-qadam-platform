@@ -1,5 +1,51 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260731-feat-174`.
+**FR-BOT-002 PR 1/6 shipped — the bot's first member-facing read-only commands: `/help`, `/events`, `/event <N>`, backed by two new internal API routes.**
+[wf-20260731-feat-174](../tasks/completed/wf-20260731-feat-174/handoff.yaml)
+(PR TBD, merged): first of a planned 6-PR sequence implementing
+`FR-BOT-002` (Bot member commands). This slice covers only the read-only,
+lowest-risk commands — `/register`, `/cancel`, `/me`, `/leaderboard`,
+`/interests`, `/upgrade` are separate, already-planned follow-up PRs (see
+`FR-BOT-002.md`'s new "Implementation progress" section for the full
+5-PR queue). On `apps/api`: two new `InternalAuthGuard`-protected,
+Zod-validated routes on the existing `TelegramInternalController` —
+`GET /v1/internal/telegram/events` (offset-paginated, country-scoped) and
+`GET /v1/internal/telegram/events/:id` (full detail, including an
+`isRegistered` flag computed now so PR 2's `/register` doesn't need to
+revisit this endpoint). Deliberately does NOT reuse
+`TelegramEventsService` (the older ADR-0034 web/notifier-facing events
+service) — that service isn't exported by `TelegramModule`, and importing
+`TelegramModule` into `AuthModule` to reach it would recreate a
+documented, previously-reverted circular dependency (PR #187/#202:
+`AuthModule → InteractionsModule → TelegramModule → AuthModule`); instead
+duplicates the small, stable subset of its Directus query logic. On
+`apps/bot/` (submodule, pushed to SHA `90900fe...`): three new handlers
+(`/help` lists all 10 planned commands with unimplemented ones marked
+"coming soon"; `/events` renders a paginated list with Next/Previous
+inline buttons; `/event <id>` renders full detail with a Register/"I'm
+going" button whose tap is a documented placeholder — real registration
+is PR 2), the bot's first real inline keyboards, and an extended
+`set_my_commands` call (excluding `/event`, which takes a required
+argument BotFather's command menu can't express). 0 BLOCKER/MAJOR
+security findings. apps/api 1394/1395 (1 pre-existing, unrelated
+clock-race flake at `users.spec.ts:65`, untouched by this PR's diff,
+already queued as `wf-20260704-fix-096-pre-existing-api-test-flakes` item
+1 — same failure FR-BOT-001's workflow independently reproduced);
+apps/bot 66/66 (29 pre-existing + 37 new). All verification here is
+unit/mocked-collaborator level (`httpx.MockTransport` on the bot side,
+mocked `DirectusClient` on the API side) — no live end-to-end run against
+a deployed bot + running API + real Directus was performed in this
+session; `business_process` is `[]` for this PR (no existing `BP-UAT-NNN`
+covers bot event browsing yet — the closest, `BP-UAT-010`, covers the
+write/register path this PR explicitly excludes, deferred to PR 2 which
+DOES touch that surface), so Step 13 post-merge UAT re-verification does
+not apply here. `requirements-registry.md` row 58 flipped `Planned` → `In
+Progress` (NOT `Shipped` — matches the `FR-AUTH-002` precedent for a
+multi-PR FR); `FR-BOT-002.md`'s own `status:` frontmatter stays `Planned`
+(no better enum value exists; task instruction explicitly forbade
+`Implemented` for a 3-of-10-command slice).
+
 **Last updated:** 2026-07-31 — `wf-20260731-feat-171`.
 **FR-BOT-001 (FEAT-BOT-1) shipped — the Telegram bot's first real code lands: a new internal API lookup endpoint plus the Python/aiogram bot scaffold, this project's first two-repo (submodule) feature workflow.**
 [wf-20260731-feat-171](../tasks/completed/wf-20260731-feat-171/handoff.yaml)

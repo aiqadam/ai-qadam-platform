@@ -10,6 +10,19 @@ import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
 import { DirectusClient } from '../directus/directus.client';
 
+// FEAT-BOT-2 (FR-BOT-002, PR 1/6) — read-only event browsing for the bot's
+// /events and /event <N> commands. Deliberately NOT reusing
+// TelegramEventsService (apps/api/src/modules/telegram/) — see
+// .copilot/tasks/active/wf-20260731-feat-174/02-impact-analysis.md
+// "Reuse vs. duplicate" for the full reasoning: that service isn't
+// exported by TelegramModule, and importing TelegramModule into AuthModule
+// to reach it would recreate a documented, previously-reverted circular
+// dependency (see telegram.module.ts's own comment on PR #187/#202,
+// AuthModule -> InteractionsModule -> TelegramModule -> AuthModule). This
+// duplicates the small, stable subset of that service's query-building
+// logic (published/public/future-dated guard, pagination) rather than
+// risk reintroducing that cycle from the other side.
+
 // FR-AUTH-002 — Telegram authentication service.
 //
 // Two flows:
@@ -71,6 +84,73 @@ export const lookupUserBodySchema = z.object({
 });
 
 export type LookupUserBody = z.infer<typeof lookupUserBodySchema>;
+
+// ── FEAT-BOT-2 (FR-BOT-002 PR 1/6) — events browsing schemas ──────────────
+
+// Country tenant enum — matches the VALID_COUNTRIES precedent duplicated
+// across auth.controller.ts's registerSchema, dashboard.controller.ts, and
+// audit-events.controller.ts (see registerSchema's own comment above).
+const countrySchema = z.enum(['uz', 'kz', 'tj', 'xx']);
+
+const DEFAULT_EVENTS_LIMIT = 5; // FR-BOT-002 Notes: "Paginated if > 5 events"
+const MAX_EVENTS_LIMIT = 50; // matches TelegramEventsService's own cap
+
+// GET /v1/internal/telegram/events query schema (bot -> internal endpoint).
+export const listTelegramEventsQuerySchema = z.object({
+  country: countrySchema,
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(MAX_EVENTS_LIMIT).default(DEFAULT_EVENTS_LIMIT),
+});
+
+export type ListTelegramEventsQuery = z.infer<typeof listTelegramEventsQuerySchema>;
+
+// GET /v1/internal/telegram/events/:id path+query schema.
+// directusUserId is optional — only used to annotate isRegistered; a
+// caller that hasn't resolved an identity yet (e.g. AC-6-style unknown
+// user) can omit it and still see event detail (anonymous-browse-safe,
+// same posture as TelegramEventsService's own optional tgUserId param).
+export const eventDetailParamsSchema = z.object({
+  id: z.string().uuid(),
+});
+export const eventDetailQuerySchema = z.object({
+  directusUserId: z.string().uuid().optional(),
+});
+
+export type EventDetailParams = z.infer<typeof eventDetailParamsSchema>;
+export type EventDetailQuery = z.infer<typeof eventDetailQuerySchema>;
+
+// ── Result shapes ────────────────────────────────────────────────────────
+
+// One row of GET /events. Kept intentionally narrow — only what the bot's
+// paginated list rendering needs (title, date, registration count, id for
+// the /event <N> follow-up and pagination).
+export interface TelegramEventListItem {
+  id: string;
+  title: string;
+  startsAt: string;
+  registrationCount: number;
+}
+
+export interface TelegramEventListResult {
+  items: TelegramEventListItem[];
+  offset: number;
+  limit: number;
+  total: number;
+}
+
+// GET /events/:id response. isRegistered is always present (false when no
+// directusUserId was supplied or no registration found) so the bot's
+// Register/"I'm going" button logic never has to special-case "unknown."
+export interface TelegramEventDetailResult {
+  id: string;
+  title: string;
+  startsAt: string;
+  venue: string | null;
+  description: string;
+  capacity: number | null;
+  registrationCount: number;
+  isRegistered: boolean;
+}
 
 // ── Result type ───────────────────────────────────────────────────────────────
 
@@ -297,4 +377,156 @@ export class TelegramAuthService {
     );
     return res.data[0] ?? null;
   }
+
+  // ── FEAT-BOT-2 (FR-BOT-002 PR 1/6) — events browsing ──────────────────
+
+  // GET /v1/internal/telegram/events service logic. Published/public/
+  // future-dated guard mirrors TelegramEventsService.listOpenEvents's own
+  // filter shape (see impact-analysis "Reuse vs. duplicate" for why this
+  // is a small deliberate duplication rather than a cross-module import).
+  // Offset-based pagination per FR-BOT-002 Notes: "/events uses
+  // offset-based pagination." `total` is a second, cheap aggregate query
+  // so the bot can compute whether a "Next page ->" button should render.
+  async listUpcomingEvents(
+    country: string,
+    offset: number,
+    limit: number,
+  ): Promise<TelegramEventListResult> {
+    const guard = eventGuardFilter(country);
+    const query = [
+      guard,
+      'fields=id,title,starts_at',
+      'sort=starts_at',
+      `offset=${offset}`,
+      `limit=${limit}`,
+    ].join('&');
+    const res = await this.directus.get<{ data: TelegramEventRow[] }>(`/items/events?${query}`);
+    const total = await this.countUpcomingEvents(country);
+
+    const items = await Promise.all(
+      res.data.map(async (row) => ({
+        id: row.id,
+        title: row.title,
+        startsAt: row.starts_at,
+        registrationCount: await this.countRegistrations(row.id),
+      })),
+    );
+
+    return { items, offset, limit, total };
+  }
+
+  // GET /v1/internal/telegram/events/:id service logic. 404s (structured
+  // body, matching lookupUser's own convention) when the event doesn't
+  // exist or isn't published/public — same "don't leak existence by
+  // status" posture as TelegramEventsService.getEventDetail.
+  async getEventDetail(
+    eventId: string,
+    directusUserId: string | null,
+  ): Promise<TelegramEventDetailResult> {
+    const row = await this.findPublishedEvent(eventId);
+    if (!row) {
+      throw new NotFoundException({ error: 'event_not_found' });
+    }
+
+    const [registrationCount, isRegistered] = await Promise.all([
+      this.countRegistrations(eventId),
+      directusUserId === null ? Promise.resolve(false) : this.isUserRegistered(eventId, directusUserId),
+    ]);
+
+    return {
+      id: row.id,
+      title: row.title,
+      startsAt: row.starts_at,
+      venue: row.venue,
+      description: row.description,
+      capacity: row.capacity,
+      registrationCount,
+      isRegistered,
+    };
+  }
+
+  private async findPublishedEvent(eventId: string): Promise<TelegramEventDetailRow | null> {
+    const guards = 'filter[status][_eq]=published&filter[visibility_scope][_eq]=public';
+    const fields = 'fields=id,title,starts_at,venue,description,capacity';
+    const res = await this.directus.get<{ data: TelegramEventDetailRow[] }>(
+      `/items/events?${guards}&filter[id][_eq]=${encodeURIComponent(eventId)}&${fields}&limit=1`,
+    );
+    return res.data[0] ?? null;
+  }
+
+  private async countUpcomingEvents(country: string): Promise<number> {
+    const query = `${eventGuardFilter(country)}&aggregate[count]=*`;
+    const res = await this.directus.get<{ data: Array<{ count: string | number }> }>(
+      `/items/events?${query}`,
+    );
+    return parseDirectusCount(res.data[0]?.count);
+  }
+
+  // Excludes cancelled — matches TelegramEventsService.fetchTakenCount's
+  // own convention so the bot's counter agrees with the website's.
+  private async countRegistrations(eventId: string): Promise<number> {
+    const query = [
+      `filter[event][_eq]=${encodeURIComponent(eventId)}`,
+      'filter[status][_neq]=cancelled',
+      'aggregate[count]=*',
+    ].join('&');
+    const res = await this.directus.get<{ data: Array<{ count: string | number }> }>(
+      `/items/registrations?${query}`,
+    );
+    return parseDirectusCount(res.data[0]?.count);
+  }
+
+  // #328-style deep-filter through user.telegram_user_id doesn't apply
+  // here — this surface is keyed by directusUserId directly (the bot's
+  // AuthMiddleware already resolved it), so we filter registrations.user
+  // (a direct Directus users FK) rather than reaching through
+  // telegram_user_id like TelegramEventsService does for its
+  // tgUserId-keyed callers.
+  private async isUserRegistered(eventId: string, directusUserId: string): Promise<boolean> {
+    const query = [
+      `filter[user][_eq]=${encodeURIComponent(directusUserId)}`,
+      `filter[event][_eq]=${encodeURIComponent(eventId)}`,
+      'filter[status][_neq]=cancelled',
+      'fields=id',
+      'limit=1',
+    ].join('&');
+    const res = await this.directus.get<{ data: Array<{ id: string }> }>(
+      `/items/registrations?${query}`,
+    );
+    return res.data.length > 0;
+  }
+}
+
+// Directus row shapes — narrowed to the fields the two events endpoints
+// above actually project (see each query's `fields=` list).
+interface TelegramEventRow {
+  id: string;
+  title: string;
+  starts_at: string;
+}
+
+interface TelegramEventDetailRow extends TelegramEventRow {
+  venue: string | null;
+  description: string;
+  capacity: number | null;
+}
+
+// Shared published/public/future/country-scoped filter string, reused by
+// both listUpcomingEvents and countUpcomingEvents so the list and its
+// total always agree.
+function eventGuardFilter(country: string): string {
+  return [
+    'filter[status][_eq]=published',
+    'filter[visibility_scope][_eq]=public',
+    `filter[starts_at][_gt]=${encodeURIComponent(new Date().toISOString())}`,
+    `filter[country][_eq]=${encodeURIComponent(country)}`,
+  ].join('&');
+}
+
+// Directus aggregate[count] responses come back as a numeric string on
+// some Postgres configurations — normalise defensively, same pattern as
+// TelegramEventsService.fetchTakenCount.
+function parseDirectusCount(raw: string | number | undefined): number {
+  const n = typeof raw === 'string' ? Number.parseInt(raw, 10) : (raw ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
