@@ -84,7 +84,7 @@ it is simply never populated by this one call site.
 ## Resolution
 
 **Workflow:** wf-20260731-fix-167
-**PR:** <pending>
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/185
 
 **Root cause:** `fetchEvent()` in `apps/web-next/src/lib/cms.ts` called
 `toApiEvent(body.data)` with no second argument, so `registeredCount` was
