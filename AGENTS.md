@@ -115,15 +115,25 @@ proceed. The plan can be short (3 lines) but it must exist.
 
 ---
 
-## 4. The "small PR" rule
+## 4. PR sizing (numeric cap removed 2026-07-31, per user override)
 
-- Maximum **400 lines changed** per PR (added + removed, excluding generated files and
-  lockfiles).
-- Maximum **5 files changed** per PR for code (configs and tests excepted).
-- One PR = one logical change. If you find yourself doing two things, split.
+**The previous hard 400-line/5-file cap is removed.** Quote from the user:
+"Ignore PR limitations. I constantly forget to remove it at all." — the
+numeric limit kept getting hit on genuinely-coherent vertical slices
+(e.g. one API endpoint + its matching bot handler), forcing artificial
+splits the user didn't want and had to keep overriding manually.
 
-If a task naturally requires more, **split it into multiple PRs** in sequence and tell
-the user the sequence before starting.
+- **One PR = one logical change** still applies — don't bundle unrelated
+  work just because there's room under a limit that no longer exists.
+- Prefer natural seams (one vertical slice: API + the client code that
+  calls it; one command group; one migration + its consumer) over
+  mechanical line/file counting.
+- For a task that's naturally large but coherent as a single slice, ship
+  it as one PR rather than splitting for the sake of splitting.
+- For a task that's naturally a sequence of independent slices (e.g. a
+  multi-command feature), split along those seams and tell the user the
+  sequence before starting — this part is unchanged, it just no longer
+  cites a numeric trigger.
 
 ---
 
