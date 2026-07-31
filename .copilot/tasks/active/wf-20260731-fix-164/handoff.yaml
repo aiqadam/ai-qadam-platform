@@ -1,0 +1,126 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-fix-164"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T04:00:00Z"
+last_updated_at: "2026-07-31T04:00:00Z"
+
+requirement_ref: "ISS-WF-GH-CLOSE-001"
+requirement_text: "CodeDeveloper's unreviewed 'Closes #N' commit convention auto-closes GitHub issues at merge time, independent of the Project board's Status field — for FRs/issues with a business_process linkage, this happens before Step 13's post-merge re-verification has run, so a closed issue can misleadingly read as fully done. Fix: stop writing closing keywords for such issues until Step 13 passes clean; move the close to Step 13's own gate."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/178"
+
+branch: "fix/ISS-WF-GH-CLOSE-001-premature-issue-close"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/179"
+
+current_step: 9
+current_step_name: "registry-update"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:05:00Z"
+    summary: "Locally-discovered issue, pushed to GitHub as #178."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-164/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:15:00Z"
+    summary: "Pure workflow-tooling change. Decided to implement both a documented rule and a mechanical guard script, per ISS-WF-GH-LINK-001 precedent."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-164/02-impact-analysis.md"
+  code-developer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:40:00Z"
+    summary: "New check-closing-keyword.sh guard + bats suite. Updated protocol.md, both workflow files' Step 11/12/13, and code-developer.md. Found and fixed a second instance of the bug class in issue-resolution.md Step 12.5's own unconditional close call."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-164/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:45:00Z"
+    summary: "No BLOCKER/MAJOR findings. No product-code surface, no new credentials."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-164/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:47:00Z"
+    summary: "Regression anchor: FR-EVT-004 + Closes #130 shape, matching the real incident."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-164/06-test-strategy.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:50:00Z"
+    summary: "12/12 new bats tests pass; 24/24 combined with check-github-issue-links.bats; full repo bats suite exits 0."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-164/07-test-results.md"
+  registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T04:55:00Z"
+    summary: "ISS-WF-GH-CLOSE-001.md and registry.md both flipped to resolved atomically. ACs honestly narrowed where full end-to-end coverage was disproportionate."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-164/09-registry-update.md"
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-WF-GH-CLOSE-001"
+issue_resolution: "resolved"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - .copilot/agents/code-developer.md
+  - .copilot/agents/doc-writer.md
+  - .copilot/schemas/protocol.md
+  - .copilot/workflows/requirement-development.md
+  - .copilot/workflows/issue-resolution.md
+  - scripts/sync-github-project.sh
+  - .copilot/issues/ISS-WF-GH-CLOSE-001.md
+
+merge_mode: "auto"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260731-fix-164/NEEDS_REVIEW.md"

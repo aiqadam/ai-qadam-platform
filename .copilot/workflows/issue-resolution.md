@@ -471,22 +471,44 @@ is `auto` OR the user has merged manually.
    instead. If a future repo instance genuinely allows direct pushes,
    simplify back to a direct commit; verify first, don't assume either way.
 
-6. **Close the GitHub issue (only if `handoff.yaml.github_issue_url` is
-   set — i.e. this issue originated from GitHub intake in Step 1):**
+6. **Close the GitHub issue — ONLY if `Business-Process` is `—` (empty)**
+   (added 2026-07-31, `ISS-WF-GH-CLOSE-001`: closing here unconditionally,
+   regardless of `Business-Process`, is the exact bug that let issue #130
+   read as done while its own Step 13 hadn't run yet — see `protocol.md`'s
+   "Two independent 'is this done' signals" subsection). Also requires
+   `handoff.yaml.github_issue_url` set (i.e. this issue originated from
+   GitHub intake in Step 1):
    ```bash
    gh issue close <gh-n> --repo aiqadam/ai-qadam-platform \
      --comment "Resolved via PR #<N> (squash \`<merge-sha>\`). Tracked internally as \`ISS-<n>\` (.copilot/issues/ISS-<n>.md, wf-id: <wf-id>). <one-paragraph plain-language summary of what shipped, for the reporter — not a repeat of the internal changelog>"
    ```
-   The closing comment MUST name the local `ISS-<n>` ID and file path even
-   if Step 1 already posted a back-reference — the closing comment is what
-   the reporter most likely reads, and it should be self-sufficient.
-   This is the terminal state a tester watches for — do not close earlier
-   than this (Step 9's status flip is branch-local and pre-merge; closing
-   the GitHub issue is reserved for confirmed-on-`main`, same honesty rule
-   as the rest of this step). If the tester's re-verification fails, they
-   reopen the issue (`gh issue reopen`) — this restarts intake at Step 1
-   for the same `ISS-<n>` (append a new occurrence, do not create a new
+   **If `Business-Process` names one or more `BP-UAT-NNN`, do NOT close
+   here** — leave the issue open. Step 13 (below) closes it once its own
+   UAT re-run actually passes clean; that is the moment verification is
+   genuinely complete, not this one.
+
+   The closing comment (when this action does run) MUST name the local
+   `ISS-<n>` ID and file path even if Step 1 already posted a
+   back-reference — the closing comment is what the reporter most likely
+   reads, and it should be self-sufficient. This is the terminal state a
+   tester watches for — do not close earlier than this (Step 9's status
+   flip is branch-local and pre-merge; closing the GitHub issue is
+   reserved for confirmed-on-`main`, same honesty rule as the rest of
+   this step). If the tester's re-verification fails, they reopen the
+   issue (`gh issue reopen`) — this restarts intake at Step 1 for the
+   same `ISS-<n>` (append a new occurrence, do not create a new
    `ISS-<n>` file for the same GitHub issue number).
+
+   **Commit message closing-keyword check** (same rule as
+   `requirement-development.md` Step 11, inherited here per this step's
+   own "Same as ... Step 11" note): before writing the substantive
+   shipping commit in Step 9, run
+   `scripts/check-closing-keyword.sh --message-file <path> --issue-ref
+   ISS-<n>` — if it exits 1, rewrite the closing keyword to a neutral
+   `Refs #N` reference. This guards the commit-message path; this
+   action 6 guards the explicit `gh issue close` call path — both were
+   needed since `ISS-WF-GH-CLOSE-001` found both mechanisms independently
+   capable of the same premature-close bug.
 
 7. **Sync GitHub Project Status (best-effort, only if `GitHub-Issue:` is
    set) — value depends on whether Step 13 will run:**
@@ -518,8 +540,10 @@ is `auto` OR the user has merged manually.
 **Gate:**
 - `passed` → proceed to Step 13 (below) if `Business-Process` is non-empty,
   otherwise workflow complete. Clean-tree invariant restored. Issue is
-  genuinely `resolved` on `main`, and closed on GitHub if it originated
-  there.
+  genuinely `resolved` on `main`, and — only when `Business-Process` is
+  `—` — closed on GitHub if it originated there (see action 6 above; a
+  non-empty `Business-Process` means the issue is deliberately left open
+  for Step 13 to close).
 - `failed-retry` → verification mismatch (e.g., status not flipped on main,
   or `gh issue close` failed). Re-pull, re-check. Max 2 retries.
 - `needs-review` → merge failed, verification failed after retries,
@@ -551,13 +575,24 @@ just the narrow regression test from Step 6/7. Record each run in
   scripts/sync-github-project.sh --ref ISS-<n> --status agent-verified \
     --existing-url "<GitHub-Issue: value>"
   ```
+  **Then close the GitHub issue here** (added 2026-07-31,
+  `ISS-WF-GH-CLOSE-001` — deliberately deferred from Step 12.5's action 6
+  for this `Business-Process`-linked case; see `protocol.md`'s "Two
+  independent 'is this done' signals" subsection):
+  ```bash
+  gh issue close <gh-n> --repo aiqadam/ai-qadam-platform \
+    --comment "Verified via Step 13 post-merge re-verification of <BP-UAT-NNN> (workflow <wf-id>). Tracked internally as \`ISS-<n>\`."
+  ```
+  Skip silently if `GitHub-Issue:` is unset.
 - One or more triaged a new issue → issue registered normally; this
   workflow still completes, but the Resolution section MUST name the new
   finding(s) and state whether they're believed related to this fix. Do
   NOT sync to `agent-verified` in this case — a new finding on the same
   surface means verification is not clean; leave Status at `implemented`
   for a human to assess (or a follow-up workflow to resolve and then
-  correctly reach `agent-verified` on its own pass).
+  correctly reach `agent-verified` on its own pass). Do NOT close the
+  GitHub issue — leave it open so the new finding is visible on the
+  original report, exactly like issue #130's motivating case.
 - A `uat-verification` run itself hit `failed-escalate` (environment, not
   product) → register the env issue per that workflow's own rules, disclose
   the deferral in `ISS-<n>.md`'s Resolution section per AGENTS.md §6.1,

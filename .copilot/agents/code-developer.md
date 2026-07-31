@@ -88,6 +88,18 @@ After any rebase: `pnpm typecheck && pnpm lint && pnpm build` — all must pass.
 
 **Write code changes** directly to affected files.
 
+**Commit message note (added 2026-07-31, `ISS-WF-GH-CLOSE-001`):** the
+Orchestrator authors the actual shipping commit at Step 11/12, not this
+agent — but if you draft commit-message text for it to use, do not
+include a closing keyword (`Closes`/`Fixes`/`Resolves #N`) for the
+FR/ISS being shipped when its `business_process` field is non-empty. See
+`.copilot/schemas/protocol.md`'s "Two independent 'is this done' signals"
+subsection for why: that keyword auto-closes the GitHub issue the moment
+the commit merges, before Step 13's post-merge UAT re-verification has
+run — a closed issue then misleadingly reads as fully done. Use a neutral
+`Refs #N` instead in that case; `scripts/check-closing-keyword.sh` is the
+mechanical guard run before the commit lands.
+
 **Write to:** `.copilot/tasks/active/<workflow-id>/03-code-summary.md`
 
 Required sections:

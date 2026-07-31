@@ -343,6 +343,57 @@ class `ISS-WF-REG-001`/`ISS-WF-REG-002` already document), and trusting
 the issue file catches that drift too rather than silently propagating
 whichever one happens to be wrong.
 
+### Two independent "is this done" signals — commit keywords vs. Status field (added 2026-07-31)
+
+**These are two separate mechanisms and only one of them is driven by
+this workflow's own scripts:**
+
+1. **Project board Status field** — set explicitly by
+   `scripts/sync-github-project.sh` at the trigger points in the table
+   above. This correctly distinguishes `implemented` (code shipped) from
+   `agent-verified` (Step 13's post-merge UAT re-verification passed
+   clean) — see "`Agent-Verified` vs. `Done`" above.
+2. **GitHub issue open/closed state** — controlled entirely by GitHub's
+   own commit-message keyword scanner. Any commit reaching the default
+   branch whose message contains `close(s|d)`, `fix(es|ed)`, or
+   `resolve(s|d)` followed by `#N` auto-closes issue `N` — regardless of
+   what the Project board's Status field says, and regardless of whether
+   this workflow's own verification is actually complete.
+
+**These are NOT wired together, and that caused a real incident**
+(`ISS-WF-GH-CLOSE-001`): a commit shipping `FR-EVT-004` contained an
+unreviewed `Closes #130` in its message body. GitHub closed issue #130
+the instant that commit merged — but `FR-EVT-004`'s
+`business_process: [BP-UAT-010]` meant Step 13 (post-merge
+re-verification) had not run yet. Step 13 later found 2 real open issues
+on that same surface. The Project board correctly stayed at
+`Implemented` the whole time (never `agent-verified`) — but the closed
+GitHub issue gave a human reader no signal that anything was still
+outstanding. Two "is this done" surfaces had silently drifted apart.
+
+**Rule (enforced by `scripts/check-closing-keyword.sh`):** when the
+FR/ISS being shipped in a commit has a non-empty `business_process` field
+(i.e. Step 13 will run and has not yet run clean), the commit message
+MUST NOT contain a closing keyword for that issue's GitHub number — use a
+neutral reference instead (`Refs #N`). When `business_process` is `—`
+(Step 13 will be skipped — nothing process-related to re-verify), a
+closing keyword is correct and unchanged.
+
+**Step 13's own gate is where the close actually belongs** for the
+`business_process`-linked case: `requirement-development.md` Step 13 and
+`issue-resolution.md` Step 13, on a clean pass, now call `gh issue close`
+(the same call `issue-resolution.md`'s own Step 12.5 already makes
+unconditionally for GitHub-origin issues) at the exact moment
+verification is genuinely complete — not earlier, and not via an
+unreviewed commit-message side effect.
+
+`scripts/check-closing-keyword.sh --message-file <path> --issue-ref
+<ISS-n|FR-CODE>` is the mechanical guard — run before committing the
+substantive shipping commit, alongside the existing pre-push gate checks
+(`04-security-review.md`/`07-test-results.md`/`09-quality-gate.md`
+`status: passed` greps). Exits 1 if a closing keyword targets an issue
+whose `business_process` is non-empty.
+
 ### Deferred: full GitHub-as-source-of-truth (Phase 2, not designed here)
 
 Whether the markdown files (`registry.md`, `ISS-<n>.md`, `FR-<CODE>.md`,
