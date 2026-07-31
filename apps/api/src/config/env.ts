@@ -151,6 +151,22 @@ const envSchema = z.object({
   AUTHENTIK_ADMIN_URL: z.string().url().default('https://auth.aiqadam.org'),
   AUTHENTIK_ADMIN_TOKEN: z.string().min(20).optional(),
 
+  // FR-AUTH-004 — UUID of the provisioned "aiqadam-magic-link-email"
+  // Email stage (see scripts/provision-authentik-magic-link-flow.sh),
+  // passed as the `email_stage` query param on
+  // AuthentikClient.sendMagicLinkEmail's call to
+  // POST /api/v3/core/users/{id}/recovery_email/. Not a secret — same
+  // class of value as AUTHENTIK_OIDC_PROVIDER_NAME or a flow slug, just a
+  // config id for a provisioned Authentik object (a UUID, not a name,
+  // because that's the identifier the recovery_email endpoint's own API
+  // contract requires).
+  //
+  // **Optional**: when unset, MagicLinkService fails the request closed
+  // (mirrors AUTHENTIK_ADMIN_TOKEN's degraded-mode pattern) rather than
+  // crashing the endpoint — an operator runs the provisioning script once
+  // per environment and sets this from its printed output.
+  AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID: z.string().min(1).optional(),
+
   // FR-ADM-010 — platform-admin bootstrap. On boot, AdminBootstrapService
   // checks whether the aiqadam-super-admin Authentik group has zero
   // members; if so it creates exactly one seeded admin account with these

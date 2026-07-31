@@ -13,6 +13,7 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { JtiRevocationService } from './jti-revocation.service';
 import { JwtService } from './jwt.service';
+import { MagicLinkService } from './magic-link.service';
 import { oidcClientProvider } from './oidc-client.provider';
 import { RefreshTokenService } from './refresh-token.service';
 import { RegistrationService } from './registration.service';
@@ -83,6 +84,7 @@ import { TelegramAuthService } from './telegram-auth.service';
     oidcClientProvider,
     TelegramAuthService,
     RegistrationService,
+    MagicLinkService,
   ],
   exports: [JwtService, AuthGuard],
 })

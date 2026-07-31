@@ -280,6 +280,28 @@ export class AuthentikClient {
     return res.link;
   }
 
+  // FR-AUTH-004 — trigger Authentik's native send for an ARBITRARY Email
+  // stage (unlike createRecoveryLink above, which is hardcoded to
+  // whatever flow Brand.flow_recovery points at). Confirmed live against
+  // the running Authentik instance (see
+  // .copilot/tasks/active/wf-20260801-feat-179/02b-authentik-spike-findings.md):
+  // POST /api/v3/core/users/{id}/recovery_email/?email_stage=<uuid>
+  // returns 204 No Content — Authentik sends the email itself, natively,
+  // server-side. No link/token ever appears in this method's return value
+  // or anywhere in our process, which is what makes the magic-link
+  // request endpoint's anti-enumeration response shape ({ ok: true },
+  // always) trivially safe: there is no secret value here to accidentally
+  // leak. emailStageUuid is always sourced from our own env config
+  // (AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID), never user input, so there is
+  // no injection risk — encodeURIComponent is used anyway for consistency
+  // with this file's query-building style elsewhere.
+  async sendMagicLinkEmail(userPk: number, emailStageUuid: string): Promise<void> {
+    await this.request<unknown>(
+      'POST',
+      `/api/v3/core/users/${userPk}/recovery_email/?email_stage=${encodeURIComponent(emailStageUuid)}`,
+    );
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.base}${path.startsWith('/') ? path : `/${path}`}`;
     const init: RequestInit = {
