@@ -155,3 +155,19 @@ requirement). 18/18 tests pass in the suite; 1353/1354 pass repo-wide (the
 one failure, `users.spec.ts`'s `lastLoginAt` clock-race, is pre-existing
 and unrelated — reproduced identically on `main`).
 **Merged:** `9e933bb56139ae0cacd71e61e8138b1989b53171` (squash)
+
+**Step 13 — Post-merge BP-UAT-010 re-verification:** `wf-20260731-uat-163`
+(PR [#176](https://github.com/aiqadam/ai-qadam-platform/pull/176)) drove a
+live browser session confirming the fix live, two independent ways: (1)
+`pnpm uat:seed --reset BP-UAT-010`'s own `ensure_linked` call, checked
+directly against Postgres, showed `uat-member@example.com`'s
+`directus_user_id` is now `bb110099-c215-433b-8930-81e7f4dab21a` (the
+correct id) — not the stale `a1524645-...` id from before this fix; (2) a
+live sign-in + event registration as that same user succeeded end-to-end
+on top of the corrected id (screenshot-verified: capacity counter
+incremented, "You're registered" state shown). One pre-existing,
+already-tracked issue (`ISS-EVT-004-1` — `registeredCount` hardcoded to
+0) was reproduced live again on the full-event waitlist path; recorded as
+corroborating evidence in `wf-20260731-uat-163`'s UAT report, not a new
+issue (no new finding on this fix's own surface). Per protocol, GitHub
+Project status synced to `agent-verified`.
