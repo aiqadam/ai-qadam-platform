@@ -230,9 +230,15 @@ function checkFile(file: string, violations: Violation[]): void {
   // any legacy page if one ever lands without going through the generator).
   // In full mode it fires for every page lacking the marker — apps/web-next/
   // is greenfield, so every page should originate from the generator.
-  // Exception: src/pages/api/ holds hand-authored SSR endpoints (e.g. the
-  // /api/* backend proxy), not generated UI pages — the marker doesn't apply.
-  const isApiEndpoint = POSIX(file).startsWith('apps/web-next/src/pages/api/');
+  // Exception: hand-authored, non-page SSR endpoints don't go through
+  // gen:page/gen:cabinet — those generators only ever emit .astro UI pages.
+  // This covers src/pages/api/ (e.g. the /api/* backend proxy) AND any
+  // other hand-authored .ts route co-located elsewhere under src/pages/
+  // (e.g. events/[id]/og-card.png.ts, a Satori/resvg PNG-rendering
+  // APIRoute) — see ISS-ARCH-CHECK-001 for the motivating false-positive.
+  const isApiEndpoint =
+    POSIX(file).startsWith('apps/web-next/src/pages/api/') ||
+    (inWebNextPages(file) && !file.endsWith('.astro'));
   if (inWebNextPages(file) && !isApiEndpoint) {
     const requiresMarker = STAGED_MODE ? newFiles.has(file) : true;
     const hasMarker = /@generated-from\s+gen:(page|cabinet)/.test(content);
