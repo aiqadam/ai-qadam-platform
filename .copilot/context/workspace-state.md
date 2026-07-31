@@ -27,8 +27,10 @@ turned out to be a duplicate of the already-queued
 `wf-20260704-fix-096-pre-existing-api-test-flakes` item 1, see Queued
 follow-up workflows below); apps/bot 29/29. Two ACs (AC-6's 3-second
 `/start` response bound, AC-11's Grafana/Loki log-delivery confirmation)
-are honestly deferred pending a live `aiqadam-bot` Coolify deployment that
-does not exist yet — see this file's own Open Issues entry below for the
+are honestly deferred pending a live `aiqadam-bot` deployment (per
+ADR-0040's pro-data.tech/docker-compose model — corrected 2026-07-31,
+`ISS-BOT-001-COOLIFY-001`; there will be no Coolify) that does not exist
+yet — see this file's own Queued follow-up workflows entry below for the
 concrete verification plan.
 
 **Last updated:** 2026-07-31 — `wf-20260731-fix-170`.
@@ -906,14 +908,15 @@ snapshot, not a log.
   cases 4+8 Linux-only mocks).
 - **(no workflow id assigned yet — not yet a task directory)** verify
   FR-BOT-001's AC-6 (`/start` responds within 3 seconds) and AC-11
-  (structured JSON logs reach Grafana/Loki) once `aiqadam-bot` exists as
-  a live Coolify service — neither is verifiable pre-deployment. Owner:
-  UATRunner. AC-6: send `/start` to the deployed bot from a real Telegram
-  client, time the round-trip (< 3s). AC-11: after that same interaction,
-  query Grafana/Loki for the bot's structured JSON log line and confirm
-  it contains `telegram_id`, `command`, `duration_ms`, `status`. See
-  FR-BOT-001.md and `.copilot/tasks/completed/wf-20260731-feat-171/`
-  (once archived) for full context.
+  (structured JSON logs reach Grafana/Loki) once `aiqadam-bot` is
+  deployed per ADR-0040's pro-data.tech/docker-compose model (not
+  Coolify — see `ISS-BOT-001-COOLIFY-001`) — neither is verifiable
+  pre-deployment. Owner: UATRunner. AC-6: send `/start` to the deployed
+  bot from a real Telegram client, time the round-trip (< 3s). AC-11:
+  after that same interaction, query Grafana/Loki for the bot's
+  structured JSON log line and confirm it contains `telegram_id`,
+  `command`, `duration_ms`, `status`. See FR-BOT-001.md and
+  `.copilot/tasks/completed/wf-20260731-feat-171/` for full context.
 - **uat-bp-uat-coverage-batch** — 17 workflows queued at
   `.copilot/tasks/queued/uat-bp-uat-coverage-batch/handoff.yaml`.
 
@@ -924,23 +927,6 @@ snapshot, not a log.
 Only genuinely open items belong here. Resolved issues live in
 [`../issues/registry.md`](../issues/registry.md).
 
-- **FR-BOT-001 AC-6 / AC-11 deferred verification** (blocker, bot/deploy) —
-  TestStrategist/TestDesigner/TestRunner all consistently deferred two ACs
-  to live-deployment verification (`.copilot/tasks/active/wf-20260731-feat-171/06-test-strategy.md`):
-  **AC-6** (`/start` must respond within 3 seconds) and **AC-11**
-  (structured JSON logs must actually arrive in Grafana/Loki). Both share
-  the same root blocker: no `aiqadam-bot` Coolify service has ever been
-  deployed for this brand-new bot repo, so neither is verifiable from a
-  local pytest run or this repo's CI. Owner: **UATRunner**, once
-  `aiqadam-bot` exists as a live Coolify service. Concrete verification:
-  - AC-6: send `/start` to the deployed bot from a real Telegram client
-    and time the round-trip to the welcome-message reply; must be < 3s.
-  - AC-11: after that same live `/start` interaction, query Grafana/Loki
-    for the bot's structured JSON log line (e.g. a LogQL query scoped to
-    the bot's log stream, or `curl` against the Loki HTTP API) and confirm
-    it contains `telegram_id`, `command`, `duration_ms`, `status`.
-  Tracked as a placeholder under Queued follow-up workflows below
-  (see that section) since no workflow id exists yet.
 - [ISS-ADM-010-1](../issues/ISS-ADM-010-1.md) (blocker for AC-3 only,
   admin/ADM + infra/authentik) — `AdminBootstrapService`'s
   `ak_login_password_change_required` attribute does not force

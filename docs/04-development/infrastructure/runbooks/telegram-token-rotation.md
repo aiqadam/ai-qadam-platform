@@ -70,9 +70,11 @@ echo "NEW_KEY=$NEW_KEY"  # save to your password manager
      --old-key "$TG_CONFIG_ENCRYPTION_KEY" \
      --new-key "$NEW_KEY"
    ```
-4. Set the new key in Coolify env (`TG_CONFIG_ENCRYPTION_KEY`).
-5. Redeploy the API resource (the cached key inside `TgConfigService`
-   refreshes on first request after restart).
+4. Set the new key in `deploy/.env` on the prod host
+   (`TG_CONFIG_ENCRYPTION_KEY`) — see ADR-0040.
+5. Redeploy the API service via `.github/workflows/ci-cd.yml`'s
+   `deploy-prod` job (the cached key inside `TgConfigService` refreshes
+   on first request after restart).
 6. Verify `GET /v1/telegram/admin/status` returns 200.
 
 **Failure mode**: if step 3 succeeds but step 4 fails, the rows are
@@ -85,4 +87,4 @@ configured_at are unaffected by either rotation.
 
 - [ADR-0034 §Addendum 2026-05-22](../../../adr/0034-telegram-bot-and-sender.md#addendum-2026-05-22-r2-encryption-at-rest-for-tg_config)
 - [`_archive/coolify-app-stacks.md`](_archive/coolify-app-stacks.md) — ⛔ archived. The pre-deployment migration pattern it describes ran under Coolify; see `.github/workflows/ci-cd.yml` for how deploys work now (ADR-0040).
-- The bot repo's [docs/deploy-coolify.md](https://github.com/viktordrukker/aiqadam-telegram-bot/blob/main/docs/deploy-coolify.md) — what env the bot expects to see after a token rotation.
+- The bot repo's `docs/deploy.md` at [aiqadam/aiqadam-telegram-bot](https://github.com/aiqadam/aiqadam-telegram-bot) — what env the bot expects to see after a token rotation.

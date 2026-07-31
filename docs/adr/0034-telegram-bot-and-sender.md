@@ -72,18 +72,32 @@ Accepted, 2026-07-31
 ### Q1 — Separate repo: `aiqadam/aiqadam-telegram-bot`, nested as a submodule
 
 A new GitHub repo, public (matching this repo's visibility), owned by the
-`aiqadam` org, with its own Coolify resource. Reasons:
+`aiqadam` org. Reasons:
 
-- **Clear deployment boundary.** One container resource, one CI, one
-  Coolify webhook. Bot redeploys never touch web/api.
+- **Clear deployment boundary.** One container resource, one CI. Bot
+  redeploys never touch web/api.
 - **Language separation already exists.** Python; the monorepo is pnpm.
   Cross-monorepo tooling has limited value here.
 - **Smaller blast radius.** A bot bug doesn't risk the web build.
 - **Secret isolation.** Bot token + service token live in their own
-  Coolify env, not co-mingled with the API's secrets. (No source-level
-  secrets live in either repo, so this doesn't drive visibility —
-  visibility matches the main repo's public status instead.)
+  deploy-host env, not co-mingled with the API's secrets. (No
+  source-level secrets live in either repo, so this doesn't drive
+  visibility — visibility matches the main repo's public status
+  instead.)
 - **Reversible.** If we want a monorepo later, we vendor it back.
+
+> **Deploy target correction (2026-07-31, ISS-BOT-001-COOLIFY-001):**
+> this section originally specified Coolify as the bot's hosting
+> platform. Coolify was retired project-wide before this ADR's design
+> was implemented — see [ADR-0007](./0007-coolify-orchestration.md)
+> (retirement, 2026-07-23) and [ADR-0040](./0040-deployment-target-pro-data-tech.md)
+> (replacement: plain `docker compose` + Nginx + GitHub Actions on two
+> pro-data.tech hosts, accepted 2026-07-27). The bot's actual deploy
+> target is that same model, matching how `apps/api`/`apps/web-next`
+> already deploy — not yet designed as a concrete compose service block
+> (deferred, out of scope for this correction). Every further Coolify
+> reference below is historical framing from the original draft and
+> should be read through this same correction.
 
 **Condition of acceptance:** the separate repo must still read as one
 workspace. It is vendored into this repo as a **git submodule at
@@ -169,7 +183,7 @@ send-log) copy-ported from `viktordrukker/tgblaster` bot-stack (MIT).
 ## Component layout
 
 ```
-aiqadam/aiqadam-telegram-bot/   (NEW REPO, public, Coolify; vendored as
+aiqadam/aiqadam-telegram-bot/   (NEW REPO, public; vendored as
                                  git submodule at apps/bot/ in this repo)
 ├── src/aiqadam_telegram_bot/
 │   ├── contracts/           # envelopes + payload schemas (source of truth)
@@ -178,9 +192,9 @@ aiqadam/aiqadam-telegram-bot/   (NEW REPO, public, Coolify; vendored as
 │   └── notifier/            # Streams consumer, rate limit, sender, DLQ
 ├── docs/architecture.md     # sync vs async, deeplinks, failure matrix
 ├── docs/asyncapi.yaml       # AsyncAPI 3.0 spec for tg.dispatch.v1
-├── docs/deploy-coolify.md   # ops runbook
+├── docs/deploy.md           # ops runbook (pro-data.tech / ADR-0040 model)
 ├── Dockerfile               # multi-stage; one image, two CMDs
-├── docker-compose.yml       # local dev; prod uses Coolify env
+├── docker-compose.yml       # local dev; prod deploy per ADR-0040
 ├── pyproject.toml           # aiogram 3, httpx, pydantic, redis, structlog
 └── .github/workflows/ci.yml # ruff + mypy + pytest + GHCR push
 
@@ -275,7 +289,7 @@ In the **aiqadam repo**:
 | A6 | `feat(api): TelegramAdapter for Interactions dispatcher` | ~250 | 4 |
 
 **S5.5 exit gate:**
-- `@aiqadam_bot` deployed on Coolify.
+- `@aiqadam_bot` deployed per ADR-0040's pro-data.tech/docker-compose model.
 - Manual test: `/start` → `/link` → email arrives via existing
   EmailAdapter → user enters code → confirm.
 - A new test event is created → registered member receives a Telegram
@@ -289,7 +303,7 @@ In the **aiqadam repo**:
 
 | Risk | Mitigation |
 |---|---|
-| Bot token leak | Coolify env only; rotate via `@BotFather` `/revoke`; publish `bot:reload_requested` to Redis with `time.time()` for in-flight restart |
+| Bot token leak | Deploy-host env only (`deploy/.env`, per ADR-0040); rotate via `@BotFather` `/revoke`; publish `bot:reload_requested` to Redis with `time.time()` for in-flight restart |
 | Account-link impersonation | 6-digit code, 5-min TTL, single-use, server verifies same tg_user_id on start + confirm |
 | Notifier crash mid-broadcast | XAUTOCLAIM resurrects PEL entries; dedupe SET NX prevents re-send; AI Qadam `tg_send_log` UNIQUE(delivery_key) double-checks |
 | Schema drift between pydantic + Zod | Both repos' CI parses the AsyncAPI yaml; failing build catches mismatch |
@@ -350,7 +364,8 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 The key is **optional in dev** (configure/rotate/status return 503
 `telegram_config_key_missing` when unset, but the existing
 env-fallback /v1/telegram/* surface keeps working) and **required in
-prod**. Coolify is the source of truth.
+prod**. `deploy/.env` on the prod host is the source of truth
+(ADR-0040).
 
 **Wire format**: `version(1) | iv(12) | tag(16) | ciphertext(N)` in a
 single `bytea` column. The version byte reserves room for an algorithm
@@ -376,6 +391,10 @@ endpoint.
 - [ADR-0026](./0026-telegram-channel.md) — per-country channels
 - [ADR-0032](./0032-operator-tools-must-sso-or-embed.md) — no auth islands
 - [ADR-0033](./0033-community-member-graph.md) — community-as-platform
+- [ADR-0007](./0007-coolify-orchestration.md) — retires Coolify (2026-07-23)
+- [ADR-0040](./0040-deployment-target-pro-data-tech.md) — actual deploy
+  target: pro-data.tech, plain docker-compose (accepted 2026-07-27; see
+  the deploy-target correction note under Q1 above)
 - [community-platform-roadmap.md §Sprint 5.5](../01-business/community-platform-roadmap.md)
 - [decision-batch-process](../02-business-processes/decision-batch-process.md) — how this gets accepted
 - AsyncAPI 3.0 spec: published in the new repo at `docs/asyncapi.yaml`
