@@ -39,6 +39,7 @@ import {
   TelegramAuthService,
   eventDetailParamsSchema,
   eventDetailQuerySchema,
+  interestsQuerySchema,
   listTelegramEventsQuerySchema,
   lookupUserBodySchema,
   telegramCancelBodySchema,
@@ -46,6 +47,7 @@ import {
   telegramMeQuerySchema,
   telegramRegisterBodySchema,
   telegramWidgetPayloadSchema,
+  toggleInterestBodySchema,
   upsertTempUserBodySchema,
 } from './telegram-auth.service';
 import type {
@@ -53,6 +55,7 @@ import type {
   TelegramCancelResult,
   TelegramEventDetailResult,
   TelegramEventListResult,
+  TelegramInterestsResult,
   TelegramLeaderboardResult,
   TelegramMeResult,
   TelegramRegisterResult,
@@ -677,5 +680,38 @@ export class TelegramInternalController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.telegramAuth.getLeaderboard(parsed.data.directusUserId, parsed.data.country);
+  }
+
+  // GET /v1/internal/telegram/interests — InternalAuthGuard protected.
+  // FEAT-BOT-2 (FR-BOT-002 PR 5/6) — called by the bot's /interests
+  // handler. No `country` query param — interests are not tenant-scoped
+  // (see telegram-auth.service.ts's interestsQuerySchema comment). Proxies
+  // through MeProfileService (the same service the web /me/profile
+  // cabinet already uses) via TelegramAuthService.getInterests.
+  @Get('interests')
+  @HttpCode(HttpStatus.OK)
+  async interests(@Query() query: unknown): Promise<TelegramInterestsResult> {
+    const parsed = interestsQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.getInterests(parsed.data.directusUserId);
+  }
+
+  // POST /v1/internal/telegram/interests/toggle — InternalAuthGuard
+  // protected. FEAT-BOT-2 (FR-BOT-002 PR 5/6) — called by the bot's
+  // /interests toggle-button callback. `topic` is validated against the
+  // fixed 7-slug enum at this Zod layer (AC-11) — an unknown slug never
+  // reaches MeProfileService.addInterest. Idempotent single-call toggle:
+  // returns the same {selected, available} shape as GET .../interests,
+  // post-toggle, so the bot can re-render in one round trip.
+  @Post('interests/toggle')
+  @HttpCode(HttpStatus.OK)
+  async toggleInterests(@Body() body: unknown): Promise<TelegramInterestsResult> {
+    const parsed = toggleInterestBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.toggleInterest(parsed.data.directusUserId, parsed.data.topic);
   }
 }

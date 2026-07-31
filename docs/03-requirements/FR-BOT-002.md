@@ -68,9 +68,9 @@ has actually landed; do not infer completeness from the `status:`
 frontmatter alone (kept at `Planned` — see rationale in this workflow's
 `01-requirement-validation.md` — the repo's FR frontmatter enum has no
 literal "in progress" value, and this PR intentionally does not claim
-`Implemented` for a 5-of-10-command slice). `requirements-registry.md`'s
+`Implemented` while PR 6/6 (`/upgrade`) remains unshipped). `requirements-registry.md`'s
 Status column is the accurate source for "work has started": `In Progress`
-(set by PR 1, unchanged by this PR — matches the existing `FR-AUTH-002`
+(set by PR 1, unchanged through PR 5 — matches the existing `FR-AUTH-002`
 precedent for a multi-PR FR).
 
 **PR 1/6 — shipped:** `/help`, `/events`, `/event <N>` — read-only,
@@ -244,11 +244,97 @@ This is a legitimate, recorded gap, not a silent omission — a future
 the pre-existing web leaderboard surface `PointsDirectusService.leaderboard()`
 already serves.
 
+**PR 5/6 (this PR) — shipped:** `/interests` — view and toggle topic
+interests as `[x]`/`[ ]` inline-keyboard buttons, tapping a topic adds or
+removes it with an in-place re-render. API: new `GET
+/v1/internal/telegram/interests` and `POST
+/v1/internal/telegram/interests/toggle` (both `InternalAuthGuard`-protected,
+Zod-validated) on `TelegramInternalController`, proxying through the
+existing `MeProfileService.listInterests`/`addInterest`/`removeInterest` —
+the same service and `member_interests` collection the web `/me/profile`
+cabinet already uses (F-S3.6b, ADR-0033 cabinet #5) — no new DB migration,
+no competing write path. The candidate topic list is a duplicated 7-slug
+constant (`INTEREST_TOPICS` in `telegram-auth.service.ts`), not an import
+of `TelegramEventTopicsService`: that service is confirmed not present in
+`TelegramModule`'s `exports` array, so it cannot be injected elsewhere
+regardless of the module-cycle question, and duplicating a small,
+operator-curated static list mirrors the exact precedent PR 1/6 already
+set for `TelegramEventsService`'s own event-topic duplication.
+
+Module wiring required two changes, one anticipated and one found live
+during implementation. `AuthModule` now imports `MeProfileModule` wrapped
+in `forwardRef(() => MeProfileModule)`, matching the existing
+`forwardRef(() => RegistrationsModule)` treatment — needed because
+`MeProfileModule` already imports `AuthModule`, the same
+`AuthModule <-> X <-> AuthModule` cycle shape hit twice before in this
+codebase. **Unanticipated by impact-analysis:** a full-suite run
+(`main-bootstrap.spec.ts`, which boots the real Nest app) then failed with
+`UndefinedModuleException` at `MeProfileModule`'s own import of
+`AuthModule` — Nest's scanner reaches `AuthModule` via a second,
+pre-existing path (`AuthModule -> LeadsModule -> InteractionsModule ->
+TelegramModule -> AuthModule`) before it reaches `MeProfileModule`'s
+forwardRef-wrapped side, so the *other* side's plain import resolves to
+`undefined` mid-scan. Fix: `me-profile.module.ts`'s own `AuthModule`
+import also needed wrapping in `forwardRef(() => AuthModule)` — both
+sides of the new edge, not just the one introducing it. This is the exact
+failure mode `registrations.module.ts`'s own header comment already
+documented for the `RegistrationsModule` edge, so the fix follows an
+established, proven pattern rather than being novel; it's a genuinely
+interesting finding worth flagging prominently here, the same way PR 2's
+`ISS-BOT-REG-001` bug-found-during-verification got its own callout,
+because it means **any future module that both imports `AuthModule` and
+is imported back into it must forwardRef both sides**, not just the side
+adding the new edge — the existing `main-bootstrap.spec.ts` live DI boot
+check is what catches this class of gap, and any new bidirectional edge on
+this module graph should keep relying on it rather than a visual read of
+the two files in isolation.
+
+The `intent` field (`member_interests` rows require `learn | practice |
+mentor | discuss`, not just a bare topic) is scope-narrowed, documented
+explicitly rather than silently resolved, same posture as PR 3's streak
+gap: the bot hardcodes `intent='learn'` for every topic it adds via
+`/interests`, and toggle-off removes only the `'learn'`-intent row for
+that topic, never touching other-intent rows a member may have set via
+the web `/me/profile` cabinet (which allows the same topic under multiple
+intents simultaneously). **AC-7 is the regression guard for this
+decision** — it exercises a member with both a bot-created `learn` row and
+a web-created `mentor` row for the same topic, toggling off via the bot,
+and asserts only the `learn` row is removed.
+
+**`business_process` linkage:** confirmed adjacency, not force-linked.
+`docs/02-business-processes/uat/BP-UAT-003.md` ("Member self-service
+profile") AC-3 and its Steps 006-008 exercise the identical
+`MeProfileService.listInterests`/`addInterest` and the identical
+`member_interests` collection this PR's API routes proxy — a real,
+topically precise fit for "interests" as a resource, correcting an earlier
+research pass in this workflow that had claimed zero overlap. However,
+`BP-UAT-003` as currently authored and registered is web-only
+(`environment: http://localhost:4321`, every step a browser action against
+`/me/profile`) with zero bot-surface or `InternalAuthGuard` steps — the
+identical resource reached via a different, untested channel. Retrofitting
+bot steps into `BP-UAT-003` is out of this PR's scope. `FR-BOT-002.md`'s
+frontmatter `business_process` stays `[BP-UAT-010]` unchanged (the field
+represents the FR as a whole; BP-UAT-010 already covers this FR's dominant
+registration-flow ACs). Recorded here as a **documented adjacency, not a
+gap** — same treatment PR 4 gave the `BP-UAT-012` finding — and flagged as
+a candidate follow-up for a future BusinessAnalyst-authored BP-UAT-003
+revision adding bot-surface steps, not actioned in this PR.
+
+Verification: apps/api full-suite run twice, 1470/1471 Vitest tests
+passing both times (the single failure, `test/users.spec.ts`'s
+clock-ordering assertion, is a pre-existing flake unrelated to this PR —
+independently re-verified this workflow via `git stash` to fail identically
+on unmodified `main`); this PR's own 3 new/modified spec files, 41/41
+passing in isolation. apps/bot: 146/146 pytest tests passing (up from 137
+pre-PR). typecheck, biome, ruff check, and ruff format all clean. Code is
+implemented and tested on the feature branch; not yet merged to `main` as
+of this doc update (matches PR 1-4's own precedent of writing this progress
+entry before their own merge).
+
 **Planned follow-up PRs (queued, no workflow IDs assigned yet):**
 
 | PR | Scope | Depends on |
 |---|---|---|
-| 5/6 | `/interests` — topic interest toggle buttons | Independent |
 | 6/6 | `/upgrade` — email collection + magic-link (FR-AUTH-006 dependency) | FR-AUTH-006 |
 
 Each PR should re-check this table and its own `business_process` linkage

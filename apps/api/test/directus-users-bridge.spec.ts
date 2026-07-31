@@ -372,6 +372,42 @@ describe('DirectusUsersBridgeService.resolveDirectusId', () => {
   });
 });
 
+// FEAT-BOT-2 (FR-BOT-002 PR 5/6) — resolveUserAndEmailFromDirectusId.
+// Same shape/precedent as resolveUserIdFromDirectusId's own describe block
+// above (a plain read against the unique directus_user_id column, no
+// Directus interaction) — this variant additionally projects `email`,
+// since MeProfileService's every method needs (userId, email), not just
+// userId. Uses the same Testcontainers Postgres setup as the rest of this
+// suite.
+describe('DirectusUsersBridgeService.resolveUserAndEmailFromDirectusId', () => {
+  beforeEach(async () => {
+    await db.delete(users);
+  });
+
+  it('returns {userId, email} for a matching directusUserId', async () => {
+    const fake: FakeDirectus = { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
+    const bridge = makeBridge(fake);
+    const user = await seedUser('interests-member@example.com');
+    const directusUserId = '99999999-9999-4000-8000-000000000009';
+    await db.update(users).set({ directusUserId }).where(eq(users.id, user.id));
+
+    const result = await bridge.resolveUserAndEmailFromDirectusId(directusUserId);
+
+    expect(result).toEqual({ userId: user.id, email: 'interests-member@example.com' });
+  });
+
+  it('returns null when no platform user is linked to this directusUserId', async () => {
+    const fake: FakeDirectus = { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
+    const bridge = makeBridge(fake);
+
+    const result = await bridge.resolveUserAndEmailFromDirectusId(
+      '00000000-0000-0000-0000-000000000000',
+    );
+
+    expect(result).toBeNull();
+  });
+});
+
 // ISS-UAT-001-1 — covers the email-keyed variant used by the new
 // POST /v1/internal/users/ensure-linked handler. Uses the same
 // Testcontainers Postgres setup as the rest of this suite (per
