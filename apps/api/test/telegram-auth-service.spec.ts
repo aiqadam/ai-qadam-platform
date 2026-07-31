@@ -1,7 +1,8 @@
 import { createHash, createHmac } from 'node:crypto';
-import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthentikUser } from '../src/modules/admin-invites/authentik.client';
+import type { DirectusClient } from '../src/modules/directus/directus.client';
 import { env } from '../src/config/env';
 import { TelegramAuthService, type TelegramWidgetPayload } from '../src/modules/auth/telegram-auth.service';
 
@@ -311,5 +312,165 @@ describe('TelegramAuthService.upsertTempUser', () => {
     const result = await service.upsertTempUser('999999999', 'Viktor');
 
     expect(result.directusUserId).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FEAT-BOT-1 — TelegramAuthService.lookupUser (POST /v1/internal/telegram/lookup)
+//
+// Mocks both AuthentikClient and DirectusClient — this method makes zero
+// Postgres/Drizzle calls (confirmed by 02-impact-analysis.md and
+// 04-security-review.md), so no Testcontainers is needed here either;
+// mocking the two HTTP boundaries is the correct "unit" isolation.
+
+function makeDirectusClient() {
+  return {
+    get: vi.fn<(path: string) => Promise<{ data: unknown[] }>>(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+
+function fakeDirectusRow(overrides: { id?: string; country?: string | null } = {}) {
+  return {
+    id: overrides.id ?? 'dir-user-1',
+    country: overrides.country === undefined ? 'uz' : overrides.country,
+  };
+}
+
+describe('TelegramAuthService.lookupUser', () => {
+  let mockAuthentik: ReturnType<typeof makeAuthentikClient>;
+  let mockDirectus: ReturnType<typeof makeDirectusClient>;
+  let service: TelegramAuthService;
+
+  beforeEach(() => {
+    mockAuthentik = makeAuthentikClient();
+    mockDirectus = makeDirectusClient();
+    service = new TelegramAuthService(
+      mockAuthentik as never,
+      mockDirectus as unknown as DirectusClient,
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // ── AC-1: linked, non-temp user ──────────────────────────────────────────
+
+  it('returns real directusUserId/country and isTemp=false for a linked, non-temp user', async () => {
+    const authentikUser = fakeUser(11, { attributes: {} });
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(authentikUser);
+    mockDirectus.get.mockResolvedValueOnce({
+      data: [fakeDirectusRow({ id: 'dir-user-11', country: 'kz' })],
+    });
+
+    const result = await service.lookupUser('111111111');
+
+    expect(result).toEqual({ directusUserId: 'dir-user-11', isTemp: false, country: 'kz' });
+    expect(mockAuthentik.getUserByTelegramId).toHaveBeenCalledWith('111111111');
+  });
+
+  // ── AC-2 (common case): temp-only user, no matching Directus row ────────
+
+  it('returns directusUserId=null and country=null for a temp user with no Directus row (common case)', async () => {
+    const authentikUser = fakeUser(22, { attributes: { is_temporary: true } });
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(authentikUser);
+    mockDirectus.get.mockResolvedValueOnce({ data: [] });
+
+    const result = await service.lookupUser('222222222');
+
+    expect(result).toEqual({ directusUserId: null, isTemp: true, country: null });
+  });
+
+  // ── AC-2 (edge case): temp user WITH a matching Directus row ────────────
+  // Explicitly called out in 03-code-summary.md Key Design Decision #5: the
+  // member registered fully before ever hitting /start again with a stale
+  // local bot cache. isTemp must reflect the Authentik attribute
+  // independent of whether a Directus mirror exists.
+
+  it('returns the real directusUserId while isTemp stays true when a temp user already has a matching Directus row', async () => {
+    const authentikUser = fakeUser(33, { attributes: { is_temporary: true } });
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(authentikUser);
+    mockDirectus.get.mockResolvedValueOnce({
+      data: [fakeDirectusRow({ id: 'dir-user-33', country: 'tj' })],
+    });
+
+    const result = await service.lookupUser('333333333');
+
+    expect(result).toEqual({ directusUserId: 'dir-user-33', isTemp: true, country: 'tj' });
+  });
+
+  // ── AC-3: no Authentik user at all ───────────────────────────────────────
+
+  it('throws NotFoundException with a structured { error: "telegram_user_not_found" } body when no Authentik user exists', async () => {
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(null);
+
+    await expect(service.lookupUser('999999999')).rejects.toBeInstanceOf(NotFoundException);
+    expect(mockDirectus.get).not.toHaveBeenCalled();
+
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(null);
+    try {
+      await service.lookupUser('999999999');
+      expect.unreachable('lookupUser should have thrown');
+    } catch (e) {
+      const resp = (e as NotFoundException).getResponse() as { error: string };
+      expect(resp.error).toBe('telegram_user_not_found');
+    }
+  });
+
+  // ── malformed telegramId at the service boundary ─────────────────────────
+
+  it('throws (ZodError) when telegramId is not a numeric string, without calling Authentik', async () => {
+    await expect(service.lookupUser('not-a-number')).rejects.toThrow();
+    expect(mockAuthentik.getUserByTelegramId).not.toHaveBeenCalled();
+  });
+
+  it('throws (ZodError) when telegramId is oversized (>19 digits), without calling Authentik', async () => {
+    await expect(service.lookupUser('1'.repeat(20))).rejects.toThrow();
+    expect(mockAuthentik.getUserByTelegramId).not.toHaveBeenCalled();
+  });
+
+  // ── AC-5: read-path idempotency — no writes anywhere ─────────────────────
+
+  it('never calls a write method on AuthentikClient or DirectusClient across happy-path and not-found scenarios', async () => {
+    const linkedUser = fakeUser(44, { attributes: {} });
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(linkedUser);
+    mockDirectus.get.mockResolvedValueOnce({ data: [fakeDirectusRow()] });
+    await service.lookupUser('444444444');
+
+    const tempUser = fakeUser(55, { attributes: { is_temporary: true } });
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(tempUser);
+    mockDirectus.get.mockResolvedValueOnce({ data: [] });
+    await service.lookupUser('555555555');
+
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(null);
+    await expect(service.lookupUser('666666666')).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(mockAuthentik.createUser).not.toHaveBeenCalled();
+    expect(mockAuthentik.patchAttributes).not.toHaveBeenCalled();
+    expect(mockDirectus.post).not.toHaveBeenCalled();
+    expect(mockDirectus.patch).not.toHaveBeenCalled();
+    expect(mockDirectus.delete).not.toHaveBeenCalled();
+  });
+
+  // ── Directus query-shape lock-in ──────────────────────────────────────────
+  // Defends the "no PII over-fetch" property credited in the security
+  // review: only `id,country` are projected, and the email filter is
+  // present + URI-encoded.
+
+  it('queries Directus with filter[email][_eq]=<encoded email>, fields=id,country, and limit=1', async () => {
+    const authentikUser = fakeUser(77, { attributes: {}, email: 'tg777777777@telegram.local' });
+    mockAuthentik.getUserByTelegramId.mockResolvedValueOnce(authentikUser);
+    mockDirectus.get.mockResolvedValueOnce({ data: [] });
+
+    await service.lookupUser('777777777');
+
+    expect(mockDirectus.get).toHaveBeenCalledOnce();
+    const calledPath = mockDirectus.get.mock.calls[0]?.[0] as string;
+    expect(calledPath).toContain('filter[email][_eq]=tg777777777%40telegram.local');
+    expect(calledPath).toContain('fields=id,country');
+    expect(calledPath).toContain('limit=1');
   });
 });

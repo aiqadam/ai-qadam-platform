@@ -1,8 +1,18 @@
-import { BadRequestException, HttpStatus, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpStatus,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthController, TelegramInternalController } from '../src/modules/auth/auth.controller';
-import type { TelegramAuthService, UpsertTempUserResult } from '../src/modules/auth/telegram-auth.service';
+import type {
+  LookupUserResult,
+  TelegramAuthService,
+  UpsertTempUserResult,
+} from '../src/modules/auth/telegram-auth.service';
 import type { AuthService } from '../src/modules/auth/auth.service';
 import type { JtiRevocationService } from '../src/modules/auth/jti-revocation.service';
 import type { JwtService } from '../src/modules/auth/jwt.service';
@@ -27,6 +37,7 @@ function makeTelegramAuthService(
     verifyWidgetHash: vi.fn(),
     exchangeWidgetPayload: vi.fn(),
     upsertTempUser: vi.fn(),
+    lookupUser: vi.fn(),
     ...overrides,
   } as unknown as TelegramAuthService;
 }
@@ -248,5 +259,123 @@ describe('TelegramInternalController.upsertTempUser (POST /v1/internal/telegram/
 
     expect(Array.isArray(guards)).toBe(true);
     expect(guards?.some((g) => g === InternalAuthGuard)).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FEAT-BOT-1 — Integration: TelegramInternalController.lookup +
+// TelegramAuthService.lookupUser wired together (mocked service, real Zod
+// validation + NestJS exception mapping exercised end-to-end at the
+// controller-method level). Matches internal.spec.ts / checkin.integration.spec.ts
+// convention — no Testcontainers Postgres, this endpoint has no Drizzle table.
+
+describe('TelegramInternalController.lookup (POST /v1/internal/telegram/lookup)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // ── AC-1: full request/response cycle, happy path ────────────────────────
+
+  it('returns the LookupUserResult from the service for a valid body', async () => {
+    const expectedResult: LookupUserResult = {
+      directusUserId: 'dir-user-1',
+      isTemp: false,
+      country: 'uz',
+    };
+    const telegramAuth = makeTelegramAuthService({
+      lookupUser: vi.fn().mockResolvedValueOnce(expectedResult),
+    });
+    const controller = new TelegramInternalController(telegramAuth);
+
+    const result = await controller.lookup({ telegramId: '123456789' });
+
+    expect(result).toEqual(expectedResult);
+    expect(telegramAuth.lookupUser).toHaveBeenCalledWith('123456789');
+  });
+
+  // ── Malformed/missing body → 400 (Zod at controller boundary) ────────────
+  // Mirrors ensureLinkedUser's existing "rejects a body without email" /
+  // "rejects a non-email" tests one-for-one (internal.spec.ts).
+
+  it('throws BadRequestException without calling the service when the body is empty', async () => {
+    const telegramAuth = makeTelegramAuthService();
+    const controller = new TelegramInternalController(telegramAuth);
+
+    await expect(controller.lookup({})).rejects.toBeInstanceOf(BadRequestException);
+    expect(telegramAuth.lookupUser).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestException without calling the service when telegramId is not numeric', async () => {
+    const telegramAuth = makeTelegramAuthService();
+    const controller = new TelegramInternalController(telegramAuth);
+
+    await expect(
+      controller.lookup({ telegramId: 'not-numeric' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(telegramAuth.lookupUser).not.toHaveBeenCalled();
+  });
+
+  // ── AC-3: no Authentik user → 404, full controller path ──────────────────
+  // Asserts the exact body, not just the status class — this is the
+  // "distinguish unknown-user from API-down" contract the bot's
+  // AuthMiddleware depends on structurally.
+
+  it('propagates NotFoundException with { error: "telegram_user_not_found" } body when the service finds no user', async () => {
+    const telegramAuth = makeTelegramAuthService({
+      lookupUser: vi.fn().mockRejectedValueOnce(
+        new NotFoundException({ error: 'telegram_user_not_found' }),
+      ),
+    });
+    const controller = new TelegramInternalController(telegramAuth);
+
+    try {
+      await controller.lookup({ telegramId: '999999999' });
+      expect.unreachable('lookup should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(NotFoundException);
+      const body = (e as NotFoundException).getResponse() as { error: string };
+      expect(body).toEqual({ error: 'telegram_user_not_found' });
+    }
+  });
+
+  // ── AC-4: InternalAuthGuard applied to the new route ──────────────────────
+  // Reuses (does not duplicate) the guard-behavior tests already in
+  // internal.spec.ts's InternalAuthGuard describe block. The decisive
+  // structural check per 02-impact-analysis.md Risk Flag #1 ("a misplaced
+  // route outside TelegramInternalController would silently lose
+  // protection") is that `lookup` lives in the SAME class as
+  // `upsertTempUser`, which the class-level guard test above already
+  // covers — restated here scoped to `lookup` specifically so a future
+  // extraction of `lookup` into its own controller is caught.
+
+  it('is declared on TelegramInternalController, which carries the class-level InternalAuthGuard', () => {
+    expect(typeof TelegramInternalController.prototype.lookup).toBe('function');
+    const guards: (new (...args: unknown[]) => unknown)[] | undefined = Reflect.getMetadata(
+      '__guards__',
+      TelegramInternalController,
+    );
+    expect(guards?.some((g) => g === InternalAuthGuard)).toBe(true);
+  });
+
+  // ── AC-5: read-path idempotency across two rapid identical calls ─────────
+
+  it('returns an identical result across two rapid identical calls with no extra service calls beyond lookupUser', async () => {
+    const expectedResult: LookupUserResult = {
+      directusUserId: null,
+      isTemp: true,
+      country: null,
+    };
+    const lookupUserMock = vi.fn().mockResolvedValue(expectedResult);
+    const telegramAuth = makeTelegramAuthService({ lookupUser: lookupUserMock });
+    const controller = new TelegramInternalController(telegramAuth);
+
+    const first = await controller.lookup({ telegramId: '444444444' });
+    const second = await controller.lookup({ telegramId: '444444444' });
+
+    expect(first).toEqual(expectedResult);
+    expect(second).toEqual(expectedResult);
+    expect(lookupUserMock).toHaveBeenCalledTimes(2);
+    expect(lookupUserMock).toHaveBeenNthCalledWith(1, '444444444');
+    expect(lookupUserMock).toHaveBeenNthCalledWith(2, '444444444');
   });
 });
