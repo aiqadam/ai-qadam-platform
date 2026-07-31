@@ -206,6 +206,27 @@ export class DirectusUsersBridgeService {
   // surfaces either return value as `{ directusUserId: string | null }`
   // so the seed can treat `null` as a soft warning rather than a hard
   // failure.
+  // FEAT-BOT-2 (FR-BOT-002 PR 2/6) — reverse lookup: directus_user_id ->
+  // platform users.id. Every existing consumer of this bridge
+  // (resolveDirectusId, ensureLinkedByEmail) goes users.id -> directusUserId;
+  // the bot's internal routes are handed a directusUserId directly (already
+  // resolved by TelegramAuthService.lookupUser's own Authentik-then-Directus
+  // chain) and need the opposite direction to call
+  // RegistrationsDirectusService, which is keyed by platform users.id. This
+  // is a plain read against the existing unique `directus_user_id` column —
+  // no new table, no write, no upsert-on-miss (unlike findOrCreate): a miss
+  // here means "no platform user is linked to this Directus user," which the
+  // caller (TelegramAuthService) surfaces as telegram_user_not_found, the
+  // same convention lookupUser already uses for an unresolvable identity.
+  async resolveUserIdFromDirectusId(directusUserId: string): Promise<string | null> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.directusUserId, directusUserId))
+      .limit(1);
+    return row?.id ?? null;
+  }
+
   async ensureLinkedByEmail(input: {
     email: string;
     displayName: string | null;
