@@ -1,0 +1,3 @@
+[submodule "apps/bot"]
+	path = apps/bot
+	url = https://github.com/aiqadam/aiqadam-telegram-bot.git

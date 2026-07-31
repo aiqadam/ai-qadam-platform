@@ -86,7 +86,7 @@ aiqadam/
 │   ├── web/                  # Astro frontend (legacy, being replaced by web-next)
 │   ├── web-next/             # Astro 5 + React 19 + Tailwind 4 rewrite (ADR-0038)
 │   ├── api/                  # NestJS 11 backend
-│   ├── bot/                  # Python aiogram 3 Telegram bot
+│   ├── bot/                  # Python aiogram 3 Telegram bot (git submodule → aiqadam/aiqadam-telegram-bot, ADR-0034)
 │   ├── workers/              # BullMQ background job processors
 │   ├── e2e/                  # Playwright end-to-end smoke suite
 │   └── storybook/            # component stories
@@ -255,8 +255,16 @@ apps/web/src/
 
 ## Bot architecture (Python)
 
+> `apps/bot/` is a **git submodule** pointing at
+> [aiqadam/aiqadam-telegram-bot](https://github.com/aiqadam/aiqadam-telegram-bot)
+> — a separate repo for deployment/CI isolation and language separation
+> (Python vs. the pnpm monorepo), vendored here so it's managed as part
+> of this workspace. See [ADR-0034](../../adr/0034-telegram-bot-and-sender.md)
+> for the full rationale and the bot/notifier process split. The layout
+> below lives inside that submodule.
+
 ```
-apps/bot/
+apps/bot/  (submodule root)
 ├── src/
 │   ├── handlers/             # command and callback handlers
 │   ├── services/             # API client, business logic
