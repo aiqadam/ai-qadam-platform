@@ -1,5 +1,76 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260801-feat-177`.
+**FR-BOT-002 PR 4/6 shipped — /leaderboard, top 10 country leaderboard with caller-row highlight and temp-user exclusion.**
+[wf-20260801-feat-177](../tasks/completed/wf-20260801-feat-177/handoff.yaml)
+(PR [#207](https://github.com/aiqadam/ai-qadam-platform/pull/207),
+merged): fourth of the planned 6-PR sequence implementing `FR-BOT-002`.
+On `apps/api`: one new `InternalAuthGuard`-protected, Zod-validated route
+— `GET /v1/internal/telegram/leaderboard` on `TelegramInternalController`
+— reusing `PointsDirectusService.leaderboard()` and
+`DirectusUsersBridgeService.resolveUserIdFromDirectusId()` (both PR
+2/3-era services) completely unchanged: zero new Directus query, zero
+new DB migration, zero new module-graph wiring (both were already
+injected into `TelegramAuthService`). The response narrows the
+underlying `LeaderboardEntry` shape (`email`, `handle`, `userId`) down to
+`{ displayName, points, isCaller }` before it leaves the API boundary —
+a PII-narrowing decision flagged during impact analysis and confirmed by
+a dedicated regression test asserting the actual returned object has no
+such fields, not just a type-level guarantee. `isCaller` is resolved
+server-side (comparing the caller's resolved `platform.users.id` against
+each entry) so the bot never learns another user's identifier; unlike
+`/me`'s `getMeSummary` (which 404s on an unresolvable caller identity),
+`/leaderboard` degrades to "no row highlighted" instead of failing the
+whole request, since the ranked list is still valid content either way.
+On `apps/bot/` (submodule, pushed to SHA `f6ed6cf`): new `/leaderboard`
+command handler + `render_leaderboard()`, reusing the same
+`<b>...</b>` HTML bold convention `/me`/`/event` already established for
+emphasis (no new markup mechanism); no pagination, since the FR's own AC
+only ever asks for "top 10." `/help`'s `help.leaderboard` line lost its
+"(coming soon)"/"(скоро)" suffix, matching the exact pattern PR 2/3
+established for their own commands. **Scope decision, made explicit
+rather than silently resolved:** the FR's functional-scope wording
+("Highlights the calling user's position **if they appear**") was read
+literally — a caller ranking outside the top 10 sees a fully unmarked
+list, no separate "your rank" line; this is the narrower, AC-literal
+interpretation, adopted per the task brief's own guidance absent a clear
+signal otherwise, and covered by a dedicated regression test
+(`test_render_leaderboard_no_highlight_when_caller_absent`). 0
+BLOCKER/MAJOR security findings. apps/api 1447/1448 (1 pre-existing,
+unrelated clock-race flake at `users.spec.ts:65`, the same one PR
+1/2/3 each independently confirmed untouched by their own diffs, and
+confirmed untouched by this diff too); apps/bot 124/124 (111 pre-existing
++ 13 new/modified). **Temp-user exclusion needed no new filtering
+code — confirmed by reading the query AND by live end-to-end
+verification, not just trusted from a prior research pass:**
+`leaderboard()`'s aggregate only ever enumerates `point_awards` rows, and
+a temp (Authentik-only) user has never earned one. Live-verified against
+the real local stack: seeded a genuine temp user via the real
+`upsert-temp-user` endpoint (response confirmed `directusUserId: null` —
+zero Directus footprint) alongside a genuine new Directus member with a
+real 250-point `point_awards` row and a `platform.users` bridge row;
+called the real endpoint and confirmed the full member appeared
+(`isCaller: true`, ranked #1) while the temp user was absent, cross-
+referenced directly against Directus showing zero rows for the temp
+identity, then cleaned up all seed fixtures with a confirming baseline
+call. `business_process` frontmatter on `FR-BOT-002.md` left unchanged
+at `[BP-UAT-010]` — this PR's own surface (leaderboard) doesn't touch
+that process, and `BP-UAT-012` ("Points engine and leaderboard," the
+topically correct match) has no spec/process_ref/run history to link to
+instead — checked and rejected per `protocol.md`'s "don't force a link"
+guidance, same posture PR 3 already took when it checked the same
+BP-UAT for `/me`. Step 13 does not apply to this workflow
+(`handoff.yaml.business_process: []`). Did **not** close GitHub issue
+`#140` (`FR-BOT-002`'s own tracking issue) — same judgement call PR 2/3
+already made and documented: issue #140 tracks the entire 10-command FR,
+and this PR ships only command 6 of 10 (3 remain: `/interests`,
+`/upgrade`, plus `/start` refinements were never separately tracked).
+Synced to Project-board status `agent-verified` directly (no linked
+BP-UAT to re-verify, so a clean merge is itself sufficient per Step
+11.5's rule). `requirements-registry.md` row 58 stays `In Progress`
+(unchanged); `FR-BOT-002.md`'s own `status:` frontmatter stays `Planned`
+(same multi-PR-FR rationale as PR 1-3).
+
 **Last updated:** 2026-08-01 — `wf-20260801-feat-176`.
 **FR-BOT-002 PR 3/6 shipped — /me, the bot's first member-facing dashboard command: active registrations with status badges + a Cancel button per row, and lifetime points total.**
 [wf-20260801-feat-176](../tasks/completed/wf-20260801-feat-176/handoff.yaml)
