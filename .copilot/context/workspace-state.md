@@ -1,5 +1,34 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-fix-162`.
+**ISS-BRIDGE-STALE-001 resolved — `directus_user_id` cache now self-heals on email drift instead of misattributing writes forever.**
+[wf-20260731-fix-162](../tasks/active/wf-20260731-fix-162/handoff.yaml)
+(PR `<pending>`): `DirectusUsersBridgeService.ensureLinked()`'s cache-hit
+branch used to trust `platform.users.directus_user_id` unconditionally,
+forever — the live consequence, found during `wf-20260730-uat-158`'s
+BP-UAT-010 verification, was `uat-member@example.com`'s registrations
+FK-attaching to a stale Directus row still carrying the retired
+`@aiqadam.test` email. Added `reconcileCachedId()`: on cache-hit, one
+Directus `GET /users/:id` confirms the cached row's email still matches;
+on drift, re-resolves via the existing `findOrCreate()`/`maybeBackfill()`
+trust logic (no new matching heuristic), persists the corrected id, and
+logs the repoint at `warn` (old id → new id). Deliberately scoped to
+`ensureLinked()`'s once-per-sign-in path, not `resolveDirectusId()`'s
+per-request fast path used by 10+ other modules (me-profile, admin-invites,
+audit, badges, referrals, event-questions, workspace) — avoids adding a
+Directus round-trip to every read while still healing the cache on the
+natural re-auth cadence. All Directus-error branches fall back to the
+stale cached value rather than throwing, preserving the file's existing
+"never block sign-in" invariant. Regression test reproduces the live bug
+with its exact real ids (`a1524645-...` → `bb110099-...`); 18/18 pass in
+`directus-users-bridge.spec.ts`, 1353/1354 repo-wide (1 pre-existing,
+unrelated `users.spec.ts` clock-race flake, confirmed failing identically
+on `main`). No standalone backfill script for AC-3 — `uat-member`'s own
+drifted row is expected to self-heal via this exact mechanism on its next
+sign-in, verified at this workflow's mandatory Step 13 BP-UAT-010
+post-merge re-verification (see this file's next entry once that step
+completes).
+
 **Last updated:** 2026-07-31 — `wf-20260731-fix-161`.
 **ISS-RBAC-PERMS-001 fully resolved — all seven ADR-0021 policies now have live-verified permission rows.**
 [wf-20260731-fix-161](../tasks/completed/wf-20260731-fix-161/handoff.yaml)

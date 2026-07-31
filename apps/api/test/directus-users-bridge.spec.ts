@@ -135,9 +135,21 @@ describe('DirectusUsersBridgeService.ensureLinked', () => {
     });
   });
 
-  it('is a no-op (fast path) when directusUserId is already populated', async () => {
+  // ISS-BRIDGE-STALE-001: a cache-hit no longer skips Directus entirely —
+  // it now issues one GET to verify the cached id's email still matches
+  // (see the drift-handling describe block below for the mismatch case).
+  // This test covers the non-drifted case: the reconcile check confirms a
+  // match and the fast path still avoids any post/patch writes.
+  it('reconciles (no-op) when directusUserId is already populated and still matches', async () => {
     const fake: FakeDirectus = {
-      get: vi.fn(),
+      get: vi.fn().mockResolvedValue({
+        data: {
+          id: '44444444-4444-4000-8000-000000000004',
+          email: 'd@e.com',
+          external_identifier: 'd@e.com',
+          provider: 'authentik',
+        },
+      }),
       post: vi.fn(),
       patch: vi.fn(),
     };
@@ -155,8 +167,12 @@ describe('DirectusUsersBridgeService.ensureLinked', () => {
     });
 
     expect(id).toBe('44444444-4444-4000-8000-000000000004');
-    expect(fake.get).not.toHaveBeenCalled();
+    expect(fake.get).toHaveBeenCalledTimes(1);
+    expect(fake.get).toHaveBeenCalledWith(
+      '/users/44444444-4444-4000-8000-000000000004?fields=id,email,external_identifier,provider',
+    );
     expect(fake.post).not.toHaveBeenCalled();
+    expect(fake.patch).not.toHaveBeenCalled();
   });
 
   it('returns null + does NOT throw when Directus is unreachable (sign-in must not block)', async () => {
@@ -177,6 +193,157 @@ describe('DirectusUsersBridgeService.ensureLinked', () => {
     expect(id).toBeNull();
     const [refreshed] = await db.select().from(users).where(eq(users.id, user.id));
     expect(refreshed?.directusUserId).toBeNull();
+  });
+});
+
+// ISS-BRIDGE-STALE-001: platform.users.directus_user_id was a write-once
+// cache — once set, ensureLinked returned it forever, even after the
+// user's email diverged from the cached Directus row (e.g. an Authentik-
+// only email migration like ISS-UAT-BRIDGE-002 never reconciled the
+// Directus side). This reproduces the live bug found during BP-UAT-010
+// verification: uat-member@example.com's registrations attached to a
+// stale Directus row still carrying the old @aiqadam.test email.
+describe('DirectusUsersBridgeService.ensureLinked — stale cache reconciliation', () => {
+  beforeEach(async () => {
+    await db.delete(users);
+  });
+
+  it('regression: repoints to a DIFFERENT existing Directus row when the cached id has drifted (the live uat-member bug)', async () => {
+    const staleId = 'a1524645-424a-4ad3-8974-faa94eecbb24';
+    const correctId = 'bb110099-c215-433b-8930-81e7f4dab21a';
+    const fake: FakeDirectus = {
+      get: vi
+        .fn()
+        // First call: reconcile lookup on the stale cached id — returns
+        // the OLD row, still carrying the retired email.
+        .mockResolvedValueOnce({
+          data: {
+            id: staleId,
+            email: 'uat-member@aiqadam.test',
+            external_identifier: 'uat-member@aiqadam.test',
+            provider: 'authentik',
+          },
+        })
+        // Second call: findOrCreate's filter-by-current-email lookup —
+        // finds the CORRECT, already-Directus-mirrored row.
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: correctId,
+              email: 'uat-member@example.com',
+              external_identifier: 'uat-member@example.com',
+              provider: 'authentik',
+            },
+          ],
+        }),
+      post: vi.fn(),
+      patch: vi.fn(),
+    };
+    const bridge = makeBridge(fake);
+    const user = await seedUser('uat-member@example.com');
+    await db.update(users).set({ directusUserId: staleId }).where(eq(users.id, user.id));
+
+    const id = await bridge.ensureLinked({
+      userId: user.id,
+      email: user.email,
+      displayName: user.displayName,
+    });
+
+    expect(id).toBe(correctId);
+    expect(fake.post).not.toHaveBeenCalled();
+    const [refreshed] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(refreshed?.directusUserId).toBe(correctId);
+  });
+
+  it('repoints to a NEWLY CREATED Directus row when the cached id has drifted and no matching row exists', async () => {
+    const staleId = 'c0000000-0000-4000-8000-000000000001';
+    const newId = 'c0000000-0000-4000-8000-000000000002';
+    const fake: FakeDirectus = {
+      get: vi
+        .fn()
+        .mockResolvedValueOnce({
+          data: {
+            id: staleId,
+            email: 'old@example.com',
+            external_identifier: 'old@example.com',
+            provider: 'authentik',
+          },
+        })
+        .mockResolvedValueOnce({ data: [] }),
+      post: vi.fn().mockResolvedValue({
+        data: { id: newId, email: 'new@example.com' },
+      }),
+      patch: vi.fn(),
+    };
+    const bridge = makeBridge(fake);
+    const user = await seedUser('new@example.com');
+    await db.update(users).set({ directusUserId: staleId }).where(eq(users.id, user.id));
+
+    const id = await bridge.ensureLinked({
+      userId: user.id,
+      email: user.email,
+      displayName: user.displayName,
+    });
+
+    expect(id).toBe(newId);
+    expect(fake.post).toHaveBeenCalledTimes(1);
+    const [refreshed] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(refreshed?.directusUserId).toBe(newId);
+  });
+
+  it('keeps the stale cached value (does not throw) when the reconcile GET fails', async () => {
+    const staleId = 'd0000000-0000-4000-8000-000000000001';
+    const fake: FakeDirectus = {
+      get: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+      post: vi.fn(),
+      patch: vi.fn(),
+    };
+    const bridge = makeBridge(fake);
+    const user = await seedUser('g@h.com');
+    await db.update(users).set({ directusUserId: staleId }).where(eq(users.id, user.id));
+
+    const id = await bridge.ensureLinked({
+      userId: user.id,
+      email: user.email,
+      displayName: user.displayName,
+    });
+
+    expect(id).toBe(staleId);
+    expect(fake.post).not.toHaveBeenCalled();
+    const [refreshed] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(refreshed?.directusUserId).toBe(staleId);
+  });
+
+  it('keeps the stale cached value (does not throw) when re-resolution fails after drift is detected', async () => {
+    const staleId = 'e0000000-0000-4000-8000-000000000001';
+    const fake: FakeDirectus = {
+      get: vi
+        .fn()
+        .mockResolvedValueOnce({
+          data: {
+            id: staleId,
+            email: 'old@example.com',
+            external_identifier: 'old@example.com',
+            provider: 'authentik',
+          },
+        })
+        .mockRejectedValueOnce(new Error('502 Bad Gateway')),
+      post: vi.fn(),
+      patch: vi.fn(),
+    };
+    const bridge = makeBridge(fake);
+    const user = await seedUser('new2@example.com');
+    await db.update(users).set({ directusUserId: staleId }).where(eq(users.id, user.id));
+
+    const id = await bridge.ensureLinked({
+      userId: user.id,
+      email: user.email,
+      displayName: user.displayName,
+    });
+
+    expect(id).toBe(staleId);
+    const [refreshed] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(refreshed?.directusUserId).toBe(staleId);
   });
 });
 
@@ -252,9 +419,20 @@ describe('DirectusUsersBridgeService.ensureLinkedByEmail', () => {
     expect(rows.length).toBe(0);
   });
 
-  it('returns the existing directusUserId without re-creating when the column is already populated', async () => {
+  it('returns the existing directusUserId without re-creating when the column is already populated and still matches (reconciles via ensureLinked)', async () => {
     const existingId = '66666666-6666-4000-8000-000000000006';
-    const fake: FakeDirectus = { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({
+        data: {
+          id: existingId,
+          email: 'linked@aiqadam.test',
+          external_identifier: 'linked@aiqadam.test',
+          provider: 'authentik',
+        },
+      }),
+      post: vi.fn(),
+      patch: vi.fn(),
+    };
     const bridge = makeBridge(fake);
     const user = await seedUser('linked@aiqadam.test');
     await db
@@ -268,7 +446,10 @@ describe('DirectusUsersBridgeService.ensureLinkedByEmail', () => {
     });
 
     expect(id).toBe(existingId);
-    expect(fake.get).not.toHaveBeenCalled();
+    // ISS-BRIDGE-STALE-001: delegates to ensureLinked, which now issues
+    // one reconcile GET even on cache-hit — this is expected, not a
+    // regression (see the dedicated reconciliation describe block above).
+    expect(fake.get).toHaveBeenCalledTimes(1);
     expect(fake.post).not.toHaveBeenCalled();
   });
 
