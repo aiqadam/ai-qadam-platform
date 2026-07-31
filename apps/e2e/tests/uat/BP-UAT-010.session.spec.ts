@@ -41,16 +41,17 @@
 import { test } from '@playwright/test';
 import { UATSessionDriver } from '../../support/uat-session-driver';
 
-const RUN_ID = 'wf-20260731-uat-166';
+const RUN_ID = 'wf-20260731-fix-167';
 const BASE_URL = process.env.UAT_BASE_URL ?? 'http://localhost:4321';
 const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://localhost:8200';
 const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN ?? '';
 const MEMBER_EMAIL = process.env.UAT_MEMBER_EMAIL ?? 'uat-member@example.com';
-const MEMBER_PASSWORD = process.env.UAT_MEMBER_PASSWORD ?? 'UatMember1!';
+const MEMBER_PASSWORD = process.env.UAT_MEMBER_PASSWORD ?? 'UatFixture1!';
 
-// From this run's `pnpm uat:seed --reset BP-UAT-010` (02-preflight.md).
-const EVENT_OPEN_ID = '74d98f3f-c218-4132-aea9-72560649687f'; // UAT Event Open UZ, capacity=10
-const EVENT_FULL_ID = '4e92476d-3a8a-430b-bd99-e736466bd03f'; // UAT Event Full UZ, capacity=2, 2/2 registered
+// From this run's `pnpm uat:seed --reset BP-UAT-010` (Step 13 of
+// wf-20260731-fix-167, ISS-EVT-004-1 post-merge re-verification).
+const EVENT_OPEN_ID = '2fff0cc1-c103-4f2e-af0f-e46bdf160ef4'; // UAT Event Open UZ, capacity=10
+const EVENT_FULL_ID = '20f90dd3-dc8b-42c3-92c5-e231e0359154'; // UAT Event Full UZ, capacity=2, 2/2 registered
 
 async function signIn(driver: UATSessionDriver, email: string, password: string): Promise<void> {
   await driver.page.waitForLoadState('networkidle').catch(() => {});

@@ -44,6 +44,7 @@ import type { EventDetailTab } from '../../blocks/customer/EventDetail.astro';
 import { VALID_TABS } from '../../blocks/customer/EventDetail.astro';
 import { PageHead } from '../../blocks/common';
 import Layout from '../../layouts/Layout.astro';
+import { fetchEventRegistrationCount } from '../../lib/api-ssr';
 import {
   fetchEvent,
   fetchEventMaterials,
@@ -90,15 +91,22 @@ const isGated =
   (event.visibilityScope === 'members_only' || event.visibilityScope === 'invite_only') &&
   Astro.locals.auth?.me == null;
 
-const [speakers, allMaterials, photos, sponsors, questions] = isGated
-  ? [[], [], [], [], []]
+// registeredCount comes from apps/api (lib/api-ssr.ts), not lib/cms.ts —
+// the `registrations` Directus collection has no Public read grant, so
+// this SSR module cannot query it directly (ISS-EVT-005-1). fetchEvent()
+// always returns registeredCount=0; overwrite it here with the real count
+// for the same non-gated visitors who actually see the capacity/waitlist UI.
+const [speakers, allMaterials, photos, sponsors, questions, registeredCount] = isGated
+  ? [[], [], [], [], [], 0]
   : await Promise.all([
       fetchEventSpeakers(event.id),
       fetchEventMaterials(event.id),
       fetchEventPhotos(event.id),
       fetchEventSponsors(event.id),
       fetchEventQuestions(event.id),
+      fetchEventRegistrationCount(Astro.request, event.id),
     ]);
+event.registeredCount = registeredCount;
 
 const { recordings, materials } = splitRecordings(allMaterials);
 const hasFinishedContent = recordings.length > 0 || photos.length > 0 || Boolean(event.recapMd);
@@ -184,8 +192,13 @@ const pageDescription = event.shortDescription ?? event.description.slice(0, 200
           client:load
           t={{
             capacity: t('event_detail.capacity'),
-            spots: (count, capacity) => t('event_detail.spots', { count, capacity }),
-            going_count: (count) => t('event_card.going_count', { count }),
+            // Templates, not functions — client:load islands serialize
+            // props as JSON, which silently drops function values to
+            // null (ISS-EVT-005-1 discovery: crashed CapacityHint with
+            // "t.spots is not a function" for every signed-in visitor).
+            // CapacityHint does its own {{count}}/{{capacity}} substitution.
+            spotsTemplate: t('event_detail.spots', { count: '{{count}}', capacity: '{{capacity}}' }),
+            goingCountTemplate: t('event_card.going_count', { count: '{{count}}' }),
             sign_in_to_join_waitlist: t('event_detail.sign_in_to_join_waitlist'),
             sign_in_to_register: t('event_detail.sign_in_to_register'),
             loading_registration: t('event_detail.loading_registration'),

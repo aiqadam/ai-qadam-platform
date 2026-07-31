@@ -6,6 +6,7 @@ import { DirectusModule } from '../directus/directus.module';
 import { EulaModule } from '../eula/eula.module';
 import { CheckinEventsController } from './checkin-events.controller';
 import { CheckinController } from './checkin.controller';
+import { EventRegistrationCountController } from './event-registration-count.controller';
 import { RegistrationCheckinController } from './registration-checkin.controller';
 import { RegistrationsDirectusService } from './registrations-directus.service';
 import { RegistrationsController } from './registrations.controller';
@@ -25,6 +26,7 @@ import { RegistrationsController } from './registrations.controller';
     CheckinController,
     RegistrationCheckinController,
     CheckinEventsController,
+    EventRegistrationCountController,
   ],
 })
 export class RegistrationsModule {}

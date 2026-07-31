@@ -23,9 +23,8 @@ export type ActiveRegistrationStatus = 'registered' | 'waitlisted';
 
 interface RegistrationRow {
   id: string;
-  eventId: string;
   status: 'registered' | 'waitlisted' | 'cancelled' | 'attended';
-  registeredAt: string;
+  event: { id: string };
 }
 
 interface RegistrationsResponse {
@@ -49,9 +48,9 @@ export function useMyRegistrationStatus(
   return useQuery<ActiveRegistrationStatus | null, Error>({
     queryKey: [...REGS_BASE_KEY, 'by-event', eventId] as const,
     queryFn: async () => {
-      const body = await apiClient<RegistrationsResponse>('/v1/registrations');
+      const body = await apiClient<RegistrationsResponse>('/v1/registrations/mine');
       for (const r of body.registrations) {
-        if (r.eventId === eventId && (r.status === 'registered' || r.status === 'waitlisted')) {
+        if (r.event.id === eventId && (r.status === 'registered' || r.status === 'waitlisted')) {
           return r.status;
         }
       }
