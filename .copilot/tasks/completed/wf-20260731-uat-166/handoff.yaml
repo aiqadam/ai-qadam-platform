@@ -13,11 +13,11 @@ github_issue_url: ""
 
 branch: "uat/BP-UAT-010-iss-uat-010-2-postmerge"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/183"
 
 current_step: 5
 current_step_name: "commit-push-pr"
-workflow_status: "running"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: "wf-20260731-fix-165"

@@ -13,19 +13,33 @@
 # drifted apart with nothing to notice.
 #
 # GitHub's own closing-keyword scanner (Closes/Fixes/Resolves #N, case
-# insensitive) fires off ANY commit reaching the default branch — this
-# script cannot intercept that after the fact, so it is a PRE-COMMIT /
-# PRE-PUSH style guard: given a commit message and the business_process
-# value of the issue/FR it references, it fails if the message contains a
-# closing keyword for an issue whose business_process is non-empty (i.e.
-# Step 13 has not necessarily run yet). When business_process is empty
-# ("—"), a closing keyword is correct and unchanged — nothing further
-# needs verifying.
+# insensitive) fires off ANY commit message OR PR body text reaching the
+# default branch — this script cannot intercept that after the fact, so
+# it is a PRE-COMMIT / PRE-PR style guard: given a commit message or a
+# drafted PR body, plus the business_process value of the issue/FR it
+# references, it fails if the text contains a closing keyword for an
+# issue whose business_process is non-empty (i.e. Step 13 has not
+# necessarily run yet). When business_process is empty ("—"), a closing
+# keyword is correct and unchanged — nothing further needs verifying.
+#
+# ISS-WF-GH-CLOSE-002 (2026-07-31): originally --message-file (commit
+# messages) only. GitHub's auto-close scanner reads PR body text
+# independently of commit messages — a real instance slipped through
+# this exact gap on issue #160 (PR #181's body contained "Closes #160"
+# in prose; the commit message itself correctly used "Refs #160" and
+# passed this guard). Added --body-file as an equivalent, alternative
+# input so the same check can run against a drafted PR body before
+# `gh pr create`, not just a commit message before `git commit`.
 #
 # Usage:
 #   scripts/check-closing-keyword.sh --message-file <path> --issue-ref <ISS-n|FR-CODE>
+#   scripts/check-closing-keyword.sh --body-file <path> --issue-ref <ISS-n|FR-CODE>
 #   scripts/check-closing-keyword.sh --message-file <path> --issue-ref <ISS-n|FR-CODE> --business-process "BP-UAT-010"
 #   scripts/check-closing-keyword.sh --message-file <path> --issue-ref <ISS-n|FR-CODE> --business-process "—"
+#
+# Exactly one of --message-file / --body-file is required — both scan
+# identically, the flag only names which artifact is being checked (for
+# clearer error messages).
 #
 # --business-process may also be omitted, in which case this script reads
 # it directly from .copilot/issues/<ISS-n>.md's `Business-Process` field
@@ -35,8 +49,8 @@
 #   0  No closing keyword found, OR business_process is empty/— (closing
 #      keyword is correct in that case).
 #   1  A closing keyword was found for an issue with non-empty
-#      business_process — the commit message must use a neutral
-#      reference (e.g. "Refs #N") instead; Step 13's own gate closes the
+#      business_process — the text must use a neutral reference instead
+#      (e.g. "Refs #N", "Addresses #N") — Step 13's own gate closes the
 #      issue once verification actually passes.
 #   2  Invocation error (missing file, unreadable issue ref, etc.).
 
@@ -45,6 +59,7 @@ set -euo pipefail
 readonly SCRIPT_NAME="check-closing-keyword.sh"
 
 MESSAGE_FILE=""
+BODY_FILE=""
 ISSUE_REF=""
 BUSINESS_PROCESS=""
 HAVE_BP_ARG=false
@@ -53,12 +68,14 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --message-file)
       MESSAGE_FILE="$2"; shift 2 ;;
+    --body-file)
+      BODY_FILE="$2"; shift 2 ;;
     --issue-ref)
       ISSUE_REF="$2"; shift 2 ;;
     --business-process)
       BUSINESS_PROCESS="$2"; HAVE_BP_ARG=true; shift 2 ;;
     -h|--help)
-      sed -n '2,40p' "$0"
+      sed -n '2,48p' "$0"
       exit 0 ;;
     *)
       echo "ERROR: unknown argument: $1" >&2
@@ -67,13 +84,29 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$MESSAGE_FILE" || -z "$ISSUE_REF" ]]; then
-  echo "ERROR: --message-file and --issue-ref are required." >&2
+if [[ -n "$MESSAGE_FILE" && -n "$BODY_FILE" ]]; then
+  echo "ERROR: pass exactly one of --message-file / --body-file, not both." >&2
   exit 2
 fi
 
-if [[ ! -f "$MESSAGE_FILE" ]]; then
-  echo "ERROR: message file not found: $MESSAGE_FILE" >&2
+if [[ -z "$MESSAGE_FILE" && -z "$BODY_FILE" ]]; then
+  echo "ERROR: one of --message-file / --body-file is required, plus --issue-ref." >&2
+  exit 2
+fi
+
+if [[ -z "$ISSUE_REF" ]]; then
+  echo "ERROR: --issue-ref is required." >&2
+  exit 2
+fi
+
+# TARGET_FILE / TARGET_LABEL let the rest of the script treat both input
+# kinds identically — the scan logic below doesn't care which one it is.
+TARGET_FILE="${MESSAGE_FILE:-$BODY_FILE}"
+TARGET_LABEL="commit message"
+[[ -n "$BODY_FILE" ]] && TARGET_LABEL="PR body"
+
+if [[ ! -f "$TARGET_FILE" ]]; then
+  echo "ERROR: ${TARGET_LABEL} file not found: $TARGET_FILE" >&2
   exit 2
 fi
 
@@ -130,14 +163,17 @@ if [[ -z "$GH_NUMBER" ]]; then
   exit 0
 fi
 
-# ── Scan the commit message for a closing keyword targeting this issue ──
+# ── Scan the target text for a closing keyword aimed at this issue ─────
 # GitHub's own keyword list: close, closes, closed, fix, fixes, fixed,
 # resolve, resolves, resolved — case-insensitive, followed by #N (or
-# owner/repo#N, not needed here since this is same-repo).
-if grep -qiE "(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]+#${GH_NUMBER}([^0-9]|\$)" "$MESSAGE_FILE"; then
-  echo "ERROR: commit message contains a closing keyword for #${GH_NUMBER}, but ${ISSUE_REF}'s business_process (${BUSINESS_PROCESS}) means Step 13 post-merge re-verification has not necessarily run yet. Use a neutral reference instead (e.g. 'Refs #${GH_NUMBER}') — Step 13's own gate closes the issue once verification actually passes clean. See ISS-WF-GH-CLOSE-001 for the motivating incident (issue #130)." >&2
+# owner/repo#N, not needed here since this is same-repo). GitHub applies
+# this scan to BOTH commit messages and PR body text, so this check must
+# too (ISS-WF-GH-CLOSE-002) — the grep pattern is intentionally identical
+# regardless of which one TARGET_FILE holds.
+if grep -qiE "(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]+#${GH_NUMBER}([^0-9]|\$)" "$TARGET_FILE"; then
+  echo "ERROR: ${TARGET_LABEL} contains a closing keyword for #${GH_NUMBER}, but ${ISSUE_REF}'s business_process (${BUSINESS_PROCESS}) means Step 13 post-merge re-verification has not necessarily run yet. Use a neutral reference instead (e.g. 'Refs #${GH_NUMBER}', 'Addresses #${GH_NUMBER}') — Step 13's own gate closes the issue once verification actually passes clean. See ISS-WF-GH-CLOSE-001 / ISS-WF-GH-CLOSE-002 for the motivating incidents (issue #130, issue #160)." >&2
   exit 1
 fi
 
-echo "OK: no premature closing keyword for #${GH_NUMBER} found."
+echo "OK: no premature closing keyword for #${GH_NUMBER} found in ${TARGET_LABEL}."
 exit 0

@@ -376,6 +376,19 @@ Step 13 has run means the issue reads as done while the Project board's
 own Status field correctly still says `implemented`, not
 `agent-verified` — a real incident (issue #130) shipped this exact drift.
 
+**PR body closing-keyword check (added 2026-07-31, ISS-WF-GH-CLOSE-002)
+— run again, separately, before `gh pr create`:** GitHub's auto-close
+scanner reads PR body text independently of commit messages — a drafted
+PR body's "Why" prose ("Closes #N / FR-CODE...") closes the issue at
+merge exactly like a commit-message keyword would, even when the commit
+message itself correctly used `Refs #N`. Before calling `gh pr create`:
+```bash
+scripts/check-closing-keyword.sh --body-file <path-to-drafted-pr-body> --issue-ref FR-<CODE>
+```
+Same remediation as above (rewrite to `Addresses #N`/`Refs #N`) if it
+exits 1. See issue #160 for the motivating incident this half guards
+against.
+
 **MANDATORY: After workflow-finish.sh completes, the Orchestrator MUST output
 the PR URL to the user in the final response.** Read `handoff.yaml` to extract
 `github_pr_url` and surface it as a markdown link. Example:**

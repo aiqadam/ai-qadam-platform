@@ -163,7 +163,7 @@ Closes #999" > commit-msg.txt
   [ "$status" -eq 0 ]
 }
 
-@test "invocation error: missing --message-file exits 2" {
+@test "invocation error: missing --message-file/--body-file exits 2" {
   write_iss_file "ISS-TEST-010" "[BP-UAT-010]" "https://github.com/aiqadam/ai-qadam-platform/issues/141"
   run bash scripts/check-closing-keyword.sh --issue-ref ISS-TEST-010
   [ "$status" -eq 2 ]
@@ -172,5 +172,39 @@ Closes #999" > commit-msg.txt
 @test "invocation error: nonexistent message file exits 2" {
   write_iss_file "ISS-TEST-011" "[BP-UAT-010]" "https://github.com/aiqadam/ai-qadam-platform/issues/142"
   run bash scripts/check-closing-keyword.sh --message-file /nonexistent --issue-ref ISS-TEST-011
+  [ "$status" -eq 2 ]
+}
+
+# ── ISS-WF-GH-CLOSE-002: --body-file (PR body text), a second closing-
+# keyword vector GitHub's auto-close scanner honors independently of
+# commit messages. Motivating incident: PR #181's body contained
+# "Closes #160" in prose while its commit message correctly used
+# "Refs #160" — the commit-message-only guard had nothing to say about
+# the PR body, so the issue closed at merge before Step 13 ran.
+
+@test "ISS-WF-GH-CLOSE-002 AC-1: PR body closing keyword + non-empty business_process exits 1 (reproduces issue #160)" {
+  write_iss_file "ISS-UAT-010-2-TEST" "[BP-UAT-010]" "https://github.com/aiqadam/ai-qadam-platform/issues/160"
+  echo "Fixes a race condition.
+
+Closes #160 / ISS-UAT-010-2-TEST. Live UAT found this bug." > pr-body.txt
+  run bash scripts/check-closing-keyword.sh --body-file pr-body.txt --issue-ref ISS-UAT-010-2-TEST
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"PR body"* ]]
+}
+
+@test "ISS-WF-GH-CLOSE-002 AC-2: PR body with neutral reference + non-empty business_process exits 0" {
+  write_iss_file "ISS-TEST-012" "[BP-UAT-010]" "https://github.com/aiqadam/ai-qadam-platform/issues/143"
+  echo "Fixes a race condition.
+
+Addresses #143 / ISS-TEST-012." > pr-body.txt
+  run bash scripts/check-closing-keyword.sh --body-file pr-body.txt --issue-ref ISS-TEST-012
+  [ "$status" -eq 0 ]
+}
+
+@test "ISS-WF-GH-CLOSE-002 AC-3: --message-file and --body-file together is an invocation error" {
+  write_iss_file "ISS-TEST-013" "[BP-UAT-010]" "https://github.com/aiqadam/ai-qadam-platform/issues/144"
+  echo "Refs #144" > commit-msg.txt
+  echo "Refs #144" > pr-body.txt
+  run bash scripts/check-closing-keyword.sh --message-file commit-msg.txt --body-file pr-body.txt --issue-ref ISS-TEST-013
   [ "$status" -eq 2 ]
 }

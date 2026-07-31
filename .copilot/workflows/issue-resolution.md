@@ -344,6 +344,18 @@ both files, for the QualityGate status-consistency check.
 
 Same as `requirement-development.md` Step 11, with two additions:
 
+**PR body closing-keyword check (added 2026-07-31, ISS-WF-GH-CLOSE-002)
+— inherited from `requirement-development.md` Step 11's own "run again
+before `gh pr create`" note:** before calling `gh pr create`, run
+`scripts/check-closing-keyword.sh --body-file <path-to-drafted-pr-body>
+--issue-ref ISS-<n>` on the drafted PR body text, separately from the
+commit-message check already run in Step 9. GitHub's auto-close scanner
+honors closing keywords in PR body prose independently of commit
+messages — this caught a real incident (issue #160) where the commit
+message correctly used `Refs #N` but the PR body's own "Why" section
+said "Closes #N" and closed the issue at merge, before Step 13 ran. If
+it exits 1, rewrite to a neutral reference (`Addresses #N`/`Refs #N`).
+
 1. **Back-fill PR URL.** After `gh pr create` returns the PR URL, rewrite
    the `PR:` placeholder in `ISS-<n>.md`'s `## Resolution` section to the
    actual URL, amend the workflow-artifacts commit (or follow-up commit),

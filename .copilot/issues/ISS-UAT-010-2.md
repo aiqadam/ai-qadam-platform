@@ -123,3 +123,15 @@ polls past a stale first re-read to catch a delayed capacity-flow
 demotion" (would have failed before the fix, passes after).
 
 **Merged:** `a91a9c6` (PR [#181](https://github.com/aiqadam/ai-qadam-platform/pull/181), squashed)
+
+**Step 13 post-merge BP-UAT-010 re-verification:** clean pass
+(`wf-20260731-uat-166`, PR [#183](https://github.com/aiqadam/ai-qadam-platform/pull/183)
+squash `2c0abf6`). Live session cross-referenced the DOM state against
+the actual Directus row on both the open-event and full-event paths —
+the full event correctly rendered "On waitlist — we'll email if a seat
+opens" while Directus independently confirmed `status=waitlisted`
+(previously: DOM said "You're registered" while Directus said
+`waitlisted`, the exact defect this issue reported). No new issues
+found; one pre-existing, already-tracked, unrelated visual artifact
+(`ISS-EVT-004-1`'s capacity-counter display bug) reproduced but not
+re-filed. AC-3 now fully verified live, not just at the mock-test level.
