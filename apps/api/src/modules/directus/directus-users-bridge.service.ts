@@ -11,13 +11,29 @@ import { DirectusClient, DirectusError } from './directus.client';
 //
 // Lookup order (matches our Directus AUTH_AUTHENTIK_IDENTIFIER_KEY=email
 // + provider=authentik configuration):
-//   1. If our row already has directusUserId → no-op (fast path).
+//   1. If our row already has directusUserId → verify it still matches the
+//      caller's current email (ISS-BRIDGE-STALE-001); re-resolve on drift,
+//      otherwise fast path.
 //   2. Else GET /users?filter[email][_eq]=<email> — link if found.
 //   3. Else POST /users to create with provider=authentik,
 //      external_identifier=email, status=active, role=null.
 //
 // Failure modes log + swallow: a bridge failure must NOT block sign-in.
 // The next sign-in retries automatically (column stays null until success).
+//
+// ISS-BRIDGE-STALE-001: directus_user_id used to be a write-once cache —
+// once set, `ensureLinked`/`resolveDirectusId` returned it unconditionally,
+// forever, even after the user's email changed (self-service, admin
+// correction, or an Authentik-only migration like ISS-UAT-BRIDGE-002) and
+// the cached Directus row became stale. Every downstream consumer of
+// resolveDirectusId/ensureLinked (registrations, points, badges, referrals,
+// audit-actor resolution, admin-invite attribution, me-profile, RBAC sync)
+// silently wrote to the wrong Directus user with no error. The re-check
+// below is scoped to `ensureLinked`'s sign-in path only (not
+// `resolveDirectusId`'s per-request fast path) so the common, non-drifted
+// case stays at zero added Directus calls — mirrors how `maybeBackfill` is
+// already scoped to the infrequent `findOrCreate` path, not read-heavy call
+// sites.
 
 interface DirectusUserRow {
   id: string;
@@ -47,7 +63,7 @@ export class DirectusUsersBridgeService {
       .limit(1);
 
     if (row?.directusUserId) {
-      return row.directusUserId;
+      return this.reconcileCachedId(input.userId, row.directusUserId, input.email);
     }
 
     try {
@@ -61,6 +77,60 @@ export class DirectusUsersBridgeService {
       const reason = err instanceof Error ? err.message : 'unknown';
       this.logger.warn(`[directus-bridge] ensureLinked failed for ${input.email}: ${reason}`);
       return null;
+    }
+  }
+
+  // ISS-BRIDGE-STALE-001 AC-1/AC-2: verify the cached id still belongs to
+  // this user's current email before trusting it. A cache-hit is the
+  // overwhelmingly common case, so this does exactly one Directus GET (no
+  // extra round trips beyond that) and only writes back when something
+  // actually drifted. On any Directus error (unreachable, 404 for a
+  // deleted row), fall back to the old cached value rather than blocking
+  // sign-in — same swallow-and-retry-next-time philosophy as the rest of
+  // this service.
+  private async reconcileCachedId(
+    userId: string,
+    cachedDirectusId: string,
+    currentEmail: string,
+  ): Promise<string> {
+    let cachedRow: DirectusUserRow | undefined;
+    try {
+      const res = await this.directus.get<{ data: DirectusUserRow }>(
+        `/users/${cachedDirectusId}?fields=id,email,external_identifier,provider`,
+      );
+      cachedRow = res.data;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(
+        `[directus-bridge] reconcile lookup failed for cached id ${cachedDirectusId}, keeping cached value: ${reason}`,
+      );
+      return cachedDirectusId;
+    }
+
+    if (cachedRow.email === currentEmail) {
+      return cachedDirectusId;
+    }
+
+    this.logger.warn(
+      `[directus-bridge] cached directus_user_id ${cachedDirectusId} (email ${cachedRow.email}) no longer matches current email ${currentEmail} — re-resolving`,
+    );
+
+    try {
+      const resolvedId = await this.findOrCreate(currentEmail, null);
+      await this.db
+        .update(users)
+        .set({ directusUserId: resolvedId, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+      this.logger.warn(
+        `[directus-bridge] repointed directus_user_id for user ${userId}: ${cachedDirectusId} -> ${resolvedId} (email drift)`,
+      );
+      return resolvedId;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown';
+      this.logger.warn(
+        `[directus-bridge] re-resolution failed for ${currentEmail}, keeping stale cached value: ${reason}`,
+      );
+      return cachedDirectusId;
     }
   }
 

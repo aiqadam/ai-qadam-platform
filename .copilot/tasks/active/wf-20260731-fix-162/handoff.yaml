@@ -1,0 +1,165 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-fix-162"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-07-31T00:00:00Z"
+
+requirement_ref: "ISS-BRIDGE-STALE-001"
+requirement_text: "platform.users.directus_user_id is a write-once cache with no refresh/invalidation; a stale value silently misattributes all future Directus writes (registrations, points, badges, referrals, consents, admin-invite attribution, audit-actor resolution, RBAC policy sync) to a superseded Directus user."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/159"
+
+branch: "fix/ISS-BRIDGE-STALE-001-directus-id-refresh"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/174"
+
+current_step: 9
+current_step_name: "registry-update"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:05:00Z"
+    summary: "Already-local, fully-triaged issue from wf-20260730-uat-158 discovery. GitHub already linked (#159). Project status synced to in-progress."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:20:00Z"
+    summary: "No DB migration needed. Fix contained to directus-users-bridge.service.ts; 10+ existing call sites across 9 modules are unaffected consumers. Security review required (identity-resolution logic). Performance risk flagged: re-validation must stay on the sign-in path only, not per-request."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/02-impact-analysis.md"
+  code-developer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:40:00Z"
+    summary: "Added reconcileCachedId(), wired into ensureLinked()'s cache-hit branch. resolveDirectusId() intentionally unchanged. typecheck clean."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:50:00Z"
+    summary: "No BLOCKER/MAJOR findings. Re-resolution reuses existing findOrCreate/maybeBackfill trust logic rather than a new matching heuristic; no attacker-controlled input reaches the new code path; fail-open-to-cached-value preserves the no-block-sign-in invariant."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:55:00Z"
+    summary: "Regression test anchor: reproduce the live uat-member drift with its exact real ids. 4 new cases + 2 existing tests updated for the new reconcile-GET-on-cache-hit behavior."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/06-test-strategy.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T01:20:00Z"
+    summary: "18/18 in directus-users-bridge.spec.ts; 1353/1354 repo-wide (1 pre-existing unrelated flake in users.spec.ts, verified failing identically on main)."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/07-test-results.md"
+  registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T01:25:00Z"
+    summary: "ISS-BRIDGE-STALE-001.md and registry.md both flipped to resolved atomically. All 5 ACs checked with honest narrowing notes on AC-3/AC-4(b)."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/09-registry-update.md"
+agent_assignments:
+  orchestrator-issue-lookup:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/01-issue-lookup.md"
+    timestamp: "2026-07-31T00:05:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/02-impact-analysis.md"
+    timestamp: "2026-07-31T00:20:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/03-code-summary.md"
+    timestamp: "2026-07-31T00:40:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/04-security-review.md"
+    timestamp: "2026-07-31T00:50:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/06-test-strategy.md"
+    timestamp: "2026-07-31T00:55:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/06-test-strategy.md"
+    timestamp: "2026-07-31T01:10:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/07-test-results.md"
+    timestamp: "2026-07-31T01:20:00Z"
+  orchestrator-registry-update:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260731-fix-162/09-registry-update.md"
+    timestamp: "2026-07-31T01:25:00Z"
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-BRIDGE-STALE-001"
+issue_resolution: "resolved"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: [BP-UAT-010]
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/security/security.md
+  - .copilot/issues/ISS-BRIDGE-STALE-001.md
+  - apps/api/src/modules/directus/directus-users-bridge.service.ts
+  - apps/api/src/modules/users/users.service.ts
+
+merge_mode: "auto"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260731-fix-162/NEEDS_REVIEW.md"
