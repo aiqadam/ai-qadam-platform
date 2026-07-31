@@ -582,15 +582,27 @@ just the narrow regression test from Step 6/7. Record each run in
 **Gate:**
 - All linked BP-UATs pass clean → note the pass(es) in `ISS-<n>.md`'s
   Resolution section, workflow complete. **Sync GitHub Project Status to
-  `agent-verified`** (best-effort, only if `GitHub-Issue:` is set):
+  `agent-verified` for EVERY stakeholder of the linked BP-UAT(s), not just
+  this workflow's own `ISS-<n>`** (added 2026-07-31, `ISS-WF-PARENT-SYNC-001`
+  — see `protocol.md`'s "Syncing ALL stakeholders" subsection; a prior
+  version of this step only synced the current ref, which is how
+  `FR-EVT-004`/#130 sat at `Implemented` through 4 clean BP-UAT-010 passes):
   ```bash
-  scripts/sync-github-project.sh --ref ISS-<n> --status agent-verified \
-    --existing-url "<GitHub-Issue: value>"
+  for ref in $(scripts/find-bp-uat-stakeholders.sh <BP-UAT-NNN>) ISS-<n>; do
+    scripts/sync-github-project.sh --ref "$ref" --status agent-verified \
+      --existing-url "<that ref's GitHub-Issue/github_issue value>"
+    # best-effort, non-blocking — skip silently if the ref has no linked
+    # GitHub issue yet; run once per linked BP-UAT-NNN if more than one.
+  done
   ```
-  **Then close the GitHub issue here** (added 2026-07-31,
-  `ISS-WF-GH-CLOSE-001` — deliberately deferred from Step 12.5's action 6
-  for this `Business-Process`-linked case; see `protocol.md`'s "Two
-  independent 'is this done' signals" subsection):
+  **Then close the GitHub issue for THIS workflow's own `ISS-<n>` only**
+  (added 2026-07-31, `ISS-WF-GH-CLOSE-001` — deliberately deferred from
+  Step 12.5's action 6 for this `Business-Process`-linked case; see
+  `protocol.md`'s "Two independent 'is this done' signals" subsection).
+  Do NOT close other stakeholders' GitHub issues here — closing is scoped
+  to the issue THIS workflow resolved; the stakeholder sync above only
+  touches Project board Status, never issue open/closed state, for any
+  ref other than the current one:
   ```bash
   gh issue close <gh-n> --repo aiqadam/ai-qadam-platform \
     --comment "Verified via Step 13 post-merge re-verification of <BP-UAT-NNN> (workflow <wf-id>). Tracked internally as \`ISS-<n>\`."

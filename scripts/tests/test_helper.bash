@@ -35,6 +35,7 @@ setup_test_repo() {
   git config user.email "test@aiqadam.local"
   git config user.name "Test Runner"
   mkdir -p .copilot/context .copilot/issues docs/03-requirements \
+           docs/02-business-processes/uat \
            .copilot/tasks/active .copilot/tasks/completed \
            .copilot/tasks/archived scripts
   # State files (empty templates)
@@ -97,6 +98,7 @@ EOF
   cp "$proj_root/scripts/check-workflow-state.sh" scripts/
   cp "$proj_root/scripts/check-github-issue-links.sh" scripts/
   cp "$proj_root/scripts/check-closing-keyword.sh" scripts/
+  cp "$proj_root/scripts/find-bp-uat-stakeholders.sh" scripts/
   cp "$proj_root/scripts/workflow-finish.sh" scripts/
   chmod +x scripts/*.sh
   git add -A
