@@ -1,0 +1,115 @@
+# Handoff File — wf-20260801-feat-176
+# FR-BOT-002 PR 3/6: /me — registrations, points total, account type, link CTA
+
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260801-feat-176"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-01T00:00:00Z"
+last_updated_at: "2026-08-01T00:00:00Z"
+
+requirement_ref: "FR-BOT-002"
+requirement_text: >
+  PR 3/6 of FR-BOT-002 (Bot member commands): implement /me for the
+  Telegram bot. Aggregates registrations (RegistrationsDirectusService.listMine
+  via the existing directusUserId -> platform users.id bridge), points total
+  (new single-user variant of PointsDirectusService.leaderboard's own
+  aggregation query), and account type (temp/full, already available on the
+  bot's own UserContext from AuthMiddleware — no new API call needed). Streak
+  is explicitly omitted — no streak concept, column, or calculation exists
+  anywhere in this codebase, and none of FR-BOT-002's ACs test it; documented
+  as a scope gap, not silently dropped or fabricated. "Link Telegram to web"
+  CTA resolved as a generic always-shown CTA — the old-module concept of
+  directus_users.telegram_user_id/telegram_linked_at (ADR-0033) belongs to a
+  different, superseded auth surface (apps/api/src/modules/telegram/, pre-
+  ADR-0034) and reading it from the new bot's identity model would conflate
+  two unrelated auth systems for a non-AC-tested nicety.
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/140"
+
+branch: "feature/FEAT-BOT-2-me-command-slice"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/205"
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+# FR-BOT-002 is a multi-PR FR (6/10 commands after this PR) — the
+# requirements-registry.md Status column stays "In Progress" (set by PR 1,
+# unchanged by PR 2), same precedent as FR-AUTH-002.
+expects_registry_update: false
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-010"]
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-BOT-002.md
+  - apps/api/src/modules/auth/telegram-auth.service.ts
+  - apps/api/src/modules/auth/auth.controller.ts
+  - apps/api/src/modules/registrations/registrations-directus.service.ts
+  - apps/api/src/modules/registrations/registrations.controller.ts
+  - apps/api/src/modules/directus/directus-users-bridge.service.ts
+  - apps/api/src/modules/points/points-directus.service.ts
+  - apps/bot/src/handlers/event_detail.py
+  - apps/bot/src/handlers/cancel.py
+  - apps/bot/src/handlers/events.py
+  - apps/bot/src/handlers/help.py
+  - apps/bot/src/keyboards/events.py
+  - apps/bot/src/services/api_client.py
+  - apps/bot/src/middlewares/auth.py
+  - apps/bot/src/locales/ru.py
+  - apps/bot/src/locales/en.py
+  - apps/bot/src/main.py
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260801-feat-176/NEEDS_REVIEW.md"
+
+merge_mode: "auto"
