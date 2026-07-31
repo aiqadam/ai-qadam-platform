@@ -22,7 +22,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/140"
 
 branch: "feature/FEAT-BOT-2-register-cancel-slice"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/203"
 
 current_step: 2
 current_step_name: "impact-analysis"
