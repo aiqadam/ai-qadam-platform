@@ -28,8 +28,12 @@ import { type ReactElement, useState } from 'react';
 
 interface Translations {
   capacity: string;
-  spots: (count: number, capacity: number) => string;
-  going_count: (count: number) => string;
+  // Templates (containing literal "{{count}}"/"{{capacity}}" placeholders),
+  // not functions — client:load islands serialize props as JSON, which
+  // silently drops function values to null (ISS-EVT-005-1). CapacityHint
+  // does its own placeholder substitution below.
+  spotsTemplate: string;
+  goingCountTemplate: string;
   sign_in_to_join_waitlist: string;
   sign_in_to_register: string;
   loading_registration: string;
@@ -63,7 +67,10 @@ function CapacityHint({
   count: number;
   t: Translations;
 }): ReactElement {
-  const hint = capacity != null ? t.spots(count, capacity) : t.going_count(count);
+  const hint =
+    capacity != null
+      ? t.spotsTemplate.replace('{{count}}', String(count)).replace('{{capacity}}', String(capacity))
+      : t.goingCountTemplate.replace('{{count}}', String(count));
   return (
     <>
       <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">

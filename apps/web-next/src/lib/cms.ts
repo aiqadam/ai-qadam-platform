@@ -327,34 +327,6 @@ export function countryFromHost(host: string | null | undefined): string {
   return 'uz';
 }
 
-// Live count of an event's registrations that hold capacity — mirrors the
-// `status IN ('registered','attended')` convention already established in
-// apps/api/src/modules/workspace/event-speaker-briefs.service.ts's
-// `registeredCountOf()` (and event-reminders.service.ts /
-// post-event-cron.service.ts's identical filter for the same collection).
-// `waitlisted`/`cancelled` rows must not count toward capacity. Uses
-// Directus's `aggregate[count]` query param, same idiom as this file's own
-// fetchEventCountForCountry() below — best-effort: a Directus hiccup here
-// falls back to 0 rather than failing the whole event page.
-async function registeredCountOf(eventId: string): Promise<number> {
-  try {
-    const params = new URLSearchParams({
-      'filter[event][_eq]': eventId,
-      'filter[status][_in]': 'registered,attended',
-      'aggregate[count]': 'id',
-    });
-    type AggRow = Array<{ count: { id: number | string } }>;
-    const body = await get<{ data: AggRow }>(`/items/registrations?${params.toString()}`);
-    return Number(body.data[0]?.count?.id ?? 0);
-  } catch (err) {
-    console.error(
-      `[cms] registeredCountOf(${eventId}) failed:`,
-      err instanceof Error ? err.message : err,
-    );
-    return 0;
-  }
-}
-
 /**
  * Single event for /events/[id]. Returns `null` on miss, unpublished,
  * OR wrong-country (AC-8: a KZ event requested via uz.aiqadam.org must
@@ -364,6 +336,15 @@ async function registeredCountOf(eventId: string): Promise<number> {
  * the incoming request's Host header. `null` also covers any
  * Directus-reachability failure — same convention as every sibling
  * fetcher in this file.
+ *
+ * `registeredCount` on the returned event is always `0` here — this
+ * module only talks to Directus directly, and `registrations` has no
+ * Public Directus read grant (deliberately: it holds other members'
+ * registration data — see ISS-RBAC-PERMS-001/ISS-SEC-PUBLIC-UNMANAGED-001).
+ * Callers needing the real count MUST separately call
+ * `fetchEventRegistrationCount()` from `lib/api-ssr.ts` (apps/api's own
+ * authenticated Directus client computes it server-side) and merge it in
+ * — see `pages/events/[id].astro`. ISS-EVT-005-1.
  */
 export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | null> {
   if (!id || id.length === 0) return null;
@@ -376,8 +357,7 @@ export async function fetchEvent(req: Request, id: string): Promise<ApiEvent | n
     if (!body.data || body.data.status !== 'published' || body.data.country !== country) {
       return null;
     }
-    const registeredCount = await registeredCountOf(body.data.id);
-    return toApiEvent(body.data, registeredCount);
+    return toApiEvent(body.data);
   } catch (err) {
     console.error(`[cms] fetchEvent(${id}) failed:`, err instanceof Error ? err.message : err);
     return null;

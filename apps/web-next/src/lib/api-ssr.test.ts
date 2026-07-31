@@ -1,8 +1,8 @@
 // api-ssr.test.ts — Unit tests for lib/api-ssr.ts SSR fetch helpers.
 //
 // Tests: fetchCsatTokenStatus, fetchSurveyEventContext, fetchEventSurvey,
-// fetchUpcomingEvents, fetchEvent, fetchActiveEvents, fetchPublicProfile,
-// fetchPublicForm, fetchLeaderboard, fetchOnboardingStatus.
+// fetchUpcomingEvents, fetchEvent, fetchActiveEvents, fetchEventRegistrationCount,
+// fetchPublicProfile, fetchPublicForm, fetchLeaderboard, fetchOnboardingStatus.
 //
 // Per standards.md §IV: AAA pattern, Vitest, no it.skip.
 //
@@ -192,6 +192,25 @@ async function fetchActiveEvents(
     return body.events;
   } catch {
     return [];
+  }
+}
+
+// ─── fetchEventRegistrationCount (ISS-EVT-005-1) ──────────────────────────────
+
+async function fetchEventRegistrationCount(
+  eventId: string,
+  baseUrl: string,
+  mockFetch: MockFetch,
+): Promise<number> {
+  try {
+    const body = await get<{ registeredCount: number }>(
+      baseUrl,
+      `/v1/events/${encodeURIComponent(eventId)}/registration-count`,
+      mockFetch,
+    );
+    return body.registeredCount;
+  } catch {
+    return 0;
   }
 }
 
@@ -592,6 +611,64 @@ describe('fetchActiveEvents', () => {
     const result = await fetchActiveEvents('http://api:3000', mockFetch);
 
     expect(result).toEqual([]);
+  });
+});
+
+// ─── Tests: fetchEventRegistrationCount (ISS-EVT-005-1) ───────────────────────
+//
+// registrations has no Public Directus read grant (deliberately — see
+// ISS-RBAC-PERMS-001/ISS-SEC-PUBLIC-UNMANAGED-001), so lib/cms.ts cannot
+// query it directly; this fetcher goes through apps/api's own
+// authenticated GET /v1/events/:id/registration-count instead.
+
+describe('fetchEventRegistrationCount', () => {
+  let mockFetch: MockFetch;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+  });
+
+  it('returns the count on success', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ registeredCount: 2 }),
+    });
+
+    const result = await fetchEventRegistrationCount('evt-full', 'http://api:3000', mockFetch);
+
+    expect(result).toBe(2);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://api:3000/v1/events/evt-full/registration-count',
+      expect.any(Object),
+    );
+  });
+
+  it('returns 0 on HTTP error (never fails the event page)', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+    const result = await fetchEventRegistrationCount('evt-1', 'http://api:3000', mockFetch);
+
+    expect(result).toBe(0);
+  });
+
+  it('returns 0 on network error', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+    const result = await fetchEventRegistrationCount('evt-1', 'http://api:3000', mockFetch);
+
+    expect(result).toBe(0);
+  });
+
+  it('URL-encodes the event id', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ registeredCount: 0 }),
+    });
+
+    await fetchEventRegistrationCount('evt/with/slashes', 'http://api:3000', mockFetch);
+
+    const [url] = mockFetch.mock.calls[0]!;
+    expect(url).toContain('evt%2Fwith%2Fslashes');
   });
 });
 

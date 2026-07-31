@@ -94,6 +94,30 @@ export async function fetchActiveEvents(req: Request): Promise<CheckinActiveEven
 }
 
 // ---------------------------------------------------------------------------
+// /v1/events/:id/registration-count — live registered-count for the
+// event-detail page (ISS-EVT-005-1). registrations has no Public Directus
+// read grant (deliberately — see ISS-RBAC-PERMS-001/ISS-SEC-PUBLIC-UNMANAGED-001),
+// so this count must come from apps/api's own authenticated Directus
+// client rather than lib/cms.ts querying Directus directly.
+// ---------------------------------------------------------------------------
+
+export async function fetchEventRegistrationCount(req: Request, eventId: string): Promise<number> {
+  try {
+    const body = await get<{ registeredCount: number }>(
+      req,
+      `/v1/events/${encodeURIComponent(eventId)}/registration-count`,
+    );
+    return body.registeredCount;
+  } catch (err) {
+    console.error(
+      `[api-ssr] /v1/events/${eventId}/registration-count failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // /v1/users/:handle/profile — public member profile.
 // ---------------------------------------------------------------------------
 
