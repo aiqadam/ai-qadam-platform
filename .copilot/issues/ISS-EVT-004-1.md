@@ -73,13 +73,16 @@ it is simply never populated by this one call site.
       is AC-4/Step 13, below.)
 - [x] AC-3: Regression test (unit or integration) covering both the
       under-capacity and at-capacity live-count cases for `fetchEvent()`.
-- [ ] AC-4: Live re-verification against BP-UAT-010's AC-6/Negative-003
+- [x] AC-4: Live re-verification against BP-UAT-010's AC-6/Negative-003
       using the `uat-event-full-uz` fixture from ISS-UAT-SEED-003. —
-      deferred to this workflow's own Step 13 (post-merge BP-UAT-010
-      re-verification, mandatory per `Business-Process: BP-UAT-010`
-      above) — not a separate follow-up workflow. Status flips to
-      `resolved` now per Step 9 convention; Step 13 confirms it end to
-      end on `main` before the workflow itself is declared complete.
+      **this workflow's own Step 13 FAILED this check** (see Resolution's
+      honesty disclosure below): the merged fix 403'd against a real,
+      correctly-permissioned Directus instance and silently fell back to
+      `registeredCount: 0`, reproducing the original bug through a new
+      mechanism. Genuinely satisfied only after the follow-up
+      `wf-20260731-fix-168` (`ISS-EVT-005-1`) shipped a corrected fix
+      (proxying the count through `apps/api` instead of querying Directus
+      directly) and re-ran this exact live verification successfully.
 
 ## Resolution
 
@@ -114,10 +117,21 @@ no-second-arg form and re-running).
 
 **Merged:** `146f269` ([PR #185](https://github.com/aiqadam/ai-qadam-platform/pull/185), merged 2026-07-31T07:21:46Z)
 
-**Honesty disclosure (AGENTS.md §6.1):** AC-4's live browser
-re-verification against a real Directus/browser session is performed by
-this same workflow's Step 13 (`Business-Process: BP-UAT-010` triggers
-the mandatory post-merge UAT re-run) immediately after merge — not
-deferred to an unscheduled follow-up. This issue's Status is not
-considered genuinely done by a human reader until Step 13's pass is
-recorded below.
+**Honesty disclosure (AGENTS.md §6.1) — updated 2026-07-31 post-Step-13:**
+This workflow's own Step 13 ran the mandatory live BP-UAT-010
+re-verification as planned, and it correctly caught that the merged fix
+does NOT work in a real environment: Directus's Public role has no read
+grant on `registrations` (by design — see `ISS-RBAC-PERMS-001`/
+`ISS-SEC-PUBLIC-UNMANAGED-001`), so the unauthenticated
+`registeredCountOf()` query 403s and falls back to `0`, reproducing the
+exact original symptom through a new mechanism. This is precisely the
+scenario AGENTS.md §6.1's mandatory live-verification rule exists to
+catch — unit tests with mocked fetch cannot detect a real permission
+boundary. The gap was triaged live as `ISS-EVT-005-1`
+(`wf-20260731-fix-168`, [PR #187](https://github.com/aiqadam/ai-qadam-platform/pull/187)),
+which replaced the Directus-direct query with a new authenticated
+`apps/api` proxy endpoint and re-ran this same live verification
+successfully. `ISS-EVT-005-1`'s own Step 13 is the one that actually
+confirms this issue end-to-end on `main` — see that issue's Resolution
+section for the full evidence. This issue's GitHub tracker (#161) closes
+now, referencing both PRs.

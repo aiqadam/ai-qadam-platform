@@ -1,5 +1,42 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-fix-168`.
+**ISS-EVT-004-1's own Step 13 caught that its merged registeredCount fix
+(PR #185) silently didn't work in a real environment — Directus's Public
+role correctly denies read on `registrations` (by design), so the
+unauthenticated Directus-direct query 403'd and fell back to `0`,
+reproducing the original symptom through a new mechanism. Live-verifying
+the fix (not just unit-testing it) also surfaced two independent,
+unrelated pre-existing bugs blocking the registration flow entirely:
+`RegistrationCTA.tsx` crashed on hydration for every signed-in visitor
+(translation functions don't survive Astro `client:load` island JSON
+serialization — they silently become `null`) and `useMyRegistrationStatus`
+called a nonexistent `/v1/registrations` endpoint (real route:
+`/v1/registrations/mine`) with a response shape that didn't match the
+real API (`event: { id }`, not a flat `eventId`). All three triaged live
+as `ISS-EVT-005-1` and fixed together in the same session:
+[wf-20260731-fix-168](../tasks/completed/wf-20260731-fix-168/handoff.yaml)
+(PR [#187](https://github.com/aiqadam/ai-qadam-platform/pull/187)).
+The real fix adds a public `GET /v1/events/:id/registration-count` on
+`apps/api`, computed server-side via its own authenticated
+`DirectusClient` (never exposing row-level registration data — the
+`ISS-RBAC-PERMS-001`/`ISS-SEC-PUBLIC-UNMANAGED-001` permission hardening
+is fully preserved), which `apps/web-next` now calls instead of querying
+Directus directly. Live-verified end-to-end 3 times against the real
+local stack: screenshots show correct "N / capacity spots" +
+"✓ You're registered" / "On waitlist — we'll email if a seat opens"
+states, each cross-referenced against the exact Directus row. Both
+GitHub issues (#161, #186) closed with the full before/after evidence.
+This is a concrete case of AGENTS.md §6.1's mandatory live-verification
+rule catching what mocked unit tests structurally cannot: a real Directus
+permission boundary, a browser hydration crash, and a wrong endpoint path
+against the real route table.
+[wf-20260731-fix-167](../tasks/completed/wf-20260731-fix-167/handoff.yaml)
+(PR [#185](https://github.com/aiqadam/ai-qadam-platform/pull/185)): the
+original fix attempt (ISS-EVT-004-1) — correct in isolation (unit tests,
+query shape mirrored 3 existing `apps/api` precedents) but incomplete,
+as described above.
+
 **Last updated:** 2026-07-31 — `wf-20260731-uat-166`.
 **ISS-UAT-010-2's Step 13 post-merge BP-UAT-010 re-verification passed clean, live-proving the waitlist-rendering fix — and its own close-out surfaced ISS-WF-GH-CLOSE-002, a second real vector of the ISS-WF-GH-CLOSE-001 bug class.**
 [wf-20260731-uat-166](../tasks/completed/wf-20260731-uat-166/handoff.yaml)
