@@ -5,7 +5,7 @@ workflow_type: "requirement-development"
 workflow_version: "1.0"
 
 created_at: "2026-07-31T00:00:00Z"
-last_updated_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-08-01T02:15:00Z"
 
 requirement_ref: "FR-BOT-002"
 requirement_text: "Bot member commands, PR 1 of 6: read-only, lowest-risk slice — /help, /events, /event <N>. Adds GET /v1/internal/telegram/events and GET /v1/internal/telegram/events/:id (InternalAuthGuard-protected, Zod-validated) plus matching aiogram handlers in apps/bot/. Excludes /register, /cancel, /me, /leaderboard, /interests, /upgrade (separate follow-up workflows)."
@@ -15,9 +15,9 @@ branch: "feature/FEAT-BOT-2-events-help-slice"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/201"
 
-current_step: 10
-current_step_name: "quality-gate"
-workflow_status: "running"
+current_step: 11.5
+current_step_name: "merge-pull-verify"
+workflow_status: "completed"
 
 merge_mode: "auto"
 
@@ -188,3 +188,32 @@ needs_review:
   stopped_at_step_name: ""
   issue_ref: ""
   artifact_file: ".copilot/tasks/active/wf-20260731-feat-174/NEEDS_REVIEW.md"
+
+# ─── Step 11.5 completion notes ───────────────────────────────────────────
+# PR #201 merged (squash 012796c). FR-BOT-002 frontmatter status left at
+# "Planned" (unchanged, intentional — see 01-requirement-validation.md);
+# requirements-registry.md row 58 flipped Planned -> In Progress. Both
+# verified present on main post-merge.
+#
+# Deliberate deviation from Step 11.5's literal branching instruction:
+# that step says "if business_process is [], sync straight to
+# agent-verified" - this workflow's business_process IS [], but
+# agent-verified would misrepresent FR-BOT-002 as fully done when only
+# PR 1 of a planned 6-PR sequence has shipped. Synced GitHub Project
+# Status to "implemented" instead (accurate: code shipped, FR not
+# complete) after first (incorrectly) syncing to agent-verified and
+# immediately self-correcting. GitHub issue #140 left OPEN (not closed -
+# correct, since the FR isn't done). The next 5 PRs in this sequence
+# should sync to implemented at each of their own Step 9/11.5 points too,
+# and only the LAST PR in the sequence (6/6, /upgrade) should consider
+# whether agent-verified is appropriate for the parent FR-BOT-002 ref -
+# and even then only if the fuller-FR business_process linkage question
+# (BP-UAT-010 for the register path, per this PR's own
+# 01-requirement-validation.md "Business-Process Linkage" section) has
+# been resolved by then.
+post_merge_step13_applicable: false
+step_13_reason: "business_process: [] - no existing BP-UAT covers bot event browsing; closest candidate BP-UAT-010 covers the write/register path this PR excludes, deferred to PR 2/6 which touches that surface."
+github_project_status_correction:
+  first_synced: "agent-verified"
+  corrected_to: "implemented"
+  reason: "FR-BOT-002 is a 6-PR sequence; only PR 1/6 shipped. agent-verified would misrepresent the parent FR as fully verified/complete when 5 PRs remain queued."
