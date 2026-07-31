@@ -116,7 +116,7 @@ path that ever detects or repairs it.
 ## Resolution
 
 **Workflow:** wf-20260731-fix-162
-**PR:** `<pending>`
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/174
 **Root cause:** `DirectusUsersBridgeService.ensureLinked()`/`resolveDirectusId()`
 treated `platform.users.directus_user_id` as a write-once cache — returned
 unconditionally once non-null, never re-validated against the user's
@@ -154,4 +154,4 @@ which is no longer accurate — the non-drift fast path still does zero
 requirement). 18/18 tests pass in the suite; 1353/1354 pass repo-wide (the
 one failure, `users.spec.ts`'s `lastLoginAt` clock-race, is pre-existing
 and unrelated — reproduced identically on `main`).
-**Merged:** `<pending>`
+**Merged:** `9e933bb56139ae0cacd71e61e8138b1989b53171` (squash)
