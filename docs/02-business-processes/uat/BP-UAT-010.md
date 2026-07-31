@@ -5,7 +5,7 @@ status: Ready
 process_ref: "docs/03-requirements/FR-REG-001.md"
 environment: "http://localhost:4321"
 seed_required: true
-last_run: "2026-07-30 (wf-20260730-uat-158, live end-to-end run — first real execution of this script; AC-1/AC-4/AC-5/Negative-002 MATCH, AC-2 PARTIAL, AC-3 deferred (no mail-catcher check), AC-6/AC-7 MISMATCH — see linked_issues)"
+last_run: "2026-07-31 (wf-20260731-uat-163, mandatory Step 13 post-merge re-verification for ISS-BRIDGE-STALE-001/wf-20260731-fix-162 — narrower than a full pass; AC-1/AC-5 MATCH, AC-2 PARTIAL (QR gap, pre-existing), AC-6 PARTIAL (reproduces ISS-EVT-004-1's registeredCount=0 bug live again, pre-existing). Confirmed live: uat-member's directus_user_id now resolves to the correct, reconciled id (bb110099-...) and the registration flow works end-to-end on top of it — no regression from the fix.)"
 linked_issues: [ISS-UAT-SEED-003, ISS-UAT-010-1, ISS-EVT-004-1, ISS-BRIDGE-STALE-001, ISS-UAT-010-2]
 ---
 
