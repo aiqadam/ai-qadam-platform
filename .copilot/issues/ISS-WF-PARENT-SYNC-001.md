@@ -114,7 +114,7 @@ question on the child's behalf.
 ## Resolution
 
 **Workflow:** wf-20260731-fix-170
-**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/192
+**PR:** https://github.com/aiqadam/ai-qadam-platform/pull/192 (squash `26bac8b`)
 **Root cause:** The post-merge UAT re-verification protocol only ever
 synced the CURRENT workflow's own `ISS-<n>`/`FR-<CODE>` ref to
 `agent-verified` — never asked whether other FR/ISS files sharing the
@@ -132,4 +132,4 @@ agent-verified` over every ref that script returns and is currently below
 **Regression test:** `scripts/tests/find-bp-uat-stakeholders.bats` — new
 suite reproducing this issue's exact motivating shape (FR-EVT-004 +
 BP-UAT-010, where `linked_issues` alone would have missed the FR).
-**Merged:** <pending>
+**Merged:** `26bac8b` (2026-07-31T11:10:51Z)

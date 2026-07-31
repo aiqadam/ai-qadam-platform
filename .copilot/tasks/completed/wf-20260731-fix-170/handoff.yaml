@@ -15,9 +15,9 @@ branch: "fix/ISS-WF-PARENT-SYNC-001-fr-agent-verified-gap"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/192"
 
-current_step: 12
-current_step_name: "commit-push-create-pr"
-workflow_status: "running"
+current_step: 12.5
+current_step_name: "merge-pull-verify"
+workflow_status: "completed"
 
 merge_mode: "auto"
 
