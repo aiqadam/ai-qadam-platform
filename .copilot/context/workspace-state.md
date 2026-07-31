@@ -1,5 +1,37 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-fix-165`.
+**ISS-UAT-010-2 resolved — `RegistrationSidebar`'s stale "You're registered" render for waitlisted members was a server-side Directus-flow race, not a client bug.**
+[wf-20260731-fix-165](../tasks/completed/wf-20260731-fix-165/handoff.yaml)
+(PR [#181](https://github.com/aiqadam/ai-qadam-platform/pull/181) squash
+`a91a9c6`): root cause confirmed as hypothesis (1) from the issue —
+`reg-capacity-decision` is a Directus **action hook**, which runs as a
+separate async chain (event lookup → count → decide → patch) *after* the
+triggering `registrations.items.create` insert, not inside its
+transaction; the flow's own bootstrap-script comment already named this
+window as a known trade-off. `RegistrationsDirectusService.register()`'s
+single immediate re-read had no ordering guarantee against that chain, so
+under real latency a registration that Directus had just demoted to
+`waitlisted` could still be returned (and rendered) as `registered`.
+Hypothesis (2) — a client-side bug in `RegistrationSidebar.tsx` — was
+ruled out: the component is a faithful pass-through of whatever `status`
+the API response carries. Fixed with a new bounded
+`pollForSettledStatus()` (max 3 re-reads, 150ms apart, short-circuiting
+the moment the row leaves its pre-flow default), replacing the old
+single-shot re-read in `register()` — adds negligible latency to the
+common non-full-event path (first read already correct, loop exits
+immediately) and is a strict improvement in the worst case (same
+last-read value the old code would have returned). 2 new regression
+tests added to the existing `apps/api/test/registrations-directus.spec.ts`
+(no new spec file needed); both independently fail-before/pass-after
+verified via `git stash` on the fix — the pre-fix run reproduced the
+exact live bug byte-for-byte (`expected 'registered' to be 'waitlisted'`).
+1355/1356 `apps/api` suite passes (1 pre-existing, already-tracked,
+unrelated `users.spec.ts` clock-race flake, confirmed passing in
+isolation). Per `Business-Process: BP-UAT-010`, Step 13 post-merge live
+re-verification runs next in this same session — see this file's own
+next entry once that step completes.
+
 **Last updated:** 2026-07-31 — `wf-20260731-fix-164`.
 **ISS-WF-GH-CLOSE-001 resolved — GitHub issues can no longer auto-close before their own Step 13 verification has run.**
 [wf-20260731-fix-164](../tasks/completed/wf-20260731-fix-164/handoff.yaml)
