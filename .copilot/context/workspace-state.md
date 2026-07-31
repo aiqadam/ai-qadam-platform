@@ -1,5 +1,35 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-uat-166`.
+**ISS-UAT-010-2's Step 13 post-merge BP-UAT-010 re-verification passed clean, live-proving the waitlist-rendering fix — and its own close-out surfaced ISS-WF-GH-CLOSE-002, a second real vector of the ISS-WF-GH-CLOSE-001 bug class.**
+[wf-20260731-uat-166](../tasks/completed/wf-20260731-uat-166/handoff.yaml)
+(PR [#183](https://github.com/aiqadam/ai-qadam-platform/pull/183)):
+rewrote `BP-UAT-010.session.spec.ts`'s waitlist step — the prior version
+(`wf-20260731-uat-163`) only checked page-load text on the full event and
+never actually clicked Register, the exact gap that let the original
+`ISS-UAT-010-2` bug through undetected. This version clicks Register and
+cross-references the resulting DOM state against the live Directus row.
+Live result: full-event registration now correctly renders "On waitlist"
+while Directus independently confirms `status=waitlisted` (previously
+DOM said "You're registered" while Directus said `waitlisted`
+simultaneously). No new product issues found. **While closing out this
+workflow, discovered that GitHub issue #160 had already auto-closed at
+merge time** (PR #181, `06:34:00Z`) — before this very Step 13 had run —
+despite the commit message correctly using the neutral `Refs #160` form.
+Root cause: `check-closing-keyword.sh` (built one workflow earlier,
+`wf-20260731-fix-164`, for `ISS-WF-GH-CLOSE-001`) only ever scanned
+commit messages; GitHub's auto-close scanner also reads PR body text
+independently, and PR #181's own "Why" section prose said "Closes #160".
+An unguarded second vector of the identical bug class. Fixed inline
+(`ISS-WF-GH-CLOSE-002`, same session): added a `--body-file` mode to the
+same script (shared scan logic, `--message-file`/`--body-file` mutually
+exclusive) and wired a check into both workflows' PR-creation step,
+immediately before `gh pr create`. 3 new bats cases (15/15 total pass),
+including a direct reproduction of PR #181's exact body text. Issue #160
+itself corrected in the same session: reopened with an explanatory
+comment, then correctly re-closed once Step 13's genuine pass was in
+hand, with the full root-cause/fix/live-evidence summary attached.
+
 **Last updated:** 2026-07-31 — `wf-20260731-fix-165`.
 **ISS-UAT-010-2 resolved — `RegistrationSidebar`'s stale "You're registered" render for waitlisted members was a server-side Directus-flow race, not a client bug.**
 [wf-20260731-fix-165](../tasks/completed/wf-20260731-fix-165/handoff.yaml)
