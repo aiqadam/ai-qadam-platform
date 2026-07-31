@@ -1,5 +1,36 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-uat-163`.
+**Step 13 post-merge BP-UAT-010 re-verification for ISS-BRIDGE-STALE-001 — clean pass, fix confirmed working live.**
+[wf-20260731-uat-163](../tasks/completed/wf-20260731-uat-163/handoff.yaml)
+(PR [#176](https://github.com/aiqadam/ai-qadam-platform/pull/176)):
+`wf-20260731-fix-162`'s mandatory Step 13 required re-verifying BP-UAT-010
+(Event registration flow) live, since ISS-BRIDGE-STALE-001's fix touches
+the identity-resolution path that flow depends on. Confirmed the fix two
+independent ways: (1) `pnpm uat:seed --reset BP-UAT-010`'s own
+`ensure_linked` call, checked directly against Postgres, showed
+`uat-member@example.com`'s `directus_user_id` is now the correct,
+reconciled `bb110099-...` id, not the stale `a1524645-...` one; (2) a
+live Playwright session (`apps/e2e/tests/uat/BP-UAT-010.session.spec.ts`,
+new — the agent-driven session model per FR-WORKFLOW-004) signed in as
+that same user and successfully registered for an event on top of the
+corrected id, screenshot-verified (capacity counter incremented 0→1,
+"You're registered" state shown). Hit two unrelated snags while authoring
+the session script, both resolved: Authentik's `input[type="password"]`
+locator matched a decoy/stale field on this instance rather than the one
+real visible field (fixed via `getByPlaceholder` scoped to the actual
+rendered placeholder text), and the seeded `uat-member` account's
+Authentik password had gone stale independent of this fix (fixed with a
+direct `set_password` API call — not a product bug, an environment
+staleness issue). One pre-existing, already-tracked issue
+(`ISS-EVT-004-1` — `apps/web-next`'s `registeredCount` hardcoded to 0)
+was reproduced live again on the full-event waitlist path (screenshot
+shows "0 / 2 spots" despite 2 real `status: registered` rows confirmed in
+Postgres) — recorded as corroborating evidence in the UAT report, not a
+new duplicate issue. Per protocol, GitHub Project status for
+`ISS-BRIDGE-STALE-001` synced to `agent-verified` (issue #159, already
+closed at `wf-20260731-fix-162`'s Step 12.5).
+
 **Last updated:** 2026-07-31 — `wf-20260731-fix-162`.
 **ISS-BRIDGE-STALE-001 resolved — `directus_user_id` cache now self-heals on email drift instead of misattributing writes forever.**
 [wf-20260731-fix-162](../tasks/completed/wf-20260731-fix-162/handoff.yaml)
