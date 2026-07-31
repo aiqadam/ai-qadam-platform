@@ -1,0 +1,108 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-uat-163"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T02:00:00Z"
+last_updated_at: "2026-07-31T02:00:00Z"
+
+requirement_ref: "BP-UAT-010"
+requirement_text: "Mandatory Step 13 post-merge UAT re-verification for wf-20260731-fix-162 (ISS-BRIDGE-STALE-001, PR #174) — Business-Process: BP-UAT-010. Confirms the directus_user_id reconciliation fix works live and did not regress the registration flow."
+github_issue_url: ""
+
+branch: "uat/BP-UAT-010-post-merge-bridge-stale-001"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 5
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: "wf-20260731-fix-162"
+  parent_branch: "fix/ISS-BRIDGE-STALE-001-directus-id-refresh"
+  parent_paused_at_step: 13
+  parent_paused_at_gate: "post-merge-uat"
+  spawned_at: "2026-07-31T02:00:00Z"
+  spawned_by_issue: "ISS-BRIDGE-STALE-001"
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  uat-script-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T03:00:00Z"
+    summary: "BP-UAT-010.md well-formed, seed manifest exists (post ISS-UAT-SEED-003). This run scoped to bridge-fix re-verification, not a full 7-AC pass."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-163/01-uat-script-validation.md"
+  pre-flight:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T03:15:00Z"
+    summary: "Docker healthy, api/web process identity confirmed, seed reset succeeded. Direct psql check confirmed uat-member's directus_user_id is now the correct bb110099-... id (AC-5 satisfied)."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-163/02-preflight.md"
+  uat-session:
+    status: passed
+    attempt: 3
+    timestamp: "2026-07-31T03:30:00Z"
+    summary: "5 steps driven, 4 screenshots, all 3 enforcement scripts pass. Confirmed live: bridge fix holds, registration flow works on the corrected id. 2 prior attempts hung on Authentik flow-executor selector issues (input[type=password] matching a decoy field) and a stale test password — both fixed/resolved before this passing attempt."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-163/02-uat-report.md"
+  uat-triage:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T03:35:00Z"
+    summary: "No new issue filed. One finding (registeredCount=0 display bug on the full event) is corroborating evidence for already-open ISS-EVT-004-1, not a new defect."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-163/03-uat-triage.md"
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: [BP-UAT-010]
+
+post_merge_uat_runs:
+  - bp_uat_code: BP-UAT-010
+    uat_workflow_id: wf-20260731-uat-163
+    outcome: passed
+    pr_url: ""
+    issues_found: []
+
+artifacts: []
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-010.md
+  - docs/02-business-processes/uat/registry.md
+  - .copilot/issues/ISS-BRIDGE-STALE-001.md
+
+merge_mode: "auto"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260731-uat-163/NEEDS_REVIEW.md"
