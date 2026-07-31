@@ -13,6 +13,7 @@ import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
+import { PointsDirectusService } from '../points/points-directus.service';
 import {
   RegistrationConsentRequiredError,
   RegistrationIneligibleError,
@@ -160,6 +161,43 @@ export interface TelegramCancelResult {
   status: 'cancelled' | 'not_registered';
 }
 
+// ── FEAT-BOT-2 (FR-BOT-002 PR 3/6) — /me schemas ────────────────────────
+
+// GET /v1/internal/telegram/me query schema. Same two fields the
+// register/cancel body schemas already require (directusUserId, country)
+// — the bot always has both on hand from user_context/TenantMiddleware by
+// the time it can call /me (AuthMiddleware only lets a known user reach a
+// handler that needs them).
+export const telegramMeQuerySchema = z.object({
+  directusUserId: z.string().uuid(),
+  country: countrySchema,
+});
+export type TelegramMeQuery = z.infer<typeof telegramMeQuerySchema>;
+
+export interface TelegramMeRegistrationEvent {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  location: string | null;
+}
+
+// Mirrors registrations.controller.ts's MineResponse per-row shape
+// exactly (id, status, event summary) — no new projection invented, only
+// the checkinCode/checkedInAt fields are dropped since /me has no
+// scanning-affordance use for them (the bot's /me is a read+cancel
+// dashboard, not a check-in surface).
+export interface TelegramMeRegistration {
+  id: string;
+  status: RegistrationStatus;
+  event: TelegramMeRegistrationEvent;
+}
+
+export interface TelegramMeResult {
+  registrations: TelegramMeRegistration[];
+  pointsTotal: number;
+}
+
 // ── Result shapes ────────────────────────────────────────────────────────
 
 // One row of GET /events. Kept intentionally narrow — only what the bot's
@@ -236,6 +274,11 @@ export class TelegramAuthService {
     private readonly directusBridge: DirectusUsersBridgeService,
     @Inject(forwardRef(() => RegistrationsDirectusService))
     private readonly registrations: RegistrationsDirectusService,
+    // FEAT-BOT-2 (FR-BOT-002 PR 3/6) — no forwardRef needed here: unlike
+    // RegistrationsDirectusService, PointsModule does not import
+    // AuthModule anywhere in its own graph, so there is no cycle (see
+    // auth.module.ts's own comment on this same edge).
+    private readonly points: PointsDirectusService,
   ) {}
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -622,6 +665,34 @@ export class TelegramAuthService {
       }
       throw err;
     }
+  }
+
+  // GET /v1/internal/telegram/me service logic. Aggregates the caller's
+  // active registrations + lifetime points total in one round trip so the
+  // bot's /me handler doesn't need two separate API calls. Account type
+  // (temp/full) and "linked to web" status are deliberately NOT part of
+  // this response — both are already resolved bot-side from
+  // user_context.is_temp (attached by the bot's own AuthMiddleware on
+  // every update) and a static CTA respectively; see
+  // 01-requirement-validation.md findings 4/5 for the full reasoning.
+  // Streak is also not part of this response — no streak concept exists
+  // anywhere in this codebase (see the same validation file's finding 3);
+  // this is a genuine scope gap, not an oversight.
+  async getMeSummary(directusUserId: string, country: string): Promise<TelegramMeResult> {
+    const userId = await this.requirePlatformUserId(directusUserId);
+
+    const [entries, pointsTotal] = await Promise.all([
+      this.registrations.listMine({ userId, countryCode: country }),
+      this.points.totalForUser(directusUserId, country),
+    ]);
+
+    const registrations: TelegramMeRegistration[] = entries.map((entry) => ({
+      id: entry.registration.id,
+      status: entry.registration.status,
+      event: entry.event,
+    }));
+
+    return { registrations, pointsTotal };
   }
 
   // Shared by registerViaTelegram/cancelViaTelegram. 404s (matching

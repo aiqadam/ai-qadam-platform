@@ -4,6 +4,7 @@ import { AuthentikModule } from '../admin-invites/authentik.module';
 import { DirectusModule } from '../directus/directus.module';
 import { InteractionsModule } from '../interactions/interactions.module';
 import { LeadsModule } from '../leads/leads.module';
+import { PointsModule } from '../points/points.module';
 import { RegistrationsModule } from '../registrations/registrations.module';
 import { UsersModule } from '../users/users.module';
 import { AuthController, TelegramInternalController } from './auth.controller';
@@ -27,6 +28,12 @@ import { TelegramAuthService } from './telegram-auth.service';
 // -> AuthModule). RegistrationsModule's own import of AuthModule does NOT
 // need a matching forwardRef, per that same precedent — only the side that
 // introduces the new edge wraps it.
+//
+// FEAT-BOT-2 (FR-BOT-002 PR 3/6): PointsModule is imported plainly (no
+// forwardRef) — unlike RegistrationsModule, PointsModule does not import
+// AuthModule anywhere in its own module graph (confirmed by reading
+// points.module.ts: it only imports DirectusModule), so there is no cycle
+// to break here.
 @Module({
   imports: [
     UsersModule,
@@ -34,6 +41,7 @@ import { TelegramAuthService } from './telegram-auth.service';
     LeadsModule,
     AuthentikModule,
     InteractionsModule,
+    PointsModule,
     forwardRef(() => RegistrationsModule),
   ],
   controllers: [AuthController, TelegramInternalController],

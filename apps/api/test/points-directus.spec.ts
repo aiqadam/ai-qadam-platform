@@ -147,6 +147,69 @@ describe('PointsDirectusService.leaderboard', () => {
   });
 });
 
+// FEAT-BOT-2 (FR-BOT-002 PR 3/6) — totalForUser, the single-user variant
+// of leaderboard()'s own aggregate query, added for the bot's /me command.
+describe('PointsDirectusService.totalForUser', () => {
+  function makeSvc(fake: FakeDirectus) {
+    return new PointsDirectusService(
+      {} as Parameters<typeof PointsDirectusService.prototype.leaderboard>[0] extends { db: infer D } ? D : never,
+      fake as unknown as DirectusClient,
+    );
+  }
+
+  it('returns the summed points for a single user, scoped to country', async () => {
+    const fake: FakeDirectus = {
+      // Confirmed live against the local stack (Step 4 of
+      // wf-20260801-feat-176): a single-user filter (no groupBy) returns
+      // a row shape WITHOUT a `user` key — just { sum: { points } } —
+      // unlike leaderboard()'s grouped aggregate.
+      get: vi.fn().mockResolvedValue({ data: [{ sum: { points: '135' } }] }),
+      post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const svc = makeSvc(fake);
+
+    const total = await svc.totalForUser('dir-user-1', 'uz');
+
+    expect(total).toBe(135);
+    const call = fake.get.mock.calls[0]?.[0] as string;
+    expect(decodeURIComponent(call)).toContain('filter[user][_eq]=dir-user-1');
+    expect(decodeURIComponent(call)).toContain('filter[country][_eq]=uz');
+    expect(call).toContain('aggregate%5Bsum%5D=points');
+    // No groupBy — this is a single-user aggregate, not a leaderboard.
+    expect(call).not.toContain('groupBy');
+  });
+
+  it('returns 0 (not NaN, not a throw) when the user has no point_awards rows', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [] }),
+      post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const svc = makeSvc(fake);
+
+    const total = await svc.totalForUser('dir-user-no-points', 'uz');
+
+    expect(total).toBe(0);
+  });
+
+  it('returns 0 when Directus returns a row with a null sum (defensive against the empty-aggregate shape)', async () => {
+    const fake: FakeDirectus = {
+      get: vi.fn().mockResolvedValue({ data: [{ sum: { points: null } }] }),
+      post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    };
+    const svc = makeSvc(fake);
+
+    const total = await svc.totalForUser('dir-user-1', 'uz');
+
+    expect(total).toBe(0);
+  });
+});
+
 // FR-MIG-020 — awardFirstJoinPoints
 describe('PointsDirectusService.awardFirstJoinPoints', () => {
   function makeSvc(fake: FakeDirectus) {

@@ -127,6 +127,31 @@ export class PointsDirectusService {
     return entries;
   }
 
+  // FEAT-BOT-2 (FR-BOT-002 PR 3/6) — single-user points total for the
+  // bot's /me command. Same `/items/point_awards` aggregate endpoint as
+  // leaderboard() above, just filtered by one directus_user_id instead of
+  // grouped+limited — reuses the identical Directus aggregate primitive,
+  // no new points-calculation rule. countryCode mirrors leaderboard()'s
+  // own tenant filter so a user's total stays scoped to their own
+  // country's point_awards, consistent with every other per-user read in
+  // this module. Returns 0 (not a throw, not NaN) when the user has no
+  // point_awards rows — Directus's aggregate returns an empty array in
+  // that case, same empty-guard shape as leaderboard()'s own
+  // `if (aggregates.length === 0) return [];`.
+  async totalForUser(directusUserId: string, countryCode: string): Promise<number> {
+    const params = new URLSearchParams({
+      'filter[user][_eq]': directusUserId,
+      'filter[country][_eq]': countryCode,
+      'aggregate[sum]': 'points',
+    });
+    const body = await this.directus.get<{ data: Array<{ sum: { points: string | null } }> }>(
+      `/items/point_awards?${params.toString()}`,
+    );
+    const row = body.data[0];
+    if (!row || row.sum.points === null) return 0;
+    return Number(row.sum.points);
+  }
+
   // FR-MIG-020 — award first-join points to `userId`. Writes one row to
   // directus point_awards. Idempotent: checks for an existing award row
   // with key='first_join' before inserting. Returns silently if already

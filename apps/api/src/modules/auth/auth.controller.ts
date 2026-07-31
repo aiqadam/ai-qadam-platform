@@ -42,6 +42,7 @@ import {
   listTelegramEventsQuerySchema,
   lookupUserBodySchema,
   telegramCancelBodySchema,
+  telegramMeQuerySchema,
   telegramRegisterBodySchema,
   telegramWidgetPayloadSchema,
   upsertTempUserBodySchema,
@@ -51,6 +52,7 @@ import type {
   TelegramCancelResult,
   TelegramEventDetailResult,
   TelegramEventListResult,
+  TelegramMeResult,
   TelegramRegisterResult,
   UpsertTempUserResult,
 } from './telegram-auth.service';
@@ -636,5 +638,24 @@ export class TelegramInternalController {
       parsed.data.eventId,
       parsed.data.country,
     );
+  }
+
+  // GET /v1/internal/telegram/me — InternalAuthGuard protected.
+  // FEAT-BOT-2 (FR-BOT-002 PR 3/6) — called by the bot's /me handler.
+  // Aggregates active registrations + lifetime points total in one call.
+  // Account type and "linked to web" status are NOT part of this
+  // response — both are resolved bot-side (see
+  // telegram-auth.service.ts's getMeSummary doc comment for the full
+  // reasoning). Query params (not a route param) since this endpoint
+  // takes no resource identifier, matching listEvents's own convention
+  // above.
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async me(@Query() query: unknown): Promise<TelegramMeResult> {
+    const parsed = telegramMeQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.getMeSummary(parsed.data.directusUserId, parsed.data.country);
   }
 }
