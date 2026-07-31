@@ -1,5 +1,72 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260801-feat-175`.
+**FR-BOT-002 PR 2/6 shipped — /register <N> and /cancel <N>, wiring PR 1's placeholder Register button to real registration/waitlist/cancellation.**
+[wf-20260801-feat-175](../tasks/completed/wf-20260801-feat-175/handoff.yaml)
+(PR [#203](https://github.com/aiqadam/ai-qadam-platform/pull/203), merged):
+second of the planned 6-PR sequence implementing `FR-BOT-002`. On
+`apps/api`: two new `InternalAuthGuard`-protected, Zod-validated routes on
+`TelegramInternalController` — `POST /v1/internal/telegram/register` and
+`DELETE /v1/internal/telegram/register` — both thin proxies to the
+existing `RegistrationsDirectusService.register()`/`.cancel()` (same
+service the browser-facing `RegistrationsController` uses; capacity/
+waitlist/promotion stay entirely Directus-flow-owned, not duplicated).
+Added `DirectusUsersBridgeService.resolveUserIdFromDirectusId()` — the
+reverse `directusUserId` → platform `users.id` lookup that didn't exist
+before (every prior bridge consumer went the other direction). Wiring
+`RegistrationsDirectusService` into `AuthModule` required `forwardRef()`
+on 4 module edges (`AuthModule`↔`RegistrationsModule`, plus `EulaModule`
+and `BadgesModule`, both reachable from `RegistrationsModule` and both
+already importing `AuthModule` directly) — found and fixed iteratively via
+live `pnpm --filter api dev` boot traces, not caught by typecheck alone
+(Nest's module graph is runtime-resolved). Found and fixed one
+pre-existing bug live during verification, registered as
+`ISS-BOT-REG-001` (not filed as a separate issue — fixed in the same PR
+since it was a 2-line diff with regression tests): `assertEventInTenant`'s
+catch clause only mapped Directus `404` to `RegistrationNotFoundError`;
+this Directus instance actually returns `403` for a single-item GET on a
+nonexistent id, so a bogus `eventId` produced an unhandled 500 instead of
+a clean 404 — same bug reachable identically via the pre-existing
+browser-facing register endpoint, just never exercised with a genuinely
+nonexistent UUID before. On `apps/bot/` (submodule, pushed to SHA
+`63dd5b5`): PR 1's placeholder Register button now performs a real
+registration; new standalone `/register <N>` and `/cancel <N>` command
+handlers; two distinct confirmation messages (registered vs. waitlisted)
+keyed off the API's own `status` field, no separate waitlist-detection
+logic. Corrected `FR-BOT-002.md`'s functional-scope table: the
+`/register` row's "QR deep-link" wording was stale — no such field exists
+anywhere in the real registration response or the live web UI
+(`BP-UAT-010.md`'s own Notes independently document the same finding).
+EULA/`RegistrationConsentRequiredError` is not collected by the bot in
+this PR (plain fallback message to the web) since no mature consent-prompt
+UI exists anywhere in this codebase yet to mirror. 0 BLOCKER/MAJOR
+security findings. apps/api 1420/1421 (1 pre-existing, unrelated
+clock-race flake at `users.spec.ts:65`, same one PR 1 already
+cross-referenced — untouched by this PR's diff, confirmed via
+`git diff --stat`); apps/bot 95/95 (68 pre-existing + 27 new/modified).
+`business_process: [BP-UAT-010]` was set on `FR-BOT-002.md` by this PR
+(was `[]`) — this is the PR that first touches the registration surface
+— so **Step 13 (mandatory post-merge live re-verification) ran for real**:
+started the local API, seeded fresh `BP-UAT-010` fixtures, and re-ran the
+full register/waitlist/idempotency/cancel/not-registered/not-found/
+unauthorized matrix against the merged `main` commit (`7f0f28e`),
+cross-referencing every registration/cancellation against the real
+Directus row (not just API response text) — all 10 scenarios matched
+expectations, no new issues found, `ISS-BOT-REG-001`'s fix confirmed
+holding on `main`. Synced **all 8 `BP-UAT-010` stakeholders**
+(`FR-BOT-002`, `FR-EVT-004`, `ISS-BRIDGE-STALE-001`, `ISS-EVT-004-1`,
+`ISS-EVT-005-1`, `ISS-UAT-010-1`, `ISS-UAT-010-2`, `ISS-UAT-SEED-003`) to
+Project-board status `agent-verified` per `find-bp-uat-stakeholders.sh`.
+**Did NOT close GitHub issue #140** (`FR-BOT-002`'s own tracking issue) —
+unlike the single-PR-FR default Step 13 assumes, issue #140 tracks the
+*entire* 10-command FR, and this PR ships only commands 4–5 of 10;
+closing it now would misrepresent 5 still-unimplemented commands as done.
+Left open deliberately, judgement call documented here rather than
+silently deviating from the written step. `requirements-registry.md` row
+58 stays `In Progress` (unchanged — was already flipped by PR 1);
+`FR-BOT-002.md`'s own `status:` frontmatter stays `Planned` (same
+multi-PR-FR rationale as PR 1, matches the `FR-AUTH-002` precedent).
+
 **Last updated:** 2026-08-01 — `wf-20260731-feat-174`.
 **FR-BOT-002 PR 1/6 shipped — the bot's first member-facing read-only commands: `/help`, `/events`, `/event <N>`, backed by two new internal API routes.**
 [wf-20260731-feat-174](../tasks/completed/wf-20260731-feat-174/handoff.yaml)
