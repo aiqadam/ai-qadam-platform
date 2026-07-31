@@ -5,7 +5,7 @@ status: Ready
 process_ref: "docs/03-requirements/FR-REG-001.md"
 environment: "http://localhost:4321"
 seed_required: true
-last_run: "2026-07-31 (wf-20260731-uat-163, mandatory Step 13 post-merge re-verification for ISS-BRIDGE-STALE-001/wf-20260731-fix-162 — narrower than a full pass; AC-1/AC-5 MATCH, AC-2 PARTIAL (QR gap, pre-existing), AC-6 PARTIAL (reproduces ISS-EVT-004-1's registeredCount=0 bug live again, pre-existing). Confirmed live: uat-member's directus_user_id now resolves to the correct, reconciled id (bb110099-...) and the registration flow works end-to-end on top of it — no regression from the fix.)"
+last_run: "2026-07-31 (wf-20260731-uat-166, mandatory Step 13 post-merge re-verification for ISS-UAT-010-2/wf-20260731-fix-165 — narrower than a full pass, scoped to the waitlist-rendering fix; AC-1/AC-6 MATCH, both explicitly cross-referenced against the live Directus row (not DOM text alone — the same technique that originally caught this bug). Full event's registration correctly rendered 'On waitlist — we'll email if a seat opens' with Directus confirming status=waitlisted; open event's registration correctly rendered '✓ You're registered' with Directus confirming status=registered. Fix holds, no regression. Pre-existing ISS-EVT-004-1 (registeredCount display bug) still visible in the capacity counter — unrelated, already tracked, not re-filed.)"
 linked_issues: [ISS-UAT-SEED-003, ISS-UAT-010-1, ISS-EVT-004-1, ISS-BRIDGE-STALE-001, ISS-UAT-010-2]
 ---
 

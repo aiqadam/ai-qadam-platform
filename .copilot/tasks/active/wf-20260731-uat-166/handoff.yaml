@@ -1,0 +1,130 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-uat-166"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T06:40:00Z"
+last_updated_at: "2026-07-31T06:50:00Z"
+
+requirement_ref: "BP-UAT-010"
+requirement_text: "Post-merge re-verification (Step 13 of wf-20260731-fix-165 / ISS-UAT-010-2): confirm the registration-waitlist race fix (pollForSettledStatus()) holds live, DOM cross-referenced against Directus."
+github_issue_url: ""
+
+branch: "uat/BP-UAT-010-iss-uat-010-2-postmerge"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 5
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: "wf-20260731-fix-165"
+  parent_branch: "fix/ISS-UAT-010-2-registration-waitlist-race"
+  parent_paused_at_step: 13
+  parent_paused_at_gate: "post-merge-uat"
+  spawned_at: "2026-07-31T06:40:00Z"
+  spawned_by_issue: "ISS-UAT-010-2"
+  resolution_for_parent: "confirms fix holds live"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  uat-script-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T06:42:00Z"
+    summary: "BP-UAT-010.md complete; this run scoped to AC-1 + AC-6 (fix-relevant ACs), matching wf-20260731-uat-163 precedent."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/01-uat-script-validation.md"
+  pre-flight:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T06:45:00Z"
+    summary: "Docker stack healthy. web/api reachable + confirmed same-repo via health payload despite stale substring check. Seed landed correctly in Directus despite pnpm-wrapper non-zero exit. uat-member password re-set directly (known env staleness, same as wf-20260731-uat-163)."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/02-preflight.md"
+  uat-session:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T06:47:00Z"
+    summary: "1 passed (22.1s). AC-1 + AC-6 both MATCH, DOM cross-referenced against live Directus rows. Fix holds."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/02-uat-report.md"
+  uat-triage:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T06:50:00Z"
+    summary: "Clean pass, no new issues. AC-9 divergence statement: none observed — DOM and Directus now agree, unlike the original bug."
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/03-uat-triage.md"
+agent_assignments:
+  orchestrator-uat-script-validation:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/01-uat-script-validation.md"
+    timestamp: "2026-07-31T06:42:00Z"
+  orchestrator-preflight:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/02-preflight.md"
+    timestamp: "2026-07-31T06:45:00Z"
+  uat-runner:
+    status: completed
+    step: 3
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/02-uat-report.md"
+    timestamp: "2026-07-31T06:47:00Z"
+  business-analyst-triage:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260731-uat-166/03-uat-triage.md"
+    timestamp: "2026-07-31T06:50:00Z"
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-UAT-010-2"
+issue_resolution: ""
+
+deferrals: []
+
+expects_registry_update: false
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: [BP-UAT-010]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - apps/e2e/tests/uat/BP-UAT-010.session.spec.ts
+  - apps/e2e/uat-results/BP-UAT-010/wf-20260731-uat-166/session-log.md
+  - apps/e2e/uat-results/BP-UAT-010/wf-20260731-uat-166/step-001-signed-in.png
+  - apps/e2e/uat-results/BP-UAT-010/wf-20260731-uat-166/step-002-open-event-registered.png
+  - apps/e2e/uat-results/BP-UAT-010/wf-20260731-uat-166/step-003-full-event-after-click.png
+  - apps/e2e/uat-results/BP-UAT-010/wf-20260731-uat-166/teardown.md
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-010.md
+  - .copilot/issues/ISS-UAT-010-2.md
+  - apps/api/src/modules/registrations/registrations-directus.service.ts
+
+merge_mode: "auto"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260731-uat-166/NEEDS_REVIEW.md"

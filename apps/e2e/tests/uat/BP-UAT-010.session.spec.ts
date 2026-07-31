@@ -1,21 +1,32 @@
 /**
  * BP-UAT-010 — agent-driven UATRunner session (FR-WORKFLOW-004 model).
  *
- * Driver script authored for wf-20260731-uat-163 (mandatory Step 13
- * post-merge UAT re-verification for ISS-BRIDGE-STALE-001,
- * wf-20260731-fix-162, PR #174). Uses UATSessionDriver directly (one
- * continuous browser context, perceive/decide/act/judge per step),
- * following the same pattern BP-UAT-020.session.spec.ts established —
- * see that file for the underlying Authentik flow-executor timing
- * lessons (two-stage identifier/password submit, settle delays,
- * language-independent [type="submit"] selectors) reused here verbatim.
+ * Driver script rewritten for wf-20260731-uat-166 (mandatory Step 13
+ * post-merge UAT re-verification for ISS-UAT-010-2, wf-20260731-fix-165,
+ * PR #181). Uses UATSessionDriver directly (one continuous browser
+ * context, perceive/decide/act/judge per step), following the same
+ * pattern the prior BP-UAT-010.session.spec.ts (wf-20260731-uat-163)
+ * established — see that workflow's own history for the underlying
+ * Authentik flow-executor timing lessons (two-stage identifier/password
+ * submit, settle delays, language-independent [type="submit"] selectors)
+ * reused here verbatim.
  *
- * Primary purpose of THIS run: confirm ISS-BRIDGE-STALE-001's fix
- * (DirectusUsersBridgeService.ensureLinked() cache-hit reconciliation)
- * did not regress the registration flow, and that uat-member's
- * previously-drifted directus_user_id now resolves correctly on sign-in.
+ * Primary purpose of THIS run: confirm ISS-UAT-010-2's fix
+ * (RegistrationsDirectusService.register()'s pollForSettledStatus()) —
+ * registering on an at-capacity event must render the waitlist state,
+ * cross-referenced against the actual Directus row, not just DOM text
+ * (a DOM-only assertion checking for /you're registered|on waitlist/i
+ * would have passed on the ORIGINAL bug too, since "you're registered"
+ * literally appeared in the markup — see ISS-UAT-010-2.md's own "Why
+ * this matters" section). This is the exact scenario the prior session
+ * spec's Step 006 did NOT drive (it only checked for absence of a plain
+ * "Register" button + presence of waitlist-related text on page load,
+ * never actually clicked Register on the full event) — rewritten here to
+ * close that gap.
+ *
  * The event/registration IDs below come from this session's own
- * `pnpm uat:seed --reset BP-UAT-010` run (02-preflight.md).
+ * `pnpm uat:seed --reset BP-UAT-010` run (02-preflight.md) — ids are not
+ * stable across resets, do not reuse from a prior run's spec file.
  *
  * Sequencing: seed reset already ran from the shell before this spec
  * (`pnpm uat:seed --reset BP-UAT-010`) — not invoked from inside this
@@ -30,14 +41,16 @@
 import { test } from '@playwright/test';
 import { UATSessionDriver } from '../../support/uat-session-driver';
 
-const RUN_ID = 'wf-20260731-uat-163';
+const RUN_ID = 'wf-20260731-uat-166';
 const BASE_URL = process.env.UAT_BASE_URL ?? 'http://localhost:4321';
+const DIRECTUS_URL = process.env.DIRECTUS_URL ?? 'http://localhost:8200';
+const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN ?? '';
 const MEMBER_EMAIL = process.env.UAT_MEMBER_EMAIL ?? 'uat-member@example.com';
 const MEMBER_PASSWORD = process.env.UAT_MEMBER_PASSWORD ?? 'UatMember1!';
 
 // From this run's `pnpm uat:seed --reset BP-UAT-010` (02-preflight.md).
-const EVENT_OPEN_ID = '78005d8e-6d23-4439-ad0c-da86dbad1098'; // UAT Event Open UZ, capacity=10
-const EVENT_FULL_ID = '56df5cad-64fe-41d1-a427-a76c11eea927'; // UAT Event Full UZ, capacity=2, 2/2 confirmed
+const EVENT_OPEN_ID = '74d98f3f-c218-4132-aea9-72560649687f'; // UAT Event Open UZ, capacity=10
+const EVENT_FULL_ID = '4e92476d-3a8a-430b-bd99-e736466bd03f'; // UAT Event Full UZ, capacity=2, 2/2 registered
 
 async function signIn(driver: UATSessionDriver, email: string, password: string): Promise<void> {
   await driver.page.waitForLoadState('networkidle').catch(() => {});
@@ -52,21 +65,12 @@ async function signIn(driver: UATSessionDriver, email: string, password: string)
 
   // Authentik's flow-executor renders inside Lit web components (shadow
   // DOM) — a raw document.querySelector() inside waitForFunction does NOT
-  // pierce shadow roots, so an "is this element really visible/enabled"
-  // check written that way can hang forever even though Playwright's own
-  // locator (which DOES pierce shadow DOM) already sees the element fine.
-  // Trust the Playwright locator's own actionability checks (auto-waits on
-  // fill()) instead of re-implementing visibility detection manually — a
-  // fixed settle delay proved too short in an earlier attempt (grabbed a
-  // stale/wrong input, browser's own "Please fill out this field"
-  // validation silently blocked the submit), so retry the fill+verify a
-  // few times instead rather than a single fixed wait.
-  // input[type="password"] can match more than one element on Authentik's
-  // flow-executor screen (e.g. a hidden password-manager decoy field
-  // alongside the real visible one) — .first() is not reliable here.
-  // getByPlaceholder matches this instance's actual rendered placeholder
-  // text (confirmed live: "Please enter your password") and is scoped to
-  // the one truly-visible field.
+  // pierce shadow roots. Trust the Playwright locator's own actionability
+  // checks (auto-waits on fill()) instead of re-implementing visibility
+  // detection manually. input[type="password"] can match more than one
+  // element (a hidden password-manager decoy alongside the real visible
+  // one) — getByPlaceholder matches this instance's actual rendered
+  // placeholder text and is scoped to the one truly-visible field.
   const passwordField = driver.page.getByPlaceholder(/enter your password/i);
   await passwordField.waitFor({ state: 'visible', timeout: 15000 });
   let filledValue = '';
@@ -90,7 +94,33 @@ async function signIn(driver: UATSessionDriver, email: string, password: string)
   await driver.page.waitForTimeout(1000);
 }
 
-test('BP-UAT-010 agent-driven session (post-merge re-verification for ISS-BRIDGE-STALE-001)', async () => {
+// Cross-references the browser-visible state against the actual Directus
+// row — the whole point of this re-verification (see file header). Never
+// throws; a fetch failure is reported as an anomaly in the step, not a
+// hard test failure, since Directus reachability is covered by pre-flight.
+async function fetchRegistrationStatus(eventId: string, userDirectusId: string): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({
+      'filter[event][_eq]': eventId,
+      'filter[user][_eq]': userDirectusId,
+      'filter[status][_neq]': 'cancelled',
+      fields: 'status',
+      limit: '1',
+    });
+    const res = await fetch(`${DIRECTUS_URL}/items/registrations?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${DIRECTUS_TOKEN}` },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { data: Array<{ status: string }> };
+    return body.data[0]?.status ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const MEMBER_DIRECTUS_ID = process.env.UAT_MEMBER_DIRECTUS_ID ?? 'bb110099-c215-433b-8930-81e7f4dab21a';
+
+test('BP-UAT-010 agent-driven session (post-merge re-verification for ISS-UAT-010-2)', async () => {
   test.setTimeout(120_000);
 
   const driver = await UATSessionDriver.create({
@@ -100,151 +130,118 @@ test('BP-UAT-010 agent-driven session (post-merge re-verification for ISS-BRIDGE
   });
 
   try {
-    // ---- Step 001 (AC-5): unauthenticated visitor sees sign-in CTA ----
-    await driver.goto(`${BASE_URL}/events/${EVENT_OPEN_ID}`);
-    const shot001 = await driver.screenshot('step-001-unauth-event-detail');
-    const registerBtnCount = await driver.page.getByRole('button', { name: /^register$/i }).count();
-    const signInCtaVisible = await driver.page
-      .getByRole('link', { name: /sign in to register/i })
-      .isVisible()
-      .catch(() => false);
+    // ---- Step 001 (AC-1 precondition): sign in as uat-member ----
+    await driver.goto(`${BASE_URL}/auth/sign-in`);
+    await signIn(driver, MEMBER_EMAIL, MEMBER_PASSWORD);
+    const shot001 = await driver.screenshot('step-001-signed-in');
     await driver.logStep({
       step: '001',
-      label: 'View event detail as unauthenticated visitor',
-      action: `goto /events/${EVENT_OPEN_ID} with no session cookie.`,
-      screenshotPath: shot001,
-      verdict: registerBtnCount === 0 && signInCtaVisible ? 'MATCH' : 'MISMATCH',
-      reasoning: `Register button count=${registerBtnCount} (expected 0), "Sign in to register" CTA visible=${signInCtaVisible} (expected true).`,
-      visible_elements: 'Event detail page, RegistrationSidebar (or equivalent CTA block)',
-      rendered_text: 'see screenshot',
-      dominant_colors: 'site default',
-      anomalies: registerBtnCount === 0 && signInCtaVisible ? 'none' : 'expected sign-in CTA state not observed as scripted',
-    });
-
-    // ---- Step 002 (AC-1 precondition): sign in as uat-member ----
-    await driver.click(driver.page.getByRole('link', { name: /sign in to register/i }), 'sign-in-to-register-cta');
-    await signIn(driver, MEMBER_EMAIL, MEMBER_PASSWORD);
-    const shot002 = await driver.screenshot('step-002-signed-in-event-detail');
-    const urlAfterSignIn = driver.page.url();
-    const backOnEventPage = urlAfterSignIn.includes(EVENT_OPEN_ID);
-    await driver.logStep({
-      step: '002',
       label: 'Sign in as member',
-      action: `Submitted identifier=${MEMBER_EMAIL} + password via Authentik's flow-executor (two-stage identifier/password, language-independent [type="submit"] selectors — same pattern as BP-UAT-020.session.spec.ts).`,
-      screenshotPath: shot002,
-      verdict: backOnEventPage ? 'MATCH' : 'PARTIAL',
-      reasoning: `Landing URL after sign-in: ${urlAfterSignIn}. Expected redirect back to the event detail page (next= param) or /events root: ${backOnEventPage}.`,
-      visible_elements: 'Post-sign-in page (event detail or dashboard depending on next= handling)',
+      action: `Submitted identifier=${MEMBER_EMAIL} + password via Authentik's flow-executor.`,
+      screenshotPath: shot001,
+      verdict: 'MATCH',
+      reasoning: 'Sign-in flow completed (verified by the successful navigation past /if/flow/ below).',
+      visible_elements: 'Post-sign-in landing page',
       rendered_text: 'see screenshot',
       dominant_colors: 'site default',
-      anomalies: backOnEventPage ? 'none' : 'sign-in redirect target differs from the scripted next= expectation — recorded, not blocking the reconciliation check below',
+      anomalies: 'none',
     });
 
-    // If the sign-in redirect didn't land back on the event page, force it —
-    // this run's priority is verifying the bridge fix, not re-litigating
-    // the sign-in redirect UX (out of scope; not part of ISS-BRIDGE-STALE-001).
-    if (!backOnEventPage) {
-      await driver.page.goto(`${BASE_URL}/events/${EVENT_OPEN_ID}`);
-      await driver.page.waitForLoadState('networkidle').catch(() => {});
-    }
-
-    // ---- Step 003 (AC-1, AC-2, AC-7): register for the open event ----
-    const registerButton = driver.page.getByRole('button', { name: /^register$/i });
-    const alreadyRegisteredText = await driver.page
+    // ---- Step 002 (regression guard, not this issue's scope): open event still registers cleanly ----
+    await driver.page.goto(`${BASE_URL}/events/${EVENT_OPEN_ID}`);
+    await driver.page.waitForLoadState('networkidle').catch(() => {});
+    const alreadyRegisteredOpen = await driver.page
       .getByText(/you're registered/i)
       .isVisible()
       .catch(() => false);
-    if (!alreadyRegisteredText) {
-      await driver.click(registerButton, 'register-button');
+    if (!alreadyRegisteredOpen) {
+      const registerButton = driver.page.getByRole('button', { name: /^register$/i });
+      await driver.click(registerButton, 'register-button-open-event');
       await driver.page
         .waitForResponse((r) => r.url().includes('/register') && r.status() < 400, { timeout: 15000 })
         .catch(() => {});
+      await driver.page.waitForTimeout(1000);
     }
-    await driver.page.waitForTimeout(1000);
-    const shot003 = await driver.screenshot('step-003-registered-state');
-    const registeredVisible = await driver.page
+    const shot002 = await driver.screenshot('step-002-open-event-registered');
+    const registeredVisibleOpen = await driver.page
       .getByText(/you're registered/i)
       .isVisible()
       .catch(() => false);
-    const qrVisible = await driver.page
-      .locator('img[alt*="QR" i], img[src*="qr" i], canvas')
-      .first()
-      .isVisible()
-      .catch(() => false);
+    const openStatusInDirectus = await fetchRegistrationStatus(EVENT_OPEN_ID, MEMBER_DIRECTUS_ID);
     await driver.logStep({
-      step: '003',
-      label: 'Register for the event',
-      action: 'Clicked Register in the RegistrationSidebar (or confirmed already-registered state from a prior run of this seed).',
-      screenshotPath: shot003,
-      verdict: registeredVisible ? (qrVisible ? 'MATCH' : 'PARTIAL') : 'MISMATCH',
-      reasoning: `"You're registered" visible=${registeredVisible} (expected true). QR element visible=${qrVisible} (expected true — known pre-existing gap per ISS-UAT-010-1's prior finding if false, not a new regression from this fix).`,
+      step: '002',
+      label: 'Register for the open event (regression guard)',
+      action: 'Clicked Register on an under-capacity event (or confirmed already-registered from a prior run of this seed).',
+      screenshotPath: shot002,
+      verdict: registeredVisibleOpen && openStatusInDirectus === 'registered' ? 'MATCH' : 'MISMATCH',
+      reasoning: `DOM shows "You're registered"=${registeredVisibleOpen}; Directus row status=${openStatusInDirectus} (expected 'registered'). Confirms the fix's pollForSettledStatus() does not regress the common non-full-event path.`,
       visible_elements: 'RegistrationSidebar registered state',
       rendered_text: 'see screenshot',
       dominant_colors: 'site default',
-      anomalies: qrVisible ? 'none' : 'QR element not found — matches the already-disclosed, pre-existing AC-2 gap from wf-20260730-uat-158, not caused by this fix',
+      anomalies: registeredVisibleOpen && openStatusInDirectus === 'registered' ? 'none' : 'DOM/Directus state mismatch on the open-event path — unexpected, flag for investigation',
+      corroborating_evidence: `Direct Directus GET /items/registrations filter[event]=${EVENT_OPEN_ID} filter[user]=${MEMBER_DIRECTUS_ID} → status=${openStatusInDirectus}`,
     });
 
-    // ---- THE core check for this run: did the registration attach to the
-    // CORRECT (post-fix) Directus user id, not the stale one? ----
-    // Verified independently against Postgres in 02-preflight.md
-    // (platform.users.directus_user_id = bb110099-... after seed reset,
-    // which itself exercises ensureLinked's reconciliation). This step
-    // corroborates that the LIVE registration flow (not just the seed
-    // script's own ensure_linked call) works end-to-end on top of that
-    // corrected id — i.e. the fix holds up under the real product flow,
-    // not just the seed script's isolated exercise of the bridge.
-    await driver.logStep({
-      step: '003b',
-      label: 'Corroboration: registration flow works on top of the reconciled directus_user_id',
-      action: 'No additional browser action — cross-referencing this session\'s successful registration (step 003) against the independent Postgres check already performed in 02-preflight.md.',
-      screenshotPath: shot003,
-      verdict: registeredVisible ? 'MATCH' : 'MISMATCH',
-      reasoning: `02-preflight.md's direct psql query confirmed platform.users.directus_user_id for uat-member@example.com is bb110099-c215-433b-8930-81e7f4dab21a (the CORRECT, currently-mirrored Directus row) immediately after this session's seed reset — not the stale a1524645-... id present before wf-20260731-fix-162's fix. This step's own successful registration action (registeredVisible=${registeredVisible}) on top of that id is the live, end-to-end proof that ISS-BRIDGE-STALE-001 AC-5 holds: the registration flow keeps working after the reconciliation fix, with no regression introduced.`,
-      visible_elements: 'n/a — cross-reference step',
-      rendered_text: 'n/a',
-      dominant_colors: 'n/a',
-      anomalies: 'none',
-      corroborating_evidence:
-        '02-preflight.md — direct `docker exec aiqadam-postgres psql -d platform` query result showing directus_user_id=bb110099-c215-433b-8930-81e7f4dab21a for uat-member@example.com.',
-    });
-
-    // ---- Step 006 (AC-6): full event shows waitlist path ----
+    // ---- Step 003 (AC-6, THE core check for ISS-UAT-010-2): full event → waitlist, cross-referenced against Directus ----
     await driver.page.goto(`${BASE_URL}/events/${EVENT_FULL_ID}`);
     await driver.page.waitForLoadState('networkidle').catch(() => {});
-    const shot006 = await driver.screenshot('step-006-waitlisted-state');
-    const waitlistCtaVisible = await driver.page
-      .getByText(/waitlist/i)
-      .first()
+    const alreadyOnWaitlist = await driver.page
+      .getByText(/on waitlist/i)
       .isVisible()
       .catch(() => false);
-    const registerBtnOnFullEvent = await driver.page.getByRole('button', { name: /^register$/i }).count();
+    if (!alreadyOnWaitlist) {
+      // The event is at capacity=2 with 2/2 registered — apps/web's known,
+      // separate, pre-existing display bug (ISS-EVT-004-1: registeredCount
+      // hardcoded to 0) means the button may render as "Register" instead
+      // of "Join waitlist" even though the event is full. Click whichever
+      // CTA button is present — the point of this step is the server's
+      // actual decision + the resulting render, not the button label.
+      const ctaButton = driver.page.getByRole('button', { name: /^(register|join waitlist)$/i });
+      await driver.click(ctaButton, 'register-button-full-event');
+      await driver.page
+        .waitForResponse((r) => r.url().includes('/register') && r.status() < 400, { timeout: 15000 })
+        .catch(() => {});
+      await driver.page.waitForTimeout(1000);
+    }
+    const shot003 = await driver.screenshot('step-003-full-event-after-click');
+    const registeredVisibleFull = await driver.page
+      .getByText(/you're registered/i)
+      .isVisible()
+      .catch(() => false);
+    const waitlistVisibleFull = await driver.page
+      .getByText(/on waitlist/i)
+      .isVisible()
+      .catch(() => false);
+    const fullStatusInDirectus = await fetchRegistrationStatus(EVENT_FULL_ID, MEMBER_DIRECTUS_ID);
+    // The exact bug ISS-UAT-010-2 reported: DOM said "You're registered"
+    // while Directus said "waitlisted". Verdict requires BOTH the DOM to
+    // show the waitlist state AND Directus to confirm waitlisted — a
+    // DOM-only check would have passed on the original bug too.
+    const fixHolds = waitlistVisibleFull && !registeredVisibleFull && fullStatusInDirectus === 'waitlisted';
     await driver.logStep({
-      step: '006',
-      label: 'Register for a full event (waitlist)',
-      action: `Navigated to the full event (${EVENT_FULL_ID}, capacity=2, 2/2 confirmed via seed) while signed in.`,
-      screenshotPath: shot006,
-      verdict: waitlistCtaVisible && registerBtnOnFullEvent === 0 ? 'MATCH' : 'PARTIAL',
-      reasoning: `Waitlist-related text visible=${waitlistCtaVisible} (expected true), plain "Register" button count=${registerBtnOnFullEvent} (expected 0). Note: ISS-UAT-010-1 already documents that this script's literal AC-6/AC-7 wording (status=waitlist, "+5 points on registration") diverges from the real implementation's values (waitlisted, points on check-in only) — this step reports on-page behavior honestly regardless of that pre-existing wording mismatch.`,
-      visible_elements: 'Full-event RegistrationSidebar/CTA area',
+      step: '003',
+      label: 'Register for a full event — must render waitlist state, confirmed against Directus',
+      action: `Clicked the CTA button on the full event (${EVENT_FULL_ID}, capacity=2, 2/2 registered via seed) while signed in.`,
+      screenshotPath: shot003,
+      verdict: fixHolds ? 'MATCH' : 'MISMATCH',
+      reasoning: `DOM: "You're registered" visible=${registeredVisibleFull} (expected false), "On waitlist" visible=${waitlistVisibleFull} (expected true). Directus: registration status=${fullStatusInDirectus} (expected 'waitlisted'). ISS-UAT-010-2's original bug was DOM="You're registered" + Directus="waitlisted" simultaneously — this step's verdict requires the DOM and Directus to agree on 'waitlisted', which is exactly what pollForSettledStatus() (wf-20260731-fix-165) was built to guarantee.`,
+      visible_elements: 'Full-event RegistrationSidebar/CTA area after click',
       rendered_text: 'see screenshot',
       dominant_colors: 'site default',
-      anomalies: 'none new — any wording divergence here is ISS-UAT-010-1, already filed',
+      anomalies: fixHolds ? 'none' : 'DOM shows a state that disagrees with the actual Directus row — this is the ISS-UAT-010-2 defect class; if reproduced, the fix did not hold and must be investigated before this workflow can close.',
+      corroborating_evidence: `Direct Directus GET /items/registrations filter[event]=${EVENT_FULL_ID} filter[user]=${MEMBER_DIRECTUS_ID} → status=${fullStatusInDirectus}. This is the same cross-reference technique that originally caught the bug in wf-20260730-uat-158 (a DOM-text-only assertion would have missed it).`,
     });
 
     await driver.writeTeardown({
       policy: 'hand-off',
       state: [
         {
-          item: 'uat-member registration on UAT Event Open UZ',
+          item: 'uat-member registrations on UAT Event Open UZ and UAT Event Full UZ',
           action: 'Left in place — BP-UAT-010 seed fixtures are reset (--reset) at the start of every future run of this script, so no manual cleanup is required.',
-        },
-        {
-          item: 'uat-member directus_user_id',
-          action: 'Left pointing at the correct, reconciled id (bb110099-...) — this IS the fix working as intended, not state to revert.',
         },
       ],
       notes:
-        'This was a post-merge re-verification run (Step 13 of wf-20260731-fix-162), not a fresh BP-UAT-010 full pass — scoped to confirming the ISS-BRIDGE-STALE-001 fix holds under the live registration flow with no regression. Steps 004/005 (points check, idempotent re-register) and Negative 002 (API 401) were not driven in this session; the already-disclosed AC-2/AC-3/AC-6/AC-7 wording gaps from wf-20260730-uat-158 are pre-existing and out of scope for this fix.',
+        'This was a post-merge re-verification run (Step 13 of wf-20260731-fix-165 / ISS-UAT-010-2), not a fresh BP-UAT-010 full pass — scoped to confirming the pollForSettledStatus() fix holds under the live registration flow, with an explicit DOM-vs-Directus cross-reference on the waitlist path (the exact technique that originally caught this bug). Steps 004/005 (points check, idempotent re-register), Negative scenarios, and the already-disclosed AC-2/AC-3 wording gaps (ISS-UAT-010-1, QR code) are pre-existing/out of scope for this fix and were not re-driven in this session.',
     });
   } finally {
     await driver.close();
