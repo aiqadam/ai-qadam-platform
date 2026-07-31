@@ -13,6 +13,7 @@ import { env } from '../../config/env';
 import { AuthentikClient } from '../admin-invites/authentik.client';
 import { DirectusUsersBridgeService } from '../directus/directus-users-bridge.service';
 import { DirectusClient } from '../directus/directus.client';
+import { MeProfileService, type MemberInterest } from '../me-profile/me-profile.service';
 import { PointsDirectusService, type LeaderboardEntry } from '../points/points-directus.service';
 import {
   RegistrationConsentRequiredError,
@@ -232,6 +233,58 @@ export interface TelegramLeaderboardResult {
   entries: TelegramLeaderboardEntry[];
 }
 
+// ── FEAT-BOT-2 (FR-BOT-002 PR 5/6) — /interests schemas ─────────────────
+
+// Independently-owned duplicate of TelegramEventTopicsService's own
+// KNOWN_EVENT_TOPICS slugs (same 7 concepts, so a member's "AI Ethics"
+// interest and an event's "AI Ethics" tag mean the same thing) — NOT an
+// import. Two independent reasons, both confirmed by reading the actual
+// source (01-requirement-validation.md's Architectural Feasibility point
+// 3): (1) TelegramEventTopicsService isn't in TelegramModule's own
+// `exports` array, so it can't be injected regardless of the
+// circular-dependency question below; (2) importing TelegramModule into
+// AuthModule to reach it would add a new edge on top of the
+// already-documented, previously-reverted AuthModule -> InteractionsModule
+// -> TelegramModule -> AuthModule cycle (see telegram.module.ts's own
+// header comment) — an unnecessary risk for a small, stable, 7-entry
+// static list. Bare slugs only: labels are bot-side (locales/{ru,en}.py),
+// matching how every other picker in this bot already works — no
+// {slug, label, icon} duplication needed on the API side.
+export const INTEREST_TOPICS = [
+  'llm',
+  'mlops',
+  'computer-vision',
+  'product',
+  'career',
+  'ethics',
+  'infra',
+] as const;
+export type InterestTopic = (typeof INTEREST_TOPICS)[number];
+
+// GET /v1/internal/telegram/interests query schema. No `country` — unlike
+// every other FEAT-BOT-2 route, interests are not tenant-scoped
+// (member_interests has no country_code column; see
+// 01-requirement-validation.md's Architectural Feasibility, tenancy note).
+export const interestsQuerySchema = z.object({
+  directusUserId: z.string().uuid(),
+});
+export type InterestsQuery = z.infer<typeof interestsQuerySchema>;
+
+// POST /v1/internal/telegram/interests/toggle body schema. `topic` is
+// validated against the fixed slug list here — an out-of-list value is a
+// 400 before it ever reaches MeProfileService.addInterest, which would
+// otherwise accept arbitrary free text into topic_tag (AC-11).
+export const toggleInterestBodySchema = z.object({
+  directusUserId: z.string().uuid(),
+  topic: z.enum(INTEREST_TOPICS),
+});
+export type ToggleInterestBody = z.infer<typeof toggleInterestBodySchema>;
+
+export interface TelegramInterestsResult {
+  selected: string[];
+  available: string[];
+}
+
 // ── Result shapes ────────────────────────────────────────────────────────
 
 // One row of GET /events. Kept intentionally narrow — only what the bot's
@@ -313,6 +366,16 @@ export class TelegramAuthService {
     // AuthModule anywhere in its own graph, so there is no cycle (see
     // auth.module.ts's own comment on this same edge).
     private readonly points: PointsDirectusService,
+    // FEAT-BOT-2 (FR-BOT-002 PR 5/6) — MeProfileService comes from
+    // MeProfileModule, which AuthModule imports via forwardRef (see
+    // auth.module.ts's comment on this edge) — same
+    // "Nest's design:paramtypes reflection can't resolve a forwardRef'd
+    // provider through the constructor-parameter type alone" gotcha
+    // documented above for RegistrationsDirectusService: omitting this
+    // explicit @Inject(forwardRef(...)) compiles fine but fails at
+    // RUNTIME with UnknownDependenciesException, not at compile/lint time.
+    @Inject(forwardRef(() => MeProfileService))
+    private readonly meProfile: MeProfileService,
   ) {}
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -777,6 +840,78 @@ export class TelegramAuthService {
       throw new NotFoundException({ error: 'telegram_user_not_found' });
     }
     return userId;
+  }
+
+  // FEAT-BOT-2 (FR-BOT-002 PR 5/6) — mirrors requirePlatformUserId's shape
+  // (same 404 convention) but resolves email too, since MeProfileService's
+  // every method is keyed on (userId, email), not userId alone.
+  private async requirePlatformUserAndEmail(
+    directusUserId: string,
+  ): Promise<{ userId: string; email: string }> {
+    const resolved = await this.directusBridge.resolveUserAndEmailFromDirectusId(directusUserId);
+    if (!resolved) {
+      throw new NotFoundException({ error: 'telegram_user_not_found' });
+    }
+    return resolved;
+  }
+
+  // GET /v1/internal/telegram/interests service logic (FR-BOT-002 PR
+  // 5/6). Reduces MeProfileService.listInterests to the distinct set of
+  // topic_tags present (any intent counts as "selected" for toggle-button
+  // rendering — see 01-requirement-validation.md point 7), intersected
+  // with INTEREST_TOPICS in that constant's own order so `selected` never
+  // contains a stray topic_tag the fixed picker doesn't know about
+  // (defensive against free-text rows written some other way — the
+  // underlying Directus column has no enum constraint even though this
+  // route only ever writes from the curated list).
+  async getInterests(directusUserId: string): Promise<TelegramInterestsResult> {
+    const { userId, email } = await this.requirePlatformUserAndEmail(directusUserId);
+    const interests = await this.meProfile.listInterests(userId, email);
+    return this.toInterestsResult(interests);
+  }
+
+  // POST /v1/internal/telegram/interests/toggle service logic (FR-BOT-002
+  // PR 5/6). MeProfileService has no native "toggle" — only
+  // addInterest/removeInterest — so this composes them:
+  //   - topic currently unselected (no row, any intent) -> addInterest
+  //     with a hardcoded intent='learn' (see point 7: the bot's one
+  //     topic = one row = present/absent model is a documented scope
+  //     narrowing versus the web cabinet's per-intent picker).
+  //   - topic currently selected -> remove every 'learn'-intent row for
+  //     that topic (defensively ALL such rows, not just the first found
+  //     by array order — addInterest's own dedup means more than one
+  //     shouldn't happen, but this compose path is new code and must not
+  //     silently assume that invariant). Non-'learn' rows (e.g. a
+  //     'mentor' row created via the web /me/profile cabinet) are never
+  //     touched by this path — AC-7's load-bearing correctness guarantee:
+  //     a bot tap must never mass-delete cross-surface data under a
+  //     different intent.
+  // Returns getInterests()'s own shape by calling it again post-toggle —
+  // one extra round trip, but a single source of truth for the response
+  // shape rather than computing the post-toggle delta locally; correctness
+  // over micro-optimization here (AC-7 is the load-bearing test).
+  async toggleInterest(directusUserId: string, topic: string): Promise<TelegramInterestsResult> {
+    const { userId, email } = await this.requirePlatformUserAndEmail(directusUserId);
+    const existing = await this.meProfile.listInterests(userId, email);
+    const isSelected = existing.some((i) => i.topic_tag === topic);
+
+    if (isSelected) {
+      const learnRows = existing.filter((i) => i.topic_tag === topic && i.intent === 'learn');
+      for (const row of learnRows) {
+        await this.meProfile.removeInterest(userId, email, row.id);
+      }
+    } else {
+      await this.meProfile.addInterest(userId, email, topic, 'learn');
+    }
+
+    return this.getInterests(directusUserId);
+  }
+
+  // Shared by getInterests/toggleInterest's return path.
+  private toInterestsResult(interests: MemberInterest[]): TelegramInterestsResult {
+    const presentTopics = new Set(interests.map((i) => i.topic_tag));
+    const selected = INTEREST_TOPICS.filter((topic) => presentTopics.has(topic));
+    return { selected, available: [...INTEREST_TOPICS] };
   }
 
   // Register's confirmation message needs the event title; the events/:id

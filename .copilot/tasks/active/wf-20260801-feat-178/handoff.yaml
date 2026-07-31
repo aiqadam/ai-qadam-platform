@@ -1,0 +1,195 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260801-feat-178"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-01T00:00:00Z"
+last_updated_at: "2026-08-01T07:15:00Z"
+
+requirement_ref: "FR-BOT-002"
+requirement_text: "FR-BOT-002 PR 5/6: /interests command — shows current topic interests as toggle buttons; tapping a topic adds or removes it."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/140"
+
+branch: "feature/FEAT-BOT-2-interests-slice"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/209"
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T00:30:00Z"
+    summary: "MeProfileService confirmed for interests R/W; TelegramEventTopicsService not exported (duplicate 7-slug list instead); forwardRef(MeProfileModule) needed in AuthModule; new bridge method resolveUserAndEmailFromDirectusId; intent='learn' hardcoded for bot-created rows."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T01:15:00Z"
+    summary: "DB Changes Required: no (member_interests already covered by MeProfileService) — DBMigrationAuthor (step 3) skipped. Cross-module calls confirmed: TelegramInternalController -> TelegramAuthService -> MeProfileService (new, forwardRef), TelegramAuthService -> DirectusUsersBridgeService.resolveUserAndEmailFromDirectusId (new method), AuthModule -> forwardRef(MeProfileModule) (new wiring edge). Risk flags: AuthModule's third forwardRef'd cycle edge (proven precedent but graph is dense — watch the @Inject(forwardRef(...)) constructor annotation, missing it fails at runtime not compile time); intent='learn' toggle-off correctness (AC-7 mixed-intent scenario is the load-bearing test, not an edge case). Test scope: apps/api Vitest unit (telegram-bot-interests-controller/-service.spec.ts, following telegram-bot-leaderboard-* naming) + apps/bot pytest unit (test_interests_handler.py, following test_leaderboard_handler.py) — no Testcontainers, confirmed against PR 2/PR 4 precedent."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/02-impact-analysis.md"
+  code-development:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T03:15:00Z"
+    summary: "Two new InternalAuthGuard-protected routes (GET/POST .../interests(/toggle)) proxying through MeProfileService unchanged; new bridge method resolveUserAndEmailFromDirectusId; forwardRef(MeProfileModule) wiring in AuthModule PLUS a required (not anticipated by impact-analysis) forwardRef(AuthModule) fix inside me-profile.module.ts itself, found and fixed via main-bootstrap.spec.ts's live Nest DI boot check. Full bot-side surface (handler, keyboard, api_client, locales, main.py wiring). AC-7 mixed-intent toggle-off correctness covered as the load-bearing test. apps/api: typecheck/lint/build clean, scoped test run 9 files/108 tests passing. apps/bot: ruff check/format clean, 146 pytest tests passing. Two pre-existing unrelated clock-flake test failures confirmed via git-stash comparison against unmodified main (not introduced by this PR)."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T04:00:00Z"
+    summary: "No BLOCKER or MAJOR findings across all 11 invariants (INV-6/7/11 not applicable — internal service-to-service surface). INV-1 tenant-isolation exclusion independently verified against me-profile.service.ts's actual listInterests filter (member-only, no country_code column). INV-4 topic enum boundary traced end-to-end: z.enum(INTEREST_TOPICS) runs before any service call and is the only enforcement point before MeProfileService.addInterest (no Directus-side enum on topic_tag); proven by telegram-bot-interests-controller.spec.ts to 400 and never invoke the service on an out-of-list value. INV-9 toggle-off loop assessed as bounded (0-1 realistic iterations, structurally capped by addInterest's own dedup and listInterests's limit=200), not an unbounded N+1; the extra getInterests() round trip at the end of toggleInterest is a deliberate, safe correctness choice with no new race/TOCTOU exposure."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T04:30:00Z"
+    summary: "Rubric score 5 (New API endpoint +2, business rule with edge cases +2, cross-module service call +1, tenant-scoped +0, new DB query scored conservatively at +0 — no new query shape, proxies unchanged through MeProfileService). Score nominally crosses the literal >=4 integration threshold, but both scoring criteria are application-layer logic fully exercisable via mocked service boundaries (AC-7's mixed-intent rule is in-memory filtering over an already-mocked listInterests() result, not a query-correctness question); conclusion is unit tests sufficient, matching PR 2/3/4 precedent, reasoned rather than assumed. All 11 draft ACs verified against actual test file contents (not code-summary claims) across 7 test files (2 new + 1 modified in apps/api, 4 new/modified in apps/bot) — every AC has a correctly-named, correctly-asserting test, including the AC-7 load-bearing mixed-intent test and the AC-6 callback_data-length test (verified non-vacuous against the real INTEREST_TOGGLE_PREFIX constant). One minor non-blocking gap noted: API/bot INTEREST_TOPICS list duplication has no cross-file sync test, precedented by this sequence's existing KNOWN_EVENT_TOPICS duplication tradeoff."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T05:00:00Z"
+    summary: "Independent verification pass: read all 7 test files in full (or modified portions) and the actual source (telegram-auth.service.ts:848-915, interests.py, keyboards/interests.py, main.py, both locale files) directly, cross-checking assertion bodies against source line numbers rather than trusting prior docs' claims. All 11 draft ACs confirmed covered. Every branch of toggleInterest (isSelected true/false, single-learn-row, mixed-intent AC-7 load-bearing case, defensive multi-learn-row case, and the mentor-only/zero-iteration-loop edge case), getInterests, and requirePlatformUserAndEmail (404 branch) has a dedicated covering test. Same result for handle_interests/handle_interest_toggle_callback on the bot side. Self-check checklist passes cleanly: no it.skip/pytest.mark.skip anywhere, no any/as any in TypeScript test code, AAA pattern throughout, Testcontainers correctly used for the modified bridge spec file. No new test files needed; no edits required to CodeDeveloper's existing test suite. Two non-blocking observations carried forward and re-confirmed (INTEREST_TOPICS cross-repo duplication has no sync test, precedented since PR 1; guard clause's directus_user_id-is-None sub-branch untested, matching test_leaderboard_handler.py's own established precedent) — neither assigned as required follow-up."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/06-test-design.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T05:30:00Z"
+    summary: "Full-suite authoritative run, both repos. apps/api: tsc --noEmit clean; biome check clean (306 files); pnpm --filter api test run twice — 1470/1471 passed both times, only failure is test/users.spec.ts's pre-existing clock-ordering flake, independently re-verified via git-stash (isolating this PR's apps/api/src+test changes) to fail identically on the stashed main-equivalent tree, confirming it predates and is unrelated to this PR. The second file 03-code-summary.md flagged (telegram-admin-status-service.spec.ts) did not reproduce this session in either tree or either full-suite run. This PR's own 3 new/modified spec files (telegram-bot-interests-controller.spec.ts, telegram-bot-interests-service.spec.ts, directus-users-bridge.spec.ts) run in isolation — 41/41 passing. apps/bot: ruff check clean, ruff format --check clean, pytest — 146/146 passing, matching code-summary's claimed count exactly. No Testcontainers-only invocation run for this PR's new code per test-strategy's rubric-intent conclusion; pre-existing integration-style specs ran normally within the full suite, not skipped."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/07-test-results.md"
+  doc-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T06:00:00Z"
+    summary: "FR-BOT-002.md 'Implementation progress' section updated: new PR 5/6 shipped paragraph (API surface, MeProfileService reuse rationale, forwardRef(MeProfileModule) wiring plus the unanticipated forwardRef(AuthModule) fix inside me-profile.module.ts called out prominently, intent='learn' scope decision with AC-7 as regression guard, BP-UAT-003 documented-adjacency finding, verification numbers); Planned-follow-up-PRs table reduced to just 6/6; intro paragraph's slice-count language refreshed. FR-BOT-002.md status frontmatter stays Planned and requirements-registry.md Status stays In Progress — INTENTIONAL, precedented exception (PRs 1-4 set this exact pattern already; PR 6/6 has not shipped), not a missed status flip. business_process frontmatter confirmed unchanged ([BP-UAT-010]). docs/02-business-processes/uat/registry.md checked, confirmed unaffected. architecture.md checked for DI-cycle documentation conventions (none exist for any module including the older RegistrationsModule precedent) and deliberately left unchanged, reasoning stated in 08-doc-update.md."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-01T07:15:00Z"
+    summary: "Re-run after Orchestrator corrected expects_registry_update from true to false. Independently verified the correction before accepting it: git log confirms PR 4's (and PR 2's, PR 3's) workspace-state.md paragraphs were added exclusively by their own post-merge 'chore(workflow): archive wf-...' commits, never by their own Step 9 DocWriter pass; their completed handoff.yaml files independently confirm expects_registry_update: false was used in all three cases (only PR 1's predecessor workflow used true, confirmed as the documented outlier). Check #6 (Context-Update Check) and the expects_registry_update-gated portion of Check #8 (Status-Consistency Check) correctly skipped, not failed. Full fresh re-run of all other checks performed: workflow completeness, traceability (11/11 ACs mapped, 3 highest-risk spot-checked against actual test content), test coverage (rubric score 5 reasoned to unit-tests-sufficient, zero it.skip/xfail, 2 pre-existing unrelated flakes excluded via git-stash), security (0 BLOCKER/MAJOR across 11 invariants), branch/commit readiness (git status matches declared scope; biome check on this PR's 8 actual changed files clean — repo-wide biome noise confirmed pre-existing vendored Playwright build artifacts, same source PR 4's own QualityGate documented), all 11 ACs verified, documentation (frontmatter/registry intentional non-flip re-confirmed by direct read, matching PR 1-4 precedent), GitHub-issue link check N/A. github_pr_url still empty / workflow_status still running is expected pre-Step-11. Gate passed — Orchestrator may proceed to commit-push-pr."
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/09-quality-gate.md"
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/01-requirement-validation.md"
+    timestamp: "2026-08-01T00:30:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/02-impact-analysis.md"
+    timestamp: "2026-08-01T01:15:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/03-code-summary.md"
+    timestamp: "2026-08-01T03:15:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/04-security-review.md"
+    timestamp: "2026-08-01T04:00:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/06-test-strategy.md"
+    timestamp: "2026-08-01T04:30:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/06-test-design.md"
+    timestamp: "2026-08-01T05:00:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/07-test-results.md"
+    timestamp: "2026-08-01T05:30:00Z"
+  doc-writer:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/08-doc-update.md"
+    timestamp: "2026-08-01T06:00:00Z"
+  quality-gate:
+    status: completed
+    step: 10
+    output_file: ".copilot/tasks/active/wf-20260801-feat-178/09-quality-gate.md"
+    timestamp: "2026-08-01T07:15:00Z"
+retry_counts:
+  doc-writer: 1
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: false
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-010"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260801-feat-178/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260801-feat-178/09-quality-gate.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-BOT-002.md
+  - apps/api/src/modules/auth/auth.controller.ts
+  - apps/api/src/modules/auth/telegram-auth.service.ts
+  - apps/api/src/modules/me-profile/me-profile.service.ts
+  - apps/api/src/modules/telegram/telegram-event-topics.service.ts
+  - apps/api/src/modules/directus/directus-users-bridge.service.ts
+  - apps/bot/src/handlers/
+  - apps/bot/src/keyboards/
+  - apps/bot/src/services/api_client.py
+  - apps/bot/src/locales/
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260801-feat-178/NEEDS_REVIEW.md"

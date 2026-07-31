@@ -227,6 +227,27 @@ export class DirectusUsersBridgeService {
     return row?.id ?? null;
   }
 
+  // FEAT-BOT-2 (FR-BOT-002 PR 5/6) — same reverse (directusUserId ->
+  // platform users) lookup as resolveUserIdFromDirectusId above, with one
+  // extra column projected. TelegramAuthService's new /interests routes
+  // need to call MeProfileService, which is keyed on (userId, email) —
+  // not just userId — so a bare id-only lookup isn't enough here. This is
+  // a one-column addition to the exact same narrow, already-indexed query
+  // (platform.users filtered by directus_user_id) rather than a second
+  // round trip or a new heuristic; everything needed already lives on the
+  // one `users` row. Same miss semantics: null on no match.
+  async resolveUserAndEmailFromDirectusId(
+    directusUserId: string,
+  ): Promise<{ userId: string; email: string } | null> {
+    const [row] = await this.db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(eq(users.directusUserId, directusUserId))
+      .limit(1);
+    if (!row) return null;
+    return { userId: row.id, email: row.email };
+  }
+
   async ensureLinkedByEmail(input: {
     email: string;
     displayName: string | null;
