@@ -1,0 +1,166 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-fix-165"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-07-31T00:00:00Z"
+
+requirement_ref: "ISS-UAT-010-2"
+requirement_text: "RegistrationSidebar renders 'You're registered' for a registration Directus actually recorded as waitlisted — API re-reads the registration row immediately after POST, racing the async reg-capacity-decision Directus Flow's status patch."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/160"
+
+branch: "fix/ISS-UAT-010-2-registration-waitlist-race"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/181"
+
+current_step: 12
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  issue-lookup:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:05:00Z"
+    summary: "Already-local, fully-triaged issue. GitHub already linked (#160). Project status synced to in-progress."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/01-issue-lookup.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:20:00Z"
+    summary: "Root cause confirmed: async Directus action-hook race, not a client bug. Fix contained to registrations-directus.service.ts, no DB migration."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/02-impact-analysis.md"
+  code-developer:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:35:00Z"
+    summary: "Added pollForSettledStatus() (bounded 3x150ms poll) replacing the single re-read in register(). typecheck + biome clean."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:40:00Z"
+    summary: "No BLOCKER/MAJOR findings. Timing-only change, no new input/auth surface, bounded loop (no DoS risk)."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T00:50:00Z"
+    summary: "2 new regression tests in existing registrations-directus.spec.ts; fail-before/pass-after independently verified via git stash."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/06-test-strategy.md"
+  test-execution:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T01:00:00Z"
+    summary: "33/33 targeted spec pass. 1355/1356 apps/api full suite (1 pre-existing unrelated clock-race flake, confirmed passing in isolation)."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/07-test-results.md"
+  registry-update:
+    status: passed
+    attempt: 1
+    timestamp: "2026-07-31T01:05:00Z"
+    summary: "ISS-UAT-010-2.md and registry.md both flipped to resolved atomically. All 3 ACs checked with evidence."
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/09-registry-update.md"
+agent_assignments:
+  orchestrator-issue-lookup:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/01-issue-lookup.md"
+    timestamp: "2026-07-31T00:05:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/02-impact-analysis.md"
+    timestamp: "2026-07-31T00:20:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/03-code-summary.md"
+    timestamp: "2026-07-31T00:35:00Z"
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/04-security-review.md"
+    timestamp: "2026-07-31T00:40:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/06-test-strategy.md"
+    timestamp: "2026-07-31T00:50:00Z"
+  test-designer:
+    status: completed
+    step: 7
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/06-test-strategy.md"
+    timestamp: "2026-07-31T00:55:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/07-test-results.md"
+    timestamp: "2026-07-31T01:00:00Z"
+  orchestrator-registry-update:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260731-fix-165/09-registry-update.md"
+    timestamp: "2026-07-31T01:05:00Z"
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-UAT-010-2"
+issue_resolution: "resolved"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: [BP-UAT-010]
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/security/security.md
+  - .copilot/issues/ISS-UAT-010-2.md
+  - apps/api/src/modules/registrations/registrations-directus.service.ts
+  - apps/web/src/components/RegistrationSidebar.tsx
+  - infrastructure/directus/flows-bootstrap.sh
+
+merge_mode: "auto"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260731-fix-165/NEEDS_REVIEW.md"
