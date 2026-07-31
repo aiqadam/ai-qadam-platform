@@ -1,5 +1,37 @@
 # Workspace State
 
+**Last updated:** 2026-07-31 — `wf-20260731-fix-170`.
+**ISS-WF-PARENT-SYNC-001 resolved — post-merge UAT re-verification now syncs `agent-verified` for EVERY FR/ISS sharing a `Business-Process` linkage, not just the current workflow's own ref.**
+[wf-20260731-fix-170](../tasks/completed/wf-20260731-fix-170/handoff.yaml)
+(PR [#192](https://github.com/aiqadam/ai-qadam-platform/pull/192) squash
+`26bac8b`): prompted directly by the user asking why GitHub issue
+[#130](https://github.com/aiqadam/ai-qadam-platform/issues/130)
+(`FR-EVT-004`) was still Project-board Status `Implemented` rather than
+`Agent-Verified`, despite this session's own live retest of `BP-UAT-010`
+(the business process #130 owns) passing clean. Root cause: `Business-Process
+Linkage & Post-Merge UAT`'s sync step only ever synced the CURRENT
+workflow's own `ISS-<n>`/`FR-<CODE>` ref — four separate follow-up
+workflows (`ISS-BRIDGE-STALE-001`, `ISS-UAT-010-2`, `ISS-UAT-010-1`, plus
+this session's manual retest) each correctly synced their OWN issue
+against a clean `BP-UAT-010` pass, but none of them ever asked whether
+`FR-EVT-004` itself also had a stake in the same business process.
+Compounding factor: `BP-UAT-010.md`'s own `linked_issues` reverse-link
+list only ever recorded child follow-up issues as they were filed — the
+original parent FR was never added to it, so even a naive `linked_issues`-only
+scan would still have missed the actual case. New
+`scripts/find-bp-uat-stakeholders.sh <BP-UAT-NNN>` unions `linked_issues`
+with a direct scan of every `FR-*.md`/`ISS-*.md` file's own
+`business_process`/`Business-Process` field; both `issue-resolution.md`
+and `requirement-development.md` Step 13 now loop the `agent-verified`
+sync over every ref it returns. 9 new bats cases (full repo suite,
+200+ tests, re-run clean). `FR-EVT-004`/#130 manually synced to
+`agent-verified` directly against the live board this same session (not
+part of this PR's own commits). Same bug **class** as
+`ISS-WF-GH-CLOSE-001` (two independent "is this done" signals silently
+unwired), different axis — a parent item's board status drifting from
+the verification history of the business process it owns, rather than
+GitHub issue open/closed state drifting from Project board Status.
+
 **Last updated:** 2026-07-31 — `wf-20260731-fix-169`.
 **ISS-UAT-010-1 resolved — BP-UAT-010's doc + Playwright spec now describe the real Directus-backed registration implementation instead of a superseded V1 spec.**
 [wf-20260731-fix-169](../tasks/completed/wf-20260731-fix-169/handoff.yaml)
