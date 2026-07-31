@@ -32,8 +32,8 @@ branch: "feature/FEAT-BOT-2-me-command-slice"
 base_branch: "main"
 github_pr_url: ""
 
-current_step: 0
-current_step_name: "init"
+current_step: 11
+current_step_name: "commit-push-pr"
 workflow_status: "running"
 
 parent_link:
