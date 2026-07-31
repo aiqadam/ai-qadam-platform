@@ -1,0 +1,88 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-feat-171"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T00:00:00Z"
+last_updated_at: "2026-07-31T00:00:00Z"
+
+requirement_ref: "FR-BOT-001"
+requirement_text: "Telegram bot scaffold and deployment — Python/aiogram long-polling service in apps/bot/ (git submodule, aiqadam/aiqadam-telegram-bot) that handles inbound commands from members and operators, calling the NestJS API for all business logic. Requires a new POST /v1/internal/telegram/lookup endpoint on the API side (does not yet exist) to resolve telegram_id -> {directusUserId, isTemp, country}."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/137"
+
+branch: "feature/BOT-001-telegram-bot-scaffold"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 1
+current_step_name: "requirement-validation"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/03-requirements/FR-BOT-001.md
+  - docs/03-requirements/FR-AUTH-002.md
+  - docs/adr/0034-telegram-bot-and-sender.md
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/api/src/modules/internal/internal-auth.guard.ts
+  - apps/api/src/modules/auth/telegram-auth.service.ts
+  - apps/api/src/modules/telegram/telegram.controller.ts
+  - apps/bot/
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260731-feat-171/NEEDS_REVIEW.md"
