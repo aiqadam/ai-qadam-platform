@@ -1,0 +1,84 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260731-fix-167"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-07-31T07:08:35Z"
+last_updated_at: "2026-07-31T07:08:35Z"
+
+requirement_ref: "ISS-EVT-004-1"
+requirement_text: "Event-detail page always passes registeredCount=0; capacity/waitlist state never reflects real registrations"
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/161"
+
+branch: "fix/ISS-EVT-004-1-registered-count"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 11
+current_step_name: "quality-gate"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: "ISS-EVT-004-1"
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+uat_target: "local"
+
+business_process: ["BP-UAT-010"]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - .copilot/tasks/active/wf-20260731-fix-167/02-impact-analysis.md
+  - .copilot/tasks/active/wf-20260731-fix-167/03-code-summary.md
+  - .copilot/tasks/active/wf-20260731-fix-167/04-security-review.md
+  - .copilot/tasks/active/wf-20260731-fix-167/06-test-strategy.md
+  - .copilot/tasks/active/wf-20260731-fix-167/07-test-results.md
+  - .copilot/tasks/active/wf-20260731-fix-167/09-registry-update.md
+  - .copilot/tasks/active/wf-20260731-fix-167/09-quality-gate.md
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/web-next/src/lib/cms.ts
+  - apps/api/src/modules/workspace/event-speaker-briefs.service.ts
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260731-fix-167/NEEDS_REVIEW.md"
