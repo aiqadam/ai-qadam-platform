@@ -13,7 +13,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/140"
 
 branch: "feature/FEAT-BOT-2-leaderboard-slice"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/207"
 
 current_step: 11
 current_step_name: "workflow-finish"
