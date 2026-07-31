@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-07-31 — `wf-20260731-feat-171`.
 **FR-BOT-001 (FEAT-BOT-1) shipped — the Telegram bot's first real code lands: a new internal API lookup endpoint plus the Python/aiogram bot scaffold, this project's first two-repo (submodule) feature workflow.**
-[wf-20260731-feat-171](../tasks/active/wf-20260731-feat-171/handoff.yaml)
-(branch `feature/BOT-001-telegram-bot-scaffold`, not yet merged): shipped
-two coordinated halves. On `apps/api`: a new
+[wf-20260731-feat-171](../tasks/completed/wf-20260731-feat-171/handoff.yaml)
+(PR [#197](https://github.com/aiqadam/ai-qadam-platform/pull/197), merged):
+shipped two coordinated halves. On `apps/api`: a new
 `POST /v1/internal/telegram/lookup` endpoint on
 `TelegramInternalController`, guarded by the existing `InternalAuthGuard`
 (shared-secret, matching the sibling `upsert-temp-user` route's
