@@ -15,9 +15,9 @@ branch: "fix/ISS-UAT-010-1-bp-uat-010-doc-spec-correction"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/189"
 
-current_step: 12.5
-current_step_name: "merge-pull-verify"
-workflow_status: "running"
+current_step: 13
+current_step_name: "post-merge-uat-reverification"
+workflow_status: "completed"
 
 merge_mode: "auto"
 
@@ -40,5 +40,10 @@ gate_results: {}
 agent_assignments: {}
 retry_counts: {}
 
-post_merge_uat_runs: []
+post_merge_uat_runs:
+  - bp_uat: "BP-UAT-010"
+    target: "local"
+    result: "clean"
+    date: "2026-07-31"
+    notes: "6/6 tests pass against merged main; AC-1/AC-6 cross-referenced directly against Directus (status=registered/waitlisted). No new findings."
 issue_resolution: "resolved"

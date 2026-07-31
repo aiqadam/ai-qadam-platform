@@ -150,3 +150,10 @@ Authentik password drifting from the seed script's claimed default despite
 `--reset` (fixed via direct `set_password` API call), and this session's
 own initial wrong assumption of `API_URL :3001` (corrected to the real
 `:3000`, matching every sibling spec and `apps/e2e/.env`).
+
+**Step 13 post-merge BP-UAT-010 re-verification (2026-07-31):** re-seeded
+fresh (`pnpm uat:seed --reset BP-UAT-010`) against the merged `main` state
+(not just the feature branch) and re-ran the full suite: 6/6 pass again,
+Directus cross-reference confirmed `status=registered`/`waitlisted`
+independently. No new findings on this surface. GitHub Project status
+synced to `agent-verified`; GitHub issue #162 closed.
