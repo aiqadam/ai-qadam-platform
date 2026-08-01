@@ -1,0 +1,14 @@
+workflow_id: wf-20260801-feat-185
+workflow_type: issue-resolution
+issue: ISS-FR-AUTH-002-widget (GitHub #126)
+branch: feature/FR-AUTH-002-telegram-widget
+started_at: 2026-08-01
+status: in-progress
+
+summary: >
+  Add Telegram Login Widget to apps/web-next /auth/sign-in page to finish
+  FR-AUTH-002. All other ACs (API endpoint, upsert-temp-user, bot /start,
+  country assignment, temp upgrade) were implemented in PRs #52, #197, #214.
+  This PR closes the remaining deferred item: widget JS snippet on sign-in page.
+
+gate_results: {}
