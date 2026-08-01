@@ -105,19 +105,26 @@ fresh environment (local/QA/prod).
   country-lead onboarding flow.
 - Business-process linkage: `BP-UAT-020` (reserved, authored at Step 4 of
   the originating workflow).
-- **Deferred verification (added at `wf-20260728-feat-148`, implementation
-  workflow):** the forced-password-change-on-next-login mechanism
-  (`AuthentikClient.patchAttributes()` setting
-  `ak_login_password_change_required`, see the code comment on
-  `FORCE_PASSWORD_CHANGE_ATTRIBUTE` in `admin-bootstrap.service.ts`) is
-  **not verified against a live Authentik instance** as of this FR's
-  `Implemented` status — no Testcontainers-Authentik double exists in
-  this repo, so this could only be unit-tested at the "correct call
-  attempted" level, not the "Authentik actually enforces it" level.
-  `BP-UAT-020` is the named, protocol-mandated follow-up verification
-  point (run automatically post-merge, same session, per
+- **Verified live 2026-08-01 (`wf-20260801-fix-190`, `ISS-ADM-010-1`,
+  closes #164).** The forced-password-change-on-next-login mechanism
+  used to be `AuthentikClient.patchAttributes()` setting
+  `ak_login_password_change_required`, see the old code comment on
+  `FORCE_PASSWORD_CHANGE_ATTRIBUTE` in
+  `admin-bootstrap.service.ts` — this attribute key was proven
+  ineffective live by `wf-20260729-uat-154`'s BP-UAT-020 verification
+  (the flow executor returned `xak-flow-redirect` straight to the OIDC
+  authorize endpoint, no intermediate password-change stage). The
+  mechanism is now `AuthentikClient.setForcePasswordChangeNextLogin()`
+  which PATCHes `password_change_next_login: true` directly on the
+  user body (Authentik 2024.x native field). Unit tests cover the
+  "correct call attempted" level (15/15 pass,
+  `apps/api/test/admin-bootstrap.service.spec.ts`); live Authentik
+  verification ("does 2024.x actually enforce it?") is the BP-UAT-020
+  post-merge re-verification per
   `.copilot/schemas/protocol.md` "Business-Process Linkage & Post-Merge
-  UAT") — check `BP-UAT-020`'s own status and this workflow's
-  `handoff.yaml.post_merge_uat_runs[]` for the outcome. If it finds the
-  attribute key wrong, the documented fallback is a provisioned
-  password-expiry policy (infra/provisioning change, not a code change).
+  UAT". See `.copilot/issues/ISS-ADM-010-1.md`'s Resolution section for
+  the AC-by-AC disposition. Fallback if the user-body field is also
+  ignored by this Authentik build: a Password Expiry Policy + User
+  Login Stage + flow-binding script (`scripts/provision-authentik-pwd-policy.sh`,
+  design queue-ready in
+  `wf-20260801-fix-190/02-impact-analysis.md`).

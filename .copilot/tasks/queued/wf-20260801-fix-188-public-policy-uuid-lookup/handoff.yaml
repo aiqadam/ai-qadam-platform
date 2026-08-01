@@ -1,0 +1,33 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260801-fix-188-public-policy-uuid-lookup"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-08-01T00:00:00Z"
+last_updated_at: "2026-08-01T00:00:00Z"
+
+requirement_ref: "ISS-PUB-POLICY-UUID-PIN-001"
+requirement_text: "Migrate the 8 lower public-read blocks in infrastructure/directus/bootstrap.sh from the hardcoded UUID pin POLICY_PUBLIC_PROD=\"87bf5954-...\" to the same name-lookup pattern that ISS-SEC-DIRECTUS-USERS-PUBLIC-001 and ISS-SEC-PUBLIC-UNMANAGED-001 already use. Currently these blocks silently skip on envs where the UUID doesn't match the actual Public policy id (the local env, with id abf8a154-5b1c-4a46-ac9c-7300570f4f17, is such an env — all 8 blocks skip silently)."
+github_issue_url: ""
+
+branch: ""
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: ""
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""

@@ -5,9 +5,11 @@ import { AuthentikClient, AuthentikError, SUPER_ADMIN_GROUP } from './authentik.
 // FR-ADM-010 — platform-admin bootstrap (no manual scripts). On API boot,
 // if aiqadam-super-admin has zero members, create exactly one seeded admin
 // user in Authentik, assign it to aiqadam-super-admin, and force a
-// password change on next login. Idempotent: once >=1 super-admin exists,
-// every later boot is a no-op. Replaces the manual procedure at ADR-0021
-// §9 step 3 (already marked superseded there).
+// password change on next login through Authentik's native
+// `password_change_next_login` user-body field (live-verified 2026-08-01).
+// Idempotent: once >=1 super-admin exists, every later boot is a no-op.
+// Replaces the manual procedure at ADR-0021 §9 step 3 (already marked
+// superseded there).
 //
 // Runs as an OnModuleInit hook inside admin-invites (the module that
 // already owns AuthentikClient/AuthentikModule) rather than a new module
@@ -20,32 +22,6 @@ import { AuthentikClient, AuthentikError, SUPER_ADMIN_GROUP } from './authentik.
 // No Postgres writes — the seeded identity lives only in Authentik
 // (ADR-0021 §1: Authentik is the source of truth; users.role is
 // advisory).
-
-// Attribute key attempted for Authentik's forced-password-change-on-
-// next-login mechanism. UNVERIFIED against a live Authentik instance in
-// this workflow — no Testcontainers-Authentik double exists in this repo
-// (confirmed by ImpactAnalyzer, 02-impact-analysis.md, Test Scope
-// section), so this could not be confirmed empirically here. Chosen
-// because it is the most standard/documented attribute-key family for
-// Authentik's stock password-expiry / "prompt for new password" flow
-// stage, which is designed to read a per-user attribute rather than a
-// plain field on the user-update PATCH body (no such boolean field exists
-// on that endpoint — confirmed by reading the full AuthentikClient
-// surface and grepping this repo for password_change/require_password/
-// change_password/path_change_required, all zero hits outside this FR's
-// own text). BP-UAT-020 (Draft, "not runnable today" until this FR ships)
-// is the follow-up verification point against the real docker-compose
-// Authentik service — see docs/02-business-processes/uat/BP-UAT-020.md.
-// If live verification finds this key wrong, the fallback per
-// 01-requirement-validation.md is a bound password-expiry policy
-// (infra/provisioning change, not a code change) so the seeded password
-// is pre-expired at creation time.
-//
-// Modeled after this file's own createRecoveryLink() comment, which
-// documents a previously-wrong assumption (ISS-USR-REDIRECT-002) found
-// via live testing — same honesty-in-comments discipline applies here,
-// just recorded BEFORE live verification rather than after.
-const FORCE_PASSWORD_CHANGE_ATTRIBUTE = 'ak_login_password_change_required';
 
 const BOOTSTRAP_USERNAME = 'admin';
 const BOOTSTRAP_DISPLAY_NAME = 'AI Qadam Platform Admin';
@@ -113,10 +89,7 @@ export class AdminBootstrapService implements OnModuleInit {
       );
     }
     await this.authentik.setUserGroups(user.pk, [groupPk]);
-    await this.authentik.patchAttributes(user.pk, {
-      ...user.attributes,
-      [FORCE_PASSWORD_CHANGE_ATTRIBUTE]: true,
-    });
+    await this.authentik.setForcePasswordChangeNextLogin(user.pk, true);
 
     this.logger.log(
       `admin-bootstrap: seeded platform-admin user email=${email} pk=${user.pk} group=${SUPER_ADMIN_GROUP}`,

@@ -199,6 +199,12 @@ export class AuthentikClient {
     });
   }
 
+  async setForcePasswordChangeNextLogin(userPk: number, value: boolean): Promise<void> {
+    await this.request<unknown>('PATCH', `/api/v3/core/users/${userPk}/`, {
+      password_change_next_login: value,
+    });
+  }
+
   // Overwrite the user's attributes JSON. Callers should usually
   // merge-and-pass to avoid wiping unrelated keys — Authentik treats
   // the value as a literal replacement of the attributes object.
