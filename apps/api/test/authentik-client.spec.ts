@@ -1,4 +1,24 @@
+import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// AuthentikClient.sendMagicLinkEmail uses node:http/node:https directly
+// (see that method's doc comment in authentik.client.ts for why) rather
+// than the fetch-based request() helper — which module it picks depends
+// on AUTHENTIK_ADMIN_URL's protocol (http: locally via a dev .env,
+// https: by env.ts's own default and in CI), so both must be mocked for
+// this test to be deterministic across environments. vitest cannot
+// vi.spyOn() a Node builtin's named export directly in ESM ("Module
+// namespace is not configurable") — vi.mock with a hoisted factory is
+// the supported way to replace it.
+const httpsRequestMock = vi.hoisted(() => vi.fn());
+const httpRequestMock = vi.hoisted(() => vi.fn());
+vi.mock('node:https', () => ({
+  request: httpsRequestMock,
+}));
+vi.mock('node:http', () => ({
+  request: httpRequestMock,
+}));
+
 import { AuthentikClient, AuthentikError } from '../src/modules/admin-invites/authentik.client';
 
 // Unit tests for the AuthentikClient — F-S2.7 PR-2. Mocks global
@@ -301,42 +321,111 @@ describe('AuthentikClient.createRecoveryLink', () => {
 
 // FR-AUTH-004 — sendMagicLinkEmail. Unlike createRecoveryLink above, this
 // hits an ARBITRARY Email stage passed by the caller (not the
-// Brand.flow_recovery-bound one) and returns 204 with no body — the
-// existing 204-handling branch in the private request() helper (see
-// jsonResponse/emptyResponse usage above, and setPassword's test) already
-// covers "resolves without trying to parse a JSON body", so this suite
-// stays scoped to confirming the URL/method/param-encoding are correct.
+// Brand.flow_recovery-bound one) and returns 204 with no body.
+//
+// CORRECTION (Step 8 retry, see 07-test-results.md's CRITICAL FINDING +
+// authentik.client.ts's own doc comment on this method): this method no
+// longer routes through the fetch-based request() helper. A live repro
+// (a standalone Node script against a local http.Server) proved Node's
+// global fetch (undici) silently OVERWRITES any `Host` header passed via
+// init.headers with the actual connection target — "Host" is a forbidden
+// request header under the WHATWG Fetch spec. Since routing the emailed
+// link to the correct Authentik flow REQUIRES a genuine Host-header
+// override (Authentik resolves Brand per-request Host header; see
+// authentik.client.ts's doc comment for the full mechanism), this method
+// now uses node:http/node:https directly via the private
+// httpRequestWithHostOverride() helper. These tests mock https.request
+// (the test env's AUTHENTIK_ADMIN_URL default is https://auth.aiqadam.org,
+// so AuthentikClient's own protocol-selection picks https) rather than
+// fetch — fetchSpy from the top-level beforeEach is asserted NOT called
+// in each test here, to lock in that this method deliberately bypasses it.
+
+// Mocks BOTH transports identically each time — only one is actually
+// invoked per call (selected by AUTHENTIK_ADMIN_URL's protocol), and
+// asserting on "whichever one got called" below is what makes this test
+// robust to that environment-dependent choice.
+function mockNodeRequestOnce(statusCode: number, responseBody: string) {
+  const impl = (_options: unknown, callback: (res: unknown) => void) => {
+    const req = new EventEmitter();
+    (req as unknown as { end: () => void }).end = () => {
+      const res = new EventEmitter() as EventEmitter & { statusCode: number };
+      res.statusCode = statusCode;
+      // Simulate the real event ordering: callback receives res
+      // synchronously-ish, then data/end fire on nextTick.
+      callback(res);
+      process.nextTick(() => {
+        if (responseBody) res.emit('data', Buffer.from(responseBody));
+        res.emit('end');
+      });
+    };
+    return req;
+  };
+  httpsRequestMock.mockImplementationOnce(impl);
+  httpRequestMock.mockImplementationOnce(impl);
+}
+
+function calledTransportMock(): ReturnType<typeof vi.fn> {
+  return httpsRequestMock.mock.calls.length > 0 ? httpsRequestMock : httpRequestMock;
+}
 
 describe('AuthentikClient.sendMagicLinkEmail', () => {
-  it('POSTs to the recovery_email endpoint with the pk and encoded email_stage query param, resolves void on 204', async () => {
-    fetchSpy.mockResolvedValueOnce(emptyResponse(204));
+  afterEach(() => {
+    httpsRequestMock.mockReset();
+    httpRequestMock.mockReset();
+  });
+
+  it('POSTs to the recovery_email endpoint with the pk and encoded email_stage query param, sends the brandDomain as the Host header, resolves void on 204, and never uses fetch', async () => {
+    mockNodeRequestOnce(204, '');
 
     // A stage value containing a character encodeURIComponent actually
     // transforms (a space) so the assertion below is not vacuously true
     // for an already-URL-safe UUID.
     const STAGE_WITH_SPACE = 'stage uuid/with-slash';
+    const BRAND_DOMAIN = 'magic-link.aiqadam.internal';
 
-    const result = await client.sendMagicLinkEmail(42, STAGE_WITH_SPACE);
+    const result = await client.sendMagicLinkEmail(42, STAGE_WITH_SPACE, BRAND_DOMAIN);
 
     expect(result).toBeUndefined();
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const url = fetchSpy.mock.calls[0]?.[0] as string;
-    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
-    expect(url).toMatch(
-      /\/api\/v3\/core\/users\/42\/recovery_email\/\?email_stage=stage%20uuid%2Fwith-slash$/,
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const transportMock = calledTransportMock();
+    expect(transportMock).toHaveBeenCalledTimes(1);
+    const options = transportMock.mock.calls[0]?.[0] as {
+      path: string;
+      method: string;
+      headers: Record<string, string>;
+    };
+    expect(options.path).toBe(
+      '/api/v3/core/users/42/recovery_email/?email_stage=stage%20uuid%2Fwith-slash',
     );
-    expect(init.method).toBe('POST');
-    // No request body is sent — recovery_email takes everything via the
-    // query param.
-    expect(init.body).toBeUndefined();
+    expect(options.method).toBe('POST');
+    expect(options.headers.Host).toBe(BRAND_DOMAIN);
+    expect(options.headers.Authorization).toMatch(/^Bearer /);
   });
 
   it('throws AuthentikError on a non-2xx response', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(404, { detail: 'Not Found' }));
+    mockNodeRequestOnce(404, JSON.stringify({ detail: 'Not Found' }));
 
-    await expect(client.sendMagicLinkEmail(42, 'stage-uuid')).rejects.toMatchObject({
+    await expect(
+      client.sendMagicLinkEmail(42, 'stage-uuid', 'magic-link.aiqadam.internal'),
+    ).rejects.toMatchObject({
       name: 'AuthentikError',
       status: 404,
     });
+  });
+
+  it('rejects on a network error from the underlying http(s) request', async () => {
+    const impl = () => {
+      const req = new EventEmitter();
+      (req as unknown as { end: () => void }).end = () => {
+        process.nextTick(() => req.emit('error', new Error('ECONNREFUSED')));
+      };
+      return req;
+    };
+    httpsRequestMock.mockImplementationOnce(impl);
+    httpRequestMock.mockImplementationOnce(impl);
+
+    await expect(
+      client.sendMagicLinkEmail(42, 'stage-uuid', 'magic-link.aiqadam.internal'),
+    ).rejects.toThrow('ECONNREFUSED');
   });
 });

@@ -167,6 +167,30 @@ const envSchema = z.object({
   // per environment and sets this from its printed output.
   AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID: z.string().min(1).optional(),
 
+  // FR-AUTH-004 (Step 8 retry fix, see
+  // .copilot/tasks/active/wf-20260801-feat-179/07-test-results.md's
+  // CRITICAL FINDING) — the `domain` of the second, purpose-built
+  // Authentik Brand provisioned by
+  // scripts/provision-authentik-magic-link-flow.sh, whose flow_recovery
+  // is bound to the magic-link-login flow (NOT the default Brand, which
+  // stays bound to default-recovery-flow for password-reset).
+  // AuthentikClient.sendMagicLinkEmail sends its request with a `Host`
+  // header equal to this value — Authentik resolves `request.brand`
+  // per-request Host header (authentik/brands/middleware.py +
+  // authentik/brands/utils.py's get_brand_for_request(), iendswith match
+  // against every Brand.domain, falling back to the default=true row) —
+  // this is what actually determines which flow the sent email's link
+  // points to; the `email_stage` query param only controls the email's
+  // subject/template, never its link target. Not a secret — a config id
+  // for a provisioned Authentik object, same class as
+  // AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID above.
+  //
+  // **Optional**: when unset, MagicLinkService fails the request closed,
+  // same degraded-mode pattern as AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID —
+  // an operator runs the provisioning script once per environment and
+  // sets this from its printed BRAND_DOMAIN output.
+  AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN: z.string().min(1).optional(),
+
   // FR-ADM-010 — platform-admin bootstrap. On boot, AdminBootstrapService
   // checks whether the aiqadam-super-admin Authentik group has zero
   // members; if so it creates exactly one seeded admin account with these

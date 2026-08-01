@@ -1,3 +1,5 @@
+import * as http from 'node:http';
+import * as https from 'node:https';
 import { Injectable, Logger } from '@nestjs/common';
 import { env } from '../../config/env';
 
@@ -282,9 +284,7 @@ export class AuthentikClient {
 
   // FR-AUTH-004 — trigger Authentik's native send for an ARBITRARY Email
   // stage (unlike createRecoveryLink above, which is hardcoded to
-  // whatever flow Brand.flow_recovery points at). Confirmed live against
-  // the running Authentik instance (see
-  // .copilot/tasks/active/wf-20260801-feat-179/02b-authentik-spike-findings.md):
+  // whatever flow the request's resolved Brand.flow_recovery points at).
   // POST /api/v3/core/users/{id}/recovery_email/?email_stage=<uuid>
   // returns 204 No Content — Authentik sends the email itself, natively,
   // server-side. No link/token ever appears in this method's return value
@@ -295,11 +295,50 @@ export class AuthentikClient {
   // (AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID), never user input, so there is
   // no injection risk — encodeURIComponent is used anyway for consistency
   // with this file's query-building style elsewhere.
-  async sendMagicLinkEmail(userPk: number, emailStageUuid: string): Promise<void> {
-    await this.request<unknown>(
-      'POST',
-      `/api/v3/core/users/${userPk}/recovery_email/?email_stage=${encodeURIComponent(emailStageUuid)}`,
-    );
+  //
+  // CORRECTION (Step 8 retry, see
+  // .copilot/tasks/active/wf-20260801-feat-179/07-test-results.md's
+  // CRITICAL FINDING): a live send-and-read-the-real-email test proved the
+  // ORIGINAL understanding of this endpoint wrong — `email_stage` only
+  // selects the sent email's subject/template, never the link's target
+  // flow. The link is always minted by Authentik's `_create_recovery_link()`,
+  // which is unconditionally `request.brand.flow_recovery` — and Authentik
+  // resolves `request.brand` per-request from the `Host` header
+  // (authentik/brands/middleware.py + authentik/brands/utils.py's
+  // get_brand_for_request(), matching every Brand.domain via `iendswith`,
+  // falling back to the row with default=true). Confirmed by reading
+  // Authentik's own server source inside the running container, not
+  // inferred from the OpenAPI schema alone.
+  //
+  // The fix: a second, purpose-built Brand (provisioned by
+  // scripts/provision-authentik-magic-link-flow.sh, `default: false`, its
+  // own `flow_recovery` bound to magic-link-login) is reached ONLY when
+  // this request's Host header matches that Brand's `domain` — so this
+  // method sends the request with `Host: <brandDomain>` to route the link
+  // into the correct flow, while the platform's real Host
+  // (auth.aiqadam.org / localhost:9000) keeps resolving to the default
+  // Brand for every other Authentik interaction, including the existing
+  // password-reset flow (default Brand's flow_recovery is untouched).
+  // brandDomain is always sourced from our own env config
+  // (AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN), never user input.
+  //
+  // Implementation note: `Host` is a "forbidden request header" under the
+  // WHATWG Fetch spec — confirmed live (a small standalone repro against a
+  // local http.Server) that Node's global `fetch` (undici) silently
+  // OVERWRITES any `Host` header passed via `init.headers` with the actual
+  // connection target, no error, no warning. this.request()'s fetch-based
+  // implementation is therefore unusable for this one call. Node's
+  // low-level http/https modules do NOT apply that restriction (also
+  // confirmed live) and are already a zero-dependency part of the
+  // runtime, so this method uses httpRequestWithHostOverride() instead of
+  // this.request() — the only caller of that helper in this file.
+  async sendMagicLinkEmail(
+    userPk: number,
+    emailStageUuid: string,
+    brandDomain: string,
+  ): Promise<void> {
+    const path = `/api/v3/core/users/${userPk}/recovery_email/?email_stage=${encodeURIComponent(emailStageUuid)}`;
+    await this.httpRequestWithHostOverride('POST', path, brandDomain);
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -325,5 +364,57 @@ export class AuthentikClient {
       return undefined as T;
     }
     return (await res.json()) as T;
+  }
+
+  // See sendMagicLinkEmail's doc comment for why this exists instead of
+  // routing through request(): Node's global fetch (undici) cannot send a
+  // custom Host header, but node:http/node:https can. This connects to
+  // the SAME network destination as every other call in this file
+  // (this.base, i.e. AUTHENTIK_ADMIN_URL) — only the Host header sent to
+  // that destination differs, which is exactly what Authentik's
+  // get_brand_for_request() keys its Brand resolution on. No request
+  // body is sent (recovery_email takes everything via the query param,
+  // same as the fetch-based sendMagicLinkEmail this replaces).
+  private async httpRequestWithHostOverride(
+    method: string,
+    path: string,
+    hostOverride: string,
+  ): Promise<void> {
+    const target = new URL(`${this.base}${path.startsWith('/') ? path : `/${path}`}`);
+    const transport = target.protocol === 'https:' ? https : http;
+    return new Promise<void>((resolve, reject) => {
+      const req = transport.request(
+        {
+          hostname: target.hostname,
+          port: target.port || (target.protocol === 'https:' ? 443 : 80),
+          path: `${target.pathname}${target.search}`,
+          method,
+          headers: {
+            Host: hostOverride,
+            Authorization: `Bearer ${this.token}`,
+            accept: 'application/json',
+          },
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            const status = res.statusCode ?? 0;
+            if (status < 200 || status >= 300) {
+              const text = Buffer.concat(chunks).toString('utf8');
+              this.logger.warn(`Authentik ${method} ${path} -> ${status}: ${text.slice(0, 200)}`);
+              reject(new AuthentikError(status, path, text));
+              return;
+            }
+            resolve();
+          });
+        },
+      );
+      req.on('error', (err) => {
+        this.logger.warn(`Authentik ${method} ${path} -> network error: ${String(err)}`);
+        reject(err);
+      });
+      req.end();
+    });
   }
 }

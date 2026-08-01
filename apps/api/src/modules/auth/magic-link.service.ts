@@ -13,8 +13,10 @@ import { AuthentikClient, AuthentikError } from '../admin-invites/authentik.clie
 // (OIDC-flow-only) or telegram-auth.service.ts (Telegram-identity-only),
 // per 02-impact-analysis.md's explicit recommendation.
 //
-// Flow (see 02b-authentik-spike-findings.md for the empirically-resolved
-// mechanism):
+// Flow (see 07-test-results.md's CRITICAL FINDING + 02b-authentik-spike-
+// findings.md's correction note for the empirically-resolved mechanism —
+// the ORIGINAL understanding below was proven wrong by a live send-and-
+// read-the-real-email test and has since been corrected):
 //   1. Look up the Authentik user by email.
 //   2. If not found, create one — a magic-link request for an email with
 //      no existing account self-registers them, same posture as
@@ -22,11 +24,22 @@ import { AuthentikClient, AuthentikError } from '../admin-invites/authentik.clie
 //      pattern. Unlike Telegram's synthetic tg<id>@telegram.local
 //      workaround, magic-link always has a real user-supplied email, so
 //      no synthetic domain is needed.
-//   3. Call AuthentikClient.sendMagicLinkEmail(pk, emailStageUuid) — this
-//      triggers Authentik's OWN native email send
-//      (POST .../recovery_email/?email_stage=<uuid>, 204 No Content). No
-//      link/token ever passes through this process, so there is nothing
-//      for requestMagicLink()'s return value to leak.
+//   3. Call AuthentikClient.sendMagicLinkEmail(pk, emailStageUuid,
+//      brandDomain) — this triggers Authentik's OWN native email send
+//      (POST .../recovery_email/?email_stage=<uuid>, 204 No Content, sent
+//      with a Host header equal to brandDomain). No link/token ever
+//      passes through this process, so there is nothing for
+//      requestMagicLink()'s return value to leak. The email_stage param
+//      only controls the sent email's subject/template — the emailed
+//      link's TARGET FLOW is controlled separately, by which Authentik
+//      Brand resolves for the request (Authentik resolves Brand per-
+//      request Host header; a second Brand, reachable only via this
+//      specific Host value, has its flow_recovery bound to the
+//      magic-link-login flow — see AuthentikClient.sendMagicLinkEmail's
+//      own doc comment for the full mechanism and how it was confirmed).
+//      brandDomain is read from AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN, the
+//      same "operator runs the provisioning script, pastes its printed
+//      output into env" pattern as AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID.
 //
 // Anti-enumeration posture (mandatory per 02-impact-analysis.md Risk Flag
 // #2 — designed in from the start, not retrofitted the way register.ts's
@@ -85,13 +98,22 @@ export class MagicLinkService {
     if (!emailStageUuid) {
       throw new ServiceUnavailableException('magic_link_not_configured');
     }
+    // See this file's header comment + AuthentikClient.sendMagicLinkEmail's
+    // doc comment: this Host-header value is what actually determines
+    // which Authentik flow the sent email's link targets. Same degraded-
+    // mode pattern as emailStageUuid above — both are required for the
+    // send to route correctly, so both fail the request closed.
+    const brandDomain = env.AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN;
+    if (!brandDomain) {
+      throw new ServiceUnavailableException('magic_link_not_configured');
+    }
 
     try {
       let user = await this.authentik.getUserByEmail(email);
       if (!user) {
         user = await this.createMagicLinkUser(email);
       }
-      await this.authentik.sendMagicLinkEmail(user.pk, emailStageUuid);
+      await this.authentik.sendMagicLinkEmail(user.pk, emailStageUuid, brandDomain);
     } catch (err) {
       // Swallowed by design — see this method's doc comment above. Never
       // rethrown past this point: the controller must return { ok: true }

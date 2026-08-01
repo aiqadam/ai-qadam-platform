@@ -67,6 +67,32 @@ POST /api/v3/core/users/{id}/recovery_email/?email_stage=<email-stage-uuid>
 
 ## Question 2 — Session issuance on flow completion: RESOLVED
 
+> **CORRECTION (post-second-Step-8-retry, see `07-test-results.md`'s
+> "SECOND retry finding"):** the stage-order table below (Identification
+> at 10, Email at 20, UserLoginStage at 30, all BOUND into the flow) is
+> **wrong** and must not be followed. It correctly identified that
+> `UserLoginStage`/`default-authentication-login` is the right stage to
+> resolve for session issuance, but incorrectly assumed the flow itself
+> needs to re-run Identification+Email when a token is clicked. Live
+> Playwright click-through testing found this makes a clicked link
+> re-show Identification and send a SECOND email, rather than
+> authenticating in one hop — root-caused to Authentik's `FlowToken`
+> resuming its pickled `FlowPlan` from the flow's FIRST **bound** stage,
+> not from "wherever the token conceptually represents." The correct
+> topology binds **ONLY `UserLoginStage`** into the flow (order 10, being
+> the sole binding); the Identification/Email stage *objects* still need
+> to exist (so `recovery_email`'s `email_stage` query param has a UUID to
+> reference) but must NOT be bound into this flow's own stage sequence.
+> See `scripts/provision-authentik-magic-link-flow.sh`'s "CORRECTION #2"
+> header comment for the full mechanism. **Lesson for future workflows:**
+> resolving which stage TYPE is needed (this question's actual scope) is
+> not the same as knowing which stages should be BOUND into the flow —
+> a flow can reference/need a stage's UUID (e.g. for
+> `email_stage=<uuid>`) without that stage being part of the flow's own
+> executed sequence. Confirm flow topology by clicking through a real
+> token, not by reasoning about which stage types conceptually belong to
+> a "magic link" flow.
+
 `GET /api/v3/schema/?format=json` confirms `/api/v3/stages/user_login/` is
 a real, first-class Authentik stage type (`UserLoginStage`) — NOT
 something that happens automatically just because a flow's `designation`

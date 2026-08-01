@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockEnv = vi.hoisted(() => ({
   AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID: 'stage-uuid-1234' as string | undefined,
+  AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN: 'magic-link.aiqadam.internal' as string | undefined,
 }));
 
 vi.mock('../src/config/env', () => ({ env: mockEnv }));
@@ -47,12 +48,14 @@ const AK_USER: AuthentikUser = {
 
 const TEST_EMAIL = 'sign.in@example.com';
 const STAGE_UUID = 'stage-uuid-1234';
+const BRAND_DOMAIN = 'magic-link.aiqadam.internal';
 
 let authentik: FakeAuthentik;
 let svc: MagicLinkService;
 
 beforeEach(() => {
   mockEnv.AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID = STAGE_UUID;
+  mockEnv.AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN = BRAND_DOMAIN;
   authentik = {
     isConfigured: vi.fn().mockReturnValue(true),
     getUserByEmail: vi.fn().mockResolvedValue({ ...AK_USER, email: TEST_EMAIL }),
@@ -106,7 +109,7 @@ describe('MagicLinkService.requestMagicLink — existing user found', () => {
     // Assert
     expect(authentik.getUserByEmail).toHaveBeenCalledWith(TEST_EMAIL);
     expect(authentik.createUser).not.toHaveBeenCalled();
-    expect(authentik.sendMagicLinkEmail).toHaveBeenCalledWith(AK_USER.pk, STAGE_UUID);
+    expect(authentik.sendMagicLinkEmail).toHaveBeenCalledWith(AK_USER.pk, STAGE_UUID, BRAND_DOMAIN);
   });
 });
 
@@ -133,7 +136,7 @@ describe('MagicLinkService.requestMagicLink — no user found', () => {
     expect(createUserArg.attributes).toEqual({});
 
     // Assert — the email is sent to the NEW user's pk, not the old fixture's.
-    expect(authentik.sendMagicLinkEmail).toHaveBeenCalledWith(NEW_USER.pk, STAGE_UUID);
+    expect(authentik.sendMagicLinkEmail).toHaveBeenCalledWith(NEW_USER.pk, STAGE_UUID, BRAND_DOMAIN);
   });
 });
 
@@ -157,6 +160,27 @@ describe('MagicLinkService.requestMagicLink — configuration gaps (not swallowe
   it('throws ServiceUnavailableException("magic_link_not_configured") when the email stage UUID is unset, no Authentik calls made', async () => {
     // Arrange
     mockEnv.AUTHENTIK_MAGIC_LINK_EMAIL_STAGE_UUID = undefined;
+
+    // Act / Assert
+    await expect(svc.requestMagicLink(TEST_EMAIL)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    await expect(svc.requestMagicLink(TEST_EMAIL)).rejects.toMatchObject({
+      message: 'magic_link_not_configured',
+    });
+    expect(authentik.getUserByEmail).not.toHaveBeenCalled();
+    expect(authentik.createUser).not.toHaveBeenCalled();
+    expect(authentik.sendMagicLinkEmail).not.toHaveBeenCalled();
+  });
+
+  // Step 8 retry fix — see this file's header comment + 07-test-results.md's
+  // CRITICAL FINDING. AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN is the Host-header
+  // value that actually determines which Authentik flow the sent email's
+  // link targets; missing it is the same class of deployment/config gap as
+  // a missing email stage UUID, so it fails closed identically.
+  it('throws ServiceUnavailableException("magic_link_not_configured") when the brand domain is unset, no Authentik calls made', async () => {
+    // Arrange
+    mockEnv.AUTHENTIK_MAGIC_LINK_BRAND_DOMAIN = undefined;
 
     // Act / Assert
     await expect(svc.requestMagicLink(TEST_EMAIL)).rejects.toBeInstanceOf(
