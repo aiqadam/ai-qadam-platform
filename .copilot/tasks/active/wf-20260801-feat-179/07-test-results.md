@@ -100,16 +100,81 @@ including the anti-enumeration regression, 2 `AuthentikClient` tests, 2
 `callback()` funnel-regression tests). No new business logic is left
 untested — `06-test-design.md`'s own Acceptance Criteria Coverage table
 already maps every AC to either an automated test or an explicitly-scoped
-live-UAT-only item (see Step 8/13 below).
+live-UAT-only item.
+
+## CRITICAL FINDING — live end-to-end verification surfaced a real bug not caught by any mocked test
+
+Per AGENTS.md §6.1 ("no deferred tests" — a magic-link mechanism that has
+never been proven to actually deliver and complete a working link is not
+done), the Orchestrator went beyond this step's mocked/unit/integration
+coverage and performed a real live request against the running local
+Authentik instance:
+
+1. Restarted the local API dev server in watch mode (the previously-running
+   process on port 3000 was a stale `node dist/main.js` predating this
+   workflow's code changes — confirmed via `Get-Process`/`StartTime`,
+   restarted per AGENTS.md §16's zero-revert-cost dev-loop-restart rule).
+2. `POST http://localhost:3000/v1/auth/magic-link` with a real test email
+   → `{"ok":true}`, HTTP 200, as designed.
+3. Queried Mailpit's real API (`GET /api/v1/search?query=to:<email>`) →
+   the email arrived within seconds, correct branded subject ("Sign in to
+   AI Qadam").
+4. **Read the actual email body** (not just confirmed delivery) —
+   **the link inside points to `/if/flow/default-recovery-flow/`, NOT
+   `magic-link-login`**, and the body copy is the generic Authentik
+   password-reset template ("You recently requested to change your
+   password for your authentik account...").
+
+**Root cause, confirmed by reading Authentik's own server source directly**
+(`docker exec aiqadam-authentik-server`, `authentik/core/api/users.py`):
+`recovery_email()`'s only use of the passed `email_stage` UUID is to
+source the email's **subject and template** — the link itself is always
+built by `_create_recovery_link()`, which is **hardcoded to
+`brand.flow_recovery`** with no flow parameter anywhere in the call
+chain. `02b-authentik-spike-findings.md`'s conclusion (based on reading
+the OpenAPI schema's I/O shape alone, never a live send-and-inspect) was
+**incomplete** — the endpoint's shape looked like a per-stage-scoped
+send, but its actual server-side behavior is "send using this stage's
+copy, but always link into the Brand's global recovery flow." This is
+exactly the kind of gap AGENTS.md §6.1's live-verification requirement
+exists to catch — a schema/shape read is not the same as watching the
+real artifact (the email) arrive and inspecting its real content.
+
+**A real, supported fix exists** (also confirmed by reading Authentik's
+source, `authentik/brands/middleware.py` + `authentik/brands/utils.py`):
+`Brand` resolution is **per-request `Host` header** (`get_brand_for_request()`
+matches `request.get_host()` against `Brand.domain` via `iendswith`, not
+a single global singleton) — so a **second, purpose-built `Brand`** with
+its own `domain` and its own `flow_recovery` bound to `magic-link-login`
+lets `AuthentikClient.sendMagicLinkEmail()` reach the correct flow by
+sending the request with a distinct `Host:` header matching that second
+Brand's domain, while the existing default Brand's `flow_recovery`
+stays bound to `default-recovery-flow`, completely unaffected — the
+mechanism the existing `provision-authentik-recovery-flow.sh` already
+proves out for the default Brand, just applied to a second one.
+
+**This is a `failed-retry-code` finding** — the code (provisioning
+script + `AuthentikClient.sendMagicLinkEmail()`'s request shape) needs a
+real change, not a test-authoring fix. Routed back to CodeDeveloper (see
+Gate Result below) rather than silently patched by the Orchestrator,
+since it changes both the provisioning script's design and the
+`AuthentikClient` request shape — implementation-layer work, not
+infrastructure pre-flight.
+
+Test artifacts (the one live-created Authentik user) were cleaned up
+immediately after diagnosis (`DELETE /api/v3/core/users/{pk}/` → 204,
+confirmed).
 
 ## Gate Result
 
 ```yaml
 gate_result:
-  status: passed
-  summary: "Full test suite executed against real local infrastructure (Authentik/Mailpit/Postgres/Directus already healthy; web-next freshly started for this step). Type-check and biome clean on both apps/api and apps/web-next. 1496/1497 apps/api unit tests pass — the 1 failure is a pre-existing, independently-reproduced (git-stash-verified against an unmodified tree) clock-resolution flake in users.spec.ts, a file this workflow does not touch. All 45 new/modified tests for this workflow pass in isolation. Both Playwright E2E projects (chromium-desktop, chromium-mobile) for the new magic-link-form-submission.spec.ts pass cleanly after diagnosing and fixing a stale Vite dependency-cache issue in the local dev server (an environment problem, root-caused via direct console/network tracing, not a code or test-authoring bug — confirmed by the fix actually resolving it on the next clean run)."
+  status: failed-retry-code
+  summary: "Type-check, lint, unit (1496/1497, 1 pre-existing unrelated flake), and E2E (2/2, after fixing an unrelated stale-Vite-cache environment issue) all pass. HOWEVER, a live end-to-end verification (request magic link -> inspect real Mailpit email content, not just delivery) surfaced a genuine bug no mocked test could catch: the email's link points to default-recovery-flow, not magic-link-login, and uses the generic password-reset template copy -- confirmed by reading Authentik's own server source (recovery_email()'s email_stage param only controls subject/template, never the link's target flow, which is unconditionally brand.flow_recovery). A real fix exists using Authentik's per-request-Host brand resolution (a second Brand with its own domain + flow_recovery=magic-link-login) -- routed back to CodeDeveloper as a code/config change, not silently patched here."
   findings:
-    - "1 pre-existing test failure (users.spec.ts clock-race), confirmed independently reproducible on an unmodified tree via git stash — not caused by this workflow, no action taken, consistent with extensive prior-workflow history documenting the same flake."
-    - "Initial E2E failures were a stale Vite optimize-dep cache in the local web-next dev server, not a MagicLinkForm.tsx or endpoint bug — diagnosed via a standalone debug script with console/network tracing, fixed by clearing node_modules/.vite and restarting, confirmed resolved by both Playwright projects passing cleanly afterward."
-    - "AC-2/AC-3/AC-4 (full browser outcome)/AC-5 (dual-method live proof) remain live-UAT-only per 06-test-design.md's own AC-coverage table — not weakened or silently dropped here; these are the items the Orchestrator will verify live at Step 13 (or sooner, opportunistically) against the real Authentik instance and Mailpit."
+    - "1 pre-existing test failure (users.spec.ts clock-race), confirmed independently reproducible on an unmodified tree via git stash -- not caused by this workflow, no action taken."
+    - "Initial E2E failures were a stale Vite optimize-dep cache in the local web-next dev server, not a MagicLinkForm.tsx or endpoint bug -- diagnosed and fixed, confirmed resolved."
+    - "CRITICAL: live-verified magic-link email's link targets default-recovery-flow (wrong flow) with password-reset copy (wrong template) -- root-caused to Authentik's recovery_email endpoint being cosmetic-only for the email_stage parameter (subject/template only), with the link always sourced from Brand.flow_recovery regardless of which email_stage UUID is passed. Confirmed by reading authentik/core/api/users.py directly inside the running container, not inferred."
+    - "Real fix identified and confirmed via source read: Brand resolution is per-request Host header (authentik/brands/middleware.py + utils.py), so a second Brand object with its own domain and its own flow_recovery=magic-link-login lets AuthentikClient.sendMagicLinkEmail() reach the correct flow by setting a distinct Host header on the outbound request, without disturbing the existing default Brand's recovery-flow binding used by password-reset."
+    - "retry_target: code-developer -- provisioning script (scripts/provision-authentik-magic-link-flow.sh) needs a second-Brand provisioning step; AuthentikClient.sendMagicLinkEmail() needs to send the request with a Host header matching that Brand's domain (or an equivalent mechanism CodeDeveloper determines after re-reading this finding); 02b-authentik-spike-findings.md should be corrected/superseded to prevent this gap recurring in a future workflow."
 ```
