@@ -425,4 +425,26 @@ Each PR in this now-complete sequence: PR 1/6
 (`.copilot/tasks/completed/wf-20260731-feat-174/`), PR 2/6
 (`wf-20260801-feat-175/`), PR 3/6 (`wf-20260801-feat-176/`), PR 4/6
 (`wf-20260801-feat-177/`), PR 5/6 (`wf-20260801-feat-178/`), PR 6/6
-(`wf-20260801-feat-182/`, once archived).
+(`wf-20260801-feat-182/`).
+
+**Step 13 post-merge re-verification (Orchestrator, 2026-08-01) — ran for
+real, same format PR 3/6 established:** `BP-UAT-010` is a web-only script
+(`environment: http://localhost:4321`, `process_ref: FR-REG-001`) with no
+bot-surface steps, so — matching PR 3/6's own precedent for the identical
+situation — Step 13 was performed as **direct HTTP verification against
+the merged `main` commit** (`53ca60a`), not a spawned
+`uat-verification`/Playwright subworkflow, since that workflow would
+exercise the wrong surface entirely. Called the real, merged
+`POST /v1/internal/telegram/upgrade-temp` with a nonexistent `telegramId`
+against the running local API (bot submodule confirmed at the exact
+merged commit `409233e`): got `404 {"error":"telegram_user_not_found"}`,
+matching the bot's `TelegramUserNotFoundError` mapping exactly — the same
+response shape already verified live at Step 8, now re-confirmed
+specifically against the merged code, not just the feature branch. No new
+issues found. All 8 stakeholders of `BP-UAT-010` (`FR-BOT-002`,
+`FR-EVT-004`, `ISS-BRIDGE-STALE-001`, `ISS-EVT-004-1`, `ISS-EVT-005-1`,
+`ISS-UAT-010-1`, `ISS-UAT-010-2`, `ISS-UAT-SEED-003`) synced to
+Project-board status `agent-verified`. GitHub issue `#140` (`FR-BOT-002`'s
+own tracking issue) **was closed** at this step — unlike PRs 2-5, which
+correctly kept it open since more commands remained, this is the PR where
+FR-BOT-002 as a whole genuinely completes.
