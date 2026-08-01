@@ -105,26 +105,39 @@ fresh environment (local/QA/prod).
   country-lead onboarding flow.
 - Business-process linkage: `BP-UAT-020` (reserved, authored at Step 4 of
   the originating workflow).
-- **Verified live 2026-08-01 (`wf-20260801-fix-190`, `ISS-ADM-010-1`,
-  closes #164).** The forced-password-change-on-next-login mechanism
-  used to be `AuthentikClient.patchAttributes()` setting
+- **NOT verified live — reopened 2026-08-01 ("Verified live 2026-08-01"
+  in the previous version was an over-claim based on the unit-test
+  level; the live BP-UAT-020 re-verification at `wf-20260801-fix-190`
+  Step 13 returned the same MISMATCH as the original discovery,
+  proving the fix did not actually fix the AC).** The
+  forced-password-change-on-next-login mechanism used to be
+  `AuthentikClient.patchAttributes()` setting
   `ak_login_password_change_required`, see the old code comment on
   `FORCE_PASSWORD_CHANGE_ATTRIBUTE` in
   `admin-bootstrap.service.ts` — this attribute key was proven
   ineffective live by `wf-20260729-uat-154`'s BP-UAT-020 verification
   (the flow executor returned `xak-flow-redirect` straight to the OIDC
   authorize endpoint, no intermediate password-change stage). The
-  mechanism is now `AuthentikClient.setForcePasswordChangeNextLogin()`
-  which PATCHes `password_change_next_login: true` directly on the
-  user body (Authentik 2024.x native field). Unit tests cover the
-  "correct call attempted" level (15/15 pass,
-  `apps/api/test/admin-bootstrap.service.spec.ts`); live Authentik
-  verification ("does 2024.x actually enforce it?") is the BP-UAT-020
-  post-merge re-verification per
-  `.copilot/schemas/protocol.md` "Business-Process Linkage & Post-Merge
-  UAT". See `.copilot/issues/ISS-ADM-010-1.md`'s Resolution section for
-  the AC-by-AC disposition. Fallback if the user-body field is also
-  ignored by this Authentik build: a Password Expiry Policy + User
-  Login Stage + flow-binding script (`scripts/provision-authentik-pwd-policy.sh`,
-  design queue-ready in
-  `wf-20260801-fix-190/02-impact-analysis.md`).
+  first-attempt fix replaced it with
+  `AuthentikClient.setForcePasswordChangeNextLogin()` which PATCHes
+  `password_change_next_login: true` directly on the user body. The
+  PATCH succeeds (HTTP 200, verified in `aiqadam-authentik-server`
+  docker logs at `15:57:42.984` and `15:57:43.157`, request IDs
+  `6a07a0f9…` and `030d4bbf…`) — but Authentik 2024.12.3 silently
+  no-ops the field: the OPTIONS schema for the user endpoint does not
+  list `password_change_next_login` as a writable field, the `User`
+  model has no such attribute, and the flow executor still returns
+  `xak-flow-redirect` straight to OIDC with no password-change stage.
+  Unit tests (15/15, `apps/api/test/admin-bootstrap.service.spec.ts`)
+  only prove "the new call was made" — they do not prove "Authentik
+  honored it." Honesty disclosure 2 in
+  `wf-20260801-fix-190/09-quality-gate.md` and the
+  `Honesty disclosure 2` in `.copilot/issues/ISS-ADM-010-1.md`'s
+  Resolution section both explicitly anticipated this scenario; the
+  issue is correctly staying open pending a real fix. Real fix design
+  options (none shipped): (a) trigger the `default-password-change`
+  recovery flow's email magic-link on bootstrap so the admin must
+  complete the password-change flow before they can sign in normally;
+  (b) upgrade Authentik to a build that supports
+  `ForcePasswordChange` on the user body (the field name is
+  introduced in a 2025.x release — 2024.12.3 doesn't have it).

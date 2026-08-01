@@ -163,3 +163,93 @@ gate_result:
   summary: "All steps executed; 15/15 unit tests pass; TypeScript clean; both registry edits prepared for atomic commit; documentation updated; AC-3/AC-4 of ISS-ADM-010-1 honestly deferred to this workflow's Step 13 (the named follow-up)."
   output_file: .copilot/tasks/active/wf-20260801-fix-190/09-quality-gate.md
 ```
+
+---
+
+## Step 13 (Post-Merge BP-UAT-020 Re-Verification) — REOPENED
+
+**Status: REOPENED.**
+ISS-ADM-010-1 is **not actually resolved** by PR #229. Evidence and
+corrective actions follow.
+
+### Live verification result (2026-08-01)
+
+The Step 13 post-merge BP-UAT-020 re-run against Authentik 2024.12.3
+returned the same `verdict: 'MISMATCH'` shape as the original
+`wf-20260729-uat-154` discovery — the new mechanism does not actually
+force a password-change screen.
+
+**Evidence (live, all from this session):**
+
+1. **Authentik `User` model does not have `password_change_next_login`.**
+   `docker exec aiqadam-authentik-server sh -c "grep -n password_change
+   /authentik/core/models.py"` shows only `password`,
+   `password_change_date`, and `last_login`. Running
+   `ak shell -c "from authentik.core.models import User; u = User.objects.first(); u.password_change_next_login"` raises
+   `AttributeError`.
+2. **PATCH endpoint OPTIONS does not list `password_change_next_login`
+   as a writable field.** `curl -X OPTIONS
+   http://localhost:9000/api/v3/core/users/41/` returns 17 fields
+   including `password`, `last_login`, `password_change_date`, etc.
+   `password_change_next_login` is NOT among them.
+3. **The PATCH call in our code path returns HTTP 200.** The PATCH
+   doesn't error — but the field is silently dropped. Authentik
+   `docker logs aiqadam-authentik-server --since 60m` shows the
+   bootstrap-performed PATCH calls at `15:57:42.984` and
+   `15:57:43.157` (request IDs `6a07a0f9…` and `030d4bbf…`) both
+   returning `status: 200`. The bootstrap admin's user record has
+   `attributes: {}` and the response body does not include the field.
+4. **The flow executor still returns `xak-flow-redirect` straight to
+   OIDC.** Same MISMATCH as the original discovery. The forced
+   password-change stage is not shown.
+
+### Why the unit-test layer passed but the live system did not
+
+The new Vitest regression test "does not patch the deprecated
+forced-password-change attribute" only proves the deprecated
+attribute-set call is gone — it does not prove that Authentik honors
+the new field. The unit test mocks the `AuthentikClient` and asserts
+the new method is called; it makes no claim about Authentik's
+runtime behavior. This is the long-standing gap called out in
+`FR-ADM-010.md` Notes: "no Testcontainers-Authentik double in this
+repo." The honest resolution is that unit tests cannot prove this AC;
+only the live BP-UAT-020 re-run can.
+
+### Corrective actions taken (this session, post-merge)
+
+1. **`docs/04-development/architecture/auth-architecture.md` §9.5**
+   rewritten. The "live-verified 2026-08-01" claim is replaced with a
+   "NOT LIVE-VERIFIED, REOPENED 2026-08-01" block that documents the
+   PATCH-200-but-no-op finding, the OPTIONS schema gap, and the
+   candidate fix paths.
+2. **`docs/03-requirements/FR-ADM-010.md` Notes** rewritten. The
+   "Verified live 2026-08-01" line is replaced with a "NOT verified
+   live — reopened 2026-08-01" block that documents the same finding
+   and lists the two candidate fix paths (recovery-flow magic-link;
+   Authentik 2025.x upgrade).
+3. **`.copilot/issues/ISS-ADM-010-1.md`** updated: `Status` flips from
+   `resolved` to `reopen`; `Resolved` annotated as
+   "initial; reopened same day — live verification failed"; new
+   Honesty disclosure 3 added with the live evidence; new Honesty
+   disclosure 4 names the follow-up workflow id pattern.
+4. **`.copilot/issues/registry.md`** ISS-ADM-010-1 row updated: status
+   `resolved` → `reopen`; workflow updated to reflect the workflow
+   stays active and ships the follow-up fix.
+5. **GitHub issue #164** reopened via `gh issue reopen 164`; a comment
+   was posted with the full honest disclosure and a link to the local
+   issue file.
+6. **PR #229 kept on `main`** (not reverted). The code-shape
+   improvement (cleaner PATCH, no deprecated attribute-set) is
+   net-positive even though it does not deliver the AC. Reverting
+   would reintroduce the older, more misleading attribute-set call.
+
+### Workflow state
+
+- `wf-20260801-fix-190` **stays active** (per AGENTS.md §14, the
+  Orchestrator owns the dispatch of follow-up workflows; this
+  workflow's next step is to compose the real fix).
+- The follow-up workflow will be `wf-20260801-fix-191-authentik-forced-pwd-change-real-fix`
+  (real-fix design candidates in `docs/04-development/architecture/auth-architecture.md`
+  §9.5 and `docs/03-requirements/FR-ADM-010.md` Notes).
+- This workflow is **not done**. Per AGENTS.md §15, the chat-level
+  state line is `not done — fix doesn't work in Authentik 2024.12.3; owned by ISS-ADM-010-1`.
