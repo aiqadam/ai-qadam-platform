@@ -199,9 +199,129 @@ export class AuthentikClient {
     });
   }
 
-  async setForcePasswordChangeNextLogin(userPk: number, value: boolean): Promise<void> {
+  // FR-ADM-010 AC-3: mark a user as requiring a password change on next login
+  // via the user-attributes flag that our ExpressionPolicy checks.
+  // ensureForcePasswordChangeFlow() must have been called first to wire the
+  // Authentik flow; this method only sets the per-user flag.
+  async setBootstrapPasswordChangeAttribute(userPk: number): Promise<void> {
+    const current = await this.request<AuthentikUser>('GET', `/api/v3/core/users/${userPk}/`);
     await this.request<unknown>('PATCH', `/api/v3/core/users/${userPk}/`, {
-      password_change_next_login: value,
+      attributes: { ...current.attributes, ak_login_password_change_required: true },
+    });
+  }
+
+  // FR-ADM-010 AC-3: provision the Authentik flow infrastructure needed to show
+  // a forced-password-change screen during the first login of the bootstrap
+  // admin. Idempotent — safe to call on every bootstrap.
+  //
+  // Mechanism (confirmed in Authentik 2024.12.3):
+  //   1. Two ExpressionPolicies: "check" (reads the attribute) and "clear"
+  //      (reads + removes the attribute, then passes).
+  //   2. Two FlowStageBindings added to default-authentication-flow at order
+  //      25 and 26 (between the password stage at 20 and MFA at 30), using
+  //      the existing default-password-change-prompt (PromptStage) and
+  //      default-password-change-write (UserWriteStage) stages.
+  //   3. PolicyBindings wiring each expression policy to its stage binding.
+  //   With Authentik's default FlowStageBinding settings
+  //   (evaluate_on_plan=false, re_evaluate_policies=true), the policies are
+  //   re-evaluated after each stage — so after the identification stage sets
+  //   pending_user, the expression policy can read the attribute and decide
+  //   whether to show the change form.
+  async ensureForcePasswordChangeFlow(): Promise<void> {
+    const CHECK_EXPR =
+      'pending_user = request.context.get("pending_user")\n' +
+      'if not pending_user:\n    return False\n' +
+      'return bool(pending_user.attributes.get("ak_login_password_change_required", False))';
+    const CLEAR_EXPR =
+      'pending_user = request.context.get("pending_user")\n' +
+      'if not pending_user or not pending_user.attributes.get("ak_login_password_change_required", False):\n    return False\n' +
+      'pending_user.attributes.pop("ak_login_password_change_required", None)\n' +
+      'pending_user.save()\n' +
+      'return True';
+
+    const [checkPk, clearPk] = await Promise.all([
+      this.getOrCreateExpressionPolicy('aiqadam-boot-pwd-change-check', CHECK_EXPR),
+      this.getOrCreateExpressionPolicy('aiqadam-boot-pwd-change-clear', CLEAR_EXPR),
+    ]);
+
+    const flowPk = await this.getFlowBySlug('default-authentication-flow');
+    const [promptStagePk, writeStagePk] = await Promise.all([
+      this.getStageByName('/api/v3/stages/prompt/stages/', 'default-password-change-prompt'),
+      this.getStageByName('/api/v3/stages/user_write/', 'default-password-change-write'),
+    ]);
+
+    const [promptBindingPk, writeBindingPk] = await Promise.all([
+      this.getOrCreateFlowStageBinding(flowPk, promptStagePk, 25),
+      this.getOrCreateFlowStageBinding(flowPk, writeStagePk, 26),
+    ]);
+
+    await Promise.all([
+      this.ensureFlowPolicyBinding(promptBindingPk, checkPk),
+      this.ensureFlowPolicyBinding(writeBindingPk, clearPk),
+    ]);
+  }
+
+  private async getOrCreateExpressionPolicy(name: string, expression: string): Promise<string> {
+    const existing = await this.request<{ results: Array<{ pk: string }> }>(
+      'GET',
+      `/api/v3/policies/expression/?name=${encodeURIComponent(name)}`,
+    );
+    if (existing.results[0]) return existing.results[0].pk;
+    const created = await this.request<{ pk: string }>('POST', '/api/v3/policies/expression/', {
+      name,
+      expression,
+    });
+    return created.pk;
+  }
+
+  private async getFlowBySlug(slug: string): Promise<string> {
+    const res = await this.request<{ results: Array<{ pk: string }> }>(
+      'GET',
+      `/api/v3/flows/instances/?slug=${encodeURIComponent(slug)}`,
+    );
+    const flow = res.results[0];
+    if (!flow) throw new Error(`Authentik flow not found: ${slug}`);
+    return flow.pk;
+  }
+
+  private async getStageByName(endpoint: string, name: string): Promise<string> {
+    const res = await this.request<{ results: Array<{ pk: string }> }>(
+      'GET',
+      `${endpoint}?name=${encodeURIComponent(name)}`,
+    );
+    const stage = res.results[0];
+    if (!stage) throw new Error(`Authentik stage not found at ${endpoint}: ${name}`);
+    return stage.pk;
+  }
+
+  private async getOrCreateFlowStageBinding(
+    flowPk: string,
+    stagePk: string,
+    order: number,
+  ): Promise<string> {
+    const existing = await this.request<{
+      results: Array<{ pk: string; policybindingmodel_ptr_id: string }>;
+    }>('GET', `/api/v3/flows/bindings/?target=${flowPk}&stage=${stagePk}`);
+    if (existing.results[0]) return existing.results[0].policybindingmodel_ptr_id;
+    const created = await this.request<{ pk: string; policybindingmodel_ptr_id: string }>(
+      'POST',
+      '/api/v3/flows/bindings/',
+      { target: flowPk, stage: stagePk, order },
+    );
+    return created.policybindingmodel_ptr_id;
+  }
+
+  private async ensureFlowPolicyBinding(bindingPbmId: string, policyPk: string): Promise<void> {
+    const existing = await this.request<{ results: Array<{ policy: string | null }> }>(
+      'GET',
+      `/api/v3/policies/bindings/?target=${bindingPbmId}`,
+    );
+    const alreadyBound = existing.results.some((b) => b.policy === policyPk);
+    if (alreadyBound) return;
+    await this.request<unknown>('POST', '/api/v3/policies/bindings/', {
+      target: bindingPbmId,
+      policy: policyPk,
+      order: 0,
     });
   }
 

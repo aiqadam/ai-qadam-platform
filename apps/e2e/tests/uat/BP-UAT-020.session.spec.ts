@@ -165,11 +165,13 @@ test('BP-UAT-020 agent-driven session (fixture setup/teardown run externally, se
     // Authentik's flow-executor is a client-side SPA; a genuine
     // xak-flow-redirect completes via window.location after the API
     // response, which can lag waitForLoadState('networkidle'). Poll for
-    // either a real password-change stage OR the redirect away from
-    // Authentik landing, rather than a single fixed check.
+    // either a real password-change stage (2 password fields = prompt/confirm)
+    // OR the redirect away from Authentik landing.
     await driver.page
       .waitForFunction(
-        () => !document.location.href.includes('/if/flow/') || document.querySelectorAll('input[type="password"]').length > 0,
+        () =>
+          !document.location.href.includes('/if/flow/') ||
+          document.querySelectorAll('input[type="password"]').length >= 2,
         { timeout: 15000 },
       )
       .catch(() => {});
@@ -177,52 +179,61 @@ test('BP-UAT-020 agent-driven session (fixture setup/teardown run externally, se
 
     const shot002 = await driver.screenshot('step-002-forced-password-change');
     const urlAfterPasswordSubmit = driver.page.url();
-    const leftAuthentikEntirely = !urlAfterPasswordSubmit.includes(':9000') && !urlAfterPasswordSubmit.includes('/if/flow/');
+    const leftAuthentikEntirely =
+      !urlAfterPasswordSubmit.includes(':9000') && !urlAfterPasswordSubmit.includes('/if/flow/');
     const stillOnAuthentikFlow = urlAfterPasswordSubmit.includes('/if/flow/');
-    // A genuine forced-password-change stage would be a DIFFERENT
-    // Authentik flow stage (e.g. ak-stage-prompt / ak-stage-password with
-    // a "new password" framing), not just "any password field present" —
-    // Authentik's normal login-retry-on-same-stage would also show a
-    // password field, which is exactly the false-positive ISS-ADM-010-1
-    // documents. Absent a reliable DOM signal to distinguish the two
-    // (both render structurally similar forms), the only evidence this
-    // session can honestly report is: did sign-in redirect away from
-    // Authentik entirely (== no forced stage encountered, real product
-    // gap per ISS-ADM-010-1) or not — never actually observed in this
-    // environment, hence the hardcoded MISMATCH verdict below.
+    const passwordFieldCount = await driver.page
+      .locator('input[type="password"]')
+      .count()
+      .catch(() => 0);
+    // Two password fields (new password + confirm) means the forced
+    // password-change stage IS showing — that is the MATCH condition.
+    // One password field is a login-retry (wrong credential) scenario — MISMATCH.
+    // Zero fields / left Authentik = MISMATCH (original bug).
+    const forcedChangeShown = stillOnAuthentikFlow && passwordFieldCount >= 2;
+
     await driver.logStep({
       step: '002',
       label: 'First sign-in forces password change',
       action: `Submitted identifier=${ADMIN_EMAIL} then the seeded password on Authentik's login flow via language-independent [type="submit"] selectors.`,
       screenshotPath: shot002,
-      verdict: 'MISMATCH',
-      reasoning: `After submitting valid seeded credentials, the flow left Authentik entirely: ${leftAuthentikEntirely} (still mid-flow: ${stillOnAuthentikFlow}). Landing URL: ${urlAfterPasswordSubmit}. This is a genuine product defect, not a session-script issue — see ISS-ADM-010-1 (filed this same session) for the direct flow-executor API evidence (POST .../flows/executor/... with the correct password returns {"component":"xak-flow-redirect","to":"/application/o/authorize/..."} — a normal successful-login redirect, not a password-change stage).`,
-      visible_elements: leftAuthentikEntirely ? 'Redirected away from Authentik — normal successful login, no password-change UI shown' : 'Authentik flow-executor form',
-      rendered_text: 'see ISS-ADM-010-1 for raw flow-executor API response bodies',
+      verdict: forcedChangeShown ? 'MATCH' : 'MISMATCH',
+      reasoning: `After submitting valid seeded credentials: stillOnAuthentikFlow=${stillOnAuthentikFlow}, leftAuthentikEntirely=${leftAuthentikEntirely}, passwordFieldCount=${passwordFieldCount}. forcedChangeShown=${forcedChangeShown}. Landing URL: ${urlAfterPasswordSubmit}. ${forcedChangeShown ? 'Forced password-change stage is present (2 password fields — new+confirm prompt from ExpressionPolicy-gated PromptStage in default-authentication-flow).' : 'AC-3 defect: no forced password-change stage shown — see ISS-ADM-010-1.'}`,
+      visible_elements: forcedChangeShown
+        ? 'Authentik password-change prompt (2 password fields: new password + confirm)'
+        : leftAuthentikEntirely
+          ? 'Redirected away from Authentik — normal successful login, no password-change UI shown'
+          : 'Authentik flow-executor form',
+      rendered_text: 'see screenshot',
       dominant_colors: 'Authentik default flow-executor styling',
-      anomalies: 'AC-3 defect: ak_login_password_change_required does not force a password-change screen in this environment — filed as ISS-ADM-010-1',
-      corroborating_evidence: 'ISS-ADM-010-1.md (this session) — raw flow-executor POST/response bodies captured via a standalone diagnostic script, not just the browser session\'s own screenshots.',
+      anomalies: forcedChangeShown ? 'none' : 'AC-3 defect: no forced password-change stage shown — see ISS-ADM-010-1',
     });
 
+    // If the forced-change form is present, complete the password change
+    // so the session can proceed to Step 003 (AC-4 verification).
+    if (forcedChangeShown) {
+      const NEW_PASSWORD = 'BootstrapChanged1!';
+      const newPasswordFields = driver.page.locator('input[type="password"]');
+      await newPasswordFields.first().waitFor({ state: 'visible', timeout: 10000 });
+      await driver.fill(newPasswordFields.nth(0), NEW_PASSWORD, 'forced-change-new-password');
+      await driver.fill(newPasswordFields.nth(1), NEW_PASSWORD, 'forced-change-confirm-password');
+      const changeSubmit = driver.page.locator('button[type="submit"], input[type="submit"]').first();
+      await changeSubmit.waitFor({ state: 'visible', timeout: 10000 });
+      await driver.click(changeSubmit, 'forced-change-submit');
+      await driver.page.waitForLoadState('networkidle').catch(() => {});
+      await driver.page.waitForTimeout(1000);
+    }
+
     // ---- Step 003: bootstrapped account reaches admin screens ----
-    // Since Step 002 never encountered a genuine password-change stage
-    // (per ISS-ADM-010-1), the session is already signed in as the
-    // bootstrapped admin at this point (the login completed normally) —
-    // go straight to the target admin screen and report honestly on what
-    // AC-4 alone (independent of the broken AC-3) shows.
-    //
-    // Step 002's own screenshot was captured while the browser was still
-    // mid-OIDC-callback (url still /api/v1/auth/callback?code=...&state=...
-    // — GET /v1/auth/callback exchanges the code for a session cookie and
-    // itself redirects onward; screenshotting immediately after clicking
-    // "submit password" can race that exchange). Navigating to
-    // /workspace/admin/countries before the callback finishes was
-    // observed to trigger a SECOND, now-stale OIDC round-trip that 500'd
-    // (the authorization `code` had already been consumed) — a genuine
-    // test-timing bug, not a product defect. Wait for the callback's own
-    // redirect to land on a real app route first.
+    // When the forced-change form was completed (forcedChangeShown=true),
+    // Authentik completes the authentication flow and redirects to the app —
+    // we just navigate directly to the target admin screen. When Step 002
+    // was a MISMATCH, the user is already signed in from the normal login.
     await driver.page
-      .waitForFunction(() => !document.location.pathname.startsWith('/api/v1/auth/callback'), { timeout: 15000 })
+      .waitForFunction(
+        () => !document.location.pathname.startsWith('/api/v1/auth/callback'),
+        { timeout: 15000 },
+      )
       .catch(() => {});
     await driver.page.waitForLoadState('networkidle').catch(() => {});
 
@@ -238,7 +249,7 @@ test('BP-UAT-020 agent-driven session (fixture setup/teardown run externally, se
       action: `Navigated to ${BASE_URL}/workspace/admin/countries. Signed in as the bootstrapped admin (login completed normally in Step 002, despite the missing forced-password-change stage — see ISS-ADM-010-1).`,
       screenshotPath: shot003,
       verdict: reachedAdminCountries ? 'MATCH' : 'MISMATCH',
-      reasoning: `Countries table element(s) found: ${countriesTableVisible}. Redirected to sign-in: ${redirectedToSignIn}. This verdict is independent of AC-3's failure — AC-4 only asks whether the bootstrapped account has full super-admin access once signed in, which it does or does not regardless of whether a password-change stage was shown.`,
+      reasoning: `Countries table element(s) found: ${countriesTableVisible}. Redirected to sign-in: ${redirectedToSignIn}. This verdict is independent of AC-3's MATCH/MISMATCH — AC-4 only asks whether the bootstrapped account has full super-admin access once signed in.`,
       visible_elements: reachedAdminCountries ? 'Countries admin table, workspace nav' : 'unexpected screen — see screenshot',
       rendered_text: 'n/a — see screenshot',
       dominant_colors: 'design-system default',

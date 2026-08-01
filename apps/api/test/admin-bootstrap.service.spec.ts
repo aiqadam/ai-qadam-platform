@@ -44,7 +44,8 @@ type FakeAuthentik = {
   createUser: ReturnType<typeof vi.fn>;
   setPassword: ReturnType<typeof vi.fn>;
   setUserGroups: ReturnType<typeof vi.fn>;
-  setForcePasswordChangeNextLogin: ReturnType<typeof vi.fn>;
+  ensureForcePasswordChangeFlow: ReturnType<typeof vi.fn>;
+  setBootstrapPasswordChangeAttribute: ReturnType<typeof vi.fn>;
   patchAttributes: ReturnType<typeof vi.fn>;
   getUserByEmail: ReturnType<typeof vi.fn>;
 };
@@ -86,7 +87,8 @@ beforeEach(() => {
     createUser: vi.fn().mockResolvedValue(SEEDED_USER),
     setPassword: vi.fn().mockResolvedValue(undefined),
     setUserGroups: vi.fn().mockResolvedValue(undefined),
-    setForcePasswordChangeNextLogin: vi.fn().mockResolvedValue(undefined),
+    ensureForcePasswordChangeFlow: vi.fn().mockResolvedValue(undefined),
+    setBootstrapPasswordChangeAttribute: vi.fn().mockResolvedValue(undefined),
     patchAttributes: vi.fn().mockResolvedValue(undefined),
     getUserByEmail: vi.fn().mockResolvedValue(null),
   };
@@ -195,8 +197,9 @@ describe('AdminBootstrapService.onModuleInit — zero-member bootstrap (AC-1)', 
     expect(authentik.setUserGroups).toHaveBeenCalledTimes(1);
     expect(authentik.setUserGroups).toHaveBeenCalledWith(SEEDED_USER_PK, [GROUP_PK]);
 
-    expect(authentik.setForcePasswordChangeNextLogin).toHaveBeenCalledTimes(1);
-    expect(authentik.setForcePasswordChangeNextLogin).toHaveBeenCalledWith(SEEDED_USER_PK, true);
+    expect(authentik.ensureForcePasswordChangeFlow).toHaveBeenCalledTimes(1);
+    expect(authentik.setBootstrapPasswordChangeAttribute).toHaveBeenCalledTimes(1);
+    expect(authentik.setBootstrapPasswordChangeAttribute).toHaveBeenCalledWith(SEEDED_USER_PK);
 
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringMatching(/admin@aiqadam\.org.*777.*aiqadam-super-admin/),
@@ -205,7 +208,7 @@ describe('AdminBootstrapService.onModuleInit — zero-member bootstrap (AC-1)', 
     logSpy.mockRestore();
   });
 
-  it('does not patch the deprecated forced-password-change attribute', async () => {
+  it('uses the ExpressionPolicy flow mechanism, not the deprecated patchAttributes call', async () => {
     // Arrange
     authentik.createUser.mockResolvedValue({
       pk: SEEDED_USER_PK,
@@ -215,7 +218,10 @@ describe('AdminBootstrapService.onModuleInit — zero-member bootstrap (AC-1)', 
     // Act
     await svc.onModuleInit();
 
-    // Assert — the ignored attribute must never return to the bootstrap path.
+    // Assert — the new mechanism uses setBootstrapPasswordChangeAttribute,
+    // never the deprecated patchAttributes call for the old attribute key.
+    expect(authentik.ensureForcePasswordChangeFlow).toHaveBeenCalledTimes(1);
+    expect(authentik.setBootstrapPasswordChangeAttribute).toHaveBeenCalledWith(SEEDED_USER_PK);
     expect(authentik.patchAttributes).not.toHaveBeenCalledWith(
       SEEDED_USER_PK,
       expect.objectContaining({ ak_login_password_change_required: expect.anything() }),
@@ -275,7 +281,8 @@ describe('AdminBootstrapService — duplicate-email recovery', () => {
     expect(authentik.getUserByEmail).toHaveBeenCalledWith('admin@aiqadam.org');
     expect(authentik.setPassword).not.toHaveBeenCalled();
     expect(authentik.setUserGroups).toHaveBeenCalledWith(555, [GROUP_PK]);
-    expect(authentik.setForcePasswordChangeNextLogin).toHaveBeenCalledWith(555, true);
+    expect(authentik.ensureForcePasswordChangeFlow).toHaveBeenCalledTimes(1);
+    expect(authentik.setBootstrapPasswordChangeAttribute).toHaveBeenCalledWith(555);
     expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/recovering by email lookup/));
 
     warnSpy.mockRestore();
