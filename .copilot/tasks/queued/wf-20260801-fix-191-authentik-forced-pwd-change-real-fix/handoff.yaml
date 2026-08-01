@@ -1,12 +1,19 @@
 workflow_id: wf-20260801-fix-191
 title: "Real fix for forced password-change on next login (Authentik 2024.12.3)"
 type: issue-resolution
-status: queued
+status: completed-superseded
 issue: ISS-ADM-010-1
 github_issue: 164
 created: 2026-08-01
+completed: 2026-08-02
 owner: Orchestrator
 predecessor: wf-20260801-fix-190
+
+# COMPLETED: The real fix was implemented directly (wf-191 identity was reused
+# for the actual implementation work, not the queued placeholder design).
+# PR #231 (squash 11a21f4) merged 2026-08-02: ExpressionPolicy approach.
+# GitHub issue #164 closed via 'closes #164' in the squash commit.
+# This queued handoff.yaml is retained for audit trail.
 
 # Why this exists
 # PR #229 (squash 6a26a1e, predecessor wf-20260801-fix-190) shipped a

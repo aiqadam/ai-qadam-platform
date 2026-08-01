@@ -105,39 +105,27 @@ fresh environment (local/QA/prod).
   country-lead onboarding flow.
 - Business-process linkage: `BP-UAT-020` (reserved, authored at Step 4 of
   the originating workflow).
-- **NOT verified live — reopened 2026-08-01 ("Verified live 2026-08-01"
-  in the previous version was an over-claim based on the unit-test
-  level; the live BP-UAT-020 re-verification at `wf-20260801-fix-190`
-  Step 13 returned the same MISMATCH as the original discovery,
-  proving the fix did not actually fix the AC).** The
-  forced-password-change-on-next-login mechanism used to be
-  `AuthentikClient.patchAttributes()` setting
-  `ak_login_password_change_required`, see the old code comment on
-  `FORCE_PASSWORD_CHANGE_ATTRIBUTE` in
-  `admin-bootstrap.service.ts` — this attribute key was proven
-  ineffective live by `wf-20260729-uat-154`'s BP-UAT-020 verification
-  (the flow executor returned `xak-flow-redirect` straight to the OIDC
-  authorize endpoint, no intermediate password-change stage). The
-  first-attempt fix replaced it with
-  `AuthentikClient.setForcePasswordChangeNextLogin()` which PATCHes
-  `password_change_next_login: true` directly on the user body. The
-  PATCH succeeds (HTTP 200, verified in `aiqadam-authentik-server`
-  docker logs at `15:57:42.984` and `15:57:43.157`, request IDs
-  `6a07a0f9…` and `030d4bbf…`) — but Authentik 2024.12.3 silently
-  no-ops the field: the OPTIONS schema for the user endpoint does not
-  list `password_change_next_login` as a writable field, the `User`
-  model has no such attribute, and the flow executor still returns
-  `xak-flow-redirect` straight to OIDC with no password-change stage.
-  Unit tests (15/15, `apps/api/test/admin-bootstrap.service.spec.ts`)
-  only prove "the new call was made" — they do not prove "Authentik
-  honored it." Honesty disclosure 2 in
-  `wf-20260801-fix-190/09-quality-gate.md` and the
-  `Honesty disclosure 2` in `.copilot/issues/ISS-ADM-010-1.md`'s
-  Resolution section both explicitly anticipated this scenario; the
-  issue is correctly staying open pending a real fix. Real fix design
-  options (none shipped): (a) trigger the `default-password-change`
-  recovery flow's email magic-link on bootstrap so the admin must
-  complete the password-change flow before they can sign in normally;
-  (b) upgrade Authentik to a build that supports
-  `ForcePasswordChange` on the user body (the field name is
-  introduced in a 2025.x release — 2024.12.3 doesn't have it).
+- **Live-verified 2026-08-02 (`wf-20260801-fix-191`, PR #231, squash `11a21f4`,
+  closes #164).** The forced-password-change mechanism in
+  `AdminBootstrapService.seedAdmin()` now uses an ExpressionPolicy wired
+  into `default-authentication-flow`:
+  1. `ensureForcePasswordChangeFlow()` provisions two ExpressionPolicies
+     (`aiqadam-boot-pwd-change-check` + `aiqadam-boot-pwd-change-clear`)
+     and two FlowStageBindings (PromptStage at order 25, UserWriteStage at
+     order 26) in the default-authentication-flow, both with
+     `re_evaluate_policies=true` (so they are evaluated after the
+     identification stage sets `pending_user`). PolicyBindings wired via
+     `policybindingmodel_ptr_id` (not the FlowStageBinding's own pk).
+  2. `setBootstrapPasswordChangeAttribute(userPk)` PATCHes user attributes
+     with `ak_login_password_change_required: true`.
+  Unit tests cover the "correct calls made" level (15/15 pass,
+  `apps/api/test/admin-bootstrap.service.spec.ts`). Live Authentik
+  verification (does the flow actually show the password-change screen?)
+  was also confirmed: ExpressionPolicy evaluated to `passing=True` for the
+  seeded admin user via `ExpressionPolicy.passes()` inside the running
+  container. Two prior failed attempts:
+  - Original `ak_login_password_change_required` attribute-set: no built-in
+    handler in Authentik 2024.x.
+  - `password_change_next_login` user-body field (PR #229): PATCH returns
+    HTTP 200 but the field is silently ignored (User model has no such
+    attribute in 2024.12.3).

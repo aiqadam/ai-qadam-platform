@@ -5,10 +5,10 @@
 | ID | ISS-ADM-010-1 |
 | Severity | blocker (for AC-3 specifically — AC-1/AC-2/AC-4/AC-5 unaffected) |
 | Module | admin/ADM, infra/authentik |
-| Status | reopen — PR #229 verified ineffective 2026-08-01 |
+| Status | resolved |
 | Reported | 2026-07-29 |
-| Resolved | 2026-08-01 (initial; reopened same day — live verification failed) |
-| Workflow | wf-20260801-fix-190 (initial merge; this workflow stays active for the follow-up) |
+| Resolved | 2026-08-02 (PR #231, squash `11a21f4`) |
+| Workflow | wf-20260801-fix-191 (final fix) / wf-20260801-fix-190 (first attempt, kept on main) |
 | Reporter | Orchestrator (`wf-20260729-fix-153`, live BP-UAT-020 verification for ISS-UAT-020-1) |
 | Related | FR-ADM-010 (shipped, PR #110), BP-UAT-020 |
 | Business-Process | BP-UAT-020 |

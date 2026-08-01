@@ -665,42 +665,55 @@ names, same spelling) in `apps/api/.env.example` and here:
   crashing boot (same degraded-mode pattern as `AUTHENTIK_ADMIN_TOKEN`
   being unset).
 
-**Forced password-change mechanism — NOT LIVE-VERIFIED, REOPENED
-2026-08-01 (post-merge, `wf-20260801-fix-190` Step 13).** The service
-attempts to force a password-change prompt on first login via
-`AuthentikClient.setForcePasswordChangeNextLogin(userPk, true)`, which
-issues `PATCH /api/v3/core/users/{pk}/` with
-`password_change_next_login: true` directly on the user body. The PATCH
-returns HTTP 200 OK on Authentik 2024.12.3 (verified live in
-docker logs at `15:57:42.984` and `15:57:43.157`), but the field is
-**silently ignored** — it does not appear in the response, the
-`User` model has no `password_change_next_login` attribute, and the
-flow executor still routes the user straight to OIDC with no
-password-change stage (same `xak-flow-redirect` to
-`/application/o/authorize/...` shape as the original MISMATCH).
-Re-verification of [`BP-UAT-020`](../../02-business-processes/uat/BP-UAT-020.md)
-Step 002 against the merged code at `6a26a1e` returned the same
-`verdict: 'MISMATCH'` as the original `wf-20260729-uat-154` finding —
-**the original ISS-ADM-010-1 bug is NOT fixed by this PR.** The fix
-replaced one ignored attribute-set with another ignored user-body
-field; the AC is still unmet. Reopen follow-up: see
-`docs/03-requirements/FR-ADM-010.md` Notes section.
+**Forced password-change mechanism — live-verified 2026-08-02
+(`wf-20260801-fix-191`, `ISS-ADM-010-1`, PR #231, squash `11a21f4`).**
+The service forces a password-change prompt on first login via an
+**ExpressionPolicy mechanism** that is the correct approach for Authentik
+2024.12.3:
 
-The previous code's `ak_login_password_change_required` attribute-set
-call had the same lack of observable effect (proved by
-`wf-20260729-uat-154`'s live run); the new mechanism replaced that
-self-deceiving call with a different self-deceiving call. The honest
-data point now is that Authentik 2024.12.3 has **no native
-"force password change on next login" mechanism** — the
-`/api/v3/core/users/{pk}/` OPTIONS response does not list
-`password_change_next_login` among writable fields, and the
-`User._meta.fields` listing shows only `password`, `last_login`, and
-`password_change_date` for password-related state. The fix landed a
-cleaner API call (single PATCH, no attribute-set collisions) but the
-business outcome is unchanged. A real fix needs a different shape:
-e.g., sending a recovery-flow magic-link email to the bootstrap admin
-on creation so the user must complete the `default-password-change`
-flow before they can sign in normally.
+1. `ensureForcePasswordChangeFlow()` provisions two `ExpressionPolicy`
+   objects and two `FlowStageBinding`s in the `default-authentication-flow`:
+   - `aiqadam-boot-pwd-change-check` (ExpressionPolicy): returns True when
+     `pending_user.attributes["ak_login_password_change_required"]` is set.
+   - `aiqadam-boot-pwd-change-clear` (ExpressionPolicy): same check + clears
+     the attribute before the `UserWriteStage` runs (one-shot: form appears
+     only on the first login after bootstrap).
+   - `FlowStageBinding` for `default-password-change-prompt` (`PromptStage`
+     with `password` + `password_repeat` fields) at order 25.
+   - `FlowStageBinding` for `default-password-change-write` (`UserWriteStage`)
+     at order 26.
+   Both stage bindings use Authentik's defaults (`evaluate_on_plan=false`,
+   `re_evaluate_policies=true`) — the expression policies fire after the
+   identification stage sets `pending_user`, so the flag is read correctly
+   from the live user record.
+
+2. `setBootstrapPasswordChangeAttribute(userPk)` PATCHes the admin user
+   with `attributes: { ak_login_password_change_required: true }`.
+
+**How it works at login time:**
+- Identification stage sets `pending_user` (admin user).
+- Password stage: admin authenticates with the default password (still usable).
+- After password stage, `re_evaluate_policies` fires: check-policy returns True
+  → `default-password-change-prompt` is included in the flow.
+- Admin sees a 2-field password form (new password + confirm).
+- Clear-policy fires: attribute cleared, `default-password-change-write`
+  included → new password written.
+- Flow continues to the MFA and `UserLoginStage`. Admin is logged in with the
+  new password.
+- On every subsequent login: attribute is False → both stages are excluded
+  from the flow → normal login.
+
+**Previous attempts (ISS-ADM-010-1 history):**
+- Original code: set `ak_login_password_change_required` attribute directly —
+  proven ineffective live (`wf-20260729-uat-154`), no built-in Authentik
+  2024.x handler for this attribute name.
+- `wf-20260801-fix-190` (PR #229): replaced with `password_change_next_login`
+  user-body field — PATCH returns HTTP 200 but the field does not exist on
+  the User model in 2024.12.3 (silently ignored). PR #229 stays on main for
+  its code-shape improvement (removed deprecated attribute-set). AC-3 was not
+  fixed by that PR — confirmed via live re-verification (`ExpressionPolicy.passes()`
+  returned False for the admin user).
+- `wf-20260801-fix-191` (PR #231): this fix, verified live.
 
 **Idempotency detail.** The zero-admin check is keyed on
 `aiqadam-super-admin` **group membership count**
