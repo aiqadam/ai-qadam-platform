@@ -1,5 +1,29 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260801-fix-189`.
+**ISS-RBAC-ONBOARDED-AT-001 resolved — `directus_users.onboarded_at` field now exists.**
+[wf-20260801-fix-189](../tasks/completed/wf-20260801-fix-189-onboarded-at-field/handoff.yaml)
+(PR [#226](https://github.com/aiqadam/ai-qadam-platform/pull/226), merged
+SHA `34098e0`): Adds the missing `ISS-RBAC-ONBOARDED-AT-001 — directus_users.onboarded_at`
+section in `infrastructure/directus/bootstrap.sh`, modeled exactly on
+the existing `directus_users.email_verified_at` block (lines 3226-3233).
+Field type `timestamp`, schema `is_nullable: true`, meta `interface: datetime`,
+`readonly: true`, self-documenting `meta.note` recording what sets the
+field (`MembersOnboardingService.completeOnboarding()`), what references
+it, and which bug it closes. This was the second of two bugs stacked
+under the original `ISS-RBAC-PERMS-001` symptom (PR #223 fixed the
+permission-row gap; this PR fixes the schema gap that was underneath
+it). 7/7 ACs verified live against `aiqadam-directus Up 2 days (healthy)`:
+T1 field appears, T2 schema matches spec, T3 idempotency across 2
+bootstrap.sh re-runs, T4 PATCH persists, T5 GET returns the value. No
+apps/api code changes needed — `MeProfileService.{setOnboardedAt,
+getOnboardedAt, fetchProfileRow}` already target this field; the
+retry-without-onboarded_at fallback at lines 200-225 is left in
+place as defensive code (per the PR Risks section). GitHub issue #168
+closed.
+
+---
+
 **Last updated:** 2026-08-01 — `wf-20260801-fix-187`.
 **ISS-SEC-PUBLIC-UNMANAGED-001 resolved — Public reads on events/speakers/event_speakers now scoped.**
 [wf-20260801-fix-187](../tasks/completed/wf-20260801-fix-187/handoff.yaml)
