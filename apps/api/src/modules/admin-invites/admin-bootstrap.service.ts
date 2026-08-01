@@ -5,8 +5,16 @@ import { AuthentikClient, AuthentikError, SUPER_ADMIN_GROUP } from './authentik.
 // FR-ADM-010 — platform-admin bootstrap (no manual scripts). On API boot,
 // if aiqadam-super-admin has zero members, create exactly one seeded admin
 // user in Authentik, assign it to aiqadam-super-admin, and force a
-// password change on next login through Authentik's native
-// `password_change_next_login` user-body field (live-verified 2026-08-01).
+// password change on next login via:
+//   1. ensureForcePasswordChangeFlow(): provisions an ExpressionPolicy +
+//      FlowStageBindings in the default-authentication-flow (idempotent),
+//      so Authentik shows a password-change screen when the user has the
+//      ak_login_password_change_required attribute set.
+//   2. setBootstrapPasswordChangeAttribute(): sets that attribute on the
+//      seeded admin.
+// This is the correct mechanism for Authentik 2024.12.3 — the native
+// password_change_next_login user-body field does NOT exist in this version
+// (confirmed live; see .copilot/issues/ISS-ADM-010-1.md Honesty disclosure 3).
 // Idempotent: once >=1 super-admin exists, every later boot is a no-op.
 // Replaces the manual procedure at ADR-0021 §9 step 3 (already marked
 // superseded there).
@@ -89,7 +97,8 @@ export class AdminBootstrapService implements OnModuleInit {
       );
     }
     await this.authentik.setUserGroups(user.pk, [groupPk]);
-    await this.authentik.setForcePasswordChangeNextLogin(user.pk, true);
+    await this.authentik.ensureForcePasswordChangeFlow();
+    await this.authentik.setBootstrapPasswordChangeAttribute(user.pk);
 
     this.logger.log(
       `admin-bootstrap: seeded platform-admin user email=${email} pk=${user.pk} group=${SUPER_ADMIN_GROUP}`,
@@ -134,3 +143,5 @@ export class AdminBootstrapService implements OnModuleInit {
     }
   }
 }
+
+
