@@ -1,0 +1,91 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260801-feat-182"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-01T00:00:00Z"
+last_updated_at: "2026-08-01T00:00:00Z"
+
+requirement_ref: "FR-BOT-002"
+requirement_text: "PR 6/6 (final) of FR-BOT-002: /upgrade bot command — prompts a temp-account Telegram user for an email, validates it client-side, calls POST /v1/internal/telegram/upgrade-temp, and renders success/error messages. Closes out FR-BOT-002 to Implemented/Shipped once merged."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/140"
+
+branch: "feature/FEAT-BOT-2-upgrade-command-slice"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "init"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: ["BP-UAT-010"]
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-BOT-002.md
+  - docs/03-requirements/FR-AUTH-006.md
+  - docs/03-requirements/FR-AUTH-004.md
+  - apps/api/src/modules/auth/auth.controller.ts
+  - apps/api/src/modules/auth/upgrade.service.ts
+  - apps/api/src/modules/auth/upgrade-intent.schema.ts
+  - apps/bot/src/handlers/interests.py
+  - apps/bot/src/handlers/me.py
+  - apps/bot/src/services/api_client.py
+  - apps/bot/src/states/__init__.py
+  - apps/bot/src/main.py
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260801-feat-182/NEEDS_REVIEW.md"

@@ -1,7 +1,7 @@
 ---
 code: FR-BOT-002
 name: Bot member commands
-status: Planned
+status: Implemented
 module: Telegram Bot (BOT)
 phase: Roadmap Sprint 6
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/140
@@ -46,9 +46,9 @@ Members (including temporary Telegram-only accounts).
 - [x] `/cancel 5` cancels the user's registration and triggers waitlist promotion.
 - [x] `/me` correctly shows all active registrations with status badges.
 - [x] `/leaderboard` shows top 10 members; the caller's row is highlighted if they appear.
-- [ ] `/upgrade` starts the email verification flow and sends the magic-link email.
+- [x] `/upgrade` starts the email verification flow and sends the magic-link email.
 - [x] A temporary user is excluded from `/leaderboard` results.
-- [ ] All commands respond within 3 seconds under normal conditions.
+- [ ] All commands respond within 3 seconds under normal conditions. **Not independently measured across the full 10-command set** — see "Implementation progress" PR 6/6 entry's honesty disclosure below. Individual commands have never shown latency concerns in live verification (typical local-stack response times observed informally across PRs 1-6 were well under 1s), but no dedicated timing harness or measurement pass has ever been run. Left unchecked rather than claiming a measurement that was never actually taken.
 
 ## Notes
 
@@ -331,12 +331,98 @@ implemented and tested on the feature branch; not yet merged to `main` as
 of this doc update (matches PR 1-4's own precedent of writing this progress
 entry before their own merge).
 
-**Planned follow-up PRs (queued, no workflow IDs assigned yet):**
+**PR 6/6 (this PR, final) — shipped:** `/upgrade` — email collection via a
+short aiogram FSM (`UpgradeStates.awaiting_email`, the first real content
+in `states/`, which had been a stub since FR-BOT-001), calling the
+already-shipped `POST /v1/internal/telegram/upgrade-temp` (FR-AUTH-006).
+No `apps/api/` changes were needed — the endpoint's contract (confirmed by
+reading `auth.controller.ts`/`upgrade.service.ts` directly, not assumed
+from the original task brief) matched exactly: `{telegramId, email} ->
+200 {ok:true} / 404 telegram_user_not_found / 409 not_a_temp_account / 409
+email_already_in_use`.
 
-| PR | Scope | Depends on |
-|---|---|---|
-| 6/6 | `/upgrade` — email collection + magic-link (FR-AUTH-006 dependency) | FR-AUTH-006 |
+Design decisions, documented explicitly:
 
-Each PR should re-check this table and its own `business_process` linkage
-before starting, per `requirement-development.md` Step 1 — do not
-re-derive the sequence from scratch.
+- **`is_temp` short-circuit, no wasted API call for full accounts** —
+  `user_context.is_temp` (already resolved by `AuthMiddleware` on every
+  update, same field `/me` already reads) lets a full-account user's
+  `/upgrade` short-circuit to an "already a member" message without
+  touching the network, following `/me`'s exact precedent for reading this
+  field. The API's own `not_a_temp_account` 409 remains as a defensive
+  fallback for the race where the account is upgraded between this
+  client-side check and the request landing.
+- **Client-side email-format regex is a UX nicety, not a security
+  boundary** — rejects obviously malformed input before a wasted round
+  trip; the API's own Zod `emailField` on `upgradeTempBodySchema` remains
+  the authoritative validation, unchanged by this PR.
+- **`email_already_in_use` messaging does not reference Telegram-account
+  linking** — FR-AUTH-005 is `status: Planned`, unbuilt; the message
+  instead offers "use a different email, or sign in on the web with that
+  email" (a real option today via FR-AUTH-004's magic-link sign-in),
+  matching FR-AUTH-006's own AC-7 constraint.
+- **TTL wording: "about 30 minutes,"** matching `upgrade.service.ts`'s
+  real `UPGRADE_INTENT_TTL_MS` comment ("~29 min observed for
+  FR-AUTH-004"), not FR-AUTH-004's own stale "15 min" AC text —
+  regression-tested (`test_upgrade_email_reply_sends_expected_payload_and_shows_success_message`
+  asserts "15" is absent from the rendered success message).
+- **No new keyboard/inline-button UI** — `/upgrade`'s FSM is text-only
+  (prompt, then a plain-text email reply); no AC implies a multi-choice
+  interface for this flow.
+
+`/help`'s `help.upgrade` line lost its "(скоро)"/"(coming soon)" suffix —
+**all 10 FR-BOT-002 commands are now implemented**, and
+`test_help_no_longer_marks_upgrade_as_coming_soon` additionally asserts
+the full `/help` output no longer contains any "coming soon" marker
+anywhere. `main.py`'s `BOT_COMMANDS` gained `/upgrade` (no argument — the
+email is collected via FSM reply, not a command argument, so it belongs
+in BotFather's menu like `/me`/`/leaderboard`/`/interests`).
+
+Verification: apps/bot 165/165 pytest passing (19 net new tests across
+`test_upgrade_handler.py`/`test_api_client_upgrade.py`, plus updates to
+`test_main_wiring.py`/`test_help_handler.py`), ruff format+check clean.
+apps/api 1528/1529 (the 1 failure is the same pre-existing `test/users.spec.ts`
+clock-ordering flake PR 5/6 already documented, independently
+re-confirmed against a zero-diff `apps/api/` for this branch). Live
+bot-side integration verification performed against the real local API
+(not mocked): `telegram_user_not_found` (404), success including a real
+Mailpit magic-link email delivery, and `email_already_in_use` (409,
+including confirmation of no-mutation-on-this-path) were all reproduced
+live with real seeded Authentik fixtures, cleaned up afterward with a
+zero-residue re-query. `not_a_temp_account` (409) was **not** re-derived
+live — a deliberate, disclosed scoping decision: producing it requires a
+full magic-link click-through + OIDC round trip, the exact mechanism
+`FR-AUTH-006`'s own workflow already live-verified 10 times (including
+documenting a real Authentik cross-Brand cookie-scoping gotcha); this
+response case is the bot's defensive fallback path (not its primary
+guard), and is independently covered by both `apps/api/test/upgrade-service.spec.ts`'s
+existing test (re-confirmed passing this session) and the bot's own unit
+test. See `.copilot/tasks/completed/wf-20260801-feat-182/` (once
+archived) for full detail.
+
+**Honesty disclosure — AC-9 ("all commands respond within 3 seconds"):**
+this has never been measured with a dedicated timing harness across the
+full 10-command set, in this PR or any prior one. Individual commands
+have shown no latency concerns in ad hoc live verification throughout
+PRs 1-6 (informally, well under 1 second against the local stack), but
+"never seen a problem" is not the same claim as "measured and confirmed."
+AC-9 is left unchecked rather than marked satisfied on an assumption. A
+dedicated timing/load-test pass would need its own scoped workflow if
+this becomes a real requirement (e.g. before a production rollout) —
+not queued as a specific follow-up ID here, since no failure or user
+report currently motivates one; noted as an honest gap per AGENTS.md §9.
+
+**FR-BOT-002 reaches terminal status with this PR.** All 10 commands in
+the functional-scope table (`/start`, `/events`, `/event <N>`,
+`/register <N>`, `/cancel <N>`, `/me`, `/leaderboard`, `/interests`,
+`/upgrade`, `/help`) are implemented and merged. Frontmatter `status`
+flips `Planned` -> `Implemented`; `requirements-registry.md`'s Status
+column flips `In Progress` -> `Shipped`. 8 of 9 ACs are `[x]` verified;
+AC-9 stays `[ ]` per the honesty disclosure above — this is a genuine,
+disclosed gap, not a blocker to terminal status (no AC requires 100%
+completion to ship; AGENTS.md §6.1 requires disclosure, not perfection).
+
+Each PR in this now-complete sequence: PR 1/6
+(`.copilot/tasks/completed/wf-20260731-feat-174/`), PR 2/6
+(`wf-20260801-feat-175/`), PR 3/6 (`wf-20260801-feat-176/`), PR 4/6
+(`wf-20260801-feat-177/`), PR 5/6 (`wf-20260801-feat-178/`), PR 6/6
+(`wf-20260801-feat-182/`, once archived).
