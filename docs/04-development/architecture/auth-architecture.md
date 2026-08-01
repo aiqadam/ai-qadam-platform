@@ -489,6 +489,81 @@ own Notes, not repeated in full here):
   with the recovery/password-reset flow — lowering it is a deliberate,
   cross-flow ops decision, not a per-flow code change.
 
+### 6.10 Temporary-account upgrade (FR-AUTH-006)
+
+A Telegram-only member (`attributes.is_temporary=true` in Authentik, no
+`platform.users`/`directus_users` row yet) upgrades to a full member by
+supplying a real email via `POST /v1/internal/telegram/upgrade-temp`
+(`UpgradeService.requestUpgrade()`, `apps/api/src/modules/auth/upgrade.service.ts`).
+Completing Authentik's magic-link Email stage (§6.9's mechanism, reused
+as-is) fires `AuthController.callback()`'s upgrade branch, which flips
+`is_temporary=false` and lets the existing `upsertByAuthentikSubject`/
+`ensureLinked` machinery create the member's first `platform.users`/
+`directus_users` rows.
+
+**Design decision this FR's live-verification forced (Finding #0):**
+`AuthentikClient.sendMagicLinkEmail` (→ `recovery_email`) always emails
+the user's CURRENT on-file `email` — confirmed by reading Authentik
+2024.12.3's own source, no override parameter exists. So the target
+email is PATCHed onto the Authentik user as part of `/upgrade-temp`
+request handling itself (`is_temporary` stays `true` throughout the
+verification window — only the email-of-record changes), not deferred
+to `callback()`. `callback()`'s upgrade branch therefore only flips
+`is_temporary` and consumes the upgrade record; the email is already
+correct by the time it runs.
+
+**Correlation is by `authentikUserPk`, not a token round-tripped
+through `next`.** The original design sketch assumed the emailed
+magic-link URL could carry a caller-supplied token via `next=`, the way
+`GET /v1/auth/login?next=...` does. It cannot: neither
+`sendMagicLinkEmail` nor `createRecoveryLink` accept ANY caller-supplied
+redirect/state parameter — the emailed link's target flow is resolved
+entirely server-side from the request's `Host` header (Brand routing,
+§6.9). The shipped mechanism instead resolves the verified email
+`callback()` receives back to an Authentik pk (`getUserByEmail`) and
+looks up the most recent live (unexpired, unconsumed) row in the new
+`upgrade_intents` table for that pk — the fact that this specific
+Authentik user just completed Authentik's own verified email-stage flow
+IS the proof of intent. See `upgrade-intent.schema.ts`'s header comment
+and `upgrade.service.ts`'s module doc for the full trace.
+
+**Race-condition handling.** Authentik's `User.email` field is NOT
+unique at Authentik's own data layer (`unique=False`, confirmed by
+reading the Django model directly) — the application's own
+`getUserByEmail`-based collision check is the only guard against two
+concurrent `/upgrade-temp` calls claiming the same target email.
+`requestUpgrade()` re-checks immediately before the email PATCH (no
+intervening `await`), and `AuthController.callback()` defers the
+`is_temporary` flip until AFTER `upsertByAuthentikSubject()` has
+actually succeeded — so a losing racer's Authentik record simply stays
+`is_temporary=true` with its upgrade record still live/retryable,
+never `is_temporary=false` with no member row. See
+`wf-20260801-feat-181/04-security-review.md` for the full MAJOR-1
+finding/fix trace and its live-Postgres-constraint regression test.
+
+**Local dev-testing gotcha (discovered during this FR's own live
+verification, not previously documented anywhere in this repo):**
+driving the full magic-link-click → OIDC-authorize → `/callback` round
+trip in one headless-browser session requires care with Authentik's
+per-Brand cookie scoping. The magic-link Brand's session cookie
+(`authentik_session`) is host-only-scoped to `magic-link.aiqadam.internal`
+(§6.9's second Brand); Authentik's DEFAULT Brand (used by
+`/application/o/authorize/` when `OIDC_ISSUER_URL`/`OIDC_REDIRECT_URI`
+point at plain `localhost:9000`) is a **different cookie-scope origin**
+locally, so a naive `/v1/auth/login` call after clicking the magic link
+re-prompts for login instead of auto-approving via SSO. Fix: capture
+`/v1/auth/login`'s raw `Location`/`Set-Cookie` response (un-redirected,
+e.g. via a raw Node `http.get`) and rewrite only the authority
+(scheme+host+port) of the `/application/o/authorize/...` URL to
+`magic-link.aiqadam.internal:9000` before navigating — same query
+string, same `client_id`/`redirect_uri`/`code_challenge`, just issued
+against the origin that actually holds the just-established session
+cookie. This is a local-multi-Brand-on-one-machine testing artifact
+only; production (one real top-level domain) would not hit this. Use
+Chromium's `--host-resolver-rules=MAP magic-link.aiqadam.internal
+127.0.0.1` launch flag (no `/etc/hosts` edit needed) to make the
+hostname resolve at all in a fresh environment.
+
 ---
 
 ## 7. Branding Authentik so it looks like AI Qadam
@@ -639,3 +714,4 @@ of crash-looping.
 | Signed-out landing | `apps/web/src/pages/auth/signed-out.astro` |
 | Magic-link sign-in (FR-AUTH-004, §6.9) | `apps/api/src/modules/auth/magic-link.service.ts`, `AuthentikClient.sendMagicLinkEmail()` in `apps/api/src/modules/admin-invites/authentik.client.ts`, `scripts/provision-authentik-magic-link-flow.sh` |
 | Magic-link entry UI | `apps/web-next/src/pages/auth/sign-in.astro`, `apps/web-next/src/pages/auth/sign-in-magic-link.astro`, `apps/web-next/src/blocks/customer/MagicLinkForm.tsx` |
+| Temp-account upgrade (FR-AUTH-006, §6.10) | `apps/api/src/modules/auth/upgrade.service.ts` (`requestUpgrade`/`resolvePendingUpgrade`/`commitUpgrade`), `apps/api/src/modules/auth/upgrade-intent.schema.ts`, `AuthentikClient.setUserEmail()` in `apps/api/src/modules/admin-invites/authentik.client.ts`, upgrade branch in `AuthController.callback()` (`auth.controller.ts`) |

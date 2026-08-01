@@ -214,6 +214,31 @@ export class AuthentikClient {
     });
   }
 
+  // FR-AUTH-006 — replace a user's email-of-record. Same
+  // `PATCH /api/v3/core/users/{pk}/` partial-update pattern as
+  // setUserGroups/disableUser/patchAttributes above. Used by the temp-
+  // account upgrade flow to move a Telegram-only user's email from the
+  // synthetic `tg<id>@telegram.local` placeholder to the real address
+  // the member supplied — BEFORE calling sendMagicLinkEmail, not after
+  // verification. This ordering is load-bearing, not stylistic: Authentik's
+  // `recovery_email` action (confirmed by live-reading
+  // /authentik/core/api/users.py inside the running container, Authentik
+  // 2024.12.3) always emails `for_user.email` — the CURRENT on-file
+  // address at call time — with no target-email override parameter of any
+  // kind. See upgrade.service.ts's module doc comment for the full
+  // mechanism and 02-impact-analysis.md's Finding #0 for the source trace.
+  //
+  // Callers MUST re-check email availability (getUserByEmail) immediately
+  // before calling this — Authentik's own User.email field is NOT unique
+  // at the data layer (also confirmed via the live container check), so
+  // this PATCH can silently create a duplicate email across two Authentik
+  // users if the caller's own collision check is stale or skipped.
+  async setUserEmail(userPk: number, email: string): Promise<void> {
+    await this.request<unknown>('PATCH', `/api/v3/core/users/${userPk}/`, {
+      email,
+    });
+  }
+
   // ─── F-S4.1-b — OAuth2 / OIDC provider ops ───────────────────────────
   //
   // Country-provisioning needs to add a new redirect URI to the OIDC

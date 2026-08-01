@@ -18,6 +18,7 @@ import { oidcClientProvider } from './oidc-client.provider';
 import { RefreshTokenService } from './refresh-token.service';
 import { RegistrationService } from './registration.service';
 import { TelegramAuthService } from './telegram-auth.service';
+import { UpgradeService } from './upgrade.service';
 
 // FEAT-BOT-2 (FR-BOT-002 PR 2/6): RegistrationsModule is imported so
 // TelegramAuthService can inject RegistrationsDirectusService directly for
@@ -85,6 +86,7 @@ import { TelegramAuthService } from './telegram-auth.service';
     TelegramAuthService,
     RegistrationService,
     MagicLinkService,
+    UpgradeService,
   ],
   exports: [JwtService, AuthGuard],
 })

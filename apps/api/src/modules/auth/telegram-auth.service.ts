@@ -64,7 +64,9 @@ const TELEGRAM_EMAIL_DOMAIN = 'telegram.local';
 // ── Zod schemas ──────────────────────────────────────────────────────────────
 
 // Numeric string as Telegram sends it (up to 18 digits — bigint-safe as string).
-const telegramIdSchema = z.string().regex(/^\d{1,19}$/, 'telegramId must be a numeric string');
+// Exported (FR-AUTH-006) so upgrade.service.ts's upgradeTempBodySchema can
+// reuse the exact same telegramId validation instead of redefining it.
+export const telegramIdSchema = z.string().regex(/^\d{1,19}$/, 'telegramId must be a numeric string');
 
 // Full Login Widget payload schema. `hash` and `id` are required; other fields
 // are optional (Telegram only sends fields the user has set on their account).

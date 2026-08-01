@@ -221,6 +221,32 @@ describe('AuthentikClient.setUserGroups + disableUser', () => {
   });
 });
 
+// FR-AUTH-006 — thin PATCH wrapper, same pattern/coverage level as
+// setUserGroups/disableUser above (one happy-path body-shape assertion +
+// the shared error-propagation test below, per 06-test-strategy.md's
+// explicit instruction to match, not exceed, sibling coverage for this
+// class of method).
+describe('AuthentikClient.setUserEmail', () => {
+  it('PATCHes { email } onto the user at /api/v3/core/users/{pk}/', async () => {
+    fetchSpy.mockResolvedValueOnce(emptyResponse(204));
+    await client.setUserEmail(42, 'real.member@example.com');
+    const url = fetchSpy.mock.calls[0]?.[0] as string;
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(url).toMatch(/\/api\/v3\/core\/users\/42\/$/);
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ email: 'real.member@example.com' });
+  });
+
+  it('propagates an AuthentikError from the underlying request unchanged (no swallowing) — matches setUserGroups/disableUser', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(500, { detail: 'Internal Server Error' }));
+    await expect(client.setUserEmail(42, 'real.member@example.com')).rejects.toMatchObject({
+      name: 'AuthentikError',
+      status: 500,
+    });
+  });
+});
+
 describe('AuthentikClient — auth + error shape', () => {
   it('uses Bearer token from env on every request', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse(200, { results: [] }));

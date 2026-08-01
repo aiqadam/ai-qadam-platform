@@ -8,20 +8,31 @@ import type { MagicLinkService } from '../src/modules/auth/magic-link.service';
 import type { RefreshTokenService } from '../src/modules/auth/refresh-token.service';
 import type { RegistrationService } from '../src/modules/auth/registration.service';
 import type { TelegramAuthService } from '../src/modules/auth/telegram-auth.service';
+import type { UpgradeService } from '../src/modules/auth/upgrade.service';
 import type { DirectusUsersBridgeService } from '../src/modules/directus/directus-users-bridge.service';
 import type { LeadsService } from '../src/modules/leads/leads.service';
 import type { User } from '../src/modules/users/schema';
 import type { UsersService } from '../src/modules/users/users.service';
 
 // FR-AUTH-004 AC-7 guard — no dedicated callback() test existed before
-// this workflow (grep confirmed: auth-controller-refresh.spec.ts /
-// auth-controller-signout.spec.ts cover sibling methods only). This
-// workflow's ONLY change to callback() is a comment-only FR-AUTH-006
-// extension-seam marker at the upsertByAuthentikSubject() call site — no
-// behavioral change. Scope stays narrow, per 06-test-strategy.md: confirm
-// the funnel still calls upsertByAuthentikSubject + mintSession exactly
-// once each on a successful flow, NOT a full re-test of the OIDC exchange
-// (that's AuthService.completeAuthorization's own test territory).
+// wf-20260801-feat-179 (grep confirmed: auth-controller-refresh.spec.ts /
+// auth-controller-signout.spec.ts cover sibling methods only). Originally
+// callback()'s only FR-AUTH-006 footprint was a comment-only extension-seam
+// marker; wf-20260801-feat-181 (FR-AUTH-006) replaced that marker with real
+// `resolvePendingUpgrade`/`commitUpgrade` calls straddling
+// upsertByAuthentikSubject — see upgrade.service.ts and this method's own
+// comment in auth.controller.ts for why (SecurityReviewer MAJOR-1: commit
+// is deferred until after upsertByAuthentikSubject succeeds, so a losing
+// collision racer is never left with is_temporary=false and no member
+// row). makeUpgradeService()'s default mock resolves
+// resolvePendingUpgrade → null (AC-8's "no upgrade pending" case), which
+// is a true no-op for every downstream assertion below (commitUpgrade is
+// never called), so this file's scope stays narrow: confirm the funnel
+// still calls upsertByAuthentikSubject + mintSession exactly once each on
+// a successful flow, NOT a full re-test of the OIDC exchange (that's
+// AuthService.completeAuthorization's own test territory) or of the
+// upgrade branch itself (that's upgrade.service.ts's own test file's
+// territory).
 
 const AUTHENTIK_SUB = 'authentik|abc123';
 const USER_EMAIL = 'member@example.com';
@@ -76,6 +87,23 @@ function makeLeads(overrides: Partial<LeadsService> = {}): LeadsService {
   } as unknown as LeadsService;
 }
 
+// FR-AUTH-006 — callback() now unconditionally calls
+// upgradeService.resolvePendingUpgrade(email) before
+// upsertByAuthentikSubject, and (only if a pending upgrade was resolved)
+// upgradeService.commitUpgrade(pending) after it succeeds. Default mock
+// resolves resolvePendingUpgrade → null (AC-8's common case: no
+// upgrade_intents row pending for this email), so commitUpgrade is never
+// invoked and these pre-existing FR-AUTH-004 AC-7 funnel-regression tests
+// keep asserting the SAME unchanged downstream behavior for a non-upgrade
+// sign-in.
+function makeUpgradeService(overrides: Partial<UpgradeService> = {}): UpgradeService {
+  return {
+    resolvePendingUpgrade: vi.fn().mockResolvedValue(null),
+    commitUpgrade: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as unknown as UpgradeService;
+}
+
 interface MockRes {
   redirect: ReturnType<typeof vi.fn>;
   cookie: ReturnType<typeof vi.fn>;
@@ -103,6 +131,7 @@ function makeAuthController(overrides: {
   users?: UsersService;
   directusBridge?: DirectusUsersBridgeService;
   leads?: LeadsService;
+  upgradeService?: UpgradeService;
 }): AuthController {
   return new AuthController(
     overrides.auth ?? makeAuthService(),
@@ -115,6 +144,7 @@ function makeAuthController(overrides: {
     {} as TelegramAuthService,
     {} as RegistrationService,
     {} as MagicLinkService,
+    overrides.upgradeService ?? makeUpgradeService(),
   );
 }
 
