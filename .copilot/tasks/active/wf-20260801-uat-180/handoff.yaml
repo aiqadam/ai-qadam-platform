@@ -1,0 +1,133 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260801-uat-180"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-08-01T04:45:00Z"
+last_updated_at: "2026-08-01T04:50:00Z"
+
+requirement_ref: "BP-UAT-009"
+requirement_text: "Post-merge re-verification (Step 13 of wf-20260801-feat-179 / FR-AUTH-004): confirm the auth sign-in business process (BP-UAT-009) still works end-to-end with the new magic-link entry point present, targeted at the password-path regression + FR-AUTH-004's own entry-point AC-1."
+github_issue_url: ""
+
+branch: "uat/BP-UAT-009-post-merge-fr-auth-004"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/212"
+
+current_step: 5
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: "wf-20260801-feat-179"
+  parent_branch: "feature/FR-AUTH-004-magic-link-auth"
+  parent_paused_at_step: 13
+  parent_paused_at_gate: "post-merge-uat"
+  spawned_at: "2026-08-01T04:45:00Z"
+  spawned_by_issue: "FR-AUTH-004"
+  resolution_for_parent: "confirms BP-UAT-009 holds live with magic-link entry point present"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  uat-script-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T04:45:30Z"
+    summary: "BP-UAT-009.md complete; this run scoped to AC-1/AC-2/AC-3 (password-path regression) + FR-AUTH-004's own AC-1 (entry-point discoverability), matching the established narrower-re-verification precedent (wf-20260731-uat-163, wf-20260731-uat-166)."
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/01-uat-script-validation.md"
+  pre-flight:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T04:46:00Z"
+    summary: "Docker stack healthy. web/api reachable; api process rebuilt fresh from merge SHA cfe574f and restarted in dev mode to eliminate staleness risk. Process-identity helper substring mismatch on both web/api (stale expected-substring assumption, same gap wf-20260731-uat-166 already documented) — worked around via independent identity confirmation. Seed landed correctly (verified live against Authentik), real fixture email is uat-member@example.com not the doc's stale uat-member@aiqadam.test."
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/02-preflight.md"
+  uat-session:
+    status: passed
+    attempt: 3
+    timestamp: "2026-08-01T04:49:00Z"
+    summary: "1 passed (16.9s) on the 3rd attempt. AC-1 (entry point) + AC-1/AC-2/AC-3 (password regression) all MATCH. Two intermediate MISMATCHes on attempts 1-2 diagnosed and fixed live: a flow-executor stage-remount fill race (test-script fix) and a stale uat-member Authentik password (same known env gap wf-20260731-uat-166 already fixed the same way)."
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/02-uat-report.md"
+  uat-triage:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-01T04:50:00Z"
+    summary: "Clean pass, no new issues. Both intermediate MISMATCHes attributed to pre-existing, already-documented environment gaps, not FR-AUTH-004 regressions. AC-9 divergence statement present. Flagged (not filed as new ISS) a genuine gen-bp-uat-coverage.mjs data-loss bug found and worked around mid-session."
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/03-uat-triage.md"
+
+agent_assignments:
+  orchestrator-uat-script-validation:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/01-uat-script-validation.md"
+    timestamp: "2026-08-01T04:45:30Z"
+  orchestrator-preflight:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/02-preflight.md"
+    timestamp: "2026-08-01T04:46:00Z"
+  uat-runner:
+    status: completed
+    step: 3
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/02-uat-report.md"
+    timestamp: "2026-08-01T04:49:00Z"
+  business-analyst-triage:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260801-uat-180/03-uat-triage.md"
+    timestamp: "2026-08-01T04:50:00Z"
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+issue_resolution: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: [BP-UAT-009]
+
+post_merge_uat_runs: []
+
+artifacts:
+  - apps/e2e/tests/uat/BP-UAT-009.session.spec.ts
+  - apps/e2e/uat-results/BP-UAT-009/wf-20260801-uat-180/session-log.md
+  - apps/e2e/uat-results/BP-UAT-009/wf-20260801-uat-180/step-001-sign-in-options.png
+  - apps/e2e/uat-results/BP-UAT-009/wf-20260801-uat-180/step-002-authentik-login-page.png
+  - apps/e2e/uat-results/BP-UAT-009/wf-20260801-uat-180/step-003-signed-in-me-page.png
+  - apps/e2e/uat-results/BP-UAT-009/wf-20260801-uat-180/teardown.md
+
+context_refs:
+  - docs/02-business-processes/uat/BP-UAT-009.md
+  - docs/03-requirements/FR-AUTH-004.md
+  - apps/web-next/src/pages/auth/sign-in.astro
+  - apps/api/src/modules/auth/auth.controller.ts
+
+merge_mode: "auto"
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260801-uat-180/NEEDS_REVIEW.md"
