@@ -1,7 +1,7 @@
 ---
 code: FR-AUTH-004
 name: Magic-link authentication (passwordless web sign-in)
-status: Planned
+status: Implemented
 module: Auth (AUTH)
 phase: Roadmap Sprint 8
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/127

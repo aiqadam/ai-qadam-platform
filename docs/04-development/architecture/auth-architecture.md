@@ -366,6 +366,129 @@ generate (registrations, points awards) lives in our Postgres. To
 correlate: every action stamped with `userId`, which maps 1:1 to
 `authentikSubject`, which maps 1:1 to Authentik's user PK.
 
+### 6.9 Add a passwordless magic-link flow (FR-AUTH-004)
+
+**Shipped** (`wf-20260801-feat-179`). A second, independent Authentik
+flow — `magic-link-login` — lets any member (in particular Telegram-only
+temp accounts with no password set) sign in via a one-time emailed link
+instead of a password. Provisioned by
+[`scripts/provision-authentik-magic-link-flow.sh`](../../../scripts/provision-authentik-magic-link-flow.sh),
+which mirrors `provision-authentik-recovery-flow.sh`'s idempotent
+resolve-or-create shape but diverges from it at two points documented
+here because both were **wrong on the first live-tested attempt** and
+the fix is non-obvious. Anyone provisioning a new Authentik flow this way
+should read this section before assuming the recovery-flow script's
+pattern transfers directly.
+
+**Entry point:** `apps/web-next/src/pages/auth/sign-in-magic-link.astro`
+→ `POST /v1/auth/magic-link` (public, throttled 5/15min like `register`
+and `telegram/exchange`) → `MagicLinkService.requestMagicLink()` →
+`AuthentikClient.sendMagicLinkEmail()`. Completion reuses the **same**
+`AuthController.callback()` OIDC funnel every other sign-in method uses
+— no parallel session-issuance path was introduced. A comment-only
+extension seam sits at the `upsertByAuthentikSubject()` call site inside
+`callback()` for FR-AUTH-006 (temp-account upgrade: `is_temporary` flip
++ points backfill) to hook into later; that logic is not built yet.
+
+**Gotcha #1 — the link-minting endpoint is not flow-parameterized, it's
+Brand-parameterized.** Authentik's only server-to-server "mint a one-time
+sign-in link and email it" primitive is
+`POST /api/v3/core/users/{id}/recovery_email/?email_stage=<uuid>` (the
+same endpoint `AuthentikClient.createRecoveryLink()`-style calls use).
+The `email_stage` query param controls **only the sent email's
+subject/template** — it has no effect on which flow the link's token
+resumes. The link is always minted into whatever flow is bound at
+**`request.brand.flow_recovery`**, and `Brand` is resolved **per-request
+from the `Host` header** (`iendswith`-matched against `Brand.domain`,
+falling back to the row with `default=True` —
+`authentik/brands/middleware.py` + `authentik/brands/utils.py`
+`get_brand_for_request()`). There is no per-call flow-slug argument
+anywhere in this chain.
+
+Consequence: reusing this endpoint for a second flow **without** a second
+Brand silently mints links into the default Brand's `flow_recovery`
+(`default-recovery-flow`, i.e. password-reset) — sends the right subject
+line with the wrong link and the wrong (password-reset) email body copy.
+This shipped as a real bug in this workflow's first pass and was only
+caught by reading the actual received email body during live UAT, not by
+any mocked/unit test or by reading the OpenAPI schema shape.
+
+**The fix:** provision a **second Authentik `Brand`** (own `domain`,
+`default: false`, `flow_recovery` bound to the new flow — the default
+Brand's own `flow_recovery` is left untouched, so the existing
+password-reset flow is unaffected) and send the outbound
+`recovery_email/` request with a `Host` header equal to that Brand's
+`domain`. One implementation trap along the way: Node's global `fetch`
+(undici) treats `Host` as a WHATWG "forbidden request header" and
+**silently drops/overwrites** any value passed via `init.headers` —
+confirmed by a standalone repro before relying on it. Use
+`node:http`/`node:https` directly for this one call (see
+`AuthentikClient`'s `httpRequestWithHostOverride()`); no new dependency
+was needed.
+
+**Gotcha #2 — a `FlowToken` resumes its ENTIRE bound stage list from the
+top, not from "this identity is already verified."** This is the deeper,
+easier-to-miss issue: even after gotcha #1 is fixed and the emailed link
+correctly targets the new flow, the flow's own **stage bindings** matter
+in a way that doesn't mirror the recovery flow's topology. Authentik
+builds a `FlowToken`'s pickled `FlowPlan` **once, in full**, at
+`_create_recovery_link()` time, covering every stage **bound to the
+flow**, in order, starting from the first one. Clicking the emailed link
+restores that plan and resumes it from its first bound stage — it does
+**not** mean "skip straight to session issuance because this email was
+already verified by virtue of receiving the link." If an Identification
+stage and an Email stage are bound ahead of a `UserLoginStage` (the
+recovery flow's own topology, extended by naive analogy), every click
+re-runs the whole flow from Identification — the user is asked to
+re-enter their email, then told to check their inbox again, silently
+sending a **second** email instead of completing sign-in in one click.
+This is not "slightly suboptimal UX," it's a completely broken magic
+link that happens to still return `200`/`{"ok":true}` at every step,
+which is why a live **click-through** (not just confirming the email's
+link targets the right flow) was required to catch it.
+
+**The fix:** `magic-link-login`'s bound-stage list must contain **only**
+`UserLoginStage` (the built-in `default-authentication-login`), bound
+alone. The Identification and Email stage **objects** still need to
+exist and stay resolvable by name/UUID (the Email stage's UUID is still
+required by `sendMagicLinkEmail`'s `email_stage` param — it controls
+subject/template, per gotcha #1) — they are just never **bound into the
+flow's plan**. This works because `recovery_email()`'s `for_user`
+argument already sets `PLAN_CONTEXT_PENDING_USER` on the token's plan at
+mint time, which is all `UserLoginStage` needs to act immediately with no
+re-identification step. The provisioning script's
+`ensure_flow_stage_NOT_bound()` helper actively un-binds Identification/
+Email if a stale environment (e.g. one only ever provisioned by an older
+version of the script) still has them bound, so re-running the script
+converges to the correct topology from either starting state — verified
+live in both directions, not just designed on paper.
+
+**Verification discipline this gotcha reinforces:** for any new
+Authentik flow meant to issue a session directly from an emailed/minted
+link (as opposed to a flow that ends in a password-set stage, like
+recovery), "the link resolves and returns 200" and even "the link
+targets the right flow" are **not sufficient** proof of correctness —
+only an actual click-through that reaches an authenticated `GET
+/api/v3/core/users/me/ → 200` in one hop proves the stage topology is
+right. Budget for this explicitly in any future flow-provisioning
+workflow's test plan; see AGENTS.md §6.1 on live-verification discipline
+generally.
+
+**Known, disclosed, unresolved-by-design limitations** (not fixed by
+this flow, tracked in [`FR-AUTH-004.md`](../../03-requirements/FR-AUTH-004.md)'s
+own Notes, not repeated in full here):
+- The magic-link email's **body copy** is Authentik's generic
+  password-reset template text (subject is correctly branded; body is
+  not sign-in-specific). Authentik 2024.12.x ships no bundled template
+  with appropriate copy; a real fix needs a custom mounted Django
+  template — infra work beyond this flow's scope.
+- The link's actual TTL is governed by the platform-wide Authentik
+  `Tenant.default_token_duration` setting (observed ~29 minutes locally),
+  **not** by the Email stage's own `token_expiry` field, which this
+  server-to-server call path ignores entirely. This setting is shared
+  with the recovery/password-reset flow — lowering it is a deliberate,
+  cross-flow ops decision, not a per-flow code change.
+
 ---
 
 ## 7. Branding Authentik so it looks like AI Qadam
@@ -514,3 +637,5 @@ of crash-looping.
 | Sign-in UI | `apps/web/src/pages/auth/sign-in.astro`, `components/SignInForm.tsx` |
 | Sign-out UI | `apps/web/src/components/MeDashboard.tsx` (signOut function) |
 | Signed-out landing | `apps/web/src/pages/auth/signed-out.astro` |
+| Magic-link sign-in (FR-AUTH-004, §6.9) | `apps/api/src/modules/auth/magic-link.service.ts`, `AuthentikClient.sendMagicLinkEmail()` in `apps/api/src/modules/admin-invites/authentik.client.ts`, `scripts/provision-authentik-magic-link-flow.sh` |
+| Magic-link entry UI | `apps/web-next/src/pages/auth/sign-in.astro`, `apps/web-next/src/pages/auth/sign-in-magic-link.astro`, `apps/web-next/src/blocks/customer/MagicLinkForm.tsx` |
