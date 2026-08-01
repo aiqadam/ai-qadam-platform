@@ -665,33 +665,42 @@ names, same spelling) in `apps/api/.env.example` and here:
   crashing boot (same degraded-mode pattern as `AUTHENTIK_ADMIN_TOKEN`
   being unset).
 
-**Forced password-change mechanism — live-verified 2026-08-01
-(`wf-20260801-fix-190`, `ISS-ADM-010-1`).** The service forces a
-password-change prompt on first login via
+**Forced password-change mechanism — NOT LIVE-VERIFIED, REOPENED
+2026-08-01 (post-merge, `wf-20260801-fix-190` Step 13).** The service
+attempts to force a password-change prompt on first login via
 `AuthentikClient.setForcePasswordChangeNextLogin(userPk, true)`, which
 issues `PATCH /api/v3/core/users/{pk}/` with
-`password_change_next_login: true` directly on the user body — an
-Authentik 2024.x native field that the flow executor honors on the next
-sign-in attempt. This replaces the previous
-`ak_login_password_change_required` attribute-set call, which live
-verification (`wf-20260729-uat-154`'s BP-UAT-020 run) showed had **no
-observable effect on the login flow** — the flow executor returned
-`{"component": "xak-flow-redirect", "to": "/application/o/authorize/..."}`
-straight to OIDC, with no intermediate password-change stage. The new
-mechanism was confirmed in
-[`.copilot/issues/ISS-ADM-010-1.md`](../../../issues/ISS-ADM-010-1.md)'s
-Resolution section, with live re-verification of
-[`BP-UAT-020`](../../02-business-processes/uat/BP-UAT-020.md) Step 002
-flipping from `verdict: 'MISMATCH'` to `verdict: 'MATCH'`. **Fallback if
-the user-body field is ignored by a future Authentik build:** a
-Password Expiry Policy + User Login Stage + flow-binding script
-(`scripts/provision-authentik-pwd-policy.sh`, design queue-ready in
-[`wf-20260801-fix-190/02-impact-analysis.md`](../../../tasks/active/wf-20260801-fix-190/02-impact-analysis.md)
-§"Infra / Provisioning"). The new mechanism is on the user-PATCH path,
-so it composes with the duplicate-email recovery path in
-`createOrRecoverSeedUser` — the recovered user (looked up by
-`getUserByEmail`) receives the same forced-change flag, not just the
-freshly-created one.
+`password_change_next_login: true` directly on the user body. The PATCH
+returns HTTP 200 OK on Authentik 2024.12.3 (verified live in
+docker logs at `15:57:42.984` and `15:57:43.157`), but the field is
+**silently ignored** — it does not appear in the response, the
+`User` model has no `password_change_next_login` attribute, and the
+flow executor still routes the user straight to OIDC with no
+password-change stage (same `xak-flow-redirect` to
+`/application/o/authorize/...` shape as the original MISMATCH).
+Re-verification of [`BP-UAT-020`](../../02-business-processes/uat/BP-UAT-020.md)
+Step 002 against the merged code at `6a26a1e` returned the same
+`verdict: 'MISMATCH'` as the original `wf-20260729-uat-154` finding —
+**the original ISS-ADM-010-1 bug is NOT fixed by this PR.** The fix
+replaced one ignored attribute-set with another ignored user-body
+field; the AC is still unmet. Reopen follow-up: see
+`docs/03-requirements/FR-ADM-010.md` Notes section.
+
+The previous code's `ak_login_password_change_required` attribute-set
+call had the same lack of observable effect (proved by
+`wf-20260729-uat-154`'s live run); the new mechanism replaced that
+self-deceiving call with a different self-deceiving call. The honest
+data point now is that Authentik 2024.12.3 has **no native
+"force password change on next login" mechanism** — the
+`/api/v3/core/users/{pk}/` OPTIONS response does not list
+`password_change_next_login` among writable fields, and the
+`User._meta.fields` listing shows only `password`, `last_login`, and
+`password_change_date` for password-related state. The fix landed a
+cleaner API call (single PATCH, no attribute-set collisions) but the
+business outcome is unchanged. A real fix needs a different shape:
+e.g., sending a recovery-flow magic-link email to the bootstrap admin
+on creation so the user must complete the `default-password-change`
+flow before they can sign in normally.
 
 **Idempotency detail.** The zero-admin check is keyed on
 `aiqadam-super-admin` **group membership count**

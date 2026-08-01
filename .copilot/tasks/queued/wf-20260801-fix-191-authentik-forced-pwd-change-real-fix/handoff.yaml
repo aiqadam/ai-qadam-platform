@@ -1,0 +1,66 @@
+workflow_id: wf-20260801-fix-191
+title: "Real fix for forced password-change on next login (Authentik 2024.12.3)"
+type: issue-resolution
+status: queued
+issue: ISS-ADM-010-1
+github_issue: 164
+created: 2026-08-01
+owner: Orchestrator
+predecessor: wf-20260801-fix-190
+
+# Why this exists
+# PR #229 (squash 6a26a1e, predecessor wf-20260801-fix-190) shipped a
+# 'cleaner PATCH' but did not actually fix the AC. Authentik 2024.12.3
+# silently ignores the `password_change_next_login: true` field on
+# PATCH /api/v3/core/users/{pk}/ -- the PATCH returns HTTP 200 but the
+# field is a no-op. The User model has no such attribute, the OPTIONS
+# schema doesn't list it, and the flow executor still returns
+# `xak-flow-redirect` straight to OIDC with no password-change stage.
+# Same MISMATCH as the original discovery. ISS-ADM-010-1 reopened.
+
+# Candidate fix paths (ImpactAnalyzer picks one at Step 2)
+#   (a) Trigger the `default-password-change` recovery flow's email magic-link
+#       on bootstrap so the admin must complete the password-change flow
+#       before they can sign in normally. Pure 2024.12.3 mechanism.
+#   (b) Upgrade Authentik to a 2025.x build that supports ForcePasswordChange
+#       on the user body. Requires infrastructure change + version-bump
+#       ADR.
+
+# Source-of-truth context
+context_artifacts:
+  - .copilot/issues/ISS-ADM-010-1.md                          # issue file (Honesty disclosure 4 names this workflow)
+  - .copilot/tasks/active/wf-20260801-fix-190/02-impact-analysis.md  # queue-ready fallback design
+  - .copilot/tasks/active/wf-20260801-fix-190/09-quality-gate.md     # Step 13 verdict documents the failure
+  - docs/04-development/architecture/auth-architecture.md §9.5       # candidate fix paths
+  - docs/03-requirements/FR-ADM-010.md Notes                          # same
+
+# Workflow steps (executed by Orchestrator)
+steps_planned:
+  - 0: Initialize branch counter + handoff.yaml
+  - 1: Issue lookup (re-read ISS-ADM-010-1, confirm reopened)
+  - 2: Impact analysis -- pick (a) recovery-flow magic-link vs (b) Authentik upgrade
+  - 3: DB migration (likely none for option (a); option (b) is infra change)
+  - 4: Code implementation
+  - 5: Security review (if any auth-touching changes)
+  - 6: Test strategy
+  - 7: Test design
+  - 8: Test execution
+  - 9: Registry update (Status: open -> resolved)
+  - 10: Doc updates
+  - 11: Quality gate
+  - 12: workflow-finish.sh -> PR -> merge
+  - 13: BP-UAT-020 re-verification (MUST flip MISMATCH to MATCH)
+
+acceptance_criteria:
+  - AC-1: BP-UAT-020 Step 002 returns verdict: 'MATCH' (sign-in with the
+    seeded bootstrap admin credentials after a fresh stack boot shows a
+    password-change screen before the OIDC redirect)
+  - AC-2: AC-1 stays MATCH after a fresh container restart (idempotency)
+  - AC-3: No `password_change_next_login: true` field is used (that field
+    does not exist in 2024.12.3; the new mechanism is recovery-flow based
+    or Authentik upgrade based)
+  - AC-4: GitHub issue #164 closes (Closes #164 in the squash commit)
+
+# Acceptance criterion for this workflow's existence
+queued_at: 2026-08-01
+queued_by: wf-20260801-fix-190
