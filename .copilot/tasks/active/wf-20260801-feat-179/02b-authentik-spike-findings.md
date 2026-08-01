@@ -1,5 +1,24 @@
 # 02b — Authentik live spike findings (Orchestrator, pre-Step-4)
 
+> **CORRECTION (post-Step-8, see `07-test-results.md`):** Question 1's
+> conclusion below is **incomplete**. It correctly identified the
+> `recovery_email` endpoint's existence and I/O shape from the OpenAPI
+> schema, but never send-and-inspected a real email — live verification
+> at Step 8 found `recovery_email`'s `email_stage` param only controls
+> the sent email's subject/template, NOT its link's target flow, which
+> is unconditionally `Brand.flow_recovery` (confirmed by reading
+> Authentik's own server source,
+> `authentik/core/api/users.py`'s `recovery_email()`/`_create_recovery_link()`).
+> The corrected mechanism (a second `Brand` with its own `domain` +
+> `flow_recovery`, using Authentik's per-request-`Host`-header brand
+> resolution — see `authentik/brands/middleware.py`/`utils.py`) is
+> documented in `07-test-results.md`'s "CRITICAL FINDING" section and
+> implemented in the Step 4 retry. **Lesson for future workflows:**
+> reading an OpenAPI schema's request/response shape confirms an
+> endpoint's I/O contract, not its actual side-effect semantics — always
+> send a real request and inspect the real artifact (here: the actual
+> email body) before declaring a link-minting mechanism resolved.
+
 Both open technical questions Step 1/Step 2 flagged as "genuinely
 undetermined from static reading" were resolved empirically against the
 real local Authentik instance (`http://localhost:9000`, confirmed healthy
