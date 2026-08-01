@@ -1,6 +1,83 @@
 # Workspace State
 
-**Last updated:** 2026-08-01 — `wf-20260801-feat-178`.
+**Last updated:** 2026-08-01 — `wf-20260801-feat-179`.
+**FR-AUTH-004 shipped and Step 13 post-merge re-verified — magic-link
+(passwordless) sign-in, end-to-end live-verified across two workflows.**
+[wf-20260801-feat-179](../tasks/completed/wf-20260801-feat-179/handoff.yaml)
+(PR [#211](https://github.com/aiqadam/ai-qadam-platform/pull/211), merged
+SHA `cfe574f`): Authentik `magic-link-login` flow provisioning (a
+purpose-built second `Brand`, domain `magic-link.aiqadam.internal`, so
+the emailed link's target flow resolves correctly per-request via `Host`
+header — `default Brand.flow_recovery` stays bound to
+`default-recovery-flow` for password-reset, untouched), `POST
+/v1/auth/magic-link` (public, throttled, always `{ok:true}` —
+deliberate anti-enumeration trade-off, documented), a real-markup
+upgrade of `/auth/sign-in` (two options: "Continue with password" /
+"Sign in with email link") plus the new `/auth/sign-in-magic-link`
+page, and a comment-only FR-AUTH-006 extension seam at
+`AuthController.callback()`'s `upsertByAuthentikSubject()` call site
+(auth.controller.ts:212-219 — every auth mechanism, including
+magic-link, converges on this one funnel; no parallel session-issuance
+path exists).
+
+Code-development (Step 8) found and fixed **two real bugs** via live
+verification that unit tests could not have caught: (1) the emailed
+link initially targeted the wrong Authentik flow
+(`default-recovery-flow` instead of `magic-link-login` — `email_stage`
+only controls the email's subject/template, never the link's target
+flow, which is always `request.brand.flow_recovery` resolved per-request
+by `Host` header; fixed via the second-Brand provisioning above); (2)
+even once pointed at the right flow, a live Playwright click-through
+found the flow's own stage-binding topology was wrong (Identification +
+Email stages bound ahead of `UserLoginStage` meant every click restarted
+the whole flow instead of issuing a session in one hop — fixed by
+un-binding Identification/Email from the flow, leaving `UserLoginStage`
+as the sole bound stage). Both fixes are live-verified, not just
+asserted — see `wf-20260801-feat-179/03-code-summary.md`'s two retry
+sections for full root-cause writeups.
+
+**Two known, disclosed, non-blocking gaps** (both flagged, neither
+hidden): the magic-link email's body copy is still Authentik's generic
+password-reset template text (Authentik 2024.12.x ships no
+sign-in-appropriate bundled template; a real fix needs a custom Django
+template mounted into the container — infra work beyond this FR's
+scope); the token TTL is actually ~29 minutes, not the FR's stated
+15-minute target (`Tenant.default_token_duration`, a platform-wide
+Authentik setting shared with password-recovery, not overridable
+per-flow via any REST surface this Authentik version exposes — a
+shorter TTL is a security improvement never a regression, so this is a
+precision gap, not a security concern).
+
+**Step 13 post-merge re-verification**
+([wf-20260801-uat-180](../tasks/completed/wf-20260801-uat-180/handoff.yaml),
+PR [#212](https://github.com/aiqadam/ai-qadam-platform/pull/212)):
+BP-UAT-009 (auth sign-in/sign-out) re-verified clean, targeted at the
+existing password-path regression (does the new magic-link option
+break it?) plus this FR's own AC-1 (entry-point discoverability) — the
+magic-link mechanism itself was already exhaustively live-verified
+during Step 8 above and was deliberately not re-driven a third time.
+All verdicts `MATCH` on the third session attempt; the first two hit
+genuine environment issues (an Authentik flow-executor stage-remount
+fill race in the new `BP-UAT-009.session.spec.ts`, and the same stale
+`uat-member` seeded-password gap `wf-20260731-uat-166` already
+documented and fixed the same way) — neither is an FR-AUTH-004
+regression. All `BP-UAT-009` stakeholders (`FR-AUTH-004`,
+`ISS-AUTH-OIDC-EMAIL-001`, `ISS-USR-PWRESET-001`) synced to
+`agent-verified`; GitHub issue
+[#127](https://github.com/aiqadam/ai-qadam-platform/issues/127) closed.
+
+**Process finding, disclosed not silently worked around:**
+`scripts/gen-bp-uat-coverage.mjs --write`, run once to regenerate the
+registry's `Spec`/`Smoke Overlap` columns, was found to destructively
+collapse already-populated `Status`/`Last Run`/`Run Status` cells for
+unrelated rows (`BP-UAT-013`, `BP-UAT-020`) back to `—`. Caught via
+`git diff` before committing, reverted, and the intended registry edit
+was applied by hand instead. The script itself is unfixed — a real bug,
+noted here for whoever picks up a future narrow fix.
+
+---
+
+**Previously:**
 **FR-BOT-002 PR 5/6 shipped — /interests, view and toggle topic interests via inline-keyboard buttons.**
 [wf-20260801-feat-178](../tasks/completed/wf-20260801-feat-178/handoff.yaml)
 (PR [#209](https://github.com/aiqadam/ai-qadam-platform/pull/209), merged):

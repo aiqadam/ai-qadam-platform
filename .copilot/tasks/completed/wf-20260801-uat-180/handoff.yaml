@@ -17,7 +17,7 @@ github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/212"
 
 current_step: 5
 current_step_name: "commit-push-pr"
-workflow_status: "running"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: "wf-20260801-feat-179"
