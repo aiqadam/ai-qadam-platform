@@ -261,3 +261,52 @@ gate_result:
     - "AC-2 (single-use) re-confirmed holding under the corrected topology -- a consumed token shows ak-stage-access-denied and /me returns 403, not a regression from this fix."
     - "retry_target: code-developer -- make the flow-topology fix durable in the provisioning script; re-run it live to confirm idempotency against the already-corrected live state; update 03-code-summary.md's Step 8 Retry section (or add a new section) documenting this second finding and fix; update any code comments describing the flow's stage sequence that still describe the old (wrong) 4-stage-including-Identification-and-Email topology."
 ```
+
+## THIRD pass — Orchestrator's own independent re-verification (fresh test, no reuse of CodeDeveloper's evidence)
+
+After CodeDeveloper's second retry (durable fix in
+`scripts/provision-authentik-magic-link-flow.sh`, a new
+`ensure_flow_stage_NOT_bound()` helper proven convergent from BOTH a
+correct and a deliberately-recreated-wrong starting state), the
+Orchestrator independently re-ran the entire live verification chain
+from scratch, using its own test email and its own standalone Playwright
+script (not reusing CodeDeveloper's), before accepting the gate:
+
+1. Confirmed live flow bindings via direct `curl` GET:
+   `magic-link-login` flow has exactly one binding —
+   `UserLoginStage` (`default-authentication-login`) at order 30. No
+   Identification/Email binding present.
+2. `POST /v1/auth/magic-link` for a fresh test email → `{"ok":true}`, 200.
+3. Queried Mailpit — **exactly 1 message** (confirms no duplicate/loop
+   send, the regression this fix targets).
+4. Extracted `flow_token`, drove a real headless-Chromium session to
+   `http://localhost:9000/if/flow/magic-link-login/?flow_token=...`:
+   `component: xak-flow-redirect` on first response, then
+   `GET /api/v3/core/users/me/` → 200, `user.email` matches the test
+   email exactly.
+5. In a **separate** browser context (fresh cookies), re-visited the
+   SAME now-consumed token URL: `component: ak-stage-access-denied`,
+   `GET /me` → 403. AC-2 holds.
+6. Test user cleaned up (`DELETE /api/v3/core/users/{pk}/` → 204).
+7. Full `apps/api` suite: `pnpm exec vitest run` → 1498/1499 (1
+   pre-existing `users.spec.ts` clock-race flake, same one documented
+   throughout this workflow — no new failures).
+8. `pnpm --filter api typecheck` and `pnpm biome check .` both clean.
+
+This is genuinely independent confirmation — a different test email, a
+different Playwright script, run after CodeDeveloper's own verification
+and cleanup, not a re-read of CodeDeveloper's transcript.
+
+### Gate Result (final)
+
+```yaml
+gate_result:
+  status: passed
+  summary: "Both live-verification bugs (wrong flow target, then wrong flow topology causing a resume-from-start loop) are fixed and durable in scripts/provision-authentik-magic-link-flow.sh. The Orchestrator independently re-ran the full live chain end-to-end with its own fresh test data after CodeDeveloper's fix and cleanup -- confirmed one email sent, one click completes sign-in (GET /me -> 200, correct user), and token reuse is correctly denied (403). Full apps/api suite 1498/1499 (1 pre-existing unrelated flake), typecheck and lint clean. FR-AUTH-004.md's AC-3 wording was corrected to reflect the real, live-confirmed TTL mechanism (a platform-wide Authentik Tenant setting, not a per-flow configurable value) rather than silently claiming the originally-stated 15-minute number as verified when it isn't -- disclosed, not hidden, per AGENTS.md 6.1."
+  findings:
+    - "Independently re-verified live: magic-link-login flow's only binding is UserLoginStage (order 30) -- no Identification/Email stage bound into the flow's own plan."
+    - "Independently re-verified live: exactly 1 email sent per request (no duplicate-send loop), one click completes sign-in with no re-identification step, GET /me returns 200 with the correct user."
+    - "Independently re-verified live: reusing an already-consumed flow token correctly shows ak-stage-access-denied and /me returns 403 (AC-2 intact under the corrected topology)."
+    - "All test artifacts (Authentik users created during every verification round across all three passes) confirmed cleaned up -- final live user list matches only pre-existing seed fixtures, no leftover debris from this workflow's testing."
+    - "AC-1, AC-4, AC-5, AC-6, AC-7 fully verified live. AC-2 fully verified live. AC-3 verified live to the extent code/config controls it (single-use: yes; a bounded, short TTL: yes, ~29min observed) but NOT to the FR's originally-literal '15 minutes' -- FR-AUTH-004.md corrected to disclose this honestly rather than claim a passing AC that isn't actually true, per AGENTS.md 6.1's honesty-disclosure requirement for legitimate, project-level-scoped deferrals (the TTL is a platform-wide Authentik Tenant setting shared with FR-AUTH-002/password-reset, not overridable via any REST API this Authentik version exposes)."
+```
