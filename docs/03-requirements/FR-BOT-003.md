@@ -1,10 +1,11 @@
 ---
 code: FR-BOT-003
 name: Bot operator runtime commands
-status: Planned
+status: Implemented
 module: Telegram Bot (BOT)
 phase: Roadmap Sprint 6
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/141
+business_process: [BP-UAT-002, BP-UAT-005, BP-UAT-011, BP-UAT-019]
 ---
 
 ## Description

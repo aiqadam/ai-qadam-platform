@@ -43,6 +43,13 @@ import {
   interestsQuerySchema,
   listTelegramEventsQuerySchema,
   lookupUserBodySchema,
+  operatorCheckinBodySchema,
+  operatorStatsQuerySchema,
+  pendingApprovalsQuerySchema,
+  pushAnnouncementBodySchema,
+  registrationActionBodySchema,
+  telegramAttendanceParamsSchema,
+  telegramAttendanceQuerySchema,
   telegramCancelBodySchema,
   telegramLeaderboardQuerySchema,
   telegramMeQuerySchema,
@@ -54,12 +61,18 @@ import {
 import { UpgradeService, upgradeTempBodySchema } from './upgrade.service';
 import type {
   LookupUserResult,
+  OperatorCheckinResult,
+  RegistrationActionResult,
+  TelegramAttendanceResult,
   TelegramCancelResult,
   TelegramEventDetailResult,
   TelegramEventListResult,
   TelegramInterestsResult,
   TelegramLeaderboardResult,
   TelegramMeResult,
+  TelegramOperatorStatsResult,
+  TelegramPendingApprovalsResult,
+  TelegramPushAnnouncementResult,
   TelegramRegisterResult,
   UpsertTempUserResult,
 } from './telegram-auth.service';
@@ -816,5 +829,113 @@ export class TelegramInternalController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.telegramAuth.toggleInterest(parsed.data.directusUserId, parsed.data.topic);
+  }
+
+  // ── FR-BOT-003 operator endpoints ─────────────────────────────────────────
+
+  // GET /v1/internal/telegram/attendance/:eventId — live attendance counts.
+  @Get('attendance/:eventId')
+  @HttpCode(HttpStatus.OK)
+  async attendance(
+    @Param() params: unknown,
+    @Query() query: unknown,
+  ): Promise<TelegramAttendanceResult> {
+    const parsedParams = telegramAttendanceParamsSchema.safeParse(params);
+    if (!parsedParams.success) {
+      throw new BadRequestException(parsedParams.error.flatten());
+    }
+    const parsedQuery = telegramAttendanceQuerySchema.safeParse(query);
+    if (!parsedQuery.success) {
+      throw new BadRequestException(parsedQuery.error.flatten());
+    }
+    return this.telegramAuth.getAttendanceCounts(
+      parsedParams.data.eventId,
+      parsedQuery.data.country,
+    );
+  }
+
+  // POST /v1/internal/telegram/operator/checkin — QR code operator check-in.
+  @Post('operator/checkin')
+  @HttpCode(HttpStatus.OK)
+  async operatorCheckin(@Body() body: unknown): Promise<OperatorCheckinResult> {
+    const parsed = operatorCheckinBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.operatorCheckin(parsed.data.qrCodeData);
+  }
+
+  // GET /v1/internal/telegram/operator/pending-approvals — pending approvals list.
+  @Get('operator/pending-approvals')
+  @HttpCode(HttpStatus.OK)
+  async pendingApprovals(@Query() query: unknown): Promise<TelegramPendingApprovalsResult> {
+    const parsed = pendingApprovalsQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.listPendingApprovals(
+      parsed.data.country,
+      parsed.data.directusUserId,
+    );
+  }
+
+  // POST /v1/internal/telegram/operator/approve-registration
+  @Post('operator/approve-registration')
+  @HttpCode(HttpStatus.OK)
+  async approveRegistration(@Body() body: unknown): Promise<RegistrationActionResult> {
+    const parsed = registrationActionBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.approveRegistration(
+      parsed.data.registrationId,
+      parsed.data.country,
+      parsed.data.directusUserId,
+    );
+  }
+
+  // POST /v1/internal/telegram/operator/decline-registration
+  @Post('operator/decline-registration')
+  @HttpCode(HttpStatus.OK)
+  async declineRegistration(@Body() body: unknown): Promise<RegistrationActionResult> {
+    const parsed = registrationActionBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.declineRegistration(
+      parsed.data.registrationId,
+      parsed.data.country,
+      parsed.data.directusUserId,
+    );
+  }
+
+  // POST /v1/internal/telegram/push-announcement — fan out to confirmed registrants.
+  @Post('push-announcement')
+  @HttpCode(HttpStatus.OK)
+  async pushAnnouncement(@Body() body: unknown): Promise<TelegramPushAnnouncementResult> {
+    const parsed = pushAnnouncementBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.pushAnnouncement(
+      parsed.data.eventId,
+      parsed.data.message,
+      parsed.data.country,
+      parsed.data.directusUserId,
+    );
+  }
+
+  // GET /v1/internal/telegram/operator/stats — operator stats card for /me.
+  @Get('operator/stats')
+  @HttpCode(HttpStatus.OK)
+  async operatorStats(@Query() query: unknown): Promise<TelegramOperatorStatsResult> {
+    const parsed = operatorStatsQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.telegramAuth.getOperatorStats(
+      parsed.data.directusUserId,
+      parsed.data.country,
+    );
   }
 }
