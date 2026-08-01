@@ -68,3 +68,9 @@ steps:
     agent: Orchestrator
     output: 10-cleanup.md
     status: pending
+
+# Merge info
+github_pr_url: https://github.com/aiqadam/ai-qadam-platform/pull/224
+merge_sha: 9e17ca5d0ca71e0e2688775ce9a3041d5cd19276
+workflow_status: completed
+completed_at: 2026-08-01
