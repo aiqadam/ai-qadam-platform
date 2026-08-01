@@ -116,5 +116,48 @@ intended, or is broader than needed and just never revisited.
 
 ## Resolution
 
-- **Workflow:** not yet scheduled.
-- **PR:** —
+- **Workflow:** wf-20260801-fix-187
+- **PR:** (pending; opened via `scripts/workflow-finish.sh`)
+- **Status:** resolved (pending PR merge)
+
+### What was done
+
+Added a new `ISS-SEC-PUBLIC-UNMANAGED-001` section to `infrastructure/directus/bootstrap.sh` (placed after the `ensure_perm_for_policy` helper definition at line 2753, alongside the other RBAC `ensure_perm_for_policy` calls). The section:
+
+1. Resolves the Public policy id by name (`$t:public_label`) — same pattern as the existing `ISS-SEC-DIRECTUS-USERS-PUBLIC-001` revoke block — instead of hardcoding a UUID pin (the lower public-read blocks at lines ~4290–5440 still use the old hardcoded `POLICY_PUBLIC_PROD="87bf5954-..."` UUID; that's a separate pre-existing bug, queued as follow-up).
+2. Revokes any pre-existing Public reads on `events`, `speakers`, `event_speakers` via the existing `revoke_public_read` helper (idempotent — 0 matching rows = no-op).
+3. Re-grants SCOPED reads:
+   - `events/read`: filter `status=published AND (country != xx OR $CURRENT_USER.is_test_user == true)`; 33-item field allowlist matching what apps/web's `lib/cms.ts` reads from the public event-detail surface.
+   - `speakers/read`: filter `status=active AND (country != xx OR $CURRENT_USER.is_test_user == true)`; 7-item field allowlist (id, user FK, country, status, headline, photo, slug) — **deliberately excludes `bio`** because apps/web's JOIN through `speaker.user.*` is already 403'd today by the `directus_users` Public revoke (see Honesty disclosures).
+   - `event_speakers/read`: filter `status=confirmed AND event.status=published AND event.country != xx`; 7-item field allowlist (id, event, speaker, talk_title, talk_topic, order_index, confirmed_at) — excludes operator-internal timestamps.
+
+### Live verification (AGENTS.md §6.1 production-readiness)
+
+Pre-flight: `aiqadam-directus Up 2 days (healthy)`; DIRECTUS_TOKEN length 35.
+
+| Step | Outcome |
+|---|---|
+| Pre-state on local env | `permissions: null` Public rows: events ids 15/23, speakers 17/25, event_speakers 16/24 (6 total, all `permissions: null, fields: ["*"]`). |
+| Run 1 (`bash tmp-run-iss169.sh`) | exit 0; revoke logged `(already absent)` (pre-state was actually still showing them in API, but the in-script `revoke_public_read` matched them and deleted them — visible in next step); new rows created (ids 117/118/119). |
+| Live unauth `/items/events` | 3 published UZ events returned (titles "UAT Past/Live/Future Event (UZ)"); all fields in allowlist; no `country=xx` rows. |
+| Live unauth `/items/speakers` | `{"data":[]}` — no rows match `status=active AND country!=xx` filter (vacuously PASS). |
+| Live unauth `/items/event_speakers` | `{"data":[]}` — same. |
+| Run 2 (idempotency check) | exit 0; revoke-then-recreate logged for ids 117/118/119; final permission table identical to run 1. |
+| `bash -n` syntax | exit 0. |
+
+### Honesty disclosures (§6.1, §13)
+
+1. **apps/web `cms.ts:852` requests `speaker.bio_md` and `speaker.user.first_name/last_name/job_title`.** Pre-PR: unauth returns 403 for these fields (gated by the earlier `ISS-SEC-DIRECTUS-USERS-PUBLIC-001` revoke of `directus_users` Public reads; the join through `speaker.user.*` cannot work for unauthenticated sessions). Post-PR: same — my allowlist intentionally excludes `bio`. **No regression**; the join was already broken. cms.ts handles missing fields gracefully per `?? null`. PR Risks documents this; alternative widening-to-include-bio considered and rejected because it would expose more PII without unlocking a currently-working feature.
+2. **Pre-existing bug, not introduced by this PR:** the public-read blocks at `bootstrap.sh` lines ~4290–5440 (event_materials / event_photos / event_questions / event_sponsors / sponsors / site_settings / press_page / badge_definitions / team_members) use a hardcoded UUID pin `POLICY_PUBLIC_PROD="87bf5954-..."` that does NOT match the local env's Public policy id (`abf8a154-5b1c-4a46-ac9c-7300570f4f17`). On envs where the pin doesn't match, those blocks silently skip — the public read shape for those 8 collections is whatever was manually configured, not what `bootstrap.sh` would produce. Queued as follow-up workflow `wf-20260801-fix-187-followup-public-policy-uuid-lookup` (registered in `.copilot/issues/registry.md`).
+3. **Public policy id is instance-specific.** The `$t:public_label` name is fixed; the UUID is generated at first-boot. My section looks up by name and degrades cleanly with a warning if not found.
+
+### Verification artefacts
+
+- `.copilot/tasks/active/wf-20260801-fix-187/02-impact-analyzer.md` — scope analysis (written inline by Orchestrator; subagent errored, contents provided)
+- `.copilot/tasks/active/wf-20260801-fix-187/03-code-developer.md` — code change rationale
+- `.copilot/tasks/active/wf-20260801-fix-187/04-security-reviewer.md` — SR verdict (passed, no blockers)
+- `.copilot/tasks/active/wf-20260801-fix-187/05-test-strategist.md` — live curl as test surface
+- `.copilot/tasks/active/wf-20260801-fix-187/06-test-designer.md` — minimal test design
+- `.copilot/tasks/active/wf-20260801-fix-187/07-test-results.md` — 5 tests, all PASS
+- `.copilot/tasks/active/wf-20260801-fix-187/08-doc-writer.md` — doc impact = inline comments + issue/registry only
+- `.copilot/tasks/active/wf-20260801-fix-187/09-quality-gate.md` — 7/7 ACs verified, gate PASSED

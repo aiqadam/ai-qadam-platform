@@ -1,0 +1,70 @@
+# Handoff — wf-20260801-fix-187 — ISS-SEC-PUBLIC-UNMANAGED-001
+#
+# Encodes a version-controlled, idempotent scoped-public-read grant on
+# events / speakers / event_speakers in bootstrap.sh, revokes the
+# pre-existing unrestricted (permissions: null) Public policy rows that
+# exist only on the local environment (not in version control),
+# and live-verifies the new grant shape via curl against the local
+# Directus stack.
+
+workflow_id: wf-20260801-fix-187
+workflow_type: issue-resolution
+branch: fix/ISS-SEC-PUBLIC-UNMANAGED-001-public-grants
+started_at: 2026-08-01
+issue: ISS-SEC-PUBLIC-UNMANAGED-001
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/169
+severity: blocker
+
+# Scope
+files_to_modify:
+  - infrastructure/directus/bootstrap.sh
+  - .copilot/issues/ISS-SEC-PUBLIC-UNMANAGED-001.md   # Resolution section only
+
+scope_out:
+  - QA / prod Directus instances — not reachable from this workflow's
+    terminal (no SSH); the bootstrap.sh change will land on next deploy.
+  - apps/web — no application changes needed; the existing unauth
+    read shape it does today will keep working under the new scoped grant.
+
+# Step outputs
+steps:
+  - id: step-01-requirement-analyst
+    agent: RequirementAnalyst
+    output: 01-requirement-analyst.md
+    status: pending
+  - id: step-02-impact-analyzer
+    agent: ImpactAnalyzer
+    output: 02-impact-analyzer.md
+    status: pending
+  - id: step-03-code-developer
+    agent: CodeDeveloper
+    output: 03-code-developer.md
+    status: pending
+  - id: step-04-security-reviewer
+    agent: SecurityReviewer
+    output: 04-security-reviewer.md
+    status: pending
+  - id: step-05-test-strategist
+    agent: TestStrategist
+    output: 05-test-strategist.md
+    status: pending
+  - id: step-06-test-designer
+    agent: TestDesigner
+    output: 06-test-designer.md
+    status: pending
+  - id: step-07-test-runner
+    agent: TestRunner
+    output: 07-test-results.md
+    status: pending
+  - id: step-08-doc-writer
+    agent: DocWriter
+    output: 08-doc-writer.md
+    status: pending
+  - id: step-09-quality-gate
+    agent: QualityGate
+    output: 09-quality-gate.md
+    status: pending
+  - id: step-10-cleanup
+    agent: Orchestrator
+    output: 10-cleanup.md
+    status: pending

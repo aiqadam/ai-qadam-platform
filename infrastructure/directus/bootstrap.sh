@@ -184,6 +184,10 @@ else
   echo "  ⚠ Public policy (\$t:public_label) not found — skipping revoke (nothing to fix, or naming differs on this instance; verify manually)."
 fi
 
+# ISS-SEC-PUBLIC-UNMANAGED-001 fix body moved to AFTER ensure_perm_for_policy
+# is defined (line ~2753). See "PUBLIC READS — ISS-SEC-PUBLIC-UNMANAGED-001"
+# section below.
+
 # ──────────── countries ─────────────────────────────────────────────────
 
 echo "[countries]"
@@ -2762,6 +2766,82 @@ ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_employme
   member_employments create '{}' '["*"]'
 ensure_perm_for_policy "$POLICY_RBAC_MEMBER" "perm policy.member member_employments/delete" \
   member_employments delete '{"member":{"_eq":"$CURRENT_USER"}}' '["*"]'
+
+# ════════════════════════════════════════════════════════════════════════
+# ISS-SEC-PUBLIC-UNMANAGED-001 — scope unrestricted Public reads on
+# events / speakers / event_speakers. Pre-fix state: the local Directus
+# had `permissions: null` rows on all three (created via admin UI,
+# outside version control); bootstrap.sh never mentioned them. Every
+# fresh bootstrap produced an environment WITHOUT these grants, so the
+# exposure was unmanaged configuration. After this section: same scope
+# on every environment, idempotent, with `permissions` filter +
+# `fields` allowlist matching what apps/web actually reads.
+#
+# Why placed here (after ensure_perm_for_policy is defined): the helper
+# `ensure_perm_for_policy` is defined at line 2753; placing this block
+# before that point causes "ensure_perm_for_policy: command not found".
+# The naming pattern for the policy pin follows the ISS-SEC-DIRECTUS-
+# USERS-PUBLIC-001 block at line 173 — look up by `$t:public_label`
+# rather than hardcoding an instance-specific UUID. (The lower-down
+# "event_materials / event_photos / event_questions / event_sponsors /
+# site_settings / press_page / badge_definitions / team_members"
+# public-read blocks at lines ~4290-5440 use a hardcoded UUID pin
+# `87bf5954-616e-40fa-bd61-2587e8c3f49b` — a separate bug that's out
+# of scope for this PR; on envs where that pin doesn't match, those
+# blocks silently skip. That bug should be migrated to the same name
+# lookup in a follow-up issue.)
+# ════════════════════════════════════════════════════════════════════════
+echo "[ISS-SEC-PUBLIC-UNMANAGED-001 — scope Public reads on events / speakers / event_speakers]"
+ISS_169_PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${ISS_169_PUBLIC_POLICY_ID}" ]; then
+  # (1) revoke any pre-existing Public reads on these three collections
+  # (idempotent — 0 matching rows = already gone = no-op). The
+  # `permissions: null` rows observed on the local env (pre-fix: ids
+  # 15+23 / 17+25 / 16+24 on this instance) are matched by the same
+  # (policy, collection, action=read) filter this function uses, so they
+  # get cleaned up before the scoped grant is re-added.
+  revoke_public_read "${ISS_169_PUBLIC_POLICY_ID}" events
+  revoke_public_read "${ISS_169_PUBLIC_POLICY_ID}" speakers
+  revoke_public_read "${ISS_169_PUBLIC_POLICY_ID}" event_speakers
+
+  # (2) re-grant SCOPED reads using the policy. Filter JSON inlined as
+  # a jq-safe single-quoted string; field allowlist likewise. The
+  # `_or` branch on `country != xx` matches real tenants (uz/kz/tj);
+  # the `$CURRENT_USER.is_test_user` branch matches the demo country
+  # for signed-in test users only — unauth requests evaluate it to
+  # false (per Directus's documented null-CURRENT_USER semantics) and
+  # fall through to the `country != xx` branch, so demo rows stay
+  # invisible to the public.
+  #
+  # Field allowlists are matched to what apps/web's `lib/cms.ts` reads
+  # from these collections on the public surface (events list/detail,
+  # speakers on event-detail). bio_md on speakers is intentionally NOT
+  # in the allowlist — apps/web requests it but the relational JOIN
+  # through `speaker.user` is gated by the policy.member own-row rule,
+  # so unauth reads already get null on that field; widening would
+  # expose more PII without unlocking a currently-working feature.
+  EVENTS_FILTER='{"_and":[{"status":{"_eq":"published"}},{"_or":[{"country":{"_neq":"xx"}},{"$CURRENT_USER":{"is_test_user":{"_eq":true}}}]}]}'
+  EVENTS_FIELDS='["id","title","description","format","status","starts_at","ends_at","capacity","location","country","short_description","slug","venue","address","map_url","hero_image","agenda_md","visibility_scope","external_links","latitude","longitude","recap_md","livestream_url","date_updated","eula_id","audience_cohort","visibility","registration_open","registration_schema","online_meeting_url","post_event_processed","topic_tags","event_retrospective","media"]'
+  SPEAKERS_FILTER='{"_and":[{"status":{"_eq":"active"}},{"_or":[{"country":{"_neq":"xx"}},{"$CURRENT_USER":{"is_test_user":{"_eq":true}}}]}]}'
+  SPEAKERS_FIELDS='["id","user","country","status","headline","photo","slug"]'
+  EVENT_SPEAKERS_FILTER='{"_and":[{"status":{"_eq":"confirmed"}},{"event":{"status":{"_eq":"published"},"country":{"_neq":"xx"}}}]}'
+  EVENT_SPEAKERS_FIELDS='["id","event","speaker","talk_title","talk_topic","order_index","confirmed_at"]'
+
+  # ensure_perm_for_policy is already idempotent: existence check first,
+  # POST only on miss → "(exists)" on the second run.
+  ensure_perm_for_policy "${ISS_169_PUBLIC_POLICY_ID}" "perm public events/read" \
+    events read "$EVENTS_FILTER" "$EVENTS_FIELDS"
+  ensure_perm_for_policy "${ISS_169_PUBLIC_POLICY_ID}" "perm public speakers/read" \
+    speakers read "$SPEAKERS_FILTER" "$SPEAKERS_FIELDS"
+  ensure_perm_for_policy "${ISS_169_PUBLIC_POLICY_ID}" "perm public event_speakers/read" \
+    event_speakers read "$EVENT_SPEAKERS_FILTER" "$EVENT_SPEAKERS_FIELDS"
+
+  echo "[✓ ISS-SEC-PUBLIC-UNMANAGED-001 fix complete]"
+else
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping (nothing to fix, or naming differs on this instance; verify manually)."
+fi
 
 # ADR-0021 §4.1 "read public collections" — every collection the S0.1
 # demo-tenant policy (POLICY_DEMO_TENANT, ~line 1301) already scopes by
