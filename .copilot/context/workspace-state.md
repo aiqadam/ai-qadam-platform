@@ -1,18 +1,18 @@
 # Workspace State
 
-**Last updated:** 2026-08-01 — `wf-20260801-feat-182`.
-**FR-BOT-002 reaches terminal status (Implemented/Shipped) — all 10 bot
-member commands now live, `/upgrade` (PR 6/6, final) closes the sequence.**
-[wf-20260801-feat-182](../tasks/completed/wf-20260801-feat-182/handoff.yaml)
-(PR [#216](https://github.com/aiqadam/ai-qadam-platform/pull/216), merged
-SHA `53ca60a`): last of the 3-workflow chain noted in the previous entry
-below (FR-AUTH-004 → FR-AUTH-006 → FR-BOT-002 PR 6/6, this one). `/upgrade`
-lets a temp (Telegram-only) Authentik user start the upgrade-to-full-member
-flow from inside the bot: a short aiogram FSM (`UpgradeStates`, the first
-real content in `apps/bot/src/states/`, previously a stub since FR-BOT-001)
-collects an email, validates its format client-side, then calls the
-already-shipped `POST /v1/internal/telegram/upgrade-temp` (FR-AUTH-006, no
-`apps/api/` changes needed — the endpoint's contract matched exactly on
+**Last updated:** 2026-08-01 — `wf-20260801-feat-184`.
+**FR-BOT-003 implemented — 5 operator runtime bot commands now live.**
+[wf-20260801-feat-184](../tasks/completed/wf-20260801-feat-184/handoff.yaml)
+(PR [#220](https://github.com/aiqadam/ai-qadam-platform/pull/220), merged
+SHA `639467b`): Adds `/attendance`, `/scan`, `/approvals`, `/announce`, and
+operator stats card on `/me` — all gated by a new `role` field on the
+lookup response (derived from `authentikUser.groups_obj`, no extra Authentik
+call). Bot changes in `apps/bot` submodule; API changes in
+`apps/api/src/modules/auth/`. 14 new pytest tests, TypeScript 0 errors, ruff
+clean. `/approvals` is an intentional shell (invite_only event type not yet in
+schema; documented scope gap). FR-BOT-003 status: Planned → Implemented/Shipped.
+
+---
 direct read). Renders 4 distinct outcomes (magic-link sent /
 `telegram_user_not_found` / `not_a_temp_account` / `email_already_in_use`).
 A full-account user's `/upgrade` short-circuits client-side via the
