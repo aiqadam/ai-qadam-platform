@@ -298,3 +298,45 @@ describe('AuthentikClient.createRecoveryLink', () => {
     });
   });
 });
+
+// FR-AUTH-004 — sendMagicLinkEmail. Unlike createRecoveryLink above, this
+// hits an ARBITRARY Email stage passed by the caller (not the
+// Brand.flow_recovery-bound one) and returns 204 with no body — the
+// existing 204-handling branch in the private request() helper (see
+// jsonResponse/emptyResponse usage above, and setPassword's test) already
+// covers "resolves without trying to parse a JSON body", so this suite
+// stays scoped to confirming the URL/method/param-encoding are correct.
+
+describe('AuthentikClient.sendMagicLinkEmail', () => {
+  it('POSTs to the recovery_email endpoint with the pk and encoded email_stage query param, resolves void on 204', async () => {
+    fetchSpy.mockResolvedValueOnce(emptyResponse(204));
+
+    // A stage value containing a character encodeURIComponent actually
+    // transforms (a space) so the assertion below is not vacuously true
+    // for an already-URL-safe UUID.
+    const STAGE_WITH_SPACE = 'stage uuid/with-slash';
+
+    const result = await client.sendMagicLinkEmail(42, STAGE_WITH_SPACE);
+
+    expect(result).toBeUndefined();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const url = fetchSpy.mock.calls[0]?.[0] as string;
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(url).toMatch(
+      /\/api\/v3\/core\/users\/42\/recovery_email\/\?email_stage=stage%20uuid%2Fwith-slash$/,
+    );
+    expect(init.method).toBe('POST');
+    // No request body is sent — recovery_email takes everything via the
+    // query param.
+    expect(init.body).toBeUndefined();
+  });
+
+  it('throws AuthentikError on a non-2xx response', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(404, { detail: 'Not Found' }));
+
+    await expect(client.sendMagicLinkEmail(42, 'stage-uuid')).rejects.toMatchObject({
+      name: 'AuthentikError',
+      status: 404,
+    });
+  });
+});
