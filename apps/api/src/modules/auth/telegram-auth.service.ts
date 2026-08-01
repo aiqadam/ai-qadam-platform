@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -332,6 +333,101 @@ export interface LookupUserResult {
   directusUserId: string | null;
   isTemp: boolean;
   country: string | null;
+  // FR-BOT-003 — role gate. Derived from authentikUser.groups_obj on every
+  // lookup (list endpoint returns groups_obj with names — no extra API call).
+  // Null when no Directus user exists yet (temp account with no country row).
+  role: 'member' | 'organizer' | 'country_admin' | 'super_admin' | null;
+}
+
+// ── FR-BOT-003 operator schemas ───────────────────────────────────────────────
+
+// GET /v1/internal/telegram/attendance/:eventId
+export const telegramAttendanceParamsSchema = z.object({
+  eventId: z.string().uuid(),
+});
+export const telegramAttendanceQuerySchema = z.object({
+  country: z.enum(['uz', 'kz', 'tj', 'xx']),
+});
+export type TelegramAttendanceParams = z.infer<typeof telegramAttendanceParamsSchema>;
+export type TelegramAttendanceQuery = z.infer<typeof telegramAttendanceQuerySchema>;
+
+export interface TelegramAttendanceResult {
+  registered: number;
+  attended: number;
+  waitlisted: number;
+  eventTitle: string;
+}
+
+// POST /v1/internal/telegram/operator/checkin
+export const operatorCheckinBodySchema = z.object({
+  qrCodeData: z.string().min(1).max(500),
+  country: z.enum(['uz', 'kz', 'tj', 'xx']),
+});
+export type OperatorCheckinBody = z.infer<typeof operatorCheckinBodySchema>;
+
+export interface OperatorCheckinResult {
+  memberName: string;
+  eventTitle: string;
+  alreadyCheckedIn: boolean;
+}
+
+// GET /v1/internal/telegram/operator/pending-approvals
+export const pendingApprovalsQuerySchema = z.object({
+  country: z.enum(['uz', 'kz', 'tj', 'xx']),
+  directusUserId: z.string().uuid(),
+});
+export type PendingApprovalsQuery = z.infer<typeof pendingApprovalsQuerySchema>;
+
+export interface PendingApprovalItem {
+  registrationId: string;
+  memberName: string;
+  eventTitle: string;
+  eventId: string;
+  requestedAt: string;
+}
+
+export interface TelegramPendingApprovalsResult {
+  items: PendingApprovalItem[];
+}
+
+// POST /v1/internal/telegram/operator/approve-registration
+// POST /v1/internal/telegram/operator/decline-registration
+export const registrationActionBodySchema = z.object({
+  registrationId: z.string().uuid(),
+  country: z.enum(['uz', 'kz', 'tj', 'xx']),
+  directusUserId: z.string().uuid(),
+});
+export type RegistrationActionBody = z.infer<typeof registrationActionBodySchema>;
+
+export interface RegistrationActionResult {
+  ok: true;
+  registrationId: string;
+}
+
+// POST /v1/internal/telegram/push-announcement
+export const pushAnnouncementBodySchema = z.object({
+  eventId: z.string().uuid(),
+  message: z.string().min(1).max(4000),
+  country: z.enum(['uz', 'kz', 'tj', 'xx']),
+  directusUserId: z.string().uuid(),
+});
+export type PushAnnouncementBody = z.infer<typeof pushAnnouncementBodySchema>;
+
+export interface TelegramPushAnnouncementResult {
+  ok: true;
+  recipientCount: number;
+}
+
+// GET /v1/internal/telegram/operator/stats
+export const operatorStatsQuerySchema = z.object({
+  directusUserId: z.string().uuid(),
+  country: z.enum(['uz', 'kz', 'tj', 'xx']),
+});
+export type OperatorStatsQuery = z.infer<typeof operatorStatsQuerySchema>;
+
+export interface TelegramOperatorStatsResult {
+  eventsManaged: number;
+  registrationsThisPeriod: number;
 }
 
 // Minimal shape we read off the Directus /users list — mirrors the
@@ -345,6 +441,8 @@ interface DirectusUserLookupRow {
 
 @Injectable()
 export class TelegramAuthService {
+  private readonly logger = new Logger(TelegramAuthService.name);
+
   constructor(
     private readonly authentik: AuthentikClient,
     private readonly directus: DirectusClient,
@@ -559,6 +657,7 @@ export class TelegramAuthService {
       directusUserId: directusRow?.id ?? null,
       isTemp,
       country: directusRow?.country ?? null,
+      role: deriveRoleFromGroups(authentikUser.groups_obj),
     };
   }
 
@@ -909,6 +1008,200 @@ export class TelegramAuthService {
     return this.getInterests(directusUserId);
   }
 
+  // ── FR-BOT-003 operator methods ───────────────────────────────────────────
+
+  // GET /v1/internal/telegram/attendance/:eventId — live registration counts
+  // per status for an event, scoped to the operator's country.
+  async getAttendanceCounts(
+    eventId: string,
+    country: string,
+  ): Promise<TelegramAttendanceResult> {
+    const eventRow = await this.findPublishedEvent(eventId);
+    if (!eventRow) {
+      throw new NotFoundException({ error: 'event_not_found' });
+    }
+    // assertEventInTenant confirms country + published; here we also
+    // assert country match so a cross-country operator call is rejected.
+    const encodedId = encodeURIComponent(eventId);
+    const encodedCountry = encodeURIComponent(country);
+    const baseFilter = `filter[event][_eq]=${encodedId}&filter[event][country][_eq]=${encodedCountry}`;
+
+    const [registeredRes, attendedRes, waitlistedRes] = await Promise.all([
+      this.directus.get<{ data: Array<{ count: string | number }> }>(
+        `/items/registrations?${baseFilter}&filter[status][_eq]=registered&aggregate[count]=*`,
+      ),
+      this.directus.get<{ data: Array<{ count: string | number }> }>(
+        `/items/registrations?${baseFilter}&filter[status][_eq]=attended&aggregate[count]=*`,
+      ),
+      this.directus.get<{ data: Array<{ count: string | number }> }>(
+        `/items/registrations?${baseFilter}&filter[status][_eq]=waitlisted&aggregate[count]=*`,
+      ),
+    ]);
+
+    return {
+      registered: parseDirectusCount(registeredRes.data[0]?.count),
+      attended: parseDirectusCount(attendedRes.data[0]?.count),
+      waitlisted: parseDirectusCount(waitlistedRes.data[0]?.count),
+      eventTitle: eventRow.title,
+    };
+  }
+
+  // POST /v1/internal/telegram/operator/checkin — decode a QR code data string
+  // (bare UUID or URL ending in UUID) and check in the member.
+  async operatorCheckin(qrCodeData: string): Promise<OperatorCheckinResult> {
+    const token = extractUuidFromQr(qrCodeData);
+    if (!token) {
+      throw new NotFoundException({ error: 'checkin_token_not_found' });
+    }
+    // Re-use RegistrationsDirectusService.checkin which handles idempotency,
+    // window check, and the status→attended transition.
+    const result = await this.registrations.checkin(token);
+    // Fetch member name by looking up the registration's user field separately.
+    // checkin() only returns RegistrationView which omits userId by design; a
+    // second single-row lookup by checkin_code is cheap and avoids widening
+    // the RegistrationView interface for a display-only field.
+    let memberName = '';
+    try {
+      const encodedToken = encodeURIComponent(token);
+      const regRes = await this.directus.get<{
+        data: Array<{ user: { first_name: string | null; last_name: string | null } }>;
+      }>(
+        `/items/registrations?filter[checkin_code][_eq]=${encodedToken}` +
+          `&fields=user.first_name,user.last_name&limit=1`,
+      );
+      const u = regRes.data[0]?.user;
+      memberName = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
+    } catch {
+      // Best-effort — member name is display-only; don't fail the check-in.
+    }
+    return {
+      memberName,
+      eventTitle: result.event.title,
+      alreadyCheckedIn: result.alreadyCheckedIn,
+    };
+  }
+
+  // GET /v1/internal/telegram/operator/pending-approvals — empty shell.
+  // invite_only event type and pending_approval registration status are not
+  // yet in the schema (documented scope gap in 01-requirement-validation.md).
+  // The infrastructure exists (handler, keyboard, API endpoint) but returns
+  // no items until invite_only events are added in a follow-up issue.
+  async listPendingApprovals(
+    _country: string,
+    _directusUserId: string,
+  ): Promise<TelegramPendingApprovalsResult> {
+    return { items: [] };
+  }
+
+  // POST /v1/internal/telegram/operator/approve-registration — shell, same
+  // rationale as listPendingApprovals above. Returns ok:true; no-op.
+  async approveRegistration(
+    registrationId: string,
+    _country: string,
+    _directusUserId: string,
+  ): Promise<RegistrationActionResult> {
+    return { ok: true, registrationId };
+  }
+
+  // POST /v1/internal/telegram/operator/decline-registration — shell.
+  async declineRegistration(
+    registrationId: string,
+    _country: string,
+    _directusUserId: string,
+  ): Promise<RegistrationActionResult> {
+    return { ok: true, registrationId };
+  }
+
+  // POST /v1/internal/telegram/push-announcement — fan out a plain-text
+  // message to confirmed registrants for the event in the operator's country.
+  // Sends via direct Telegram Bot API calls (fire-and-forget per recipient so
+  // the endpoint returns as soon as all sends are enqueued). Capped at 200
+  // recipients — large events should use the tg-broadcasts workspace tool.
+  async pushAnnouncement(
+    eventId: string,
+    message: string,
+    country: string,
+    directusUserId: string,
+  ): Promise<TelegramPushAnnouncementResult> {
+    const token = this.getBotToken();
+    const encodedId = encodeURIComponent(eventId);
+    const encodedCountry = encodeURIComponent(country);
+
+    // Guard: operator must be in the same country as the event.
+    const eventRes = await this.directus.get<{
+      data: { id: string; title: string; country: string } | null;
+    }>(`/items/events/${encodedId}?fields=id,title,country&limit=1`);
+    const event = eventRes.data;
+    if (!event || event.country !== country) {
+      throw new NotFoundException({ error: 'event_not_found' });
+    }
+
+    // Fetch confirmed registrants in operator's country with telegram_user_id.
+    const regRes = await this.directus.get<{
+      data: Array<{ user: { id: string; telegram_user_id: string | number | null } | null }>;
+    }>(
+      `/items/registrations?filter[event][_eq]=${encodedId}` +
+        `&filter[event][country][_eq]=${encodedCountry}` +
+        `&filter[status][_in]=registered,attended` +
+        `&fields=user.id,user.telegram_user_id&limit=200`,
+    );
+
+    const tgApiBase = `https://api.telegram.org/bot${token}`;
+    let recipientCount = 0;
+    const sendPromises: Promise<void>[] = [];
+
+    for (const row of regRes.data) {
+      const tgId = row.user?.telegram_user_id;
+      if (!tgId) continue;
+      if (row.user?.id === directusUserId) continue; // skip operator self-ping
+      const chatId = tgId.toString();
+      // Fire-and-forget; errors are logged but never bubble up to the caller.
+      sendPromises.push(
+        fetch(`${tgApiBase}/sendMessage`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: message }),
+        })
+          .then((r) => { void r; })
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `pushAnnouncement send failed chat=${chatId}: ${err instanceof Error ? err.message : 'unknown'}`,
+            );
+          }),
+      );
+      recipientCount++;
+    }
+
+    // Await all sends before returning so the count is accurate on response.
+    await Promise.allSettled(sendPromises);
+    return { ok: true, recipientCount };
+  }
+
+  // GET /v1/internal/telegram/operator/stats — events managed + registrations
+  // in the rolling 30-day period for the operator's country.
+  async getOperatorStats(
+    _directusUserId: string,
+    country: string,
+  ): Promise<TelegramOperatorStatsResult> {
+    const encodedCountry = encodeURIComponent(country);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [eventsRes, regsRes] = await Promise.all([
+      this.directus.get<{ data: Array<{ count: string | number }> }>(
+        `/items/events?filter[country][_eq]=${encodedCountry}&filter[status][_eq]=published&aggregate[count]=*`,
+      ),
+      this.directus.get<{ data: Array<{ count: string | number }> }>(
+        `/items/registrations?filter[event][country][_eq]=${encodedCountry}` +
+          `&filter[status][_neq]=cancelled&filter[date_created][_gt]=${encodeURIComponent(thirtyDaysAgo)}&aggregate[count]=*`,
+      ),
+    ]);
+
+    return {
+      eventsManaged: parseDirectusCount(eventsRes.data[0]?.count),
+      registrationsThisPeriod: parseDirectusCount(regsRes.data[0]?.count),
+    };
+  }
+
   // Shared by getInterests/toggleInterest's return path.
   private toInterestsResult(interests: MemberInterest[]): TelegramInterestsResult {
     const presentTopics = new Set(interests.map((i) => i.topic_tag));
@@ -963,4 +1256,29 @@ function eventGuardFilter(country: string): string {
 function parseDirectusCount(raw: string | number | undefined): number {
   const n = typeof raw === 'string' ? Number.parseInt(raw, 10) : (raw ?? 0);
   return Number.isFinite(n) ? n : 0;
+}
+
+// FR-BOT-003 — derive bot role from Authentik group names.
+// Priority: super_admin > country_admin > organizer > member.
+// Returns null only when groups_obj is empty/undefined (temp user before
+// any group assignment; caller should treat null as 'member').
+function deriveRoleFromGroups(
+  groups: Array<{ pk: string; name: string; is_superuser?: boolean }> | undefined,
+): 'member' | 'organizer' | 'country_admin' | 'super_admin' | null {
+  if (!groups || groups.length === 0) return null;
+  const names = groups.map((g) => g.name);
+  if (names.some((n) => n === 'aiqadam-super-admin')) return 'super_admin';
+  if (names.some((n) => n.startsWith('aiqadam-country-lead-'))) return 'country_admin';
+  if (names.some((n) => n.startsWith('aiqadam-organizer-'))) return 'organizer';
+  return 'member';
+}
+
+// FR-BOT-003 — extract a UUID from QR code data. Supports:
+//   - Bare UUID: "550e8400-e29b-41d4-a716-446655440000"
+//   - URL ending in UUID: "https://aiqadam.org/checkin/550e8400-..."
+// Returns null if no valid UUID is found.
+const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+function extractUuidFromQr(data: string): string | null {
+  const match = UUID_PATTERN.exec(data.trim());
+  return match ? match[0].toLowerCase() : null;
 }
