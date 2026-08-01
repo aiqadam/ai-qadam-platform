@@ -3236,6 +3236,22 @@ ensure "field directus_users.email_verified_at" \
     "meta":{"interface":"datetime","width":"half","readonly":true}
   }'
 
+echo "[ISS-RBAC-ONBOARDED-AT-001 — directus_users.onboarded_at]"
+ensure "field directus_users.onboarded_at" \
+  "${DIRECTUS_URL}/fields/directus_users/onboarded_at" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"onboarded_at",
+    "type":"timestamp",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"datetime",
+      "width":"half",
+      "readonly":true,
+      "note":"Set once by MembersOnboardingService.completeOnboarding() (FR-MIG-020); null for legacy users who joined before this field was created. Referenced by MEMBER_PROFILE_FIELDS allowlist (line ~2729) and by MeProfileService.{setOnboardedAt,getOnboardedAt,fetchProfileRow}; absence caused the ISS-RBAC-PERMS-001 403 to manifest even after the permission-row fix (PR #223)."
+    }
+  }'
+
 echo "[F-S1.6 — directus_users.city]"
 ensure "field directus_users.city" \
   "${DIRECTUS_URL}/fields/directus_users/city" \

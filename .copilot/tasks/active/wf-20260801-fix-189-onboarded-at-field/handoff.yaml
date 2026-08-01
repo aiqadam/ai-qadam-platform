@@ -1,0 +1,78 @@
+# Handoff — wf-20260801-fix-189 — ISS-RBAC-ONBOARDED-AT-001
+#
+# `directus_users.onboarded_at` is referenced by 4 apps/api modules +
+# `MEMBER_PROFILE_FIELDS` allowlist in `bootstrap.sh` (line 2729) since
+# ISS-USR-PROFILE-002 (2026-07-28), but never created as a field on the
+# schema. Live-verified today (2026-08-01): the field is absent from
+# `/fields/directus_users`; PATCH with `onboarded_at` is silently dropped.
+#
+# Fix: add an `ensure "field directus_users.onboarded_at"` block in
+# `bootstrap.sh`, modeled exactly on the existing `email_verified_at`
+# block (lines 3226-3233) — type=timestamp, nullable, datetime interface,
+# readonly. On next bootstrap run, the field is created; on subsequent
+# runs, `ensure` sees it already exists and skips (idempotent).
+
+workflow_id: wf-20260801-fix-189
+workflow_type: issue-resolution
+branch: fix/ISS-RBAC-ONBOARDED-AT-001-create-field
+started_at: 2026-08-01
+issue: ISS-RBAC-ONBOARDED-AT-001
+github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/168
+severity: blocker
+business_processes:
+  - BP-UAT-003
+  - BP-UAT-016
+
+# Scope
+files_to_modify:
+  - infrastructure/directus/bootstrap.sh
+  - .copilot/issues/ISS-RBAC-ONBOARDED-AT-001.md   # Resolution section only
+
+scope_out:
+  - apps/api — no application changes needed; the existing
+    setOnboardedAt / getOnboardedAt / patchProfile code already targets
+    this field. Adding the schema field unlocks what is already in the
+    code paths.
+
+# Step outputs
+steps:
+  - id: step-01-requirement-analyst
+    agent: RequirementAnalyst
+    output: 01-requirement-analyst.md
+    status: pending
+  - id: step-02-impact-analyzer
+    agent: ImpactAnalyzer
+    output: 02-impact-analyzer.md
+    status: pending
+  - id: step-03-code-developer
+    agent: CodeDeveloper
+    output: 03-code-developer.md
+    status: pending
+  - id: step-04-security-reviewer
+    agent: SecurityReviewer
+    output: 04-security-reviewer.md
+    status: pending
+  - id: step-05-test-strategist
+    agent: TestStrategist
+    output: 05-test-strategist.md
+    status: pending
+  - id: step-06-test-designer
+    agent: TestDesigner
+    output: 06-test-designer.md
+    status: pending
+  - id: step-07-test-runner
+    agent: TestRunner
+    output: 07-test-results.md
+    status: pending
+  - id: step-08-doc-writer
+    agent: DocWriter
+    output: 08-doc-writer.md
+    status: pending
+  - id: step-09-quality-gate
+    agent: QualityGate
+    output: 09-quality-gate.md
+    status: pending
+  - id: step-10-cleanup
+    agent: Orchestrator
+    output: 10-cleanup.md
+    status: pending

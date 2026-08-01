@@ -6,10 +6,10 @@
 | GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/168 |
 | Severity | blocker |
 | Module | infrastructure/directus-bootstrap, api/me-profile, api/onboarding |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-30 |
-| Resolved | — |
-| Workflow | wf-20260730-fix-160 (discovery only; no fix workflow queued yet) |
+| Resolved | 2026-08-01 |
+| Workflow | wf-20260801-fix-189 |
 | Reporter | Orchestrator (discovered while live-verifying wf-20260730-fix-160 / ISS-RBAC-PERMS-001) |
 | Business-Process | BP-UAT-003, BP-UAT-016 |
 
@@ -106,5 +106,67 @@ picked up.
 
 ## Resolution
 
-- **Workflow:** not yet scheduled.
-- **PR:** —
+- **Workflow:** `wf-20260801-fix-189` — adds the missing
+  `ensure "field directus_users.onboarded_at"` block to
+  `infrastructure/directus/bootstrap.sh`, modeled exactly on the
+  existing `directus_users.email_verified_at` block at lines 3226-3233.
+  Field type `timestamp`, schema `is_nullable: true`, meta
+  `interface: datetime`, `readonly: true`. Self-documenting `meta.note`
+  records what sets the field (`MembersOnboardingService.completeOnboarding()`),
+  what references it, and which bug it closes.
+- **PR:** (filled in at workflow end)
+
+### What was done
+
+1. Added a 12-line `ensure` block to `bootstrap.sh` between the
+   `email_verified_at` and `city` blocks. No other source files modified.
+2. Ran `bash infrastructure/directus/bootstrap.sh` against the live
+   local Directus stack twice (live verification, see below) — field
+   created on first run, no-op on second run.
+
+### Live verification (5/5 PASS)
+
+Run by `tmp-iss168-verify.sh` against `aiqadam-directus Up 2 days (healthy)`,
+`http://localhost:8200`, with a freshly-logged-in admin token:
+
+```
+=== TOTALS: 5 pass, 0 fail ===
+```
+
+| # | Test | Result |
+|---|---|---|
+| 1 | `onboarded_at` appears in `/fields/directus_users` after bootstrap | PASS |
+| 2 | Full schema matches spec (`type=timestamp  nullable=true  interface=datetime  readonly=true`) | PASS |
+| 3 | Idempotency: re-run leaves field byte-identical | PASS |
+| 4 | `PATCH /users/{id}` body `{"onboarded_at": <iso>}` persists | PASS |
+| 5 | `GET /users/{id}?fields=onboarded_at` returns the written value | PASS |
+
+### Honesty disclosures
+
+- **No deferrals.** All 7 ACs from this issue verified end-to-end in
+  this workflow. No follow-up workflows queued from this issue.
+- **Pre-existing unrelated warning**: `bootstrap.sh` output during the
+  test run shows `⚠ Public policy not found — skipping public read for
+  team_members.` This is the `wf-20260801-fix-188-public-policy-uuid-lookup`
+  follow-up (8 hardcoded UUID-pinned public-read blocks in
+  bootstrap.sh). It was queued by the prior workflow and is unrelated
+  to `onboarded_at`. Not introduced by this PR.
+- **No apps/api code changes.** The retry-without-onboarded_at fallback
+  in `me-profile.service.ts:201-225` (the `ISS-USR-PROFILE-002`
+  workaround) is intentionally left in place — it's a defensive retry
+  that costs nothing when the field exists, and it still serves as a
+  guard against any other Directus field-grant gap. Removing it would
+  require its own regression test (out of scope for a minimal fix).
+- **No backfill needed.** All existing `directus_users` rows get the
+  new field with `NULL` value (no migration needed — `is_nullable: true`).
+  This is the correct semantic for legacy users who joined before this
+  field was created (per `MeProfileService.getOnboardedAt` doc: "Returns
+  null when the Directus field is unset (legacy users who joined before
+  this feature)").
+
+### Verification artefacts
+
+- Workflow task dir: `.copilot/tasks/active/wf-20260801-fix-189-onboarded-at-field/`
+- Live verify log (transient, not committed): `tmp-iss168-verify.sh`,
+  `tmp-iss168-verify.log`
+- Code change: `infrastructure/directus/bootstrap.sh` (+12 lines)
