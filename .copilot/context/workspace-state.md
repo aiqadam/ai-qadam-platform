@@ -1,5 +1,92 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260801-feat-181`.
+**FR-AUTH-006 shipped — temporary (Telegram-only) account upgrade to full
+member, end-to-end live-verified.**
+[wf-20260801-feat-181](../tasks/completed/wf-20260801-feat-181/handoff.yaml)
+(PR [#214](https://github.com/aiqadam/ai-qadam-platform/pull/214), merged
+SHA `9e08fd57`): second of a 3-workflow chain
+(FR-AUTH-004 [done] → FR-AUTH-006 [this] → FR-BOT-002 PR 6/6 [future,
+not in scope]). New `POST /v1/internal/telegram/upgrade-temp` endpoint
+(`UpgradeService.requestUpgrade()`) lets a temp Telegram-only member
+(Authentik `attributes.is_temporary=true`, no `platform.users` row yet)
+supply a real email; completing Authentik's magic-link Email stage
+(reusing FR-AUTH-004's mechanism as-is) fires a new upgrade branch in
+`AuthController.callback()` that flips `is_temporary=false` and lets the
+existing `upsertByAuthentikSubject`/`ensureLinked` machinery create the
+member's first `platform.users`/`directus_users` rows with the verified
+email.
+
+**Two forced design decisions, both discovered via live investigation
+before/during implementation, not assumed:** (1) `sendMagicLinkEmail`
+always emails the Authentik user's CURRENT on-file email (no override
+param exists) — so the target email is PATCHed onto the Authentik user
+as part of `/upgrade-temp` request handling itself, before the magic-link
+send, not deferred to `callback()` (`is_temporary` stays `true`
+throughout the verification window). (2) The originally-sketched
+correlation mechanism (thread an `upgrade_intents` token through the
+OIDC `next` param) is undeliverable — Authentik's magic-link email URL
+accepts no caller-supplied redirect/state of any kind. Shipped mechanism
+instead correlates by `authentikUserPk`: `callback()` resolves the
+verified email back to a pk and looks up the most recent live
+`upgrade_intents` row for it — the fact that this Authentik user just
+completed Authentik's own verified email-stage flow IS the proof of
+intent.
+
+**SecurityReviewer found and CodeDeveloper fixed a genuine TOCTOU race**
+(MAJOR-1): two concurrent `/upgrade-temp` calls could both win Authentik's
+non-unique-email collision check for the same target email. Fixed by (a)
+a second `getUserByEmail` re-check with no intervening `await` immediately
+before the email PATCH, and (b) reordering `callback()` so the
+`is_temporary` flip only commits AFTER `upsertByAuthentikSubject()` has
+actually succeeded — a losing racer's Authentik record simply stays
+`is_temporary=true` with a live, retryable upgrade record, never
+`is_temporary=false` with no member row. TestDesigner's regression test
+(MAJOR-2) proves this against a REAL Postgres `users_email_unique`
+constraint violation, not a simulated one.
+
+**Points/leaderboard "retroactive backfill" was corrected during
+requirement validation, before any code was written:** tracing every
+registration write path showed a temp-only user cannot accrue any
+`registrations`/`point_awards` rows before upgrading (both require a
+`platform.users` row that only exists after a completed OIDC session) —
+so there is no historical data to backfill. The FR's own text was
+corrected to reflect this: points accrue normally starting immediately
+after upgrade, with zero `is_temporary` special-casing anywhere in
+`PointsModule`/`RegistrationsModule` (confirmed by grep AND by live
+verification below). Twenty CRM sync (Functional scope item 6) was
+resolved to "no code needed" — Twenty is retired per ADR-0033; the
+`directus_users` email patch already satisfies the intent.
+
+**The Orchestrator's own live verification (10 fresh temp-user round
+trips against real local Authentik + Directus + Mailpit + Postgres, not
+mocked) confirmed the entire mechanism end-to-end**, closing the piece
+`07-test-results.md` explicitly deferred: real magic-link email delivery
+(~1.4s), a real headless-Chromium click through Authentik's flow, a real
+OIDC authorize/callback round trip, `is_temporary` flip confirmed via
+direct Authentik admin-API query, the synthetic email genuinely replaced
+with the real one in BOTH Authentik and Directus (independently queried),
+a real event registration + check-in producing real `point_awards` rows
+with zero special-casing, and a real per-country leaderboard appearance
+(rank 2, correct total). All 10 test users and their associated
+Postgres/Directus rows were cleaned up afterward, confirmed via a final
+zero-count sweep.
+
+**One genuinely new, previously-undocumented local-dev-testing gotcha
+was discovered and resolved during this live verification**, now
+recorded in `docs/04-development/architecture/auth-architecture.md`
+§6.10 for future agents: Authentik's per-Brand cookie scoping means the
+magic-link Brand's session cookie (`magic-link.aiqadam.internal`) is a
+different cookie-scope origin from the default Brand
+(`localhost:9000`, used by `/application/o/authorize/`) in this local
+dev topology — so a naive same-script magic-link-click-then-authorize
+round trip re-prompts for login instead of auto-approving via SSO. Fix:
+capture `/v1/auth/login`'s raw `Location`+`Set-Cookie` response
+un-redirected and rewrite only the authority of the `/authorize` redirect
+to the magic-link Brand's origin before navigating there.
+
+---
+
 **Last updated:** 2026-08-01 — `wf-20260801-feat-179`.
 **FR-AUTH-004 shipped and Step 13 post-merge re-verified — magic-link
 (passwordless) sign-in, end-to-end live-verified across two workflows.**
