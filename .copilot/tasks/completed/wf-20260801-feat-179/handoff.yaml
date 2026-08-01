@@ -15,9 +15,9 @@ branch: "feature/FR-AUTH-004-magic-link-auth"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/211"
 
-current_step: 11
-current_step_name: "commit-push-pr"
-workflow_status: "running"
+current_step: 13
+current_step_name: "post-merge-uat"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -117,7 +117,11 @@ uat_target: "local"
 
 business_process: ["BP-UAT-009"]
 
-post_merge_uat_runs: []
+post_merge_uat_runs:
+  - workflow_id: "wf-20260801-uat-180"
+    bp_uat: "BP-UAT-009"
+    outcome: "passed"
+    pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/212"
 
 artifacts:
   - ".copilot/tasks/active/wf-20260801-feat-179/01-requirement-validation.md"
