@@ -1,6 +1,65 @@
 # Workspace State
 
-**Last updated:** 2026-08-01 — `wf-20260801-feat-181`.
+**Last updated:** 2026-08-01 — `wf-20260801-feat-182`.
+**FR-BOT-002 reaches terminal status (Implemented/Shipped) — all 10 bot
+member commands now live, `/upgrade` (PR 6/6, final) closes the sequence.**
+[wf-20260801-feat-182](../tasks/completed/wf-20260801-feat-182/handoff.yaml)
+(PR [#216](https://github.com/aiqadam/ai-qadam-platform/pull/216), merged
+SHA `53ca60a`): last of the 3-workflow chain noted in the previous entry
+below (FR-AUTH-004 → FR-AUTH-006 → FR-BOT-002 PR 6/6, this one). `/upgrade`
+lets a temp (Telegram-only) Authentik user start the upgrade-to-full-member
+flow from inside the bot: a short aiogram FSM (`UpgradeStates`, the first
+real content in `apps/bot/src/states/`, previously a stub since FR-BOT-001)
+collects an email, validates its format client-side, then calls the
+already-shipped `POST /v1/internal/telegram/upgrade-temp` (FR-AUTH-006, no
+`apps/api/` changes needed — the endpoint's contract matched exactly on
+direct read). Renders 4 distinct outcomes (magic-link sent /
+`telegram_user_not_found` / `not_a_temp_account` / `email_already_in_use`).
+A full-account user's `/upgrade` short-circuits client-side via the
+existing `is_temp` field on `UserContext` — no wasted API call, following
+`/me`'s own precedent for reading that same field.
+
+`docs/03-requirements/FR-BOT-002.md` frontmatter `status` flips
+`Planned` → `Implemented`; `requirements-registry.md`'s Status column
+flips `In Progress` → `Shipped` — the atomic pair, same commit as the
+code (`9460612`). 8 of 9 ACs `[x]` verified; AC-9 ("all commands respond
+within 3 seconds") stays `[ ]` with an explicit honesty disclosure — never
+measured with a dedicated timing harness across the full 10-command set,
+only observed informally as fast throughout PRs 1-6. Not a blocker to
+terminal status; a genuine, disclosed gap per AGENTS.md §9.
+
+Live bot-side verification (scoped per the task brief: FR-AUTH-006 already
+live-verified the underlying upgrade mechanism 10x end-to-end, so this
+PR's own verification focused on the NEW bot-side caller code) reproduced
+3 of 4 response cases against the real local API with real seeded
+Authentik fixtures: `telegram_user_not_found` (404), success including a
+real Mailpit magic-link email delivery, and `email_already_in_use` (409,
+confirmed no-mutation-on-this-path). `not_a_temp_account` was deliberately
+not re-derived live — it requires a full magic-link click-through + OIDC
+round trip (the exact mechanism FR-AUTH-006 already proved), and is
+already covered by both `apps/api/test/upgrade-service.spec.ts` and the
+bot's own unit test. All live-verification fixtures cleaned up, confirmed
+via a zero-residue re-query. `apps/api/.env`'s `TELEGRAM_BOT_TOKEN` was
+temporarily set to a local dev-only placeholder to unblock
+`upsert-temp-user` seeding (same precedent `wf-20260801-feat-181` already
+established), then fully reverted — confirmed via `git diff` returning
+empty.
+
+apps/bot: 165/165 pytest passing (19 net new tests), ruff clean. apps/api:
+1528/1529 (1 pre-existing, independently re-confirmed `test/users.spec.ts`
+clock-ordering flake, unrelated — `apps/api/` has zero diff on this PR's
+branch). Zero retries across all 10 workflow steps.
+
+**Full FR-BOT-002 sequence now complete:** PR 1/6
+(`wf-20260731-feat-174`, `/help`/`/events`/`/event <N>`), PR 2/6
+(`wf-20260801-feat-175`, `/register <N>`/`/cancel <N>`), PR 3/6
+(`wf-20260801-feat-176`, `/me`), PR 4/6 (`wf-20260801-feat-177`,
+`/leaderboard`), PR 5/6 (`wf-20260801-feat-178`, `/interests`), PR 6/6
+(`wf-20260801-feat-182`, this entry, `/upgrade`).
+
+---
+
+**Previous entry (2026-08-01 — `wf-20260801-feat-181`):**
 **FR-AUTH-006 shipped — temporary (Telegram-only) account upgrade to full
 member, end-to-end live-verified.**
 [wf-20260801-feat-181](../tasks/completed/wf-20260801-feat-181/handoff.yaml)
