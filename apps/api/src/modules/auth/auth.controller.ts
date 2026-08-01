@@ -486,6 +486,31 @@ export class AuthController {
     res.redirect(HttpStatus.FOUND, recoveryUrl);
   }
 
+  // GET /v1/auth/telegram/callback — Telegram Login Widget data-auth-url
+  // callback. The widget redirects the browser here with user data as query
+  // params after the user authorises in the Telegram popup. Validates HMAC,
+  // looks up or creates an Authentik user, mints a recovery link, and
+  // 302-redirects through the Authentik one-time login URL — same flow as
+  // the POST sibling above, but for browser-native navigation (no JS fetch).
+  //
+  // Rate-limited identical to POST /v1/auth/telegram/exchange.
+  @Get('telegram/callback')
+  @HttpCode(HttpStatus.FOUND)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  async telegramCallback(
+    @Query() query: unknown,
+    @Res({ passthrough: false }) res: Response,
+  ): Promise<void> {
+    const parsed = telegramWidgetPayloadSchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const recoveryUrl = await this.telegramAuth.exchangeWidgetPayload(parsed.data);
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(HttpStatus.FOUND, recoveryUrl);
+  }
+
   // POST /v1/auth/register — public endpoint (no AuthGuard; there is no
   // user yet). ISS-USR-REG-001 self-registration: email/password/country
   // → full member account (Authentik user + password + aiqadam-member

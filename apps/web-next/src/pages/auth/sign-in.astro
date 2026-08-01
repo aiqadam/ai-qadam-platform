@@ -16,6 +16,11 @@
 // it existing only in isolation. Already-signed-in visitors are bounced
 // to /me before any markup renders (sign-up.astro's own precedent).
 //
+// FR-AUTH-002: when TELEGRAM_BOT_USERNAME is set, the Telegram Login Widget
+// is rendered as a third sign-in option. The widget uses data-auth-url to
+// perform a browser-native GET to /api/v1/auth/telegram/callback (no JS
+// fetch needed — avoids CORS complexity with Authentik's recovery redirect).
+//
 // The OIDC flow itself lives server-side in the API (AuthController.login).
 //
 // SSR-only (no prerender) so the redirect / auth check executes server-side.
@@ -41,6 +46,12 @@ if (Astro.locals.auth) {
 }
 
 const passwordSignInUrl = `/api/v1/auth/login?next=${encodeURIComponent(safeNext)}`;
+
+// TELEGRAM_BOT_USERNAME: public bot @handle (not the secret token). Set this
+// in apps/web-next/.env to enable the Telegram Login Widget on this page.
+// Leave blank to render the page without the Telegram sign-in option.
+const telegramBotUsername = import.meta.env['TELEGRAM_BOT_USERNAME'] ?? '';
+const telegramCallbackUrl = new URL('/api/v1/auth/telegram/callback', url.origin).toString();
 ---
 
 <Layout title="Sign in · AI Qadam" description="Sign in to your AI Qadam member account.">
@@ -57,6 +68,20 @@ const passwordSignInUrl = `/api/v1/auth/login?next=${encodeURIComponent(safeNext
     <div class="flex flex-col gap-3">
       <a href={passwordSignInUrl} class="btn btn-primary">Continue with password</a>
       <a href="/auth/sign-in-magic-link" class="btn btn-secondary">Sign in with email link</a>
+      {telegramBotUsername && (
+        <div class="flex flex-col items-center gap-2 pt-1">
+          <span class="text-xs text-muted-foreground">or</span>
+          <script
+            is:inline
+            async
+            src="https://telegram.org/js/telegram-widget.js?22"
+            data-telegram-login={telegramBotUsername}
+            data-size="medium"
+            data-radius="4"
+            data-auth-url={telegramCallbackUrl}
+          />
+        </div>
+      )}
     </div>
     <p class="mt-4 text-center text-[13px] text-muted-foreground">
       New here?{' '}

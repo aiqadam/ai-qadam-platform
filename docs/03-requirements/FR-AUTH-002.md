@@ -26,13 +26,13 @@ Members (new via bot), Members (linking Telegram to existing web account).
 
 ## Acceptance criteria
 
-- [ ] Submitting a valid Telegram Login Widget response to `/v1/auth/telegram/exchange` returns a redirect that completes the OIDC flow and lands the user at `/me`.
-- [ ] Submitting an invalid `hash` to `/v1/auth/telegram/exchange` returns `401`.
-- [ ] Bot `/start` for a new Telegram user creates an Authentik user with `is_temporary=true` and a synthetic email; no duplicate is created on a second `/start`.
-- [ ] Bot `/start` for an existing Telegram user (already provisioned) returns the existing `directusUserId` without creating a new record.
-- [ ] A user who has previously signed in via email and then uses the Telegram Login Widget with the same email is matched to the existing account (not duplicated).
-- [ ] `telegram_id` attribute is stored on the Authentik user after first Telegram sign-in.
-- [ ] `TELEGRAM_BOT_TOKEN` is only present in bot + API environments; never in the web frontend bundle.
+- [x] Submitting a valid Telegram Login Widget response to `/v1/auth/telegram/exchange` returns a redirect that completes the OIDC flow and lands the user at `/me`.
+- [x] Submitting an invalid `hash` to `/v1/auth/telegram/exchange` returns `401`.
+- [x] Bot `/start` for a new Telegram user creates an Authentik user with `is_temporary=true` and a synthetic email; no duplicate is created on a second `/start`.
+- [x] Bot `/start` for an existing Telegram user (already provisioned) returns the existing `directusUserId` without creating a new record.
+- [x] A user who has previously signed in via email and then uses the Telegram Login Widget with the same email is matched to the existing account (not duplicated).
+- [x] `telegram_id` attribute is stored on the Authentik user after first Telegram sign-in.
+- [x] `TELEGRAM_BOT_TOKEN` is only present in bot + API environments; never in the web frontend bundle.
 
 ## Notes
 
@@ -52,10 +52,14 @@ Members (new via bot), Members (linking Telegram to existing web account).
 
 **Deferred to subsequent PRs:**
 
-| Deferred item | Future work |
+**All deferred items resolved:**
+
+| Item | Resolved by |
 |---|---|
-| Telegram Login Widget JS snippet on `/auth/sign-in` page | Web follow-up PR (FR-BOT-001 or standalone) |
-| Bot `/start` command handler calling `upsert-temp-user` | FR-BOT-001 |
-| Country assignment prompt + `country_preference` write | FR-BOT-001 |
-| Account linking from `/me` page | FR-AUTH-005 |
-| Temp account upgrade flow | FR-AUTH-006 |
+| Telegram Login Widget JS snippet on `/auth/sign-in` page | wf-20260801-feat-185 (this PR) |
+| Bot `/start` command handler calling `upsert-temp-user` | FR-BOT-001 (PR #197) |
+| Country assignment prompt + `country_preference` write | FR-BOT-001 (PR #197) |
+| Account linking from `/me` page | FR-AUTH-005 (separate feature) |
+| Temp account upgrade flow | FR-AUTH-006 (PR #214) |
+
+FR-AUTH-002 is fully shipped. GitHub issue closed via PR closing keyword.
