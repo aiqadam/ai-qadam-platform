@@ -178,3 +178,86 @@ gate_result:
     - "Real fix identified and confirmed via source read: Brand resolution is per-request Host header (authentik/brands/middleware.py + utils.py), so a second Brand object with its own domain and its own flow_recovery=magic-link-login lets AuthentikClient.sendMagicLinkEmail() reach the correct flow by setting a distinct Host header on the outbound request, without disturbing the existing default Brand's recovery-flow binding used by password-reset."
     - "retry_target: code-developer -- provisioning script (scripts/provision-authentik-magic-link-flow.sh) needs a second-Brand provisioning step; AuthentikClient.sendMagicLinkEmail() needs to send the request with a Host header matching that Brand's domain (or an equivalent mechanism CodeDeveloper determines after re-reading this finding); 02b-authentik-spike-findings.md should be corrected/superseded to prevent this gap recurring in a future workflow."
 ```
+
+## SECOND retry finding — CodeDeveloper's Brand/Host-header fix was necessary but not sufficient; a real click-through test found the flow topology itself is wrong
+
+CodeDeveloper's retry (see `03-code-summary.md`'s "Step 8 Retry" section)
+correctly fixed the wrong-flow-target bug: the Orchestrator independently
+re-verified this by reading the real email link (`http://magic-
+link.aiqadam.internal/if/flow/magic-link-login/?flow_token=...` —
+confirmed target is `magic-link-login`, not `default-recovery-flow`).
+**However, the Orchestrator went one step further than "does the link
+target the right flow" and actually clicked the link end-to-end via a
+live Playwright session** — the exact "click it and see if a session
+gets issued" proof AC-4/AC-2 require, which neither the original spike
+nor this retry had yet performed. This surfaced a SECOND, deeper bug:
+
+**Symptom:** clicking a fresh, never-used magic-link URL does NOT issue
+a session in one hop. It lands on `ak-stage-identification` (asking the
+user to re-enter their email), and submitting that advances to
+`ak-stage-email` ("check your inbox") — triggering a **second** email
+send, confirmed by observing two distinct Mailpit messages for the same
+test address. This is not a magic-link UX at all; it's "enter email,
+then check email again for a second link."
+
+**Root cause, confirmed by reading Authentik's flow-executor source**
+(`authentik/flows/views/executor.py`'s `_check_flow_token()` /
+`dispatch()`): a `FlowToken`'s pickled `FlowPlan` is built ONCE, in full,
+at `_create_recovery_link()` time, covering the flow's ENTIRE stage list
+from the start. Clicking the emailed link restores that plan and resumes
+it from its first stage — which, in the originally-provisioned topology,
+was the Identification stage (order 10), not the `UserLoginStage`
+(order 30). The token does not mean "you already verified this address";
+it means "resume this specific pre-planned run of the whole flow from
+the top."
+
+**The fix, empirically verified by the Orchestrator (not just designed
+on paper):** the `magic-link-login` flow's own stage-binding list must
+contain **ONLY the `UserLoginStage`** — no Identification stage, no
+Email stage bound into the flow itself. (The Identification/Email stage
+*objects* still need to exist and remain resolvable-by-name for
+`recovery_email`'s `email_stage` query param to reference, and for the
+provisioning script's existing idempotent-create logic — they are just
+no longer BOUND into the flow's own plan.) `PLAN_CONTEXT_PENDING_USER`
+is already set on the token's plan at `_create_recovery_link()` time
+(from `for_user` in `recovery_email()`), so `UserLoginStage` (which only
+needs that context key) can act immediately with no re-identification
+step.
+
+Verified live by the Orchestrator via direct Authentik admin-API calls
+(temporarily unbinding the order-10/order-20 stage bindings from the
+live `magic-link-login` flow instance — pks recorded, fully reversible)
+followed by a real Playwright click-through:
+
+```
+Before fix: click -> ak-stage-identification -> submit -> ak-stage-email (2nd email sent!) -> never authenticated
+After fix:  click -> component: xak-flow-redirect, to: "/"  -> GET /api/v3/core/users/me/ -> 200, correct user, session cookies set
+Reuse of the same (now-consumed) token: ak-stage-access-denied, /me -> 403 (AC-2 still holds under the new topology)
+```
+
+Both test users created during this investigation were cleaned up
+(`DELETE /api/v3/core/users/{pk}/` -> 204, confirmed for each).
+
+**This is a second `failed-retry-code` finding**, on top of (not
+replacing) the first. The live Authentik instance currently has the
+order-10/order-20 bindings REMOVED (this was necessary to prove the
+hypothesis) — CodeDeveloper must make this change durable in
+`scripts/provision-authentik-magic-link-flow.sh` (the script currently
+still contains the `ensure_flow_stage_binding ... 10` / `... 20` calls
+that created the wrong topology in the first place; these must be
+removed, not left creating bindings the flow shouldn't have) and confirm
+the script remains idempotent against the CURRENT (already-corrected)
+live state.
+
+### Gate Result (second retry)
+
+```yaml
+gate_result:
+  status: failed-retry-code
+  summary: "CodeDeveloper's Brand/Host-header fix correctly resolved the FIRST bug (wrong flow target) -- independently re-verified. A live Playwright click-through (not just reading the email link) then surfaced a SECOND, deeper bug: the flow's own stage topology (Identification+Email+UserLogin bound in sequence) means a FlowToken always resumes from stage 1, re-triggering identification and a second email send rather than issuing a session in one click. Root-caused via Authentik's flow-executor source (FlowToken restores the WHOLE pre-planned stage list from the top, not a mid-plan position) and empirically fixed by removing the Identification/Email stage BINDINGS from the flow (keeping the stage objects, since recovery_email's email_stage param still needs to reference the Email stage by UUID) -- leaving ONLY UserLoginStage in the flow's own plan. Verified live end-to-end: single click -> xak-flow-redirect -> authenticated session (GET /me -> 200, correct user) -> reuse of the same token correctly denied (403, AC-2 intact)."
+  findings:
+    - "Live Authentik state currently reflects the FIX (order-10/order-20 bindings removed from magic-link-login flow, pks 5cf995f2-03f3-4ad5-abd1-8046dd383e05 / 1a151190-939b-4ff3-b17a-8a3a60da8dc9 -- recorded here in case a revert is ever needed, though the fix is confirmed correct and should be made durable in code, not reverted)."
+    - "scripts/provision-authentik-magic-link-flow.sh MUST be updated to stop binding the Identification/Email stages into the flow (remove the order-10/order-20 ensure_flow_stage_binding calls) while KEEPING the ensure_identification_stage/ensure_email_stage calls that create/resolve the stage OBJECTS -- recovery_email's email_stage query param still needs a real Email stage UUID to reference, it just must not be part of the flow's own bound sequence."
+    - "AC-2 (single-use) re-confirmed holding under the corrected topology -- a consumed token shows ak-stage-access-denied and /me returns 403, not a regression from this fix."
+    - "retry_target: code-developer -- make the flow-topology fix durable in the provisioning script; re-run it live to confirm idempotency against the already-corrected live state; update 03-code-summary.md's Step 8 Retry section (or add a new section) documenting this second finding and fix; update any code comments describing the flow's stage sequence that still describe the old (wrong) 4-stage-including-Identification-and-Email topology."
+```
