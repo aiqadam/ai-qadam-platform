@@ -51,6 +51,7 @@ import {
   toggleInterestBodySchema,
   upsertTempUserBodySchema,
 } from './telegram-auth.service';
+import { UpgradeService, upgradeTempBodySchema } from './upgrade.service';
 import type {
   LookupUserResult,
   TelegramCancelResult,
@@ -158,6 +159,7 @@ export class AuthController {
     private readonly telegramAuth: TelegramAuthService,
     private readonly registration: RegistrationService,
     private readonly magicLinkService: MagicLinkService,
+    private readonly upgradeService: UpgradeService,
   ) {}
 
   // GET /v1/auth/login?next=/somewhere — top-level browser navigation, NOT
@@ -209,19 +211,47 @@ export class AuthController {
       throw err;
     }
 
-    // FR-AUTH-006 extension seam (not yet implemented): a future workflow can
-    // branch here on the resolved Authentik user's attributes.is_temporary to
-    // trigger the temp-account upgrade flow (is_temporary=false flip, real
-    // email replacement, retroactive points backfill). See FR-AUTH-006.md.
-    // This is the single funnel every auth mechanism (password, Telegram,
-    // magic-link) converges on after Authentik issues a session — no
-    // parallel/duplicate session-issuance path exists for magic-link
-    // sign-in (FR-AUTH-004 AC-7).
+    // FR-AUTH-006 — temp-account upgrade completion. This is the single
+    // funnel every auth mechanism (password, Telegram, magic-link)
+    // converges on after Authentik issues a session — no parallel/
+    // duplicate session-issuance path exists for magic-link sign-in
+    // (FR-AUTH-004 AC-7), which is what makes it safe to check here
+    // unconditionally on every callback.
+    //
+    // resolvePendingUpgrade looks up a live upgrade_intents row by the
+    // just-verified email (see upgrade.service.ts's module doc for why
+    // email, not `sub`, is the correlation key). If none exists — the
+    // overwhelmingly common case, every ordinary sign-in — `pendingUpgrade`
+    // is null and nothing below this changes vs. pre-FR-AUTH-006 behavior
+    // (AC-8). This step is deliberately side-effect-free — is_temporary
+    // is NOT flipped and the intent row is NOT consumed here.
+    //
+    // SecurityReviewer MAJOR-1 (04-security-review.md): commitUpgrade
+    // (the actual is_temporary flip + intent consumption) is deferred
+    // until AFTER upsertByAuthentikSubject() below has succeeded, not
+    // run here beforehand. Rationale: two different temp users can win
+    // requestUpgrade()'s email-collision race for the same target email
+    // (Authentik's own User.email is not unique) and both reach this
+    // callback with is_temporary=true; whichever calls
+    // upsertByAuthentikSubject() first claims platform.users' unique
+    // email constraint, and the second throws there. Committing the
+    // upgrade only after that write succeeds means the losing racer's
+    // Authentik record is never left in the mixed state AC-2 was written
+    // to prevent (is_temporary=false with no platform.users row) — it
+    // simply stays is_temporary=true with its intent row still live, and
+    // the thrown error propagates up unchanged (same as any other
+    // upsertByAuthentikSubject failure today — no new catch added here).
+    const pendingUpgrade = await this.upgradeService.resolvePendingUpgrade(email);
+
     const user = await this.users.upsertByAuthentikSubject({
       authentikSubject: sub,
       email,
       ...(displayName !== undefined ? { displayName } : {}),
     });
+
+    if (pendingUpgrade) {
+      await this.upgradeService.commitUpgrade(pendingUpgrade);
+    }
 
     // Sprint 4.5: mirror into directus_users so member-side proxy
     // endpoints (regs, leaderboard) can reference this user. Bridge
@@ -565,7 +595,10 @@ function extractBearer(req: Request): string | null {
 @Controller('v1/internal/telegram')
 @UseGuards(InternalAuthGuard)
 export class TelegramInternalController {
-  constructor(private readonly telegramAuth: TelegramAuthService) {}
+  constructor(
+    private readonly telegramAuth: TelegramAuthService,
+    private readonly upgradeService: UpgradeService,
+  ) {}
 
   // POST /v1/internal/telegram/upsert-temp-user — InternalAuthGuard protected.
   // Called by the Telegram bot to provision a temporary Authentik user on
@@ -582,6 +615,29 @@ export class TelegramInternalController {
       parsed.data.firstName,
       parsed.data.username,
     );
+  }
+
+  // POST /v1/internal/telegram/upgrade-temp — InternalAuthGuard protected.
+  // FR-AUTH-006 — called by the bot's future /upgrade command (FR-BOT-002
+  // PR 6/6, not built here) to start a temp account's upgrade to full
+  // member. Body: { telegramId, email }. See upgrade.service.ts's module
+  // doc for the full mechanism and its Finding #0-driven design (the
+  // target email is patched onto the Authentik user as part of THIS
+  // request, before the magic-link send — not deferred to /callback).
+  //
+  // Responses: 200 { ok: true } on success (anti-enumeration-consistent
+  // with magic-link's own posture); 404 { error: 'telegram_user_not_found' }
+  // (no Authentik user for this telegramId, matching lookup's convention);
+  // 409 { error: 'not_a_temp_account' } (already a full member); 409
+  // { error: 'email_already_in_use' } (AC-7, no mutation on this path).
+  @Post('upgrade-temp')
+  @HttpCode(HttpStatus.OK)
+  async upgradeTemp(@Body() body: unknown): Promise<{ ok: true }> {
+    const parsed = upgradeTempBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.upgradeService.requestUpgrade(parsed.data.telegramId, parsed.data.email);
   }
 
   // POST /v1/internal/telegram/lookup — InternalAuthGuard protected.
