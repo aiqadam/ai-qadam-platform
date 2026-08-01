@@ -1,5 +1,40 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260801-fix-187`.
+**ISS-SEC-PUBLIC-UNMANAGED-001 resolved — Public reads on events/speakers/event_speakers now scoped.**
+[wf-20260801-fix-187](../tasks/completed/wf-20260801-fix-187/handoff.yaml)
+(PR [#224](https://github.com/aiqadam/ai-qadam-platform/pull/224), merged
+SHA `9e17ca5`): Adds new `ISS-SEC-PUBLIC-UNMANAGED-001` section in
+`infrastructure/directus/bootstrap.sh` that resolves the Public policy
+id by `$t:public_label` name (same pattern as the existing
+`ISS-SEC-DIRECTUS-USERS-PUBLIC-001` block, not the broken hardcoded
+UUID pin) and grants three scoped reads: events with `status=published
+AND (country != xx OR $CURRENT_USER.is_test_user == true)` plus a
+33-item field allowlist; speakers with `status=active AND (country != xx
+OR $CURRENT_USER.is_test_user == true)` plus a 7-item allowlist
+excluding `bio`; event_speakers with `status=confirmed AND
+event.status=published, event.country != xx` plus a 7-item allowlist.
+Revokes 6 pre-existing `permissions: null` Public rows on local env
+(ids 15/23 / 17/25 / 16/24 — confirmed deleted). Idempotent on re-run
+(rows 117/118/119 deleted-then-recreated identically across 2
+consecutive bootstrap.sh runs). 7/7 ACs verified live against
+`aiqadam-directus Up 2 days (healthy)`. CI override applied silently
+per AGENTS.md §6.3 user opt-out (pre-existing `build` failure on
+origin/main, file-path intersection empty with this PR's diff). PR
+Risks documents: (a) apps/web `cms.ts:852` bio_md JOIN was already 403
+pre-PR (directus_users Public revoke from the prior fix blocks it),
+my allowlist deliberately excludes bio to match that pre-existing
+behavior — no regression; (b) the 8 lower public-read blocks at
+lines ~4290–5440 still use the broken hardcoded UUID pin
+`POLICY_PUBLIC_PROD="87bf5954-..."` and silently skip on this env —
+pre-existing bug not introduced by this PR; new follow-up workflow
+`wf-20260801-fix-188-public-policy-uuid-lookup` queued to migrate
+those blocks to the same name-lookup pattern (new issue
+[ISS-PUB-POLICY-UUID-PIN-001](../issues/ISS-PUB-POLICY-UUID-PIN-001.md)).
+GitHub issue #169 closed.
+
+---
+
 **Last updated:** 2026-08-01 — `wf-20260801-feat-185`.
 **FR-AUTH-002 fully closed — Telegram Login Widget shipped to sign-in page.**
 [wf-20260801-feat-185](../tasks/completed/wf-20260801-feat-185/handoff.yaml)
