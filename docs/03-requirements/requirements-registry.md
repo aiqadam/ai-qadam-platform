@@ -51,7 +51,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 7 | [FR-ADM-005](FR-ADM-005.md) | Operator invites | Shipped | AUTH-001 |
 | 8 | [FR-USR-001](FR-USR-001.md) | Signup / first-time experience | Shipped | AUTH-001 |
 | 9 | [FR-AUTH-002](FR-AUTH-002.md) | Telegram sign-in | In Progress | AUTH-001 |
-| 10 | [FR-AUTH-004](FR-AUTH-004.md) | Magic-link sign-in | Planned | AUTH-001 |
+| 10 | [FR-AUTH-004](FR-AUTH-004.md) | Magic-link sign-in | Shipped | AUTH-001 |
 | 11 | [FR-AUTH-003](FR-AUTH-003.md) | Google / GitHub OAuth | Planned | AUTH-001 |
 | 12 | [FR-ADM-006](FR-ADM-006.md) | Country provisioning | Shipped | ADM-005 |
 | 13 | [FR-ADM-007](FR-ADM-007.md) | RBAC sync | Shipped | ADM-005, AUTH-001 |

@@ -25,4 +25,5 @@ export { default as VenueMap } from './VenueMap.astro';
 export { CsatForm } from './CsatForm';
 export { FormRenderer, FormRendererIsland } from './FormRenderer';
 export { LeadCaptureForm } from './LeadCaptureForm';
+export { MagicLinkForm } from './MagicLinkForm';
 export { SignUpForm } from './SignUpForm';

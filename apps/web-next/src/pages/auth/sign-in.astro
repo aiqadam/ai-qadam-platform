@@ -4,28 +4,63 @@
 //
 // /auth/sign-in — public sign-in entry point.
 //
-// This page has no UI. Visiting it redirects to the API's /v1/auth/login
-// endpoint, which sets a flow cookie and redirects to Authentik's authorize
-// endpoint. The post-login callback returns to `/me` or the `?next=` value.
+// FR-AUTH-004: this page previously had no UI at all — it unconditionally
+// redirected to the API's /v1/auth/login endpoint (Authentik's hosted
+// password/OIDC login form). That redirect-only behavior is PRESERVED
+// UNCHANGED as the "Continue with password" path below (same
+// /api/v1/auth/login?next=... target, same ?next= passthrough/sanitize
+// logic). This page now additionally renders real markup: a
+// "Sign in with email link" link to the new /auth/sign-in-magic-link page
+// (FR-AUTH-004's own passwordless entry point), so a real user can
+// discover and reach the magic-link form from /auth/sign-in rather than
+// it existing only in isolation. Already-signed-in visitors are bounced
+// to /me before any markup renders (sign-up.astro's own precedent).
 //
-// This mirrors v1's apps/web/src/pages/auth/sign-in.astro redirect pattern.
 // The OIDC flow itself lives server-side in the API (AuthController.login).
 //
-// SSR-only (no prerender) so the redirect executes server-side.
+// SSR-only (no prerender) so the redirect / auth check executes server-side.
 
 export const prerender = false;
+
+import { PageHead } from '../../blocks/common';
+import Layout from '../../layouts/Layout.astro';
 
 const url = new URL(Astro.request.url);
 // ISS-USR-REDIRECT-001 (GitHub #89): default to /me, not /. A visitor who
 // reaches /auth/sign-in with no explicit ?next= has no page to "return"
-// to (this page renders nothing) — /me is what FR-USR-001 AC-1 requires
-// for the no-context case. Callers with real context (AppNav, AuthGate,
-// etc.) always pass an explicit ?next= and are unaffected.
+// to — /me is what FR-USR-001 AC-1 requires for the no-context case.
+// Callers with real context (AppNav, AuthGate, etc.) always pass an
+// explicit ?next= and are unaffected.
 const rawNext = url.searchParams.get('next') ?? '/me';
 // Sanitize: must start with /, must not be // (protocol-relative)
 const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/me';
 
-void safeNext; // used in redirect URL
+// Already signed in? No point showing a sign-in page.
+if (Astro.locals.auth) {
+  return Astro.redirect('/me', 302);
+}
 
-return Astro.redirect(`/api/v1/auth/login?next=${encodeURIComponent(safeNext)}`, 302);
+const passwordSignInUrl = `/api/v1/auth/login?next=${encodeURIComponent(safeNext)}`;
 ---
+
+<Layout title="Sign in · AI Qadam" description="Sign in to your AI Qadam member account.">
+  <PageHead slot="head" title="Sign in · AI Qadam" description="Sign in to your AI Qadam member account." />
+  <main class="mx-auto max-w-md px-6 py-12">
+    <div class="mb-8 text-center">
+      <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground">
+        Sign in to AI Qadam
+      </h1>
+      <p class="mt-2 text-sm text-muted-foreground">
+        Choose how you&apos;d like to sign in.
+      </p>
+    </div>
+    <div class="flex flex-col gap-3">
+      <a href={passwordSignInUrl} class="btn btn-primary">Continue with password</a>
+      <a href="/auth/sign-in-magic-link" class="btn btn-secondary">Sign in with email link</a>
+    </div>
+    <p class="mt-4 text-center text-[13px] text-muted-foreground">
+      New here?{' '}
+      <a href="/auth/sign-up" class="text-primary hover:underline">Create an account</a>
+    </p>
+  </main>
+</Layout>

@@ -29,6 +29,7 @@ import { AuthGuard } from './auth.guard';
 import { AuthService, extractGroupsFromIdToken } from './auth.service';
 import { JtiRevocationService } from './jti-revocation.service';
 import { JwtService } from './jwt.service';
+import { MagicLinkService, magicLinkRequestSchema } from './magic-link.service';
 import {
   RefreshTokenInvalidError,
   RefreshTokenReplayError,
@@ -156,6 +157,7 @@ export class AuthController {
     private readonly leads: LeadsService,
     private readonly telegramAuth: TelegramAuthService,
     private readonly registration: RegistrationService,
+    private readonly magicLinkService: MagicLinkService,
   ) {}
 
   // GET /v1/auth/login?next=/somewhere — top-level browser navigation, NOT
@@ -207,6 +209,14 @@ export class AuthController {
       throw err;
     }
 
+    // FR-AUTH-006 extension seam (not yet implemented): a future workflow can
+    // branch here on the resolved Authentik user's attributes.is_temporary to
+    // trigger the temp-account upgrade flow (is_temporary=false flip, real
+    // email replacement, retroactive points backfill). See FR-AUTH-006.md.
+    // This is the single funnel every auth mechanism (password, Telegram,
+    // magic-link) converges on after Authentik issues a session — no
+    // parallel/duplicate session-issuance path exists for magic-link
+    // sign-in (FR-AUTH-004 AC-7).
     const user = await this.users.upsertByAuthentikSubject({
       authentikSubject: sub,
       email,
@@ -484,6 +494,43 @@ export class AuthController {
     });
     res.setHeader('Cache-Control', 'no-store');
     res.redirect(HttpStatus.FOUND, recoveryUrl);
+  }
+
+  // POST /v1/auth/magic-link — public endpoint (no AuthGuard; the caller is
+  // anonymous by definition, same posture as register/telegram/exchange
+  // above). FR-AUTH-004 — requests a one-time email sign-in link via
+  // Authentik's magic-link-login flow (see magic-link.service.ts's module
+  // doc for the full mechanism).
+  //
+  // Response is ALWAYS { ok: true } (HTTP 200) — deliberately NOT a
+  // redirect, unlike register/telegram-exchange above. Those two safely
+  // redirect the REQUESTING browser to a one-time Authentik URL because
+  // the redirect target is the requester's own fresh account; doing the
+  // same here would let anyone sign in as any email address without ever
+  // proving inbox ownership, since the magic link must go to the
+  // recipient's email, not back to the requesting browser tab. This is
+  // also a deliberate anti-enumeration design (matching
+  // 02-impact-analysis.md Risk Flag #2, built in from the start rather
+  // than retrofitted the way register's honeypot/duplicate-email collapse
+  // was): identical response whether the email resolves to an existing
+  // Authentik user, a newly-creatable one, or is otherwise unresolvable.
+  // No link/token ever appears in this response body — Authentik sends
+  // the email natively (see AuthentikClient.sendMagicLinkEmail), so there
+  // is no value in our process to leak in the first place.
+  //
+  // Rate-limited: 5 requests per 15 minutes per IP (security.md §Rate
+  // limiting — same policy as telegram/exchange and register above).
+  @Post('magic-link')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  async magicLink(@Body() body: unknown): Promise<{ ok: true }> {
+    const parsed = magicLinkRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    await this.magicLinkService.requestMagicLink(parsed.data.email);
+    return { ok: true };
   }
 }
 

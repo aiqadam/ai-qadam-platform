@@ -1,0 +1,44 @@
+---
+// @generated-from gen:page
+// slug: auth/sign-in-magic-link
+//
+// /auth/sign-in-magic-link — FR-AUTH-004 passwordless email sign-in entry
+// point. New sibling page alongside sign-in.astro (kept unchanged — its
+// existing bare-redirect-to-Authentik-hosted-login-form behavior stays
+// exactly as is) and sign-up.astro (the real-markup precedent this page
+// follows: PageHead + Layout + already-signed-in bounce guard + React
+// island).
+//
+// SSR-only (no prerender) so an already-signed-in visitor can be bounced
+// straight to /me without rendering the form.
+
+export const prerender = false;
+
+import { PageHead } from '../../blocks/common';
+import { MagicLinkForm } from '../../blocks/customer';
+import Layout from '../../layouts/Layout.astro';
+
+// Already signed in? No point showing a sign-in form.
+if (Astro.locals.auth) {
+  return Astro.redirect('/me', 302);
+}
+---
+
+<Layout title="Sign in with email link · AI Qadam" description="Get a one-time sign-in link by email — no password needed.">
+  <PageHead slot="head" title="Sign in with email link · AI Qadam" description="Get a one-time sign-in link by email — no password needed." />
+  <main class="mx-auto max-w-md px-6 py-12">
+    <div class="mb-8 text-center">
+      <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground">
+        Sign in with email link
+      </h1>
+      <p class="mt-2 text-sm text-muted-foreground">
+        Enter your email and we&apos;ll send you a one-time link to sign in.
+      </p>
+    </div>
+    <MagicLinkForm client:load />
+    <p class="mt-4 text-center text-[13px] text-muted-foreground">
+      Prefer a password?{' '}
+      <a href="/auth/sign-in" class="text-primary hover:underline">Sign in another way</a>
+    </p>
+  </main>
+</Layout>
