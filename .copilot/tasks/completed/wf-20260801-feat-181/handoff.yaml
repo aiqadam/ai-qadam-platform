@@ -15,9 +15,9 @@ branch: "feature/FR-AUTH-006-temp-account-upgrade"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/214"
 
-current_step: 11
-current_step_name: "workflow-finish"
-workflow_status: "running"
+current_step: 13
+current_step_name: "complete"
+workflow_status: "completed"
 
 merge_mode: "auto"
 
