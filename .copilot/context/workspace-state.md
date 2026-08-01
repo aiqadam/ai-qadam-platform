@@ -1,5 +1,17 @@
 # Workspace State
 
+**Last updated:** 2026-08-01 — `wf-20260801-feat-185`.
+**FR-AUTH-002 fully closed — Telegram Login Widget shipped to sign-in page.**
+[wf-20260801-feat-185](../tasks/completed/wf-20260801-feat-185/handoff.yaml)
+(PR [#222](https://github.com/aiqadam/ai-qadam-platform/pull/222), merged
+SHA `a3d7cf5`): Adds Telegram Login Widget to `apps/web-next /auth/sign-in`
+(rendered when `TELEGRAM_BOT_USERNAME` env var is set). Adds `GET
+/v1/auth/telegram/callback` endpoint for the browser-native widget redirect
+flow. All 7 FR-AUTH-002 ACs verified. GitHub issue #126 closed. FR-AUTH-002
+status: Implemented (all deferred items resolved across PRs #52, #197, #214,
+#222).
+
+---
 **Last updated:** 2026-08-01 — `wf-20260801-feat-184`.
 **FR-BOT-003 implemented — 5 operator runtime bot commands now live.**
 [wf-20260801-feat-184](../tasks/completed/wf-20260801-feat-184/handoff.yaml)
