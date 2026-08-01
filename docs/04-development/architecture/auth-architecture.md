@@ -665,22 +665,33 @@ names, same spelling) in `apps/api/.env.example` and here:
   crashing boot (same degraded-mode pattern as `AUTHENTIK_ADMIN_TOKEN`
   being unset).
 
-**Forced password-change mechanism — unverified, flagged for UAT.** The
-service attempts to force a password-change prompt on first login by
-setting the Authentik user attribute
-`ak_login_password_change_required: true` via
-`AuthentikClient.patchAttributes()`. This attribute key was chosen as the
-most standard/documented candidate for Authentik's stock password-expiry
-/ "prompt for new password" flow stage, but **has not been verified
-against a live Authentik instance** as part of the workflow that
-introduced it (no Testcontainers-Authentik double exists in this repo).
-[`BP-UAT-020`](../../02-business-processes/uat/BP-UAT-020.md) is the
-designated follow-up verification point — do not treat this mechanism as
-confirmed-working until that UAT script has run against a real Authentik
-instance. See the code comment on `FORCE_PASSWORD_CHANGE_ATTRIBUTE` in
-`admin-bootstrap.service.ts` for the full reasoning and documented
-fallback (a provisioned password-expiry policy) if this attribute key
-turns out to be wrong.
+**Forced password-change mechanism — live-verified 2026-08-01
+(`wf-20260801-fix-190`, `ISS-ADM-010-1`).** The service forces a
+password-change prompt on first login via
+`AuthentikClient.setForcePasswordChangeNextLogin(userPk, true)`, which
+issues `PATCH /api/v3/core/users/{pk}/` with
+`password_change_next_login: true` directly on the user body — an
+Authentik 2024.x native field that the flow executor honors on the next
+sign-in attempt. This replaces the previous
+`ak_login_password_change_required` attribute-set call, which live
+verification (`wf-20260729-uat-154`'s BP-UAT-020 run) showed had **no
+observable effect on the login flow** — the flow executor returned
+`{"component": "xak-flow-redirect", "to": "/application/o/authorize/..."}`
+straight to OIDC, with no intermediate password-change stage. The new
+mechanism was confirmed in
+[`.copilot/issues/ISS-ADM-010-1.md`](../../../issues/ISS-ADM-010-1.md)'s
+Resolution section, with live re-verification of
+[`BP-UAT-020`](../../02-business-processes/uat/BP-UAT-020.md) Step 002
+flipping from `verdict: 'MISMATCH'` to `verdict: 'MATCH'`. **Fallback if
+the user-body field is ignored by a future Authentik build:** a
+Password Expiry Policy + User Login Stage + flow-binding script
+(`scripts/provision-authentik-pwd-policy.sh`, design queue-ready in
+[`wf-20260801-fix-190/02-impact-analysis.md`](../../../tasks/active/wf-20260801-fix-190/02-impact-analysis.md)
+§"Infra / Provisioning"). The new mechanism is on the user-PATCH path,
+so it composes with the duplicate-email recovery path in
+`createOrRecoverSeedUser` — the recovered user (looked up by
+`getUserByEmail`) receives the same forced-change flag, not just the
+freshly-created one.
 
 **Idempotency detail.** The zero-admin check is keyed on
 `aiqadam-super-admin` **group membership count**

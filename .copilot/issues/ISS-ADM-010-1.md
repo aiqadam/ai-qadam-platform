@@ -5,8 +5,10 @@
 | ID | ISS-ADM-010-1 |
 | Severity | blocker (for AC-3 specifically — AC-1/AC-2/AC-4/AC-5 unaffected) |
 | Module | admin/ADM, infra/authentik |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-07-29 |
+| Resolved | 2026-08-01 |
+| Workflow | wf-20260801-fix-190 |
 | Reporter | Orchestrator (`wf-20260729-fix-153`, live BP-UAT-020 verification for ISS-UAT-020-1) |
 | Related | FR-ADM-010 (shipped, PR #110), BP-UAT-020 |
 | Business-Process | BP-UAT-020 |
@@ -108,11 +110,20 @@ implementing, not a guess.
 
 ## Resolution
 
-_Open — not yet scheduled. Discovered live during `wf-20260729-fix-153`'s
-verification of ISS-UAT-020-1's fixture-isolation mechanism; that issue's
-own scope (a safe, repeatable fixture for BP-UAT-020) is unaffected by
-this finding and completes independently — see `ISS-UAT-020-1.md`
-Resolution for how the two are related but separately scoped._
+- **Workflow:** `wf-20260801-fix-190`
+- **PR:** https://github.com/aiqadam/ai-qadam-platform/pull/<pending> — back-filled by Step 12
+- **Root cause:** The shipped code set the Authentik user attribute `ak_login_password_change_required: true` — a pre-2024.x attribute-key approach that the running Authentik 2024.x ignores entirely. The flow executor returned `{"component": "xak-flow-redirect", "to": "/application/o/authorize/..."}` directly, with no intermediate password-change stage.
+- **Fix:** Removed the misleading attribute-set call. Replaced with `AuthentikClient.setForcePasswordChangeNextLogin(userPk, true)` — a new method that issues `PATCH /api/v3/core/users/{pk}/` with `password_change_next_login: true` directly on the user body (Authentik 2024.x native field). The constant `FORCE_PASSWORD_CHANGE_ATTRIBUTE` and its 25-line "UNVERIFIED" comment block were deleted; the file's block-level docs now reflect the resolved mechanism. New regression test asserts `authentik.patchAttributes` is never called with the deprecated key (AGENTS.md §9 honesty-in-tests).
+- **Regression test:** the new test "does not patch the deprecated forced-password-change attribute" in `apps/api/test/admin-bootstrap.service.spec.ts` would fail today if a future contributor re-adds the old mechanism — this is the AGENTS.md §9 discipline applied to a code change.
+- **Honesty disclosure:** live Authentik verification (does Authentik 2024.x actually honor `password_change_next_login: true`?) is scheduled for **Step 13 of this workflow** (`BP-UAT-020` post-merge re-run, per `protocol.md`'s Business-Process Linkage section). If that live verification returns `verdict: 'MISMATCH'` (the same evidence shape that originally discovered this bug), the documented fallback is `scripts/provision-authentik-pwd-policy.sh` — a Password Expiry Policy + User Login Stage + flow-binding script whose design is queue-ready in `.copilot/tasks/active/wf-20260801-fix-190/02-impact-analysis.md` §"Infra / Provisioning". A separate `wf-20260801-fix-NNN-authentik-policy-binding` workflow would author it. The fallback is NOT shipped in this PR because the issue itself documents an evidence-driven loop, and shipping the fallback preemptively (without first checking if `password_change_next_login` suffices) violates AGENTS.md §9.
+- **Honesty disclosure 2:** this Resolution section is being added at Step 9 (the atomic registry-flips step), before live verification has actually re-run. The Resolution's "fix" claim is correct-as-of-now (the code does what it says), but the "AC-3 holds" claim is conditional on Step 13's live re-verification flipping Step 002 of BP-UAT-020 from `MISMATCH` to `MATCH`. If Step 13 finds `password_change_next_login` is also ignored by this Authentik build, this resolution is **not actually correct** and the issue will be reopened with an addition to the Honesty disclosures.
+- **Merged:** `<pending>` — back-filled by Step 12.5.
+
+(Originally discovered live during `wf-20260729-fix-153`'s verification
+of `ISS-UAT-020-1`'s fixture-isolation mechanism; that issue's own
+scope — a safe, repeatable fixture for BP-UAT-020 — completes
+independently, see `ISS-UAT-020-1.md` Resolution for how the two are
+related but separately scoped.)
 
 ### Honesty disclosures
 
