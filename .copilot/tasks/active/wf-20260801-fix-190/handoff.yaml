@@ -1,0 +1,106 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260801-fix-190"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-08-01T22:00:00Z"
+last_updated_at: "2026-08-01T22:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "ISS-ADM-010-1"
+requirement_text: >
+  Forced password-change attribute does not actually force a password-change
+  screen. AdminBootstrapService.seedAdmin() sets
+  ak_login_password_change_required: true on the seeded bootstrap admin, but
+  live verification shows the attribute has no observable effect on the login
+  flow — the flow executor returns xak-flow-redirect straight to /application/o/authorize/...
+  with no intermediate password-change stage. The fix is to bind a password-expiry
+  policy + ensure the default-authentication-flow includes a stage that consults it,
+  so the seeded password is pre-expired at creation time.
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/164"
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-ADM-010-1-authentik-pwd-policy"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "running"
+merge_mode: "auto"
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results: {}
+
+# ─── Agent Assignments ──────────────────────────────────────────────────────
+
+agent_assignments: {}
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts: {}
+
+retry_limits:
+  impact-analyzer: 2
+  code-developer: 3
+  security-reviewer: 2
+  test-strategist: 2
+  test-designer: 3
+  test-runner: 2
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: []
+issue_ref: "ISS-ADM-010-1"
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals: []
+
+# ─── Context Drift Guard ─────────────────────────────────────────────────────
+
+expects_registry_update: true
+context_sync_commits: 0
+
+# ─── UAT Target ──────────────────────────────────────────────────────────────
+
+uat_target: "local"
+
+# ─── Business-Process Linkage & Post-Merge UAT ───────────────────────────────
+
+business_process: ["BP-UAT-020"]
+post_merge_uat_runs: []
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts: []
+
+# ─── Context References ──────────────────────────────────────────────────────
+
+context_refs:
+  - .copilot/issues/ISS-ADM-010-1.md
+  - docs/03-requirements/FR-ADM-010.md
+  - docs/04-development/architecture/auth-architecture.md
+  - docs/02-business-processes/uat/BP-UAT-020.md
+  - apps/api/src/modules/admin-invites/admin-bootstrap.service.ts
+  - apps/api/src/modules/admin-invites/authentik.client.ts
+  - scripts/provision-authentik-rbac-groups.sh
+  - infrastructure/docker-compose.yml
+
+# ─── NEEDS_REVIEW ────────────────────────────────────────────────────────────
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260801-fix-190/NEEDS_REVIEW.md"
