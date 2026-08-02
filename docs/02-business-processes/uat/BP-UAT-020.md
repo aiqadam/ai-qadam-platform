@@ -5,7 +5,7 @@ status: Implemented
 process_ref: "docs/02-business-processes/operator-playbook/admin-bootstrap.md"
 environment: "http://localhost:4321"
 seed_required: true
-last_run: "2026-07-29"
+last_run: "2026-08-02"
 linked_issues: [FR-ADM-010, ISS-UAT-020-1, ISS-ADM-010-1]
 external_hops:
   - url: "auth.aiqadam.org (Authentik)"
@@ -48,10 +48,12 @@ verified `MATCH`; AC-3 (forced password-change screen) verified `MISMATCH`
 - [x] AC-2: Running bootstrap again against an environment that already
       has ≥ 1 `aiqadam-super-admin` member is a no-op. **Verified MATCH,
       2026-07-29.**
-- [ ] AC-3: First sign-in with the seeded credentials forces a
+- [x] AC-3: First sign-in with the seeded credentials forces a
       password-change screen before any other page is reachable.
-      **Verified MISMATCH, 2026-07-29 — sign-in succeeds normally with no
-      password-change stage shown. See [ISS-ADM-010-1](../../../.copilot/issues/ISS-ADM-010-1.md).**
+      **Verified MATCH, 2026-08-02 (wf-20260801-fix-191, PR #231)** — flow
+      executor returns `ak-stage-prompt` with `password` + `password_repeat`
+      fields after submitting valid admin credentials, confirming the
+      ExpressionPolicy mechanism is active. See [ISS-ADM-010-1](../../../.copilot/issues/ISS-ADM-010-1.md).
 - [x] AC-4: After the forced change, the account functions as a normal
       super-admin (verified via reaching `/workspace/admin/countries`,
       the same route manually verified — with screenshots — during the
