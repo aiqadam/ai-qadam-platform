@@ -116,6 +116,19 @@ const hasFinishedContent = recordings.length > 0 || photos.length > 0 || Boolean
 // (starts_at, ends_at). Fully empty content (no recordings on a past
 // event, no livestream URL) still falls back to the tab's own empty
 // state so the page never looks broken.
+//
+// Defensive-fallback contract (mirrors `deriveDefaultTab` in
+// apps/web-next/src/lib/event-lifecycle-tab.test.ts so the inline
+// page logic matches its unit-test spec — see ISS-EVT-LIFECYCLE-TAB-001):
+//   • both dates parseable: 'finished' if past endsAt, else 'live' if
+//     past startsAt, else 'upcoming'
+//   • only startsAt unparseable: 'upcoming' (the legacy ternary would
+//     short-circuit to 'finished' via `now >= endsAtMs` first, which is
+//     wrong: an event with a broken startsAt cannot be 'finished')
+//   • only endsAt unparseable: 'live' if past startsAt, else 'upcoming'
+//     (`now >= NaN` is false so 'finished' is unreachable, matching the
+//     test case "endsAt-only bad + now past startsAt → live")
+//   • both unparseable: 'upcoming' (both NaN comparisons false)
 const tabParam = Astro.url.searchParams.get('tab');
 const tabRequested: EventDetailTab | null =
   tabParam && (VALID_TABS as readonly string[]).includes(tabParam)
@@ -124,8 +137,14 @@ const tabRequested: EventDetailTab | null =
 const now = Date.now();
 const startsAtMs = Date.parse(event.startsAt);
 const endsAtMs = Date.parse(event.endsAt);
+const startsAtValid = !Number.isNaN(startsAtMs);
+const endsAtValid = !Number.isNaN(endsAtMs);
 const defaultTab: EventDetailTab =
-  now >= endsAtMs ? 'finished' : now >= startsAtMs ? 'live' : 'upcoming';
+  startsAtValid && endsAtValid && now >= endsAtMs
+    ? 'finished'
+    : startsAtValid && now >= startsAtMs
+      ? 'live'
+      : 'upcoming';
 const activeTab: EventDetailTab = tabRequested ?? defaultTab;
 
 const eventBasePath = `/events/${event.id}`;
