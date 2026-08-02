@@ -17,16 +17,33 @@ import { describe, expect, it } from 'vitest';
 
 type EventDetailTab = 'upcoming' | 'live' | 'finished' | 'forum';
 
-// Mirrors [id].astro lines 106-110 exactly:
-//   const now = Date.now();
-//   const startsAtMs = Date.parse(event.startsAt);
-//   const endsAtMs = Date.parse(event.endsAt);
-//   const defaultTab: EventDetailTab =
-//     now >= endsAtMs ? 'finished' : now >= startsAtMs ? 'live' : 'upcoming';
+// Mirrors [id].astro's `defaultTab` derivation (defensive-fallback
+// contract — see ISS-EVT-LIFECYCLE-TAB-001). The inline Astro logic
+// guards `now >= endsAtMs` and `now >= startsAtMs` with
+// `Number.isNaN(...)` so an unparseable ISO string cannot accidentally
+// trigger a "finished" verdict purely because the OTHER date still
+// parses — Date.parse returns NaN for a bad string, and any comparison
+// with NaN is false, but the naive ternary's first branch would still
+// win whenever the unrelated date is past. Re-implemented here as a
+// pure function so Vitest can exercise it without going through the
+// .astro frontmatter.
+//
+// Contract:
+//   • both dates parseable: 'finished' if past endsAt, else 'live' if
+//     past startsAt, else 'upcoming'
+//   • only startsAt unparseable: ALWAYS 'upcoming' — an event with a
+//     broken startsAt cannot confidently be marked finished
+//   • only endsAt unparseable: 'live' if past startsAt, else 'upcoming'
+//     (`now >= NaN` is false so 'finished' is unreachable)
+//   • both unparseable: 'upcoming' (both NaN comparisons false)
 function deriveDefaultTab(now: number, startsAt: string, endsAt: string): EventDetailTab {
   const startsAtMs = Date.parse(startsAt);
   const endsAtMs = Date.parse(endsAt);
-  return now >= endsAtMs ? 'finished' : now >= startsAtMs ? 'live' : 'upcoming';
+  const startsAtValid = !Number.isNaN(startsAtMs);
+  const endsAtValid = !Number.isNaN(endsAtMs);
+  if (startsAtValid && endsAtValid && now >= endsAtMs) return 'finished';
+  if (startsAtValid && now >= startsAtMs) return 'live';
+  return 'upcoming';
 }
 
 const START = '2026-08-01T10:00:00.000Z';
