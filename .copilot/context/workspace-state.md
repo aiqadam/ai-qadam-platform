@@ -1,6 +1,47 @@
 # Workspace State
 
-**Last updated:** 2026-08-02 — `wf-20260802-fix-195`.
+**Last updated:** 2026-08-02 — `wf-20260802-fix-196`.
+**FR-CRM-002 superseded — Twenty CRM retired per ADR-0033, no code implemented.**
+[wf-20260802-fix-196](../tasks/completed/wf-20260802-fix-196/handoff.yaml)
+(PR [#241](https://github.com/aiqadam/ai-qadam-platform/pull/241), squash-merged
+SHA `208d13a`): GitHub issue #129 asked to implement FR-CRM-002 (sync members
+to Twenty CRM as Person records via a new `crm.controller.ts` + `crm-client.ts`
++ a re-created Directus flow). Investigation before any code was written found
+[ADR-0033](../adr/0033-community-member-graph.md) (Accepted 2026-05-20) had
+already formally retired Twenty CRM — "Twenty CRM is dropped... Member
+relationship management lives in the [Directus] graph" — and
+[FR-AUTH-006](../../docs/03-requirements/FR-AUTH-006.md) already documents the
+`directus_users` row created/patched during account upgrade as the modern
+replacement for CRM contact sync. The three Directus flows FR-CRM-002 called
+for (`crm-contact-sync`, `crm-activity-on-create`, `crm-activity-on-update`)
+were already built once and then explicitly deleted
+(`infrastructure/directus/flows-bootstrap.sh` `F-S3.0` block, per the same
+ADR). Building the issue as literally spec'd would have resurrected a
+dependency the project already killed for a documented architectural reason
+— surfaced to the user per AGENTS.md §13 before proceeding; user confirmed
+"close as superseded, no code" over the alternative of building against
+Twenty anyway or re-scoping toward the member graph. `FR-CRM-002.md` frontmatter
+`status` flipped `Planned` → `Superseded` with a `superseded_by: ADR-0033,
+FR-AUTH-006` field and a "Superseded" section explaining the disposition
+(original requirement text preserved below it for historical record);
+`requirements-registry.md`'s Status column flipped to `Superseded (ADR-0033)`.
+GitHub issue #129 closed with an explanatory comment (auto-closed by the PR's
+`Closes #129` commit keyword — safe here since `business_process` was empty,
+so no Step 13 post-merge UAT re-verification was pending). No code, tests, or
+migrations — this was a documentation-only correction, so the full
+CodeDeveloper/SecurityReviewer/TestRunner pipeline was not invoked; the
+Orchestrator ran Step 0/0.5 (with `--skip` on the drift check, since the only
+flagged drift was the pre-existing, unrelated open
+[ISS-WEB-WORKSPACE-500-001](../issues/ISS-WEB-WORKSPACE-500-001.md)), the doc
+edit, and Step 11/11.5 directly. **Known follow-up, not yet actioned:**
+`FR-CRM-001.md` (Twenty deployment) and `FR-CRM-003.md` (activity sync) still
+carry stale `Implemented`/`Planned` status uncorrected by ADR-0033, and
+`FR-PTN-002.md` depends on `FR-CRM-002` — flagged for a future workflow, out
+of scope for this one since the user only asked about issue #129.
+
+---
+
+**Prior last updated:** 2026-08-02 — `wf-20260802-fix-195`.
 **ISS-API-TELEGRAM-ROLE-001 resolved — `ci-cd` `build` job fully green on `main`.**
 [wf-20260802-fix-195](../tasks/completed/wf-20260802-fix-195-telegram-auth-test-role-field/handoff.yaml)
 (PR [#239](https://github.com/aiqadam/ai-qadam-platform/pull/239), squash-merged
