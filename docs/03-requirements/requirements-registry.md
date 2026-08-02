@@ -62,7 +62,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 18 | [FR-USR-005](FR-USR-005.md) | Referral programme | Shipped | USR-001 |
 | 19 | [FR-USR-006](FR-USR-006.md) | Access log | Shipped | USR-001 |
 | 20 | [FR-ADM-002](FR-ADM-002.md) | Member directory | Shipped | USR-001 |
-| 21 | [FR-CRM-002](FR-CRM-002.md) | Contact sync to Twenty | Planned | CRM-001, USR-001 |
+| 21 | [FR-CRM-002](FR-CRM-002.md) | Contact sync to Twenty | Superseded (ADR-0033) | CRM-001, USR-001 |
 | 22 | [FR-EVT-001](FR-EVT-001.md) | Event CRUD | Shipped | CMS-001 |
 | 23 | [FR-CMS-002](FR-CMS-002.md) | Landing pages | Shipped | CMS-001 |
 | 24 | [FR-CMS-003](FR-CMS-003.md) | Form builder | Shipped | CMS-001 |
