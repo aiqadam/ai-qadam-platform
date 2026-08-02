@@ -1,0 +1,65 @@
+schema_version: "1.0"
+workflow_instance_id: wf-20260802-fix-194
+workflow_type: issue-resolution
+workflow_version: "1.0"
+
+created_at: "2026-08-02T09:10:00Z"
+last_updated_at: "2026-08-02T09:10:00Z"
+
+requirement_ref: ISS-EVT-LIFECYCLE-TAB-001
+requirement_text: "event-lifecycle-tab.test.ts 'degrades to upcoming when only startsAt is unparseable' fails on main; the inline defaultTab derivation in apps/web-next/src/pages/events/[id].astro lines 105-110 returns 'finished' for that case, diverging from the unit test's defensive-fallback spec authored in wf-20260730-feat-155 (PR #150, FR-EVT-004)."
+github_issue_url: ""
+
+branch: "fix/ISS-EVT-LIFECYCLE-TAB-001-lifecycle-tab-unparseable-startsAt"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+
+retry_limits:
+  requirement-analyst: 2
+  impact-analyzer: 2
+  code-developer: 2
+  security-reviewer: 1
+  test-strategist: 1
+  test-designer: 2
+  test-runner: 3
+  doc-writer: 1
+  quality-gate: 1
+  pr-steward: 5
+
+step_outputs:
+  "01-issue-lookup.md": pending
+  "02-impact-analysis.md": pending
+  "03-code-summary.md": pending
+  "04-security-review.md": pending
+  "06-test-strategy.md": pending
+  "06-test-design.md": pending
+  "07-test-results.md": pending
+  "08-doc-update.md": pending
+  "09-quality-gate.md": pending
+
+artifacts: []
+
+gate_results:
+  step1-orchestrator: { status: pending }
+  step2-impact-analyzer: { status: pending }
+  step3-code-developer: { status: pending }
+  step4-security-reviewer: { status: pending }
+  step5-test-strategist: { status: pending }
+  step6-test-designer: { status: pending }
+  step7-test-runner: { status: pending }
+  step8-doc-writer: { status: pending }
+  step9-quality-gate: { status: pending }
+  step10-orchestrator-pr: { status: pending }
+  step11-orchestrator-merge: { status: pending }
+
+needs_review:
+  reason: ""
+
+subworkflow_history: []

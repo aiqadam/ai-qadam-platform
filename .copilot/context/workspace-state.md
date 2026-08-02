@@ -1,5 +1,42 @@
 # Workspace State
 
+**Last updated:** 2026-08-02 — `wf-20260802-fix-194`.
+**ISS-EVT-LIFECYCLE-TAB-001 resolved — `event-lifecycle-tab.test.ts` no longer fails on `main`.**
+[wf-20260802-fix-194](../tasks/completed/wf-20260802-fix-194-lifecycle-tab-unparseable-startsAt/handoff.yaml)
+(PR [#237](https://github.com/aiqadam/ai-qadam-platform/pull/237), merged
+SHA `b0c20c8`): `apps/web-next/src/pages/events/[id].astro`'s inline `defaultTab`
+derivation now guards against unparseable `startsAt`/`endsAt` ISO strings
+(`Number.isNaN()` on the parsed timestamps), matching the contract previously
+specified — but never actually implemented on the page side — by the unit
+test added in `wf-20260730-feat-155` (PR #150). The test's local
+`deriveDefaultTab()` mirror was updated to mirror the same guard logic
+(Vitest cannot import `.astro` frontmatter). 4-case defensive-fallback
+contract documented inline: both dates parseable (finished → live → upcoming
+clamped against now), only startsAt unparseable (forces upcoming, never
+short-circuit to finished), only endsAt unparseable (`now >= NaN` is false,
+so the finished branch becomes unreachable — falls through to live if past
+startsAt, otherwise upcoming), neither parseable (upcoming). 9/9 lifecycle-tab
+tests pass; full `apps/web-next` test suite (40 files / 1017 tests) passes;
+typecheck + build clean. CI override applied silently per AGENTS.md §6.3
+user opt-out — `ci-cd` was also red on `apps/api/test/telegram-auth-service.spec.ts`
+(lines 371/384/402), confirmed pre-existing on `origin/main` (`git diff
+origin/main HEAD -- apps/api/` returns empty), root-caused to FR-BOT-003
+(PR #220 / commit `639467b`) which added the `role` field to
+`TelegramAuthService.lookupUser()`'s response without updating assertions.
+Separated into [ISS-API-TELEGRAM-ROLE-001](../issues/ISS-API-TELEGRAM-ROLE-001.md)
++ queued workflow `wf-20260802-fix-195-telegram-auth-test-role-field`
+(see [`.copilot/tasks/queued/`](../tasks/queued/wf-20260802-fix-195-telegram-auth-test-role-field/handoff.yaml))
+to address the unrelated pre-existing failure — current issue's AC-4
+(`ci-cd` build green) **deferred** to that workflow's verification.
+
+GitHub issue: not yet created (will be created when
+`wf-20260802-fix-195` runs its `scripts/check-github-issue-links.sh`
+pre-flight, since the user opted out of stopping for that ceremony).
+
+**Prior last updated:** 2026-08-02 — `wf-20260802-feat-192-auth-003-social-oauth`.
+
+---
+
 **Last updated:** 2026-08-02 — `wf-20260802-feat-192-auth-003-social-oauth`.
 **FR-AUTH-003 implemented — Google + GitHub OAuth sign-in via Authentik Sources.**
 [wf-20260802-feat-192-auth-003-social-oauth](../tasks/completed/wf-20260802-feat-192-auth-003-social-oauth/handoff.yaml)
