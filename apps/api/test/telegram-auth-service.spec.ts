@@ -368,7 +368,7 @@ describe('TelegramAuthService.lookupUser', () => {
 
     const result = await service.lookupUser('111111111');
 
-    expect(result).toEqual({ directusUserId: 'dir-user-11', isTemp: false, country: 'kz' });
+    expect(result).toEqual({ directusUserId: 'dir-user-11', isTemp: false, country: 'kz', role: null });
     expect(mockAuthentik.getUserByTelegramId).toHaveBeenCalledWith('111111111');
   });
 
@@ -381,7 +381,7 @@ describe('TelegramAuthService.lookupUser', () => {
 
     const result = await service.lookupUser('222222222');
 
-    expect(result).toEqual({ directusUserId: null, isTemp: true, country: null });
+    expect(result).toEqual({ directusUserId: null, isTemp: true, country: null, role: null });
   });
 
   // ── AC-2 (edge case): temp user WITH a matching Directus row ────────────
@@ -399,7 +399,7 @@ describe('TelegramAuthService.lookupUser', () => {
 
     const result = await service.lookupUser('333333333');
 
-    expect(result).toEqual({ directusUserId: 'dir-user-33', isTemp: true, country: 'tj' });
+    expect(result).toEqual({ directusUserId: 'dir-user-33', isTemp: true, country: 'tj', role: null });
   });
 
   // ── AC-3: no Authentik user at all ───────────────────────────────────────

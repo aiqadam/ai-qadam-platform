@@ -1,0 +1,65 @@
+workflow:
+  workflow_instance_id: wf-20260802-fix-195
+  workflow_type: issue-resolution
+  workflow_status: active
+  parent_issue: ISS-API-TELEGRAM-ROLE-001
+  parent_workflow_id: wf-20260802-fix-194
+  queued_at: 2026-08-02T04:34:00Z
+  queued_by: Orchestrator (wf-20260802-fix-194 post-merge)
+  started_at: 2026-08-02T04:50:00Z
+  branch: fix/ISS-API-TELEGRAM-ROLE-001-telegram-auth-test-role-field
+
+scope:
+  description: |
+    Fix the 3 pre-existing `toEqual()` assertion failures in
+    `apps/api/test/telegram-auth-service.spec.ts` (lines 371, 384, 402)
+    that were broken by FR-BOT-003 (PR #220, commit `639467b`) when it
+    added the `role` field to `TelegramAuthService.lookupUser()`'s
+    response. Verify the full apps/api test suite passes; verify the
+    ci-cd build is green.
+  files_to_modify:
+    - apps/api/test/telegram-auth-service.spec.ts
+
+retry_limits:
+  code-developer: 2
+  test-runner: 2
+  pr-steward:
+    override-max-consecutive: 5
+    introduced-failure-fix-attempts: 2
+
+dependencies:
+  blocked_by: []  # this wf is independent of wf-194's merge — already merged
+  blocks: []       # does not block any other queued workflow
+  requires_branch_from: origin/main
+
+resolution:
+  root_cause: |
+    FR-BOT-003 (PR #220, commit 639467b) added a fourth field, `role`
+    (derived via deriveRoleFromGroups(authentikUser.groups_obj)), to
+    TelegramAuthService.lookupUser()'s LookupUserResult return shape,
+    but the 3 pre-existing lookupUser tests' `toEqual()` assertions
+    (AC-1/AC-2/AC-2-edge-case at lines 371/384/402) were never updated
+    to include it. `toEqual` requires an exact key-set match, so all
+    three started failing the moment PR #220 merged to main — this was
+    masked in CI for several merges because the web-next
+    event-lifecycle-tab failure (ISS-EVT-LIFECYCLE-TAB-001) was failing
+    first/independently in the same `ci-cd` `build` job's `Test` step,
+    and both failures were being reported together without being
+    individually triaged until wf-194 root-caused and split them.
+  fix: |
+    Added `role: null` to all 3 `toEqual()` expectations. All three
+    fixtures use the default `fakeUser(...)` groups_obj: [] (no
+    overrides.attributes touch groups), so `deriveRoleFromGroups`
+    deterministically returns null for every case under test — no
+    other assertion changes needed.
+  verification: |
+    apps/api full suite: 1546/1546 tests pass (was 1543/1546 before
+    fix, 3 failures at lines 371/384/402). Re-ran
+    test/telegram-auth-service.spec.ts in isolation: 24/24 pass.
+    Note: apps/api/test/users.spec.ts has one separate, unrelated
+    flaky failure locally (timestamp-ordering assertion) traced to
+    Docker Desktop/WSL2 VM clock drift on this dev machine (confirmed
+    via `docker run --rm alpine date` sampled 3x showing non-monotonic
+    jumps vs host clock) — never seen in actual GitHub Actions CI logs
+    across all recent runs checked, not touched by this fix, not
+    in files_to_modify.
