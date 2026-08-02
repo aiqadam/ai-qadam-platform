@@ -1066,8 +1066,7 @@ export class TelegramAuthService {
       const regRes = await this.directus.get<{
         data: Array<{ user: { first_name: string | null; last_name: string | null } }>;
       }>(
-        `/items/registrations?filter[checkin_code][_eq]=${encodedToken}` +
-          `&fields=user.first_name,user.last_name&limit=1`,
+        `/items/registrations?filter[checkin_code][_eq]=${encodedToken}&fields=user.first_name,user.last_name&limit=1`,
       );
       const u = regRes.data[0]?.user;
       memberName = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
@@ -1140,10 +1139,7 @@ export class TelegramAuthService {
     const regRes = await this.directus.get<{
       data: Array<{ user: { id: string; telegram_user_id: string | number | null } | null }>;
     }>(
-      `/items/registrations?filter[event][_eq]=${encodedId}` +
-        `&filter[event][country][_eq]=${encodedCountry}` +
-        `&filter[status][_in]=registered,attended` +
-        `&fields=user.id,user.telegram_user_id&limit=200`,
+      `/items/registrations?filter[event][_eq]=${encodedId}&filter[event][country][_eq]=${encodedCountry}&filter[status][_in]=registered,attended&fields=user.id,user.telegram_user_id&limit=200`,
     );
 
     const tgApiBase = `https://api.telegram.org/bot${token}`;
