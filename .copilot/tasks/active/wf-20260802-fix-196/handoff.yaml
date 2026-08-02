@@ -20,7 +20,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/129"
 
 branch: "fix/ISS-CRM-002-supersede-twenty-129"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/241"
 
 current_step: 9
 current_step_name: "doc-update-and-close"
