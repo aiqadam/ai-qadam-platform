@@ -1,7 +1,7 @@
 ---
 code: FR-AUTH-003
 name: Google and GitHub OAuth
-status: Planned
+status: Implemented
 module: Auth (AUTH)
 phase: Roadmap Sprint 7
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/128
@@ -35,3 +35,10 @@ Members.
 
 - Implementation is primarily Authentik configuration, not code. Estimated ~3 PRs of mostly config (see `sprint-5-to-8-plan.md` Sprint 7).
 - Telegram widget button on sign-in page is added in FR-AUTH-002; all four options should coexist.
+
+## Implementation notes
+
+- **API — login:** `GET /v1/auth/login` now accepts `?provider=google|github`; the value is passed as `source=<slug>` to Authentik's authorization URL to route through the matching OAuth Source. Invalid provider values throw `400 BadRequestException`.
+- **API — callback:** `GET /v1/auth/callback` detects `?error=access_denied` before delegating to `openid-client` and returns `302` to `/auth/sign-in?error=oauth_denied` (redirect destination is built from `env.WEB_BASE_URL` — no user input reaches it).
+- **Web:** `/auth/sign-in` (`apps/web-next`) shows "Continue with Google" and "Continue with GitHub" buttons alongside the existing email and Telegram options. An error banner is shown when `?error=oauth_denied` is present in the query string.
+- **Provisioning:** `scripts/provision-authentik-oauth-sources.sh` creates the Google and GitHub OAuth Sources in Authentik idempotently; credentials are read from env vars (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`) and never written to any tracked file.
