@@ -120,6 +120,7 @@ implementing, not a guess.
 - **Honesty disclosure 4 (named follow-up):** the real fix is a different shape. Two candidate paths are documented in
   `docs/04-development/architecture/auth-architecture.md` §9.5
   and `docs/03-requirements/FR-ADM-010.md` Notes — (a) trigger the `default-password-change` recovery flow's email magic-link on bootstrap so the admin must complete the password-change flow before they can sign in normally; (b) upgrade Authentik to a build that supports `ForcePasswordChange` on the user body (the field name is introduced in a 2025.x release — 2024.12.3 doesn't have it). Queue ID `wf-20260801-fix-191-authentik-forced-pwd-change-real-fix` will be opened when this workflow closes.
+- **Honesty disclosure 5 (Step 13 re-verification, 2026-08-02, wf-20260801-fix-191):** The ExpressionPolicy approach (PR #231, squash `11a21f4`) was confirmed live via the Authentik flow executor API. After submitting the seeded admin credentials to `POST /api/v3/flows/executor/default-authentication-flow/`, the response was `{"component": "ak-stage-prompt", "fields": [{"field_key": "password", ...}, {"field_key": "password_repeat", ...}]}` — the forced password-change prompt is now shown. This is `verdict: MATCH` for AC-3. The `BP-UAT-020.md` AC-3 checkbox has been ticked. **ISS-ADM-010-1 is resolved.** GitHub issue #164 was closed by the squash commit's `closes #164` trailer.
 
 (Originally discovered live during `wf-20260729-fix-153`'s verification
 of `ISS-UAT-020-1`'s fixture-isolation mechanism; that issue's own
