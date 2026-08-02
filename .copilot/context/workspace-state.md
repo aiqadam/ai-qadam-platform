@@ -1,5 +1,22 @@
 # Workspace State
 
+**Last updated:** 2026-08-02 — `wf-20260802-feat-192-auth-003-social-oauth`.
+**FR-AUTH-003 implemented — Google + GitHub OAuth sign-in via Authentik Sources.**
+[wf-20260802-feat-192-auth-003-social-oauth](../tasks/completed/wf-20260802-feat-192-auth-003-social-oauth/handoff.yaml)
+(PR [#234](https://github.com/aiqadam/ai-qadam-platform/pull/234), merged
+SHA `26ed482`): `GET /v1/auth/login` now accepts `?provider=google|github`
+(VALID_PROVIDERS allowlist + validateProvider() guard); `auth.service.ts`
+`startAuthorization()` passes `source=<slug>` to Authentik's OIDC authorize URL
+to pre-select the OAuth source; `GET /v1/auth/callback` early-exits with 302 to
+`/auth/sign-in?error=oauth_denied` for `?error=access_denied` before openid-client
+throws OPError; `apps/web-next/src/pages/auth/sign-in.astro` gains "Continue with
+Google" and "Continue with GitHub" buttons plus an oauth_denied error banner;
+`scripts/provision-authentik-oauth-sources.sh` (new) provisions both sources in
+Authentik idempotently. 17/17 unit tests pass. AC-3 (email dedup) and E2E UAT
+queued as wf-20260802-uat-193-auth-003-social-oauth. GitHub issue #128 closed.
+
+---
+
 **Last updated:** 2026-08-01 — `wf-20260801-fix-189`.
 **ISS-RBAC-ONBOARDED-AT-001 resolved — `directus_users.onboarded_at` field now exists.**
 [wf-20260801-fix-189](../tasks/completed/wf-20260801-fix-189-onboarded-at-field/handoff.yaml)
