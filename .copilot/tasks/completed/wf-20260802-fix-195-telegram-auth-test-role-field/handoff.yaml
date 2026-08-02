@@ -1,13 +1,15 @@
 workflow:
   workflow_instance_id: wf-20260802-fix-195
   workflow_type: issue-resolution
-  workflow_status: active
+  workflow_status: completed
   parent_issue: ISS-API-TELEGRAM-ROLE-001
   parent_workflow_id: wf-20260802-fix-194
   queued_at: 2026-08-02T04:34:00Z
   queued_by: Orchestrator (wf-20260802-fix-194 post-merge)
   started_at: 2026-08-02T04:50:00Z
+  completed_at: 2026-08-02T05:09:00Z
   branch: fix/ISS-API-TELEGRAM-ROLE-001-telegram-auth-test-role-field
+  pr: https://github.com/aiqadam/ai-qadam-platform/pull/239 (squash-merged 67b844f)
 
 scope:
   description: |

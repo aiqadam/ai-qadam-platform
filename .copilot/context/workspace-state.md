@@ -1,6 +1,27 @@
 # Workspace State
 
-**Last updated:** 2026-08-02 — `wf-20260802-fix-194`.
+**Last updated:** 2026-08-02 — `wf-20260802-fix-195`.
+**ISS-API-TELEGRAM-ROLE-001 resolved — `ci-cd` `build` job fully green on `main`.**
+[wf-20260802-fix-195](../tasks/completed/wf-20260802-fix-195-telegram-auth-test-role-field/handoff.yaml)
+(PR [#239](https://github.com/aiqadam/ai-qadam-platform/pull/239), squash-merged
+SHA `67b844f`): `apps/api/test/telegram-auth-service.spec.ts`'s 3 pre-existing
+`toEqual()` assertions (lines 371/384/402) updated to include `role: null`,
+matching the response shape FR-BOT-003 (PR #220) added to
+`TelegramAuthService.lookupUser()`. All 3 fixtures use `fakeUser(...)`'s
+default `groups_obj: []`, so `deriveRoleFromGroups` deterministically returns
+`null` — no production code touched. `apps/api` full suite verified
+1546/1546 pass locally before push; `ci-cd` confirmed green on the PR (`ci`,
+`build` ×2, `architecture-check`, `storybook`, `gitleaks`, `pnpm audit`,
+`utm-lint`, `voice-lint`) and reconfirmed on `main` post-merge (`build` job
+5m9s, all steps pass). This closes out the AC-4 deferral from
+`wf-20260802-fix-194`/ISS-EVT-LIFECYCLE-TAB-001 — `ci-cd` on `main` is fully
+green again with no known outstanding failures other than the pre-existing,
+already-tracked-elsewhere [ISS-USR-CLOCK-001](../issues/ISS-USR-CLOCK-001.md)
+(local-dev-only Docker clock-drift flake in `users.spec.ts`, never observed
+in actual GitHub Actions runs, queued separately under
+`wf-20260704-fix-096-pre-existing-api-test-flakes`).
+
+**Prior last updated:** 2026-08-02 — `wf-20260802-fix-194`.
 **ISS-EVT-LIFECYCLE-TAB-001 resolved — `event-lifecycle-tab.test.ts` no longer fails on `main`.**
 [wf-20260802-fix-194](../tasks/completed/wf-20260802-fix-194-lifecycle-tab-unparseable-startsAt/handoff.yaml)
 (PR [#237](https://github.com/aiqadam/ai-qadam-platform/pull/237), merged
@@ -25,13 +46,11 @@ origin/main HEAD -- apps/api/` returns empty), root-caused to FR-BOT-003
 `TelegramAuthService.lookupUser()`'s response without updating assertions.
 Separated into [ISS-API-TELEGRAM-ROLE-001](../issues/ISS-API-TELEGRAM-ROLE-001.md)
 + queued workflow `wf-20260802-fix-195-telegram-auth-test-role-field`
-(see [`.copilot/tasks/queued/`](../tasks/queued/wf-20260802-fix-195-telegram-auth-test-role-field/handoff.yaml))
+(completed — see [`.copilot/tasks/completed/`](../tasks/completed/wf-20260802-fix-195-telegram-auth-test-role-field/handoff.yaml)
+and the "Last updated" entry above)
 to address the unrelated pre-existing failure — current issue's AC-4
-(`ci-cd` build green) **deferred** to that workflow's verification.
-
-GitHub issue: not yet created (will be created when
-`wf-20260802-fix-195` runs its `scripts/check-github-issue-links.sh`
-pre-flight, since the user opted out of stopping for that ceremony).
+(`ci-cd` build green) was **deferred** to that workflow's verification,
+which has since completed.
 
 **Prior last updated:** 2026-08-02 — `wf-20260802-feat-192-auth-003-social-oauth`.
 

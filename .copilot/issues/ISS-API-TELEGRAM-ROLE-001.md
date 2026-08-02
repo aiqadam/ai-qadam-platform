@@ -5,10 +5,10 @@
 | ID | ISS-API-TELEGRAM-ROLE-001 |
 | Severity | bug |
 | Module | api/auth (Telegram auth) |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-08-02 |
-| Resolved | — |
-| Workflow | wf-20260802-fix-195 (queued) |
+| Resolved | 2026-08-02 |
+| Workflow | wf-20260802-fix-195 ([PR #239](https://github.com/aiqadam/ai-qadam-platform/pull/239) squash `67b844f`) |
 | Reporter | Orchestrator (discovered via PR #237 `ci-cd` build log on top of `origin/main`) |
 | Related | FR-BOT-003, ISS-EVT-LIFECYCLE-TAB-001, WF-EVT-LIFECYCLE-TAB-001 |
 | Business-Process | — |
@@ -80,16 +80,16 @@ test-shape pattern in the repo (cf. ISS-USR-CLOCK-001, the
 
 ## Acceptance criteria
 
-- [ ] AC-1: `apps/api/test/telegram-auth-service.spec.ts` lines 371,
+- [x] AC-1: `apps/api/test/telegram-auth-service.spec.ts` lines 371,
       384, 402 are updated so the `.toEqual()` expectations match the
       real `lookupUser()` response shape including `role`.
-- [ ] AC-2: All `apps/api` tests pass:
+- [x] AC-2: All `apps/api` tests pass:
       `pnpm --filter @aiqadam/api test` exits 0; no other regressions
       surface across the API suite (1546 tests expected).
-- [ ] AC-3: Full repo test suite still passes:
+- [x] AC-3: Full repo test suite still passes:
       `pnpm test` exits 0 with no other regressions across all
       workspaces.
-- [ ] AC-4: `ci-cd` `build` job on the resulting PR exits with all
+- [x] AC-4: `ci-cd` `build` job on the resulting PR exits with all
       steps green.
 
 ## Honesty disclosure
@@ -102,4 +102,30 @@ for handling that within `wf-20260802-fix-195` itself — not here.
 
 ## Resolution
 
-(filled at workflow close)
+Added `role: null` to the 3 `toEqual()` expectations at lines 371,
+384, 402. All three fixtures use `fakeUser(...)`'s default
+`groups_obj: []` (no test overrides touch groups), so
+`deriveRoleFromGroups` deterministically returns `null` in every
+case under test — no production code changes, no other assertion
+changes needed.
+
+Verified locally before push: `apps/api` full suite 1546/1546 pass
+(was 1543/1546 — the 3 failures at lines 371/384/402);
+`test/telegram-auth-service.spec.ts` in isolation 24/24 pass.
+Merged via [PR #239](https://github.com/aiqadam/ai-qadam-platform/pull/239)
+(squash `67b844f`) with `ci-cd` fully green (`ci`, `build` ×2,
+`architecture-check`, `storybook`, `gitleaks`, `pnpm audit`,
+`utm-lint`, `voice-lint` all pass) — AC-4 verified directly, not
+deferred.
+
+### Honesty disclosure
+
+While investigating, also encountered a separate, unrelated flaky
+failure in `apps/api/test/users.spec.ts` locally (a `lastLoginAt`
+timestamp-ordering assertion). Confirmed this is the pre-existing,
+already-tracked [ISS-USR-CLOCK-001](ISS-USR-CLOCK-001.md) (closed as
+duplicate of the queued `wf-20260704-fix-096-pre-existing-api-test-flakes`
+item) — not touched here, out of this issue's scope, and not present
+in any actual GitHub Actions `ci-cd` run checked (Docker
+Desktop/WSL2 VM clock drift is a local-dev-machine-only artifact per
+that issue's own root cause).
