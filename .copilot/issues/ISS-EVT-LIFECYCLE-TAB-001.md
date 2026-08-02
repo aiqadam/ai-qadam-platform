@@ -1,18 +1,19 @@
-# ISS-EVT-LIFECYCLE-TAB-001 — `event-lifecycle-tab.test.ts` failing on main: deriveDefaultTab() returns 'finished' when only startsAt is unparseable, test expects 'upcoming'
+# ISS-EVT-LIFECYCLE-TAB-001 — `event-lifecycle-tab.test.ts` failing on main: deriveDefaultTab() returns 'finished' when only startsAt is unparseable, test expects 'upcoming' [RESOLVED] — merged via admin squash-merge per AGENTS.md §6.3, PR #237 squash `b0c20c8` (2026-08-02).
 
 | Field | Value |
 |---|---|
 | ID | ISS-EVT-LIFECYCLE-TAB-001 |
 | Severity | bug |
 | Module | web-next/events |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-08-02 |
-| Resolved | — |
+| Resolved | 2026-08-02 |
 | Workflow | wf-20260802-fix-194 |
 | Reporter | Orchestrator (post-merge CI failure on `main` after PR #236) |
 | Related | FR-EVT-004, ISS-EVT-004-1, BP-UAT-010 |
 | Business-Process | — |
 | GitHub-Issue | (to be created) |
+| PR | [#237](https://github.com/aiqadam/ai-qadam-platform/pull/237) (squash `b0c20c8`) |
 
 ## Symptom
 
@@ -78,19 +79,43 @@ already.
 
 ## Acceptance criteria
 
-- [ ] AC-1: `apps/web-next/src/pages/events/[id].astro`'s inline
+- [x] AC-1: `apps/web-next/src/pages/events/[id].astro`'s inline
       `defaultTab` derivation is updated so that, when `startsAt` is
       unparseable, the result is `'upcoming'` (not `'finished'`).
-- [ ] AC-2: All 9 tests in `event-lifecycle-tab.test.ts` pass
+- [x] AC-2: All 9 tests in `event-lifecycle-tab.test.ts` pass
       locally: `pnpm --filter @aiqadam/web-next test
       src/lib/event-lifecycle-tab.test.ts` exits 0.
-- [ ] AC-3: Full `apps/web-next` test suite still passes:
+- [x] AC-3: Full `apps/web-next` test suite still passes:
       `pnpm --filter @aiqadam/web-next test` exits 0 with no other
       regressions.
 - [ ] AC-4: `ci-cd` `build` job on the resulting PR exits with all
       steps green (Lint, Typecheck, Build, Test, both Docker image
-      builds).
+      builds). **Deferred** — see Honesty Disclosure.
 
 ## Resolution
 
-(filled at workflow close)
+Merged via admin squash-merge (per AGENTS.md §6.3 user opt-out) at
+2026-08-02T04:33:56Z, squash SHA `b0c20c8`. AC-1/AC-2/AC-3 verified
+locally before push. AC-4 the ci-cd job's `Test` step is also failing
+on `apps/api/test/telegram-auth-service.spec.ts` (lines 371, 384, 402)
+— these are pre-existing failures on `origin/main`, caused by FR-BOT-003
+(PR #220, commit `639467b`) which added `role: null` to the
+`lookupUser()` response without updating 3 test cases' `toEqual()`
+expectations. My PR has zero diff on `apps/api/`
+(`git diff origin/main HEAD -- apps/api/` returns empty), so this
+failure is not introduced by this fix.
+
+### Honesty disclosure
+
+- AC-4 of this issue is **deferred** to the follow-up workflow
+  `wf-20260802-fix-195-telegram-auth-test-role-field`. That workflow:
+  - patches the 3 `toEqual()` assertions in
+    `apps/api/test/telegram-auth-service.spec.ts` (lines 371, 384,
+    402) to include `role: null` (or whichever the actual returned
+    value is — see wf-20260802-fix-195 code summary)
+  - verifies the full apps/api test suite passes
+  - leaves this issue `Status: resolved` for the ACs verified here
+    (AC-1/2/3), not for AC-4 — AC-4's "fully green ci-cd on PR"
+    requirement will be met by the follow-up PR's own green merge.
+- The current workflow is NOT marking AC-4 `verified` based on
+  deferred verification alone.
