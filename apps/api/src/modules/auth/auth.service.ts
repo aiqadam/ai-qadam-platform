@@ -60,7 +60,7 @@ export class AuthService {
   // Step 1: build the Authentik authorize URL + signed flow cookie. The
   // `next` parameter is carried in the cookie (NOT the OAuth state) so
   // Authentik never sees app-internal paths.
-  async startAuthorization(input: { next: string }): Promise<AuthorizationStart> {
+  async startAuthorization(input: { next: string; provider?: 'google' | 'github' }): Promise<AuthorizationStart> {
     const state = generators.state();
     const codeVerifier = generators.codeVerifier();
     const codeChallenge = generators.codeChallenge(codeVerifier);
@@ -90,6 +90,7 @@ export class AuthService {
       // Silent SSO is now the correct behavior: valid Authentik
       // session → consent (skipped via implicit-consent) → callback →
       // workspace. Sign-out remains explicit via POST /v1/auth/sign-out.
+      ...(input.provider !== undefined ? { source: input.provider } : {}),
     });
 
     const flowToken = await new SignJWT({

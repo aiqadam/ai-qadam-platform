@@ -1,0 +1,26 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260802-feat-192-auth-003-social-oauth"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-02T00:00:00Z"
+last_updated_at: "2026-08-02T00:00:00Z"
+
+requirement_ref: "FR-AUTH-003"
+requirement_text: >
+  Google and GitHub OAuth sign-in. Members can sign in or register using their
+  Google or GitHub account via Authentik Sources. The web sign-in page shows
+  three sign-in options: email/password, Google, and GitHub.
+  GitHub issue: https://github.com/aiqadam/ai-qadam-platform/issues/128
+
+branch: "feature/AUTH-003-social-oauth"
+github_issue: 128
+
+workflow_status: "in-progress"
+
+steps_completed: []
+
+gate_results: {}
+
+retry_counts: {}

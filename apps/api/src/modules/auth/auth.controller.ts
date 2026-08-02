@@ -104,6 +104,9 @@ const registerSchema = z.object({
   company: z.string().optional(), // must be empty — anti-spam, mirrors leads.controller.ts
 });
 
+const VALID_PROVIDERS = ['google', 'github'] as const;
+type OAuthProvider = (typeof VALID_PROVIDERS)[number];
+
 // COOKIES — see docs/04-development/architecture/auth-architecture.md §"Cookies"
 //
 // REFRESH_COOKIE — opaque refresh token. Domain=.aiqadam.org so a sign-in
@@ -181,10 +184,15 @@ export class AuthController {
   @Get('login')
   async login(
     @Query('next') nextRaw: string | undefined,
+    @Query('provider') providerRaw: string | undefined,
     @Res({ passthrough: false }) res: Response,
   ): Promise<void> {
     const next = sanitiseNext(nextRaw);
-    const { authorizeUrl, flowToken, flowExpiresIn } = await this.auth.startAuthorization({ next });
+    const provider = validateProvider(providerRaw);
+    const { authorizeUrl, flowToken, flowExpiresIn } = await this.auth.startAuthorization({
+      next,
+      ...(provider !== undefined ? { provider } : {}),
+    });
     res.cookie(FLOW_COOKIE, flowToken, {
       ...COOKIE_BASE,
       maxAge: flowExpiresIn * 1000,
@@ -201,6 +209,12 @@ export class AuthController {
     const flowToken =
       (req.cookies?.[FLOW_COOKIE] as string | undefined) ??
       (req.cookies?.[LEGACY_FLOW_COOKIE] as string | undefined);
+    // OAuth denial: Authentik sets ?error=access_denied when user declines consent.
+    // Check BEFORE completeAuthorization — openid-client throws OPError for ?error= params.
+    if (req.query.error === 'access_denied') {
+      res.redirect(`${env.WEB_BASE_URL}/auth/sign-in?error=oauth_denied`);
+      return;
+    }
     let sub: string;
     let email: string;
     let displayName: string | undefined;
@@ -609,6 +623,13 @@ function sanitiseNext(raw: string | undefined): string {
   if (!raw.startsWith('/')) return '/';
   if (raw.startsWith('//')) return '/';
   return raw;
+}
+
+function validateProvider(raw: string | undefined): OAuthProvider | undefined {
+  if (raw === undefined) return undefined;
+  const match = VALID_PROVIDERS.find((p) => p === raw);
+  if (!match) throw new BadRequestException('invalid provider');
+  return match;
 }
 
 function clearRefreshCookies(res: Response): void {

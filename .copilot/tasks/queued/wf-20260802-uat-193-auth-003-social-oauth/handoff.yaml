@@ -1,0 +1,53 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260802-uat-193-auth-003-social-oauth"
+workflow_type: "uat-verification"
+workflow_version: "1.0"
+
+created_at: "2026-08-02T00:00:00Z"
+last_updated_at: "2026-08-02T00:00:00Z"
+
+parent_workflow: "wf-20260802-feat-192-auth-003-social-oauth"
+requirement_ref: "FR-AUTH-003"
+github_issue: 128
+
+workflow_status: "queued"
+
+description: >
+  Live UAT verification for FR-AUTH-003 Google + GitHub OAuth sign-in.
+  Requires: Authentik configured with Google and GitHub OAuth Sources
+  (run scripts/provision-authentik-oauth-sources.sh), and real OAuth
+  app credentials from Google Cloud Console and GitHub Developer Settings.
+
+acceptance_criteria_to_verify:
+  - id: AC-1
+    description: "Clicking Continue with Google → Google OAuth consent → /me with valid session"
+    requires: "Authentik Google Source configured with real client_id + client_secret"
+  - id: AC-2
+    description: "Clicking Continue with GitHub → GitHub OAuth consent → /me with valid session"
+    requires: "Authentik GitHub Source configured with real client_id + client_secret"
+  - id: AC-3
+    description: "Email+password user signs in via Google (same email) → same account, no duplicate"
+    requires: "Existing member account + matching Google account"
+  - id: AC-4
+    description: "All three options visible at 375px mobile viewport without overflow"
+    requires: "apps/e2e smoke-auth-social-buttons.spec.ts running against deployed web-next"
+  - id: AC-5
+    description: "Denying consent → /auth/sign-in?error=oauth_denied with 'Sign-in was cancelled' message"
+    requires: "Real OAuth flow where user can deny consent"
+  - id: AC-7
+    description: "Existing 'Sign in with email' + 'Continue with password' still present"
+    requires: "apps/e2e smoke-auth-social-buttons.spec.ts"
+  - id: AC-8
+    description: "Layout accepts a fourth button without redesign"
+    requires: "Manual or Playwright visual check"
+
+pre_flight_steps:
+  - "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET env vars set (obtain from Google Cloud Console)"
+  - "GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET env vars set (obtain from GitHub Developer Settings)"
+  - "Run: bash scripts/provision-authentik-oauth-sources.sh"
+  - "Verify: GET http://localhost:9000/api/v3/sources/oauth/google/ → 200"
+  - "Verify: GET http://localhost:9000/api/v3/sources/oauth/github/ → 200"
+  - "In Authentik admin: bind both sources to the default authentication flow"
+  - "Start apps/web-next dev server or use deployed instance"
+  - "Run: pnpm --filter @aiqadam/e2e test -- --project=chromium tests/smoke-auth-social-buttons.spec.ts"
