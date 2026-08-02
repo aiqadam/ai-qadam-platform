@@ -1,11 +1,36 @@
 ---
 code: FR-CRM-002
 name: Contact sync — members to CRM
-status: Planned
+status: Superseded
 module: CRM (CRM)
 phase: Roadmap Sprint 5
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/129
+superseded_by: ADR-0033, FR-AUTH-006
 ---
+
+## Superseded (2026-08-02)
+
+**Do not implement this requirement as written.** [ADR-0033](../adr/0033-community-member-graph.md)
+(Accepted, 2026-05-20) formally retired Twenty CRM: *"Twenty CRM is
+dropped. Coolify service deletion + Twenty workstream (Sprint C5 area)
+closed. Member relationship management lives in the [Directus] graph."*
+The three Directus sync flows this requirement calls for
+(`crm-contact-sync`, `crm-activity-on-create`, `crm-activity-on-update`)
+were already built once and then explicitly deleted —
+see the `[F-S3.0 — retire Twenty-sync flows (ADR-0033)]` block in
+`infrastructure/directus/flows-bootstrap.sh`.
+
+[FR-AUTH-006](FR-AUTH-006.md) §Functional scope already documents the
+replacement design directly: the `directus_users` row created/patched
+during account upgrade *is* the modern equivalent of "sync the contact to
+the CRM" — there is no separate sync step, and no `TWENTY_API_TOKEN`.
+
+This requirement is closed without implementation. If a genuine gap
+remains (e.g. operator visibility into new signups before any upgrade
+event), it should be re-scoped as a new requirement against the Directus
+member graph model from ADR-0033, not built against Twenty.
+
+Original requirement text is preserved below for historical record.
 
 ## Description
 
