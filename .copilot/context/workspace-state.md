@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-fix-199`.
+**Last updated:** 2026-08-03 — `wf-20260803-feat-200`.
+**FR-CRM-003 (Activity sync to Twenty CRM) superseded — ADR-0033 retired Twenty CRM; requirement closed without implementation following FR-CRM-002 precedent.**
+[wf-20260803-feat-200](../tasks/completed/wf-20260803-feat-200/handoff.yaml)
+(PR [#250](https://github.com/aiqadam/ai-qadam-platform/pull/250), squash-merged 95f0bfd, GitHub issue [#132](https://github.com/aiqadam/ai-qadam-platform/issues/132) closed):
+FR-CRM-003 marked `status: Superseded` per ADR-0033 (Accepted 2026-05-20), which architecturally retired Twenty CRM and mandated Directus-native member relationship management. Five dependent requirements (FR-REG-001/002/003/004/005) updated to remove Twenty CRM activity sync steps. This follows the same precedent as FR-CRM-002 (Contact sync), which was superseded for the same architectural reason. Documentation-only change, no code implementation.
+
+
 **FR-NTF-003 (24-hour event reminder) closed — implementation already shipped in PR #407 (GitHub issue #358); FR status updated Planned → Implemented; GitHub issue #131 closed.**
 [wf-20260803-fix-199](../tasks/active/wf-20260803-fix-199/handoff.yaml)
 (GitHub issue [#131](https://github.com/aiqadam/ai-qadam-platform/issues/131)):
