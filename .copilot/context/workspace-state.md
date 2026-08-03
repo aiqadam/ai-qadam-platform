@@ -1,6 +1,17 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-feat-198`.
+**Last updated:** 2026-08-03 — `wf-20260803-fix-199`.
+**FR-NTF-003 (24-hour event reminder) closed — implementation already shipped in PR #407 (GitHub issue #358); FR status updated Planned → Implemented; GitHub issue #131 closed.**
+[wf-20260803-fix-199](../tasks/active/wf-20260803-fix-199/handoff.yaml)
+(GitHub issue [#131](https://github.com/aiqadam/ai-qadam-platform/issues/131)):
+`EventRemindersService` with `reminder_day_before` (20–28h window), idempotent
+`event_announcements` dedup, and status filter excluding waitlisted/cancelled members
+satisfies all 5 ACs of FR-NTF-003. FR-NTF-003.md updated Planned → Implemented;
+ISS-NTF-003-VERIFY-001 filed and resolved; ISS-PUB-POLICY-UUID-PIN-001 drift fixed
+(GitHub issue #247 created).
+
+
+
 **FR-AUTH-005 implemented — Telegram account linking ships bot `/link` command, web `/me` Telegram status island, and API 409 re-link guard.**
 [wf-20260803-feat-198](../tasks/completed/wf-20260803-feat-198/handoff.yaml)
 (PR [#245](https://github.com/aiqadam/ai-qadam-platform/pull/245), squash-merged b59a7ea):

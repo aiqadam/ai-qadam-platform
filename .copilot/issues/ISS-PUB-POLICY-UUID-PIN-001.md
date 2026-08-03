@@ -11,6 +11,7 @@
 | Workflow | wf-20260801-fix-187-followup-public-policy-uuid-lookup (queued) |
 | Reporter | Orchestrator (discovered while live-verifying wf-20260801-fix-187 / ISS-SEC-PUBLIC-UNMANAGED-001) |
 | Business-Process | none |
+| GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/247 |
 
 ## Symptom
 

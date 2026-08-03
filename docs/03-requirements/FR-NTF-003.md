@@ -1,7 +1,7 @@
 ---
 code: FR-NTF-003
 name: 24-hour event reminder
-status: Planned
+status: Implemented
 module: Notifications (NTF)
 phase: Roadmap Sprint 5.5
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/131
