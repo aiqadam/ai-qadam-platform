@@ -116,6 +116,19 @@ export class RefreshTokenService {
     return row?.idToken ?? null;
   }
 
+  // Read-only lookup used by /v1/auth/link to identify the caller from the
+  // refresh cookie without consuming the token. Returns null when the token
+  // maps to no row, is expired, or is revoked.
+  async peekUserId(token: string): Promise<string | null> {
+    if (token.length === 0) return null;
+    const tokenHash = sha256Hex(token);
+    const row = await this.findByHash(tokenHash);
+    if (!row) return null;
+    if (row.revokedAt !== null) return null;
+    if (row.expiresAt.getTime() <= Date.now()) return null;
+    return row.userId;
+  }
+
   async revokeFamily(familyId: string): Promise<void> {
     await this.db
       .update(refreshTokens)

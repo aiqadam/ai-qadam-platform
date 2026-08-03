@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-04 — `wf-20260803-feat-207-event-announcement-fanout` (merged).
+**Last updated:** 2026-08-04 — `wf-20260804-feat-208-linked-accounts-management` (in progress, pending merge).
+**FR-AUTH-007 implemented — Identity surface: linked accounts management. 3 new API endpoints, LinkedAccountsPanel replaces TelegramLinkStatus on /me, bot /me updated with Telegram link state. 21/21 unit tests pass. E2E OAuth link flow deferred to wf-20260804-bp-uat-022-linked-accounts-uat (queued).**
+[wf-20260804-feat-208-linked-accounts-management](../tasks/active/wf-20260804-feat-208-linked-accounts-management/handoff.yaml)
+(PR TBD, GitHub issue [#143](https://github.com/aiqadam/ai-qadam-platform/issues/143)):
+`LinkedAccountsService` + `GET /v1/auth/linked-accounts` + `DELETE /v1/auth/linked-accounts/:provider` + `GET /v1/auth/link`: members can view all 4 sign-in providers (Email, Google, GitHub, Telegram) and manage them subject to last-method protection (409). `AuthentikClient` extended with `getUserDetail`, `getUserSourceConnections`, `deleteUserSourceConnection`. IDOR protection: connection pk always server-resolved. `completeLinkCallback()` private helper keeps `callback()` under 60 lines (RF-3 fix). `TelegramMeResult` extended with `telegramLinked`/`telegramUsername` for bot /me parity. `TelegramLinkStatus` (Phase 1 read-only) replaced by `LinkedAccountsPanel` (all 4 providers). FR-AUTH-007 status: Implemented. E2E OAuth link/unlink flows deferred to wf-20260804-bp-uat-022-linked-accounts-uat (queued, requires live Authentik).
+
+**Prior last updated:** 2026-08-04 — `wf-20260803-feat-207-event-announcement-fanout` (merged).
 **FR-NTF-002 implemented — Event announcement topic-filtered fan-out shipped with topic-interest filtering; 7/7 unit tests pass; circular dependency fixes in LeadsModule/AuthModule; integration/E2E/perf tests deferred to follow-up.**
 [wf-20260803-feat-207-event-announcement-fanout](../tasks/active/wf-20260803-feat-207-event-announcement-fanout/handoff.yaml)
 (PR [#TBD](https://github.com/aiqadam/ai-qadam-platform/pull/TBD), squash-merged SHA TBD, GitHub issue [#136](https://github.com/aiqadam/ai-qadam-platform/issues/136)):

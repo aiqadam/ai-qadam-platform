@@ -13,6 +13,7 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { JtiRevocationService } from './jti-revocation.service';
 import { JwtService } from './jwt.service';
+import { LinkedAccountsService } from './linked-accounts.service';
 import { MagicLinkService } from './magic-link.service';
 import { oidcClientProvider } from './oidc-client.provider';
 import { RefreshTokenService } from './refresh-token.service';
@@ -87,6 +88,7 @@ import { UpgradeService } from './upgrade.service';
     RegistrationService,
     MagicLinkService,
     UpgradeService,
+    LinkedAccountsService,
   ],
   exports: [JwtService, AuthGuard],
 })

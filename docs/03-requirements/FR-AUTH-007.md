@@ -1,10 +1,11 @@
 ---
 code: FR-AUTH-007
 name: Identity surface — linked accounts management
-status: Planned
+status: Implemented
 module: Auth (AUTH)
 phase: Roadmap Sprint 8
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/143
+business_process: [BP-UAT-003]
 ---
 
 ## Description

@@ -1,0 +1,6 @@
+﻿workflow_instance_id: "wf-20260804-bp-uat-022-linked-accounts-uat"
+workflow_type: "uat-verification"
+created_at: "2026-08-04T04:00:00Z"
+description: "Create BP-UAT-022 and run live E2E verification for FR-AUTH-007 linked accounts panel (OAuth link/unlink flows, unlink protection, bot parity). Deferred from wf-20260804-feat-208 per AGENTS.md §6.1 — requires live Authentik + API stack."
+parent_workflow: "wf-20260804-feat-208-linked-accounts-management"
+fr_ref: "FR-AUTH-007"

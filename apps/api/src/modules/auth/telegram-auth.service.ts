@@ -200,6 +200,10 @@ export interface TelegramMeRegistration {
 export interface TelegramMeResult {
   registrations: TelegramMeRegistration[];
   pointsTotal: number;
+  // FR-AUTH-007 — whether the Directus user has a telegram_user_id linked.
+  // Used by the bot's /me to show link status instead of a generic CTA.
+  telegramLinked: boolean;
+  telegramUsername: string | null;
 }
 
 // ── FEAT-BOT-2 (FR-BOT-002 PR 4/6) — /leaderboard schemas ──────────────────
@@ -879,10 +883,22 @@ export class TelegramAuthService {
   async getMeSummary(directusUserId: string, country: string): Promise<TelegramMeResult> {
     const userId = await this.requirePlatformUserId(directusUserId);
 
+    // FR-AUTH-007 — read telegram link status alongside registrations+points.
+    // Use try/catch rather than .catch() chaining so a mock returning
+    // undefined in tests doesn't blow up on a missing .catch property.
+    let tgRow: { data: { telegram_user_id: string | null; telegram_username: string | null } } | null = null;
     const [entries, pointsTotal] = await Promise.all([
       this.registrations.listMine({ userId, countryCode: country }),
       this.points.totalForUser(directusUserId, country),
     ]);
+    try {
+      tgRow = await this.directus.get<{
+        data: { telegram_user_id: string | null; telegram_username: string | null };
+      }>(`/users/${encodeURIComponent(directusUserId)}?fields=telegram_user_id,telegram_username`);
+    } catch {
+      // non-fatal: bot /me still shows registrations + points even if
+      // the Directus telegram-field fetch fails
+    }
 
     const registrations: TelegramMeRegistration[] = entries.map((entry) => ({
       id: entry.registration.id,
@@ -890,7 +906,12 @@ export class TelegramAuthService {
       event: entry.event,
     }));
 
-    return { registrations, pointsTotal };
+    return {
+      registrations,
+      pointsTotal,
+      telegramLinked: tgRow?.data.telegram_user_id != null,
+      telegramUsername: tgRow?.data.telegram_username ?? null,
+    };
   }
 
   // GET /v1/internal/telegram/leaderboard service logic (FR-BOT-002 PR
