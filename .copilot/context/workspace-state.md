@@ -1,18 +1,22 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-feat-197`.
-**FR-NTF-004 corrected + gap-filled — Telegram notification adapter now passes inline_buttons through, sanitizes HTML, and reaches registration flows.**
-[wf-20260803-feat-197](../tasks/completed/wf-20260803-feat-197/handoff.yaml)
-(PR [#243](https://github.com/aiqadam/ai-qadam-platform/pull/243), squash-merged):
-GitHub issue #142 asked to implement FR-NTF-004 literally — a NestJS API
-that calls the Telegram Bot API directly, using "the existing BullMQ
-outbox/dispatcher rate limiter," gated on Authentik
-`attributes.telegram_id` + `notification_telegram_enabled`, logging to a
-`notifications_sent` table. Investigation before any code was written
-found none of that exists: [ADR-0034](../adr/0034-telegram-bot-and-sender.md)
-(Accepted 2026-07-31) already shipped a different, deliberate design —
-`TelegramAdapter` writes a `tg.dispatch.v1` envelope to a Postgres outbox;
-a relay XADDs it to Redis Streams; a separate Python **notifier** process
+**Last updated:** 2026-08-03 — `wf-20260803-feat-198`.
+**FR-AUTH-005 implemented — Telegram account linking ships bot `/link` command, web `/me` Telegram status island, and API 409 re-link guard.**
+[wf-20260803-feat-198](../tasks/completed/wf-20260803-feat-198/handoff.yaml)
+(PR [#245](https://github.com/aiqadam/ai-qadam-platform/pull/245), squash-merged b59a7ea):
+FR-AUTH-005 originally described a web-initiated QR/deep-link flow with non-existent
+endpoints (`/v1/auth/telegram/link-token`, `link-user`) writing to `attributes.telegram_id`
+on Authentik. The real design (ADR-0034, already live at the API layer) is bot-initiated:
+`POST /v1/telegram/link/start` + `POST /v1/telegram/link/confirm`, writing to
+`directus_users.telegram_user_id`. Three surfaces shipped: (1) API 409 guard in
+`confirmLink()` for re-link to a different Telegram account (idempotent for same account);
+(2) new bot `/link` FSM handler (`apps/bot/src/handlers/link.py`) with email OTP flow
+following the `upgrade.py` pattern; (3) new `TelegramLinkStatus` read-only island on
+`/me` showing linked `@handle` or instructions. FR corrected with accurate description +
+`business_process: BP-UAT-009`. 59 tests pass (32 bot unit + 18 API integration + 9 web
+RTL). Security: 11/11 invariants PASS. Post-merge: re-run BP-UAT-009 recommended.
+
+
 (the `apps/bot` submodule) is the only thing that calls `sendMessage` —
 and eligibility already reads `directus_users.telegram_user_id`/
 `telegram_opted_out_at`, never an Authentik attribute. Surfaced to the
