@@ -22,7 +22,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/132"
 
 branch: "feature/FEAT-CRM-003-activity-sync"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/250"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
 
