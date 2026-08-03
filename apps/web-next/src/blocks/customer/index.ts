@@ -27,6 +27,6 @@ export { default as VenueMap } from './VenueMap.astro';
 export { CsatForm } from './CsatForm';
 export { FormRenderer, FormRendererIsland } from './FormRenderer';
 export { LeadCaptureForm } from './LeadCaptureForm';
+export { LinkedAccountsPanel } from './LinkedAccountsPanel';
 export { MagicLinkForm } from './MagicLinkForm';
 export { SignUpForm } from './SignUpForm';
-export { TelegramLinkStatus } from './TelegramLinkStatus';

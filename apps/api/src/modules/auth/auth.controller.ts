@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -27,6 +28,7 @@ import { LeadsService } from '../leads/leads.service';
 import { UsersService } from '../users/users.service';
 import { AuthGuard } from './auth.guard';
 import { AuthService, extractGroupsFromIdToken } from './auth.service';
+import { type LinkedAccountEntry, LinkedAccountsService } from './linked-accounts.service';
 import { JtiRevocationService } from './jti-revocation.service';
 import { JwtService } from './jwt.service';
 import { MagicLinkService, magicLinkRequestSchema } from './magic-link.service';
@@ -134,6 +136,10 @@ const REFRESH_COOKIE = 'aiqadam-refresh';
 const FLOW_COOKIE = 'aiqadam-oauth-flow';
 const LEGACY_REFRESH_COOKIE = '__Host-aiqadam-refresh';
 const LEGACY_FLOW_COOKIE = '__Host-aiqadam-oauth-flow';
+// FR-AUTH-007 — short-lived link-intent cookie. Carries userId + provider
+// so callback() knows to skip session minting and redirect to /me?linked=.
+const LINK_COOKIE = 'aiqadam-link-intent';
+const LINK_COOKIE_TTL_SECONDS = 600; // 10 minutes — same as FLOW_COOKIE_TTL_SECONDS
 
 interface RefreshResponse {
   accessToken: string;
@@ -176,6 +182,7 @@ export class AuthController {
     private readonly registration: RegistrationService,
     private readonly magicLinkService: MagicLinkService,
     private readonly upgradeService: UpgradeService,
+    private readonly linkedAccounts: LinkedAccountsService,
   ) {}
 
   // GET /v1/auth/login?next=/somewhere — top-level browser navigation, NOT
@@ -204,14 +211,22 @@ export class AuthController {
   // after the user signs in / signs up. We verify the flow cookie, swap
   // the code for an id_token, upsert the user, mint our session, set the
   // refresh cookie, and 302 the browser to `next`.
+  //
+  // FR-AUTH-007 link-flow branch: when LINK_COOKIE is also present, the
+  // PKCE exchange still runs (Authentik creates the source connection
+  // automatically during the authorize → callback round-trip), but we
+  // skip session minting and instead redirect to /me?linked={provider}.
   @Get('callback')
   async callback(@Req() req: Request, @Res({ passthrough: false }) res: Response): Promise<void> {
     const flowToken =
       (req.cookies?.[FLOW_COOKIE] as string | undefined) ??
       (req.cookies?.[LEGACY_FLOW_COOKIE] as string | undefined);
+    const linkToken = req.cookies?.[LINK_COOKIE] as string | undefined;
+
     // OAuth denial: Authentik sets ?error=access_denied when user declines consent.
     // Check BEFORE completeAuthorization — openid-client throws OPError for ?error= params.
     if (req.query.error === 'access_denied') {
+      res.clearCookie(LINK_COOKIE, COOKIE_BASE);
       res.redirect(`${env.WEB_BASE_URL}/auth/sign-in?error=oauth_denied`);
       return;
     }
@@ -236,6 +251,13 @@ export class AuthController {
         path: 'callback',
       });
       throw err;
+    }
+
+    // FR-AUTH-007 — link-flow branch. Extracted to private helper to keep
+    // callback() under 60 executable lines (AGENTS.md §1 rule #4 / RF-3).
+    if (linkToken) {
+      await this.completeLinkCallback(res, linkToken, email);
+      return;
     }
 
     // FR-AUTH-006 — temp-account upgrade completion. This is the single
@@ -316,6 +338,34 @@ export class AuthController {
       expires: session.refreshExpiresAt,
     });
     res.redirect(this.auth.postLoginRedirectUrl(next));
+  }
+
+  // FR-AUTH-007 — extracted from callback() to keep that method under 60
+  // executable lines (AGENTS.md §1 rule #4 / impact-analysis RF-3).
+  // Authentik already created the OAuth source connection during the PKCE
+  // exchange — we just verify intent, guard against upgrade collision, and
+  // redirect back to /me.
+  private async completeLinkCallback(
+    res: Response,
+    linkToken: string,
+    email: string,
+  ): Promise<void> {
+    const linkClaims = await this.auth.verifyLinkCookie(linkToken);
+
+    // Mutual-exclusion guard: a pending upgrade + a link intent at the
+    // same time indicates a race or a misconfigured flow. Reject both.
+    const pendingUpgrade = await this.upgradeService.resolvePendingUpgrade(email);
+    if (pendingUpgrade) {
+      res.clearCookie(LINK_COOKIE, COOKIE_BASE);
+      res.clearCookie(FLOW_COOKIE, COOKIE_BASE);
+      res.clearCookie(LEGACY_FLOW_COOKIE, { path: '/' });
+      throw new ConflictException('link intent and upgrade intent are mutually exclusive');
+    }
+
+    res.clearCookie(LINK_COOKIE, COOKIE_BASE);
+    res.clearCookie(FLOW_COOKIE, COOKIE_BASE);
+    res.clearCookie(LEGACY_FLOW_COOKIE, { path: '/' });
+    res.redirect(`${env.WEB_BASE_URL}/me?linked=${encodeURIComponent(linkClaims.provider)}`);
   }
 
   // POST /v1/auth/sign-out — XHR from the app. Three responsibilities,
@@ -474,6 +524,70 @@ export class AuthController {
       authentikSubject: req.user.authentikSubject,
       groups: req.user.groups ?? [],
     };
+  }
+
+  // GET /v1/auth/linked-accounts — returns all four provider rows for the
+  // caller's account (email, google, github, telegram). AuthGuard required.
+  @Get('linked-accounts')
+  @UseGuards(AuthGuard)
+  async getLinkedAccounts(@Req() req: Request): Promise<LinkedAccountEntry[]> {
+    if (!req.user) throw new UnauthorizedException('no claims attached');
+    return this.linkedAccounts.getLinkedAccounts(req.user.sub, req.user.email);
+  }
+
+  // DELETE /v1/auth/linked-accounts/:provider — unlinks the given provider.
+  // Returns 204 on success, 409 when it is the last remaining method or
+  // when provider=email (which cannot be unlinked via API).
+  @Delete('linked-accounts/:provider')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard)
+  async unlinkProvider(
+    @Param('provider') providerRaw: unknown,
+    @Req() req: Request,
+  ): Promise<void> {
+    if (!req.user) throw new UnauthorizedException('no claims attached');
+    const { provider } = z
+      .object({ provider: z.enum(['email', 'google', 'github', 'telegram']) })
+      .parse({ provider: providerRaw });
+    await this.linkedAccounts.unlinkProvider(req.user.sub, req.user.email, provider);
+  }
+
+  // GET /v1/auth/link?provider=google|github — browser navigation (top-level
+  // redirect). Identifies the caller from the refresh cookie, sets a
+  // short-lived LINK_COOKIE carrying the link intent, then redirects to
+  // Authentik's authorize endpoint with the selected social source. Authentik
+  // creates the OAuth source connection during the PKCE callback, then
+  // /callback detects the LINK_COOKIE and redirects to /me?linked={provider}
+  // instead of minting a new session.
+  @Get('link')
+  async link(
+    @Query('provider') providerRaw: string | undefined,
+    @Req() req: Request,
+    @Res({ passthrough: false }) res: Response,
+  ): Promise<void> {
+    const parsed = z.enum(['google', 'github']).safeParse(providerRaw);
+    if (!parsed.success) throw new BadRequestException('provider must be google or github');
+    const provider = parsed.data;
+
+    const refreshToken =
+      (req.cookies?.[REFRESH_COOKIE] as string | undefined) ??
+      (req.cookies?.[LEGACY_REFRESH_COOKIE] as string | undefined);
+    if (!refreshToken) throw new UnauthorizedException('not signed in');
+
+    const userId = await this.refreshTokens.peekUserId(refreshToken);
+    if (!userId) throw new UnauthorizedException('session expired or revoked');
+
+    const { authorizeUrl, flowToken, flowExpiresIn } = await this.auth.startLinkAuthorization({
+      provider,
+      next: '/me',
+    });
+
+    const linkToken = await this.auth.signLinkCookie({ userId, provider });
+
+    res.cookie(FLOW_COOKIE, flowToken, { ...COOKIE_BASE, maxAge: flowExpiresIn * 1000 });
+    res.cookie(LINK_COOKIE, linkToken, { ...COOKIE_BASE, maxAge: LINK_COOKIE_TTL_SECONDS * 1000 });
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(HttpStatus.FOUND, authorizeUrl);
   }
 
   // POST /v1/auth/telegram/exchange — public endpoint (no AuthGuard).

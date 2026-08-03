@@ -129,6 +129,10 @@ describe('TelegramAuthService.getMeSummary', () => {
         },
       ],
       pointsTotal: 135,
+      // FR-AUTH-007: directus.get is mocked to return undefined (no mock set);
+      // getMeSummary catches the error and defaults to not-linked.
+      telegramLinked: false,
+      telegramUsername: null,
     });
   });
 
@@ -146,7 +150,12 @@ describe('TelegramAuthService.getMeSummary', () => {
 
     const result = await service.getMeSummary(DIRECTUS_USER_ID, COUNTRY);
 
-    expect(result).toEqual({ registrations: [], pointsTotal: 0 });
+    expect(result).toEqual({
+      registrations: [],
+      pointsTotal: 0,
+      telegramLinked: false,
+      telegramUsername: null,
+    });
   });
 
   it('throws NotFoundException {telegram_user_not_found} when the bridge cannot resolve a platform user, without calling listMine/totalForUser', async () => {

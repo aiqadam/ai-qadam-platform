@@ -32,11 +32,21 @@ const FLOW_AUDIENCE = 'aiqadam-api-callback';
 // them in /v1/auth/me so the web can show Workspace / Engineering Deck
 // nav items by role. Requires the matching scope mapping on the provider.
 const FLOW_SCOPES = 'openid email profile groups';
+// FR-AUTH-007 — link intent cookie constants.
+const LINK_ISSUER = 'aiqadam-api-link-intent';
+const LINK_AUDIENCE = 'aiqadam-api-callback';
+const LINK_COOKIE_TTL_SECONDS = 600;
 
 interface FlowClaims extends JWTPayload {
   state: string;
   codeVerifier: string;
   next: string;
+}
+
+// FR-AUTH-007 — payload for the link-intent cookie.
+export interface LinkClaims extends JWTPayload {
+  userId: string;
+  provider: 'google' | 'github';
 }
 
 interface AuthorizationStart {
@@ -220,6 +230,41 @@ export class AuthService {
       });
     }
     return this.oidc.endSessionUrl({});
+  }
+
+  // FR-AUTH-007 — link flow: build the Authentik authorize URL for linking a
+  // new social provider to an existing account. Uses the same PKCE setup as
+  // startAuthorization but carries the intent as a separate LINK_COOKIE
+  // (set by the controller) rather than modifying the FLOW_COOKIE shape.
+  async startLinkAuthorization(input: {
+    provider: 'google' | 'github';
+    next: string;
+  }): Promise<AuthorizationStart> {
+    return this.startAuthorization({ next: input.next, provider: input.provider });
+  }
+
+  // FR-AUTH-007 — mint a signed link-intent JWT for the LINK_COOKIE.
+  async signLinkCookie(input: { userId: string; provider: 'google' | 'github' }): Promise<string> {
+    return new SignJWT({ userId: input.userId, provider: input.provider } satisfies LinkClaims)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(`${LINK_COOKIE_TTL_SECONDS}s`)
+      .setIssuer(LINK_ISSUER)
+      .setAudience(LINK_AUDIENCE)
+      .sign(this.flowSecret);
+  }
+
+  // FR-AUTH-007 — verify and decode a LINK_COOKIE JWT. Throws on invalid/expired.
+  async verifyLinkCookie(token: string): Promise<LinkClaims> {
+    try {
+      const { payload } = await jwtVerify(token, this.flowSecret, {
+        issuer: LINK_ISSUER,
+        audience: LINK_AUDIENCE,
+      });
+      return payload as LinkClaims;
+    } catch {
+      throw new UnauthorizedException('invalid or expired link intent cookie');
+    }
   }
 
   // Mint OUR session: short-lived access JWT (with jti for deny-list) +

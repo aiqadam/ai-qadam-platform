@@ -15,7 +15,7 @@
 export const prerender = false;
 
 import { AuthGate, PageHead } from '../../blocks/common';
-import { TelegramLinkStatus } from '../../blocks/customer';
+import { LinkedAccountsPanel } from '../../blocks/customer';
 import Layout from '../../layouts/Layout.astro';
 
 const auth = Astro.locals.auth;
@@ -63,7 +63,7 @@ const roleLabel = primaryGroup ? (ROLE_LABELS[primaryGroup] ?? primaryGroup) : n
           </div>
         </div>
 
-        <TelegramLinkStatus client:load />
+        <LinkedAccountsPanel client:load />
 
         {/* Nav links */}
         <nav aria-label="Account sections">

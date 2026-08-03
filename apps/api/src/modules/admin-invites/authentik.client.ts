@@ -87,6 +87,17 @@ export interface AuthentikOauthProvider {
   redirect_uris: AuthentikRedirectUri[];
 }
 
+// FR-AUTH-007 — narrow shapes for linked-accounts read/delete paths.
+export interface AuthentikUserDetail {
+  pk: number;
+  has_usable_password: boolean;
+}
+
+export interface AuthentikSourceConnection {
+  pk: number;
+  source: { slug: string };
+}
+
 @Injectable()
 export class AuthentikClient {
   private readonly logger = new Logger(AuthentikClient.name);
@@ -396,6 +407,33 @@ export class AuthentikClient {
     await this.request<unknown>('PATCH', `/api/v3/providers/oauth2/${pk}/`, {
       redirect_uris: redirectUris,
     });
+  }
+
+  // FR-AUTH-007 — typed narrow of getUserById for linked-accounts read path.
+  // Returns only the fields the LinkedAccountsService needs so callers don't
+  // have to import the full AuthentikUser shape.
+  async getUserDetail(pk: number): Promise<AuthentikUserDetail> {
+    return this.request<AuthentikUserDetail>('GET', `/api/v3/core/users/${pk}/`);
+  }
+
+  // FR-AUTH-007 — list all OAuth source connections for a user. Used to
+  // determine which social providers (Google, GitHub) are currently linked.
+  // Authentik returns a paginated list; at our scale (≤ 3 connections per
+  // user: google, github, telegram widget) one page is always enough.
+  async getUserSourceConnections(pk: number): Promise<AuthentikSourceConnection[]> {
+    const qs = new URLSearchParams({ user: String(pk) });
+    const res = await this.request<{ results: AuthentikSourceConnection[] }>(
+      'GET',
+      `/api/v3/core/user_source_connections/?${qs.toString()}`,
+    );
+    return res.results;
+  }
+
+  // FR-AUTH-007 — remove a single OAuth source connection by its pk. Called
+  // by LinkedAccountsService.unlinkProvider for google/github. 204 on
+  // success (handled by request() which returns undefined for 204).
+  async deleteUserSourceConnection(connectionPk: number): Promise<void> {
+    await this.request<unknown>('DELETE', `/api/v3/core/user_source_connections/${connectionPk}/`);
   }
 
   // FR-AUTH-002 — look up a user by their Telegram user ID stored in
