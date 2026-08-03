@@ -2,7 +2,9 @@
 // /home, /events, /events/[id], /me, /u/[handle], /leaderboard, etc.
 
 export { AccessLogTable } from './AccessLogTable';
+export { ChannelToggles } from './ChannelToggles'; // FR-NTF-005
 export { ConsentList } from './ConsentList';
+export { TopicInterests } from './TopicInterests'; // FR-NTF-005
 export { default as EventCard } from './EventCard.astro';
 export { default as EventDetail } from './EventDetail.astro';
 export { default as EventPhotoGallery } from './EventPhotoGallery.astro';

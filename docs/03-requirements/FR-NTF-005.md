@@ -1,10 +1,15 @@
 ---
 code: FR-NTF-005
 name: User notification preferences and topic interests
-status: Planned
+status: Implemented
 module: Notifications (NTF)
 phase: Roadmap Sprint 5.5
+implementation_date: 2026-08-03
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/135
+github_pr: TBD
+business_process:
+  - BP-UAT-003
+  - BP-UAT-005
 ---
 
 ## Description
@@ -33,11 +38,11 @@ Members.
 
 ## Acceptance criteria
 
-- [ ] Setting `notification_email_enabled=false` stops all email notifications (including reminders and announcements) for that user.
-- [ ] Setting `notification_telegram_enabled=false` stops all Telegram DMs.
-- [ ] Toggling a topic off in bot `/interests` immediately stops announcement emails for events with only that topic.
-- [ ] `country_preference` defaults to the first country subdomain the user signs in on.
-- [ ] Transactional emails (registration confirmation, promotion) are sent regardless of topic interests.
+- [x] Setting `notification_email_enabled=false` stops all email notifications (including reminders and announcements) for that user.
+- [x] Setting `notification_telegram_enabled=false` stops all Telegram DMs.
+- [x] Toggling a topic off in bot `/interests` immediately stops announcement emails for events with only that topic.
+- [x] `country_preference` defaults to the first country subdomain the user signs in on.
+- [x] Transactional emails (registration confirmation, promotion) are sent regardless of topic interests.
 
 ## Notes
 
