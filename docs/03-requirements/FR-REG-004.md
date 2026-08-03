@@ -23,7 +23,6 @@ Organizers / Country Admins (scanning); Members (presenting QR code).
 5. **Idempotency** — Checking in twice returns `200` with status `already_checked_in`; no double point award.
 6. **Bot check-in** — Operator can scan via the Telegram bot (FR-BOT-003). Bot calls the same check-in endpoint via internal API.
 7. **QR code display** — QR visible on `/me` dashboard (in registration list) and in the confirmation email. QR code generated client-side via `qrcode.react`.
-8. **CRM activity** — Log `attended` activity to Twenty CRM (FR-CRM-003).
 
 ## Acceptance criteria
 

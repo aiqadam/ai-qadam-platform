@@ -24,7 +24,6 @@ Members (on waitlist); system (auto-promotion).
    - Generate a `qr_token` if not already set.
    - Send a "You've been promoted from the waitlist" notification (email + Telegram if linked, via FR-NTF-001 dispatcher).
    - Award `+5` points (same as initial registration award; note: the user already got `0` points for waitlist entry).
-   - Log `promoted` activity to CRM (FR-CRM-003).
 5. **Leave waitlist** — `DELETE /v1/events/:id/register` with `status=waitlist` removes the waitlist registration. Does not trigger promotion (the spot never opened).
 
 ## Acceptance criteria

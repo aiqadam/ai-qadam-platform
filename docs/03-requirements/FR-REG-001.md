@@ -28,7 +28,6 @@ Members.
    - **Event full (no registration)** → "Join waitlist" CTA.
    - **Cancelled / no_show / checked_in** → appropriate label.
 7. **Points** — On confirmed registration, award `+5` points (see FR-GAM-001).
-8. **CRM activity** — On registration, log a `registered` activity to Twenty CRM (FR-CRM-003).
 
 ## Acceptance criteria
 
