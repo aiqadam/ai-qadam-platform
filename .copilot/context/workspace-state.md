@@ -1,6 +1,116 @@
 # Workspace State
 
-**Last updated:** 2026-08-02 — `wf-20260802-fix-196`.
+**Last updated:** 2026-08-03 — `wf-20260803-feat-197`.
+**FR-NTF-004 corrected + gap-filled — Telegram notification adapter now passes inline_buttons through, sanitizes HTML, and reaches registration flows.**
+[wf-20260803-feat-197](../tasks/completed/wf-20260803-feat-197/handoff.yaml)
+(PR [#243](https://github.com/aiqadam/ai-qadam-platform/pull/243), squash-merged):
+GitHub issue #142 asked to implement FR-NTF-004 literally — a NestJS API
+that calls the Telegram Bot API directly, using "the existing BullMQ
+outbox/dispatcher rate limiter," gated on Authentik
+`attributes.telegram_id` + `notification_telegram_enabled`, logging to a
+`notifications_sent` table. Investigation before any code was written
+found none of that exists: [ADR-0034](../adr/0034-telegram-bot-and-sender.md)
+(Accepted 2026-07-31) already shipped a different, deliberate design —
+`TelegramAdapter` writes a `tg.dispatch.v1` envelope to a Postgres outbox;
+a relay XADDs it to Redis Streams; a separate Python **notifier** process
+(the `apps/bot` submodule) is the only thing that calls `sendMessage` —
+and eligibility already reads `directus_users.telegram_user_id`/
+`telegram_opted_out_at`, never an Authentik attribute. Surfaced to the
+user per AGENTS.md §13 before proceeding (same posture as
+FR-CRM-002/ADR-0033); user confirmed "gap-fill the real adapter" over
+building the literal (wrong-architecture) spec.
+
+Two real, previously-undiscovered bugs were found and fixed against the
+already-shipped adapter: (1) `TelegramAdapter`'s `payloadSchema` silently
+dropped `inline_buttons` (envelope hardcoded `inline_buttons: null|`) —
+live in production today, since `event-reminders.service.ts`'s
+`buildReminderPayload()` has been constructing `inline_buttons` since it
+shipped, expecting them to reach Telegram, and they never did; (2) the 3
+registration Directus flows (`capacity_email_confirmed`,
+`capacity_email_waitlisted`, `promo_email_promoted`) hardcoded
+`allowedChannels: ["email"]`, structurally excluding Telegram even for
+linked, opted-in members. Fixed via: `inline_buttons` passthrough +
+bounds validation in `telegram-adapter.ts`; a new allowlist HTML
+sanitizer (`telegram-html-sanitizer.ts`, `<b> <i> <u> <s> <a> <code>
+<pre>`, FR-NTF-004 §3) applied before every send; and 3 new Telegram-branch
+sibling operations in `flows-bootstrap.sh` (one per registration flow),
+each gated on a new `exec`-type eligibility op mirroring the file's own
+`decide_status`/`promo_gate` pattern, firing **alongside** — never
+replacing — the existing unconditional email dispatch.
+
+**RequirementAnalyst caught a real gap in the pre-investigation's own
+framing (Finding A) before any code was written**:
+`InteractionsService.dispatch()`'s `pickPrimaryChannel()` takes
+`allowedChannels[0]` only — it does not fan out to multiple channels in
+one call. Naively changing `allowedChannels` to `["email", "telegram"]`
+would have silently routed every recipient to email only. Fixed by
+issuing two separate `dispatch()` calls per flow (Directus-flow-side
+split), mirroring `event-reminders.service.ts`'s own established
+`processCandidate`/`dispatchChannel` pattern.
+
+**SecurityReviewer found and CodeDeveloper fixed 2 MAJOR findings**: (1)
+`inline_buttons` had no size/length bounds, unlike its sibling `text`
+field — an oversized array would reach the outbox unvalidated and only
+fail later, opaquely, at the Telegram API layer (fixed:
+`text.max(64)`/`url.max(2048).url()`/`.max(10)` per array dimension); (2)
+event titles containing `"`/`\` could break the outer JSON structure of
+the Directus-templated request bodies (pre-existing, shared with the
+untouched email ops, not a regression) — fixed at the source with a
+character-class guard on `patchEventSchema.title`. A third, self-disclosed
+residual gap (a well-formed `<a href="evil">` embedded in an
+operator-authored event title survives the sanitizer unchanged, since
+escaping is explicitly out of the sanitizer's scope) was judged an
+acceptable Phase 1 risk after independently verifying event titles are
+exclusively operator-authored — documented as a named, tracked limitation
+in `FR-NTF-004.md`'s Notes, not silently accepted.
+
+**Live-local-run verification (owned by TestRunner/Orchestrator, since no
+`flows-bootstrap.sh` change has ever had unit-test coverage anywhere in
+this codebase's history) proved AC-5 through AC-8 against the real local
+stack, not just mocked**: re-ran `flows-bootstrap.sh` idempotently, seeded
+3 users (2 Telegram-eligible, 1 not) + 2 events, triggered all 3
+registration flows, and confirmed via direct Directus API + raw Postgres
+reads — registered/waitlisted/promoted all produced correct
+`interaction_deliveries` + outbox rows with the right `inline_buttons`
+shape (present for confirmed/promoted, absent for waitlisted, matching
+the buttonless email template precedent); the Telegram-ineligible user
+produced zero Telegram rows (clean skip, not a failed attempt). Two
+environment gaps found and worked around live, neither a code bug: no
+`python3` on this Windows machine's PATH (session-local shim); all 6
+Directus request ops hardcode the production URL
+`https://uz.aiqadam.org/...`, unreachable locally — root-caused and
+live-patched (not committed) exactly per the already-documented
+`da9e242`/`ISS-UAT-010-3` precedent, then reverted and re-verified via a
+final idempotent `flows-bootstrap.sh` re-run. A separate, genuinely
+pre-existing local machine issue was also found and fixed: this
+machine's Node/ioredis resolves `localhost` to IPv6 (`::1`) first, which
+cannot reach the Redis container — `apps/api/.env`'s `REDIS_URL` changed
+`localhost`→`127.0.0.1` (untracked, non-secret, user confirmed keep) per
+the CLAUDE.md dev/test `.env` exception. Confirmed via code trace + live
+observation that this flakiness does NOT block the outbox-write path
+this FR depends on (`TelegramAdapter.send()`→`OutboxPublisher.publish()`
+is a pure Postgres transaction; only the separate, later relay step
+touches Redis) — a good candidate for a future environment-hardening
+follow-up, not a blocker here.
+
+`FR-NTF-004.md`'s architecture description corrected in place (dated
+2026-08-03 correction blockquote, matching ADR-0034's own "2026-07-31
+update" callout style — original stale text preserved, not deleted);
+`status` flipped `Planned`→`Implemented`; `requirements-registry.md` row
+60 flipped to `Shipped`. `business_process` deliberately left empty
+(`—`) — `BP-UAT-010` was reviewed in full and found to only verify "an
+email arrived," with zero fixture/step/assertion touching Telegram
+content, so linking it would have overclaimed post-merge UAT coverage;
+named as a real, tracked coverage gap instead. `apps/api` full suite:
+1587/1587 passing (50 new tests across 3 files). GitHub issue #142
+closed (commit `Closes #142` — correct since `business_process` was
+empty, no Step 13 re-verification pending); Project board synced to
+`Agent-Verified` (corrected from a `Done` a GitHub default automation
+applied on issue-close, before this workflow's own explicit sync ran).
+
+---
+
+**Prior last updated:** 2026-08-02 — `wf-20260802-fix-196`.
 **FR-CRM-002 superseded — Twenty CRM retired per ADR-0033, no code implemented.**
 [wf-20260802-fix-196](../tasks/completed/wf-20260802-fix-196/handoff.yaml)
 (PR [#241](https://github.com/aiqadam/ai-qadam-platform/pull/241), squash-merged
