@@ -1,0 +1,79 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-feat-204"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T14:35:30Z"
+last_updated_at: "2026-08-03T14:35:30Z"
+
+requirement_ref: "FR-EVT-007"
+requirement_text: "Event topic tagging and interest matching - Phase 3: Schema cleanup (drop topic_tag, make topic NOT NULL, Directus Flow validation)"
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/134"
+
+branch: ""
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260803-feat-203"
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-08-03T14:35:30Z"
+  spawned_by_issue: ""
+  resolution_for_parent: "Phase 2 merged; Phase 3 queued as final cleanup workflow"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+notes: |
+  ## Phase 3 Scope
+
+  Final cleanup phase for FR-EVT-007, runs after Phase 2 is merged and verified:
+  
+  ### Database Migration
+  1. **Drop `topic_tag` column** from `member_interests`
+     - Requires Phase 2 backfill to have completed successfully
+     - Verify zero rows with NULL topic before drop (integrity check)
+  
+  2. **Alter `member_interests.topic`** to NOT NULL
+     - Currently nullable (added in Phase 1 for safe migration)
+     - Safe to enforce after Phase 2 backfill populates all rows
+  
+  ### Directus Flow Validation
+  1. **Create Directus action-hook Flow** (manual provisioning via Flow UI or bootstrap.sh)
+     - Trigger: event publish (item.create / item.update with transition to published status)
+     - Condition: check `$EXISTS(event_topics)` — require ≥1 topic
+     - Action: reject publish with 422 if zero topics (AC-1 verification)
+  
+  ### Testing
+  - 2 integration tests (backfill verification, column drop safety)
+  - 1 E2E test (Directus Flow rejection UI when publishing event with zero topics)
+  - Live manual verification on QA (publish event without topics → 422)
+  
+  ### Acceptance Criteria
+  - AC-1: Event publish validation enforced (≥1 topic required)
+  - AC-2: `topic_tag` column safely removed
+  - AC-3: `topic` field enforced NOT NULL at DB level
+  - AC-4: Schema idempotency preserved across re-runs
+  - AC-5: No orphaned member_interests rows (verified via backfill script count = 0)
+  
+  ### Dependencies
+  - Phase 2 (wf-20260803-feat-203) MUST be merged on main before Phase 3 starts
+  - Backfill script execution (Phase 2) MUST complete successfully
+  - Test: verify zero NULL topic rows in member_interests before attempting drop
+  - Linked business processes: BP-UAT-001 (event publication flow validation)
+  
+  ### Risk
+  - If backfill was incomplete in Phase 2, dropping topic_tag will orphan member_interests rows
+  - Mitigation: explicit count verification in Phase 3's DBMigrationAuthor step

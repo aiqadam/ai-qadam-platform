@@ -1,10 +1,11 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-feat-202`.
-**FR-EVT-007 Phase 1 implemented — Event topic tagging data model (Directus schema only).**
-[wf-20260803-feat-202](../tasks/active/wf-20260803-feat-202/handoff.yaml)
-(GitHub issue [#134](https://github.com/aiqadam/ai-qadam-platform/issues/134)):
-Directus schema changes for community topic tagging: `topics` collection (country-scoped, 8 starter topics per country), `event_topics` M2M junction, `member_interests.topic` nullable FK field, backfill script authored. Phase 1 of 3 complete (schema only); Phase 2 (backfill + API/Bot code) and Phase 3 (drop `topic_tag`, make `topic` NOT NULL, Web integration) pending. FR-EVT-007 status: In Progress. 168 lines added (bootstrap.sh + backfill script), idempotent, 24/24 tests passed.
+**Last updated:** 2026-08-03 — `wf-20260803-feat-202` (merged).
+**FR-EVT-007 Phase 1 merged — Event topic tagging data model (Directus schema only).**
+[PR #253](https://github.com/aiqadam/ai-qadam-platform/pull/253) squash merge commit `8237fca` (2026-08-03T14:34:39Z):
+Directus schema changes for community topic tagging: `topics` collection (country-scoped, 8 starter topics per country), `event_topics` M2M junction, `member_interests.topic` nullable FK field, backfill script authored. Phase 1 of 3 complete (schema only); Phase 2 (backfill + API/Bot code) and Phase 3 (drop `topic_tag`, make `topic` NOT NULL, Web integration) pending. FR-EVT-007 status: Implemented. 168 lines added (bootstrap.sh + backfill script), idempotent, 24/24 tests passed.
+
+**Phase 2 queued:** wf-20260803-feat-203 — API endpoint `GET /v1/internal/announce-event`, Bot updates (read/write topic.id), Web preferences UI, backfill-script execution.
 
 
 **Prior last updated:** 2026-08-03 — `wf-20260803-fix-201`.
