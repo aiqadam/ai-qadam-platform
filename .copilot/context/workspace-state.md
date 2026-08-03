@@ -1,6 +1,13 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-fix-201`.
+**Last updated:** 2026-08-03 — `wf-20260803-feat-202`.
+**FR-EVT-007 Phase 1 implemented — Event topic tagging data model (Directus schema only).**
+[wf-20260803-feat-202](../tasks/active/wf-20260803-feat-202/handoff.yaml)
+(GitHub issue [#134](https://github.com/aiqadam/ai-qadam-platform/issues/134)):
+Directus schema changes for community topic tagging: `topics` collection (country-scoped, 8 starter topics per country), `event_topics` M2M junction, `member_interests.topic` nullable FK field, backfill script authored. Phase 1 of 3 complete (schema only); Phase 2 (backfill + API/Bot code) and Phase 3 (drop `topic_tag`, make `topic` NOT NULL, Web integration) pending. FR-EVT-007 status: In Progress. 168 lines added (bootstrap.sh + backfill script), idempotent, 24/24 tests passed.
+
+
+**Prior last updated:** 2026-08-03 — `wf-20260803-fix-201`.
 **FR-PTN-002 (Partner and sponsor onboarding) superseded — ADR-0033 retired Twenty CRM; modern architecture via companies collection + partner_audiences + /workspace/partners cabinet already satisfies all acceptance criteria.**
 [wf-20260803-fix-201](../tasks/active/wf-20260803-fix-201/handoff.yaml)
 (GitHub issue [#133](https://github.com/aiqadam/ai-qadam-platform/issues/133)):

@@ -1,0 +1,155 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-feat-202"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T00:00:00Z"
+last_updated_at: "2026-08-03T00:00:00Z"
+
+requirement_ref: "FR-EVT-007"
+requirement_text: "Event topic tagging and interest matching - Events are tagged with community topics; members select interests; announcements target matching users"
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/134"
+
+branch: "feature/FR-EVT-007-event-topic-tagging"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 4
+current_step_name: "Code Development"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "FR-EVT-007 is complete, architecturally sound, non-conflicting, and ready for development"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "FR-EVT-007 impact fully analyzed; 2 new Directus collections, 3 API modules affected, coordination required"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/02-impact-analysis.md"
+  db-migration:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Directus schema complete: 2 new collections, 1 altered collection, backfill script authored"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/05-migration-plan.md"
+  code-development:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Phase 1 data model implemented: bootstrap.sh + backfill script, 168 lines added, idempotent"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/03-code-summary.md"
+  security-review:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "4 applicable invariants PASS, 0 BLOCKER/MAJOR findings, tenant isolation enforced, no secrets"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Rubric score 5, 3 test levels defined, 2 of 6 ACs covered in Phase 1, 4 ACs deferred to Phase 2"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/06-test-strategy.md"
+  test-design:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Automated schema script created, manual test cases documented, backfill fixtures specified"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/06-test-design.md"
+  test-execution:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "24/27 tests executed, 24/24 passed, 5/5 Phase 1 ACs verified, schema bootstrap successful"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/07-test-results.md"
+  documentation:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Retry successful: workspace-state.md updated with FR-EVT-007 Phase 1 entry"
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/08-doc-update.md"
+  quality-gate:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "All quality checks passed after DocWriter retry fixed workspace-state.md. FR-EVT-007 Phase 1 (schema only) is production-ready: 168 lines added, 24/24 tests passed, 0 BLOCKER/MAJOR security findings, all documentation updated. Workflow authorized to commit and merge."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/09-quality-gate.md"
+    retry_target: none
+  code-development:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "FR-EVT-007 Phase 1 data model implemented: topics collection, event_topics M2M junction, member_interests.topic FK (nullable), 8 starter topics seeded per country, backfill script authored. Idempotent re-runnable. Architecture rules compliant."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/03-code-summary.md"
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/acti
+  db-migration-author:
+    status: completed
+    step: 3
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/05-migration-plan.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/03-code-summary.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/03-code-summary.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/01-requirement-validation.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260803-feat-202/02-impact-analysis.md"
+    timestamp: "2026-08-03T00:00:00Z"
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+

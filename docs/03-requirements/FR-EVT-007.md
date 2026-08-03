@@ -1,10 +1,14 @@
 ---
 code: FR-EVT-007
 name: Event topic tagging and interest matching
-status: Planned
+status: In Progress
 module: Events (EVT)
 phase: Roadmap Sprint 5.5
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/134
+business_process:
+  - BP-UAT-001
+  - BP-UAT-004
+  - BP-UAT-005
 ---
 
 ## Description

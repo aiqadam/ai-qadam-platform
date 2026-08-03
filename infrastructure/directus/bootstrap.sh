@@ -504,6 +504,131 @@ ensure "relation registrations.user -> directus_users.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"registrations","field":"user","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
 
+# ──────────── topics ────────────────────────────────────────────────────
+# FR-EVT-007 Phase 1: Community topics for event tagging and member interests.
+# Country-scoped; (slug, country) unique constraint enforced at application layer.
+# Phase 1 creates schema + seeds starter topics; Phase 2+ will connect API/Bot/Web.
+
+echo "[FR-EVT-007 — topics]"
+ensure "collection topics" \
+  "${DIRECTUS_URL}/collections/topics" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"topics",
+    "schema":{"name":"topics"},
+    "meta":{
+      "icon":"category",
+      "note":"Community topics for event tagging + member interests. Country-scoped. FR-EVT-007.",
+      "sort_field":"sort"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":60},"meta":{"interface":"input","width":"half","required":true,"note":"Lowercase, hyphenated. Unique per country (enforced at application layer)."}},
+      {"field":"name","type":"string","schema":{"is_nullable":false,"max_length":100},"meta":{"interface":"input","width":"half","required":true,"note":"English display name"}},
+      {"field":"name_ru","type":"string","schema":{"is_nullable":true,"max_length":100},"meta":{"interface":"input","width":"half","note":"Russian display name (optional)"}},
+      {"field":"country","type":"string","schema":{"is_nullable":false,"max_length":2},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"sort","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half","note":"Display order in dropdown/checklist"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+ensure "relation topics.country -> countries.code" \
+  "${DIRECTUS_URL}/relations/topics/country" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"topics","field":"country","related_collection":"countries","schema":{"on_delete":"RESTRICT"}}'
+
+# Seed starter topics per country (FR-EVT-007)
+seed_topic() {
+  local country="$1" slug="$2" name="$3" name_ru="$4" sort="$5"
+  local id
+  id=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/items/topics?filter%5Bslug%5D%5B_eq%5D=${slug}&filter%5Bcountry%5D%5B_eq%5D=${country}&fields=id&limit=1" \
+    | jq -r '.data[0].id // empty' 2>/dev/null || true)
+  if [ -n "${id}" ]; then
+    echo "  ✓ topic ${country}/${slug} (exists)"
+  else
+    if directus_request_with_retry POST "${DIRECTUS_URL}/items/topics" \
+         -H "${H_AUTH}" -H "${H_JSON}" \
+         --data "$(jq -nc --arg c "$country" --arg s "$slug" --arg n "$name" --arg r "$name_ru" --argjson o "$sort" \
+           '{country:$c,slug:$s,name:$n,name_ru:$r,sort:$o}')"; then
+      echo "  + topic ${country}/${slug} (created)"
+    else
+      local code
+      code=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+      echo "  ✗ topic ${country}/${slug} HTTP ${code}"
+      return 1
+    fi
+  fi
+}
+
+echo "[FR-EVT-007 — seed topics for uz]"
+seed_topic uz "ai-ml" "AI/ML" "ИИ/МО" 1
+seed_topic uz "mlops" "MLOps" "MLOps" 2
+seed_topic uz "python" "Python" "Python" 3
+seed_topic uz "frontend" "Frontend" "Фронтенд" 4
+seed_topic uz "backend" "Backend" "Бэкенд" 5
+seed_topic uz "data-engineering" "Data Engineering" "Инженерия данных" 6
+seed_topic uz "hardware-robotics" "Hardware/Robotics" "Железо/Робототехника" 7
+seed_topic uz "research" "Research" "Исследования" 8
+
+echo "[FR-EVT-007 — seed topics for kz]"
+seed_topic kz "ai-ml" "AI/ML" "ИИ/МО" 1
+seed_topic kz "mlops" "MLOps" "MLOps" 2
+seed_topic kz "python" "Python" "Python" 3
+seed_topic kz "frontend" "Frontend" "Фронтенд" 4
+seed_topic kz "backend" "Backend" "Бэкенд" 5
+seed_topic kz "data-engineering" "Data Engineering" "Инженерия данных" 6
+seed_topic kz "hardware-robotics" "Hardware/Robotics" "Железо/Робототехника" 7
+seed_topic kz "research" "Research" "Исследования" 8
+
+echo "[FR-EVT-007 — seed topics for tj]"
+seed_topic tj "ai-ml" "AI/ML" "ИИ/МО" 1
+seed_topic tj "mlops" "MLOps" "MLOps" 2
+seed_topic tj "python" "Python" "Python" 3
+seed_topic tj "frontend" "Frontend" "Фронтенд" 4
+seed_topic tj "backend" "Backend" "Бэкенд" 5
+seed_topic tj "data-engineering" "Data Engineering" "Инженерия данных" 6
+seed_topic tj "hardware-robotics" "Hardware/Robotics" "Железо/Робототехника" 7
+seed_topic tj "research" "Research" "Исследования" 8
+
+# ──────────── event_topics ──────────────────────────────────────────────
+# FR-EVT-007 Phase 1: M2M junction between events and topics.
+# (event, topic) unique constraint enforced at application layer.
+# Directus Flow validation (≥1 topic required on publish) is NOT provisioned
+# via bootstrap.sh — must be created manually in Admin UI or via separate
+# flows-bootstrap.sh script (see FR-EVT-007 migration plan §5).
+
+echo "[FR-EVT-007 — event_topics]"
+ensure "collection event_topics" \
+  "${DIRECTUS_URL}/collections/event_topics" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"event_topics",
+    "schema":{"name":"event_topics"},
+    "meta":{
+      "icon":"link",
+      "note":"M:N junction between events and topics. Operator-managed via /workspace/events/[id]. FR-EVT-007.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"event","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{title}}"}}},
+      {"field":"topic","type":"uuid","schema":{"is_nullable":false},"meta":{"interface":"select-dropdown-m2o","width":"half","required":true,"display":"related-values","display_options":{"template":"{{name}}"}}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}}
+    ]
+  }'
+
+ensure "relation event_topics.event -> events.id" \
+  "${DIRECTUS_URL}/relations/event_topics/event" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_topics","field":"event","related_collection":"events","schema":{"on_delete":"CASCADE"}}'
+
+ensure "relation event_topics.topic -> topics.id" \
+  "${DIRECTUS_URL}/relations/event_topics/topic" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"event_topics","field":"topic","related_collection":"topics","schema":{"on_delete":"RESTRICT"}}'
+
 # ──────────── point_awards ──────────────────────────────────────────────
 
 echo "[point_awards]"
@@ -2074,6 +2199,31 @@ ensure "relation member_interests.member -> directus_users.id" \
   "${DIRECTUS_URL}/relations/member_interests/member" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"member_interests","field":"member","related_collection":"directus_users","schema":{"on_delete":"CASCADE"}}'
+
+# FR-EVT-007 Phase 1: Add topic FK to member_interests (nullable).
+# Keeps existing topic_tag for backward compatibility during migration.
+# Phase 2 will backfill topic FK from topic_tag, then drop topic_tag.
+echo "[FR-EVT-007 — member_interests.topic FK]"
+ensure "field member_interests.topic" \
+  "${DIRECTUS_URL}/fields/member_interests/topic" \
+  "${DIRECTUS_URL}/fields/member_interests" \
+  '{
+    "field":"topic",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{
+      "interface":"select-dropdown-m2o",
+      "width":"half",
+      "display":"related-values",
+      "display_options":{"template":"{{name}}"},
+      "note":"FK to topics.id. Replaces topic_tag string. FR-EVT-007. Nullable during Phase 1; backfill in Phase 2."
+    }
+  }'
+
+ensure "relation member_interests.topic -> topics.id" \
+  "${DIRECTUS_URL}/relations/member_interests/topic" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"member_interests","field":"topic","related_collection":"topics","schema":{"on_delete":"RESTRICT"}}'
 
 # ──────────── member_consents ───────────────────────────────────────────
 #
