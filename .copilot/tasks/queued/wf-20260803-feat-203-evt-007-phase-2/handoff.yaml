@@ -1,0 +1,78 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-feat-203"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T14:35:00Z"
+last_updated_at: "2026-08-03T14:35:00Z"
+
+requirement_ref: "FR-EVT-007"
+requirement_text: "Event topic tagging and interest matching - Phase 2: API endpoint, Bot command updates, Web preferences UI, backfill script execution"
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/134"
+
+branch: ""
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "Initialize"
+workflow_status: "queued"
+
+parent_link:
+  parent_workflow_id: "wf-20260803-feat-202"
+  parent_branch: "feature/FR-EVT-007-event-topic-tagging"
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: "2026-08-03T14:35:00Z"
+  spawned_by_issue: ""
+  resolution_for_parent: "Phase 1 merged; Phase 2 queued as direct follow-up workflow"
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+
+notes: |
+  ## Phase 2 Scope
+
+  Implements the application layer for FR-EVT-007, assuming Phase 1 schema is live on main:
+  
+  ### Code Changes
+  1. **API Endpoint** — `GET /v1/internal/announce-event?event_id=<uuid>` (InternalAuthGuard)
+     - Resolves event + its topics from Directus
+     - Fetches member_interests rows matching country + topic intersection
+     - Returns user IDs for FR-NTF-002 fan-out
+  
+  2. **Bot Updates** — `/interests` command
+     - Reads available topics for user's country from Directus
+     - Renders as checklist UI
+     - `UPSERT` / `DELETE` member_interests rows via API
+  
+  3. **Shared Types** — `Topic`, `EventTopic`, `MemberInterest` TypeScript interfaces
+  
+  4. **Web Preferences** — `apps/web-next/src/pages/me/preferences.astro`
+     - Topic interest checkboxes under FR-USR-004 preferences page
+     - `PATCH /v1/internal/member/:id/interests` (or `/me/interests`)
+  
+  ### Backfill & Migration
+  - Run `infrastructure/directus/backfill-member-interests-topic.sh` after Phase 1 schema
+  - Matches existing member_interests.topic_tag values to topics by country scoping
+  - Verifies zero orphans; logs warnings
+  
+  ### Testing
+  - 8 unit tests (topic resolution, country scoping, intersection logic)
+  - 4 Testcontainers integration suites (backfill idempotency, announcement fan-out filter)
+  - E2E: bot `/interests` command, web preferences UI toggle, announcement delivery
+  
+  ### Deferred to Phase 3
+  - Drop `member_interests.topic_tag` column
+  - Alter `member_interests.topic` to NOT NULL
+  - Directus Flow validation rule (AC-1: ≥1 topic required on event publish)
+  
+  ### Dependencies
+  - Phase 1 (wf-20260803-feat-202) MUST be merged on main before Phase 2 starts
+  - Linked business processes: BP-UAT-001 (event publication), BP-UAT-004 (cohort building)
