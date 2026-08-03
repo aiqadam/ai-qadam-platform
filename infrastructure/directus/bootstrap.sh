@@ -2081,6 +2081,40 @@ ensure "field directus_users.notification_opt_ins" \
     }
   }'
 
+echo "[FR-NTF-005 — directus_users.notification_email_enabled]"
+ensure "field directus_users.notification_email_enabled" \
+  "${DIRECTUS_URL}/fields/directus_users/notification_email_enabled" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"notification_email_enabled",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":true},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "sort":50,
+      "note":"Master toggle for ALL email notifications. False suppresses all emails (reminders, announcements, confirmations). FR-NTF-005."
+    }
+  }'
+
+echo "[FR-NTF-005 — directus_users.notification_telegram_enabled]"
+ensure "field directus_users.notification_telegram_enabled" \
+  "${DIRECTUS_URL}/fields/directus_users/notification_telegram_enabled" \
+  "${DIRECTUS_URL}/fields/directus_users" \
+  '{
+    "field":"notification_telegram_enabled",
+    "type":"boolean",
+    "schema":{"is_nullable":false,"default_value":true},
+    "meta":{
+      "interface":"boolean",
+      "special":["cast-boolean"],
+      "width":"half",
+      "sort":51,
+      "note":"Master toggle for ALL Telegram DMs. False suppresses all Telegram messages. Enforced after FR-NTF-004 (Telegram adapter) ships. FR-NTF-005."
+    }
+  }'
+
 # ──────────── member_skills ─────────────────────────────────────────────
 #
 # Tag-per-row keeps cohort filtering simple. verified_by_event nudges

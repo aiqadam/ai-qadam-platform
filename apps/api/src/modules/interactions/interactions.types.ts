@@ -43,6 +43,7 @@ export const DELIVERY_STATES = [
   'failed',
   'skipped_consent',
   'skipped_policy',
+  'skipped_channel_disabled', // FR-NTF-005 — master channel toggle off
 ] as const;
 export type DeliveryState = (typeof DELIVERY_STATES)[number];
 

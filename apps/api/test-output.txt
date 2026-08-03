@@ -1,0 +1,74 @@
+﻿{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '00000',
+  message: 'drop cascades to constraint registrations_event_id_events_id_fk on table registrations',
+  file: 'dependency.c',
+  line: '1232',
+  routine: 'reportDependentObjects'
+}
+[32m[Nest] 27704  - [39m03.08.2026, 21:26:32 [32m    LOG[39m [38;5;3m[InteractionsService] [39m[32mEmail suppressed for user 44444444-4444-4000-8000-000000000004 (master toggle off) — intent=newsletter[39m
+TAP version 13
+1..1
+not ok 1 - test/modules/interactions/interactions.service.spec.ts # time=81.20ms {
+    1..1
+    not ok 1 - InteractionsService — FR-NTF-005 master toggle enforcement # time=78.90ms {
+        1..8
+        not ok 1 - skips email delivery when notification_email_enabled=false # time=11.69ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'ok')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:145:20"
+            ...
+        not ok 2 - skips telegram delivery when notification_telegram_enabled=false # time=2.83ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'ok')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:145:20"
+            ...
+        not ok 3 - proceeds to consent check when notification_email_enabled=true # time=3.37ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'data')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:359:16"
+            ...
+        not ok 4 - treats null notification_email_enabled as true (backward compat) # time=4.29ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'data')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:359:16"
+            ...
+        not ok 5 - skips delivery even when consent is granted if master toggle is off # time=9.16ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'data')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:359:16"
+            ...
+        not ok 6 - calls resolveUser() to fetch channel toggle fields # time=8.43ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'data')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:359:16"
+            ...
+        not ok 7 - evaluates channel toggles per recipient independently # time=15.91ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'data')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:359:16"
+            ...
+        not ok 8 - respects master toggle even when telegram_opted_out_at is null # time=13.42ms
+            ---
+            error:
+                name: "TypeError"
+                message: "Cannot read properties of undefined (reading 'ok')"
+            at: "C:/Users/tvolo/dev/ai-dala/aiqadam/apps/api/src/modules/interactions/interactions.service.ts:145:20"
+            ...
+    }
+}

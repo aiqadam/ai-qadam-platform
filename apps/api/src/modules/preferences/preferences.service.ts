@@ -48,6 +48,12 @@ export interface ConsentSummary {
   lastChangedAt: string | null;
 }
 
+// FR-NTF-005 — channel toggle response
+export interface ChannelToggles {
+  notification_email_enabled: boolean;
+  notification_telegram_enabled: boolean;
+}
+
 interface ConsentRecordRow {
   id: string;
   granted_at: string;
@@ -66,6 +72,36 @@ export class PreferencesService {
       TOPIC_KEYS.map((topic) => this.summarizeTopic(userId, topic)),
     );
     return summaries;
+  }
+
+  // FR-NTF-005 — fetch channel toggles from directus_users
+  async getChannelToggles(userId: string): Promise<ChannelToggles> {
+    const res = await this.directus.get<{
+      data: {
+        notification_email_enabled?: boolean;
+        notification_telegram_enabled?: boolean;
+      };
+    }>(`/users/${encodeURIComponent(userId)}?fields=notification_email_enabled,notification_telegram_enabled`);
+    return {
+      notification_email_enabled: res.data.notification_email_enabled ?? true,
+      notification_telegram_enabled: res.data.notification_telegram_enabled ?? true,
+    };
+  }
+
+  // FR-NTF-005 — update channel toggles on directus_users
+  async setChannelToggles(
+    userId: string,
+    toggles: Partial<ChannelToggles>,
+  ): Promise<ChannelToggles> {
+    const patch: Record<string, boolean> = {};
+    if (toggles.notification_email_enabled !== undefined) {
+      patch.notification_email_enabled = toggles.notification_email_enabled;
+    }
+    if (toggles.notification_telegram_enabled !== undefined) {
+      patch.notification_telegram_enabled = toggles.notification_telegram_enabled;
+    }
+    await this.directus.patch(`/users/${encodeURIComponent(userId)}`, patch);
+    return this.getChannelToggles(userId);
   }
 
   async set(userId: string, topic: TopicKey, granted: boolean): Promise<ConsentSummary> {

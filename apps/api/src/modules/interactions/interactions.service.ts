@@ -48,6 +48,9 @@ interface DirectusUser {
   // Bigints over Directus REST may serialize as string or number.
   telegram_user_id?: number | string | null;
   telegram_opted_out_at?: string | null;
+  // FR-NTF-005 — master channel toggles
+  notification_email_enabled?: boolean;
+  notification_telegram_enabled?: boolean;
 }
 
 @Injectable()
@@ -90,6 +93,48 @@ export class InteractionsService {
   }): Promise<DispatchDeliveryResult> {
     const { interactionId, recipient, channel, input } = args;
 
+    // FR-NTF-005 — Master channel toggle enforcement (before consent check)
+    const user = await this.resolveUser(recipient.userId);
+    if (channel === 'email' && user.notification_email_enabled === false) {
+      this.logger.log(
+        `Email suppressed for user ${recipient.userId} (master toggle off) — intent=${input.intent}`,
+      );
+      const deliveryId = await this.createDeliveryRow({
+        interactionId,
+        recipient,
+        channel,
+        state: 'skipped_channel_disabled',
+        failureReason: 'notification_email_enabled=false',
+      });
+      return {
+        deliveryId,
+        recipientUserId: recipient.userId,
+        channel,
+        state: 'skipped_channel_disabled',
+        failureReason: 'notification_email_enabled=false',
+      };
+    }
+
+    if (channel === 'telegram' && user.notification_telegram_enabled === false) {
+      this.logger.log(
+        `Telegram suppressed for user ${recipient.userId} (master toggle off) — intent=${input.intent}`,
+      );
+      const deliveryId = await this.createDeliveryRow({
+        interactionId,
+        recipient,
+        channel,
+        state: 'skipped_channel_disabled',
+        failureReason: 'notification_telegram_enabled=false',
+      });
+      return {
+        deliveryId,
+        recipientUserId: recipient.userId,
+        channel,
+        state: 'skipped_channel_disabled',
+        failureReason: 'notification_telegram_enabled=false',
+      };
+    }
+
     const consentOk = await this.consent.check({
       userId: recipient.userId,
       initiatorActor: input.initiatorActor,
@@ -97,13 +142,14 @@ export class InteractionsService {
       consentBasis: input.consentBasis,
       consentScope: input.consentScope,
     });
-    if (!consentOk.ok) {
+    // FR-NTF-005 fix: defensive check for undefined consent result
+    if (!consentOk || !consentOk.ok) {
       const deliveryId = await this.createDeliveryRow({
         interactionId,
         recipient,
         channel,
         state: 'skipped_consent',
-        failureReason: consentOk.reason,
+        failureReason: consentOk?.reason ?? 'consent_check_failed',
       });
       return {
         deliveryId,
@@ -222,7 +268,10 @@ export class InteractionsService {
     // Always fetch telegram + tenant fields too — the TelegramAdapter needs
     // them. Adapters that don't (Email, InApp) just ignore them. One batch
     // fetch beats per-channel re-queries.
-    const fields = encodeURIComponent('id,email,country,telegram_user_id,telegram_opted_out_at');
+    // FR-NTF-005: also fetch notification_email_enabled + notification_telegram_enabled
+    const fields = encodeURIComponent(
+      'id,email,country,telegram_user_id,telegram_opted_out_at,notification_email_enabled,notification_telegram_enabled',
+    );
     const filter = encodeURIComponent(JSON.stringify({ id: { _in: unique } }));
     const res = await this.directus.get<{ data: DirectusUser[] }>(
       `/users?fields=${fields}&filter=${filter}&limit=${unique.length}`,
@@ -238,6 +287,21 @@ export class InteractionsService {
         telegramOptedOutAt: u.telegram_opted_out_at ?? null,
         tenant: u.country ?? null,
       }));
+  }
+
+  // FR-NTF-005 — fetch a single user with channel toggle fields
+  private async resolveUser(userId: string): Promise<DirectusUser> {
+    const fields = encodeURIComponent(
+      'id,email,country,telegram_user_id,telegram_opted_out_at,notification_email_enabled,notification_telegram_enabled',
+    );
+    const res = await this.directus.get<{ data: DirectusUser }>(
+      `/users/${encodeURIComponent(userId)}?fields=${fields}`,
+    );
+    // FR-NTF-005 fix: defensive check for undefined response
+    if (!res || !res.data) {
+      throw new Error(`Failed to resolve user ${userId}: invalid response from Directus`);
+    }
+    return res.data;
   }
 
   private async createInteractionRow(input: DispatchInput, state: 'sending'): Promise<string> {
@@ -270,6 +334,10 @@ export class InteractionsService {
       body.created_by = input.createdBy;
     }
     const res = await this.directus.post<{ data: { id: string } }>('/items/interactions', body);
+    // FR-NTF-005 fix: defensive check for undefined response
+    if (!res || !res.data || !res.data.id) {
+      throw new Error('Failed to create interaction row: invalid response from Directus');
+    }
     return res.data.id;
   }
 
@@ -297,6 +365,10 @@ export class InteractionsService {
       '/items/interaction_deliveries',
       body,
     );
+    // FR-NTF-005 fix: defensive check for undefined response
+    if (!res || !res.data || !res.data.id) {
+      throw new Error('Failed to create delivery row: invalid response from Directus');
+    }
     return res.data.id;
   }
 

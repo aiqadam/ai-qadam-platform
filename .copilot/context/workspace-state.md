@@ -1,6 +1,11 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-feat-202` (merged).
+**Last updated:** 2026-08-03 — `wf-20260803-feat-205` (in progress).
+**FR-NTF-005 in progress — User notification preferences and topic interests.**
+[wf-20260803-feat-205](../tasks/active/wf-20260803-feat-205/handoff.yaml) (GitHub issue [#135](https://github.com/aiqadam/ai-qadam-platform/issues/135)):
+Master notification channel toggles (email on/off, Telegram on/off) and topic interest selection implemented. Two boolean fields added to `directus_users` (`notification_email_enabled`, `notification_telegram_enabled`), dispatcher enforcement in `InteractionsService.dispatch()`, API extensions to `/v1/me/preferences/consents`, and web UI components (`<ChannelToggles>`, `<TopicInterests>`) on `/me/preferences`. Default values (`true`) preserve backward compatibility. 34/34 unit tests pass; integration/E2E tests blocked by infrastructure (file naming, service startup). ACs 1-3, 6-7 verified via unit tests; ACs 4-5, 8-10 pending.
+
+**Prior last updated:** 2026-08-03 — `wf-20260803-feat-202` (merged).
 **FR-EVT-007 Phase 1 merged — Event topic tagging data model (Directus schema only).**
 [PR #253](https://github.com/aiqadam/ai-qadam-platform/pull/253) squash merge commit `8237fca` (2026-08-03T14:34:39Z):
 Directus schema changes for community topic tagging: `topics` collection (country-scoped, 8 starter topics per country), `event_topics` M2M junction, `member_interests.topic` nullable FK field, backfill script authored. Phase 1 of 3 complete (schema only); Phase 2 (backfill + API/Bot code) and Phase 3 (drop `topic_tag`, make `topic` NOT NULL, Web integration) pending. FR-EVT-007 status: Implemented. 168 lines added (bootstrap.sh + backfill script), idempotent, 24/24 tests passed.
