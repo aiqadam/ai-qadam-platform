@@ -54,7 +54,8 @@ describe('EventBroadcastService.broadcastPublication', () => {
   it('dispatches event_announce to country audience + records the ledger row', async () => {
     dx.get
       .mockResolvedValueOnce({ data: [] }) // findAnnouncement → none
-      .mockResolvedValueOnce({ data: EVENT_ROW }); // fetchEvent
+      .mockResolvedValueOnce({ data: EVENT_ROW }) // fetchEvent
+      .mockResolvedValueOnce({ data: [] }); // fetchEventTopics → no topics
     dx.post.mockResolvedValueOnce({ data: { id: 'ann-1' } });
 
     const result = await svc.broadcastPublication('evt-1');
@@ -63,7 +64,7 @@ describe('EventBroadcastService.broadcastPublication', () => {
     expect(result.interactionId).toBe('i-1');
     expect(result.recipientCount).toBe(3);
 
-    // Audience filter is country = event.country (no other filter)
+    // FR-NTF-002: Audience filter is country only when event has no topics
     expect(members.resolveToUserIds).toHaveBeenCalledWith({ country: { _eq: 'uz' } });
 
     // Dispatch carries the right shape
@@ -72,7 +73,8 @@ describe('EventBroadcastService.broadcastPublication', () => {
     expect(dispatchInput.intent).toBe('event_announce');
     expect(dispatchInput.consentBasis).toBe('explicit_opt_in');
     expect(dispatchInput.consentScope).toEqual({ purpose: 'events' });
-    expect(dispatchInput.allowedChannels).toEqual(['email']);
+    // FR-NTF-002: Telegram channel now enabled alongside email
+    expect(dispatchInput.allowedChannels).toEqual(['email', 'telegram']);
     expect((dispatchInput.audience as { userIds: string[] }).userIds).toEqual([
       'u-1',
       'u-2',
@@ -119,7 +121,8 @@ describe('EventBroadcastService.broadcastPublication', () => {
   it('records a no_audience ledger row when the country has zero members', async () => {
     dx.get
       .mockResolvedValueOnce({ data: [] }) // findAnnouncement
-      .mockResolvedValueOnce({ data: EVENT_ROW }); // fetchEvent
+      .mockResolvedValueOnce({ data: EVENT_ROW }) // fetchEvent
+      .mockResolvedValueOnce({ data: [] }); // fetchEventTopics
     members.resolveToUserIds.mockResolvedValueOnce({ userIds: [], truncated: false, total: 0 });
     dx.post.mockResolvedValueOnce({ data: { id: 'ann-empty' } });
 
@@ -137,7 +140,8 @@ describe('EventBroadcastService.broadcastPublication', () => {
   it('omits capacity copy when event.capacity is null', async () => {
     dx.get
       .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: { ...EVENT_ROW, capacity: null, location: null } });
+      .mockResolvedValueOnce({ data: { ...EVENT_ROW, capacity: null, location: null } })
+      .mockResolvedValueOnce({ data: [] }); // fetchEventTopics
     dx.post.mockResolvedValueOnce({ data: { id: 'ann-x' } });
 
     await svc.broadcastPublication('evt-1');
@@ -147,5 +151,61 @@ describe('EventBroadcastService.broadcastPublication', () => {
     };
     expect(payload.text).not.toContain('Cap at');
     expect(payload.text).toContain('venue TBA');
+  });
+
+  // FR-NTF-002: Topic-interest filtering tests
+  it('filters audience by topic intersection when event has topics (AC-1)', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: [] }) // findAnnouncement
+      .mockResolvedValueOnce({ data: EVENT_ROW }) // fetchEvent
+      .mockResolvedValueOnce({
+        // fetchEventTopics → 2 topics
+        data: [
+          { id: 'et-1', topic: 't-ai-ml' },
+          { id: 'et-2', topic: 't-python' },
+        ],
+      });
+    dx.post.mockResolvedValueOnce({ data: { id: 'ann-topics' } });
+
+    const result = await svc.broadcastPublication('evt-1');
+
+    // Audience filter now includes member_interests.topic intersection
+    expect(members.resolveToUserIds).toHaveBeenCalledWith({
+      country: { _eq: 'uz' },
+      member_interests: { topic: { _in: ['t-ai-ml', 't-python'] } },
+    });
+    expect(result.status).toBe('dispatched');
+  });
+
+  it('excludes members with no matching topic interests (AC-2)', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: [] }) // findAnnouncement
+      .mockResolvedValueOnce({ data: EVENT_ROW }) // fetchEvent
+      .mockResolvedValueOnce({
+        data: [{ id: 'et-1', topic: 't-ai-ml' }],
+      }); // fetchEventTopics → 1 topic
+    members.resolveToUserIds.mockResolvedValueOnce({ userIds: [], truncated: false, total: 0 });
+    dx.post.mockResolvedValueOnce({ data: { id: 'ann-no-match' } });
+
+    const result = await svc.broadcastPublication('evt-1');
+
+    expect(result.status).toBe('no_audience');
+    expect(result.recipientCount).toBe(0);
+    expect(interactions.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('ensures tenant isolation — country filter always enforced alongside topic filter (AC-4)', async () => {
+    dx.get
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: { ...EVENT_ROW, country: 'kz' } }) // KZ event
+      .mockResolvedValueOnce({ data: [{ id: 'et-1', topic: 't-ai-ml' }] });
+    dx.post.mockResolvedValueOnce({ data: { id: 'ann-kz' } });
+
+    await svc.broadcastPublication('evt-1');
+
+    // Filter MUST include country even when topics are present
+    const filter = members.resolveToUserIds.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(filter.country).toEqual({ _eq: 'kz' });
+    expect(filter.member_interests).toBeTruthy();
   });
 });

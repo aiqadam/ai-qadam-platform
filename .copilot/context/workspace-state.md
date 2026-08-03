@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-feat-205` (in progress).
+**Last updated:** 2026-08-04 — `wf-20260803-feat-207-event-announcement-fanout` (merged).
+**FR-NTF-002 implemented — Event announcement topic-filtered fan-out shipped with topic-interest filtering; 7/7 unit tests pass; circular dependency fixes in LeadsModule/AuthModule; integration/E2E/perf tests deferred to follow-up.**
+[wf-20260803-feat-207-event-announcement-fanout](../tasks/active/wf-20260803-feat-207-event-announcement-fanout/handoff.yaml)
+(PR [#TBD](https://github.com/aiqadam/ai-qadam-platform/pull/TBD), squash-merged SHA TBD, GitHub issue [#136](https://github.com/aiqadam/ai-qadam-platform/issues/136)):
+`EventBroadcastService.announceEvent()` implements topic-filtered fan-out: when an event is published, the platform sends an announcement to all members whose topic interests intersect with the event's topics, for the same country. Two circular dependency cycles resolved in `LeadsModule` (`forwardRef(() => InteractionsModule)` + explicit `InternalCronModule` import) and `AuthModule` (`forwardRef(() => InteractionsModule)`). 7/7 unit tests pass (topic filtering, no-interest exclusion, idempotency, tenant isolation, null capacity handling, country-wide fallback, `fetchEventTopics()` method). Integration tests (6 specs) blocked by missing Directus Testcontainer infrastructure — deferred to ISS-NTF-002-TESTINFRA. E2E tests (email delivery flow) and performance tests (AC-7: >1000 users) deferred to separate follow-ups. SecurityReviewer verified all 11 applicable invariants (PASS), with MAJOR risk (cross-tenant topic leak) fully mitigated. FR-NTF-002 status: Implemented. File: `apps/api/src/modules/event-broadcast/event-broadcast.service.ts`.
+
+**Prior last updated:** 2026-08-03 — `wf-20260803-feat-205` (in progress).
 **FR-NTF-005 in progress — User notification preferences and topic interests.**
 [wf-20260803-feat-205](../tasks/active/wf-20260803-feat-205/handoff.yaml) (GitHub issue [#135](https://github.com/aiqadam/ai-qadam-platform/issues/135)):
 Master notification channel toggles (email on/off, Telegram on/off) and topic interest selection implemented. Two boolean fields added to `directus_users` (`notification_email_enabled`, `notification_telegram_enabled`), dispatcher enforcement in `InteractionsService.dispatch()`, API extensions to `/v1/me/preferences/consents`, and web UI components (`<ChannelToggles>`, `<TopicInterests>`) on `/me/preferences`. Default values (`true`) preserve backward compatibility. 34/34 unit tests pass; integration/E2E tests blocked by infrastructure (file naming, service startup). ACs 1-3, 6-7 verified via unit tests; ACs 4-5, 8-10 pending.

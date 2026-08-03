@@ -69,7 +69,7 @@ import { UpgradeService } from './upgrade.service';
     DirectusModule,
     LeadsModule,
     AuthentikModule,
-    InteractionsModule,
+    forwardRef(() => InteractionsModule),
     PointsModule,
     forwardRef(() => RegistrationsModule),
     forwardRef(() => MeProfileModule),

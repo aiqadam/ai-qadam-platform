@@ -57,8 +57,12 @@ export class EventBroadcastService {
 
   /**
    * Dispatch `event_announce` to every consented member in the event's
-   * country. Idempotent on (event, kind='published'): second call returns
+   * country whose topic interests intersect with the event's topics.
+   * Idempotent on (event, kind='published'): second call returns
    * `already_dispatched`.
+   *
+   * FR-NTF-002: Added topic-interest filtering (via member_interests ↔ event_topics
+   * intersection) and Telegram channel support.
    */
   async broadcastPublication(eventId: string): Promise<BroadcastResult> {
     const existing = await this.findAnnouncement(eventId, 'published');
@@ -74,17 +78,34 @@ export class EventBroadcastService {
     }
 
     const event = await this.fetchEvent(eventId);
-    const { userIds, total } = await this.members.resolveToUserIds({
+    const topicIds = await this.fetchEventTopics(eventId);
+
+    // FR-NTF-002: Resolve audience with topic-interest filtering. If the event
+    // has topics tagged, require the member to have at least one matching topic
+    // in member_interests. Country scoping is always enforced (tenant isolation).
+    const audienceFilter: Record<string, unknown> = {
       country: { _eq: event.country },
-    });
+    };
+    if (topicIds.length > 0) {
+      // Directus filter syntax for "member has at least one member_interests row
+      // where topic is in the event's topic set". The _some operator on the
+      // many-to-many junction means "at least one related row matches".
+      audienceFilter.member_interests = {
+        topic: { _in: topicIds },
+      };
+    }
+
+    const { userIds, total } = await this.members.resolveToUserIds(audienceFilter);
     if (userIds.length === 0) {
       await this.recordAnnouncement(eventId, 'published', null, 0);
       this.logger.log(
-        `publication broadcast — no audience event=${eventId} country=${event.country}`,
+        `publication broadcast — no audience event=${eventId} country=${event.country} topics=${topicIds.length}`,
       );
       return { status: 'no_audience', interactionId: null, recipientCount: 0 };
     }
 
+    // FR-NTF-002: Enable Telegram channel for announcements alongside email.
+    // InteractionsService enforces per-user channel preferences at delivery time.
     const { interactionId } = await this.interactions.dispatch({
       initiatorActor: 'system',
       audience: { userIds },
@@ -92,12 +113,12 @@ export class EventBroadcastService {
       payload: buildAnnouncePayload(event),
       consentBasis: 'explicit_opt_in',
       consentScope: { purpose: 'events' },
-      allowedChannels: ['email'],
+      allowedChannels: ['email', 'telegram'],
     });
 
     await this.recordAnnouncement(eventId, 'published', interactionId, total);
     this.logger.log(
-      `publication broadcast dispatched event=${eventId} interaction=${interactionId} audience=${userIds.length}`,
+      `publication broadcast dispatched event=${eventId} interaction=${interactionId} audience=${userIds.length} topics=${topicIds.length}`,
     );
     return { status: 'dispatched', interactionId, recipientCount: userIds.length };
   }
@@ -121,6 +142,18 @@ export class EventBroadcastService {
     );
     if (!res.data) throw new Error(`event ${eventId} not found`);
     return res.data;
+  }
+
+  /**
+   * Fetch topic IDs associated with this event via the event_topics M2M junction.
+   * Returns empty array if the event has no topics tagged (FR-EVT-007).
+   */
+  private async fetchEventTopics(eventId: string): Promise<string[]> {
+    const filter = encodeURIComponent(JSON.stringify({ event: { _eq: eventId } }));
+    const res = await this.directus.get<{ data: Array<{ id: string; topic: string }> }>(
+      `/items/event_topics?filter=${filter}&fields=id,topic&limit=100`,
+    );
+    return res.data.map((row) => row.topic);
   }
 
   private async recordAnnouncement(

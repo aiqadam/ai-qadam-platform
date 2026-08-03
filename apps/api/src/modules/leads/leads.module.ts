@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { DirectusModule } from '../directus/directus.module';
+import { InternalCronModule } from '../internal-cron/internal-cron.module';
 import { InteractionsModule } from '../interactions/interactions.module';
 import { InternalAuthGuard } from '../internal/internal-auth.guard';
 import { LeadNurtureCronController } from './lead-nurture-cron.controller';
@@ -22,7 +23,7 @@ import { LeadsService } from './leads.service';
 // still in state='lead'. Idempotent via lead_nurture_dispatches ledger.
 
 @Module({
-  imports: [DirectusModule, InteractionsModule],
+  imports: [DirectusModule, InternalCronModule, forwardRef(() => InteractionsModule)],
   providers: [LeadsService, LeadVerifyTokenService, LeadNurtureCronService, InternalAuthGuard],
   controllers: [LeadsController, LeadNurtureCronController],
   exports: [LeadsService],
