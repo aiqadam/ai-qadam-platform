@@ -97,7 +97,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 53 | [FR-CMS-005](FR-CMS-005.md) | Audience segment builder | Shipped | ADM-002, EVT-007 |
 | 54 | [FR-CMS-004](FR-CMS-004.md) | Telegram broadcast composer | Shipped | CMS-005, ADM-002 |
 | 55 | [FR-BOT-001](FR-BOT-001.md) | Telegram bot scaffold | Shipped | AUTH-002 |
-| 56 | [FR-AUTH-005](FR-AUTH-005.md) | Account linking | Planned | AUTH-002, BOT-001 |
+| 56 | [FR-AUTH-005](FR-AUTH-005.md) | Account linking | Shipped | AUTH-002, BOT-001 |
 | 57 | [FR-AUTH-006](FR-AUTH-006.md) | Temporary account upgrade | Shipped | AUTH-002, AUTH-004, GAM-001 |
 | 58 | [FR-BOT-002](FR-BOT-002.md) | Member bot commands | Shipped | BOT-001, REG-001, GAM-003, EVT-003 |
 | 59 | [FR-BOT-003](FR-BOT-003.md) | Operator runtime commands | Shipped | BOT-001, REG-004 |

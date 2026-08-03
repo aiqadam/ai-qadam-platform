@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -27,6 +27,7 @@ interface FakeMember {
   id: string;
   email: string;
   country: string;
+  telegram_user_id?: string | null;
 }
 
 function makeService(opts: {
@@ -316,6 +317,49 @@ describe('TelegramService.confirmLink', () => {
         tgUsername: null,
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws 409 when member already linked to a different Telegram account', async () => {
+    const { service, emailSend, directusPatch } = makeService({
+      members: [{ id: 'm-1', email: 'alice@example.com', country: 'uz', telegram_user_id: '100' }],
+    });
+    await service.startLink(99n, 'alice@example.com');
+    const sentMsg = emailSend.mock.calls[0]?.[0] as { text: string };
+    const code = (sentMsg.text.match(/\b(\d{6})\b/) ?? [])[1] ?? '';
+
+    await expect(
+      service.confirmLink({
+        challengeId: await getOnlyChallengeId(),
+        code,
+        tgUserId: 99n,
+        tgUsername: null,
+      }),
+    ).rejects.toThrow(ConflictException);
+    // No Directus write must happen when the guard fires.
+    expect(directusPatch).not.toHaveBeenCalled();
+  });
+
+  it('succeeds idempotently when same Telegram account re-links', async () => {
+    const { service, emailSend, directusPatch } = makeService({
+      // telegram_user_id already equals the incoming tgUserId — re-link of the same account.
+      members: [{ id: 'm-1', email: 'alice@example.com', country: 'uz', telegram_user_id: '99' }],
+    });
+    await service.startLink(99n, 'alice@example.com');
+    const sentMsg = emailSend.mock.calls[0]?.[0] as { text: string };
+    const code = (sentMsg.text.match(/\b(\d{6})\b/) ?? [])[1] ?? '';
+
+    const result = await service.confirmLink({
+      challengeId: await getOnlyChallengeId(),
+      code,
+      tgUserId: 99n,
+      tgUsername: 'alice_tg',
+    });
+    expect(result).toEqual({ memberId: 'm-1', tenant: 'uz' });
+    // Directus PATCH IS called — re-link updates linked_at and clears opt-out.
+    expect(directusPatch).toHaveBeenCalledWith(
+      '/users/m-1',
+      expect.objectContaining({ telegram_user_id: '99' }),
+    );
   });
 });
 

@@ -1,6 +1,7 @@
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -194,6 +195,13 @@ export class TelegramService {
   }): Promise<LinkConfirmResult> {
     const challenge = await this.loadValidChallenge(input.challengeId, input.tgUserId, input.code);
     const member = await this.resolveMemberOrThrow(challenge.email);
+    // Prevent silent overwrite if the account is already linked to a different TG identity.
+    if (
+      member.telegram_user_id != null &&
+      member.telegram_user_id.toString() !== input.tgUserId.toString()
+    ) {
+      throw new ConflictException('already_linked_to_different_account');
+    }
     await this.writeLinkToDirectus(challenge.id, member.id, input);
     await this.db
       .update(tgLinkChallenges)

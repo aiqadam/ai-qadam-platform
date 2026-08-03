@@ -27,3 +27,4 @@ export { FormRenderer, FormRendererIsland } from './FormRenderer';
 export { LeadCaptureForm } from './LeadCaptureForm';
 export { MagicLinkForm } from './MagicLinkForm';
 export { SignUpForm } from './SignUpForm';
+export { TelegramLinkStatus } from './TelegramLinkStatus';
