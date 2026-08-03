@@ -90,7 +90,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 46 | [FR-GAM-004](FR-GAM-004.md) | Streaks | Shipped | GAM-001, REG-004 |
 | 47 | [FR-REG-005](FR-REG-005.md) | No-show tracking | Shipped | REG-001, REG-004, GAM-004 |
 | 48 | [FR-EVT-006](FR-EVT-006.md) | Post-event survey | Shipped | EVT-001, CMS-003, NTF-001 |
-| 49 | [FR-PTN-002](FR-PTN-002.md) | Partner onboarding workflow | Not Started | PTN-001, CRM-002 |
+| 49 | [FR-PTN-002](FR-PTN-002.md) | Partner onboarding workflow | Superseded (ADR-0033) | PTN-001 |
 | 50 | [FR-EVT-007](FR-EVT-007.md) | Topic tagging | Planned | EVT-001 |
 | 51 | [FR-NTF-005](FR-NTF-005.md) | Notification preferences + topic interests | Planned | USR-004, EVT-007 |
 | 52 | [FR-NTF-002](FR-NTF-002.md) | Event announcement fan-out | Planned | NTF-001, EVT-007, NTF-005 |

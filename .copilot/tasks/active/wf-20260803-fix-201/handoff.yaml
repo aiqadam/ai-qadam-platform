@@ -1,0 +1,44 @@
+# Handoff File v1.0 — wf-20260803-fix-201
+
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-fix-201"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T00:00:00Z"
+last_updated_at: "2026-08-03T00:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "FR-PTN-002"
+requirement_text: "Partner and sponsor onboarding (operator) — superseded by ADR-0033 architecture"
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/133"
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "fix/ISS-133-ptn-002-superseded"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+workflow_status: "in_progress"
+current_step: 0
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts: []
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results: {}
+
+# ─── Notes ───────────────────────────────────────────────────────────────────
+
+notes: |
+  Doc-only supersession workflow, following FR-CRM-002 precedent (wf-20260802-fix-196).
+  FR-PTN-002's functional scope item #1 references FR-CRM-002 (Twenty CRM contact sync),
+  which was superseded 2026-08-02 per ADR-0033. The modern architecture (companies
+  collection + partner_audiences + /workspace/partners cabinet) already satisfies all
+  three acceptance criteria. No code implementation needed — only doc correction.

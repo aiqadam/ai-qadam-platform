@@ -1,6 +1,13 @@
 # Workspace State
 
-**Last updated:** 2026-08-03 — `wf-20260803-feat-200`.
+**Last updated:** 2026-08-03 — `wf-20260803-fix-201`.
+**FR-PTN-002 (Partner and sponsor onboarding) superseded — ADR-0033 retired Twenty CRM; modern architecture via companies collection + partner_audiences + /workspace/partners cabinet already satisfies all acceptance criteria.**
+[wf-20260803-fix-201](../tasks/active/wf-20260803-fix-201/handoff.yaml)
+(GitHub issue [#133](https://github.com/aiqadam/ai-qadam-platform/issues/133)):
+FR-PTN-002 marked `status: Superseded` per ADR-0033 (Accepted 2026-05-20). The requirement's functional scope item #1 referenced FR-CRM-002 (Twenty CRM contact sync), which was superseded 2026-08-02 for the same architectural reason. All three acceptance criteria already met by existing infrastructure: (1) `companies` collection with sponsor flags for Directus partner creation; (2) `/workspace/partners/[slug]` cabinet (M2.1) serving partner kit downloads via `marketing_assets`; (3) `event_sponsors` junction (F-WebU11) for event linking with immediate homepage/event-page visibility based on status field. Documentation-only change, no code implementation.
+
+
+**Prior last updated:** 2026-08-03 — `wf-20260803-feat-200`.
 **FR-CRM-003 (Activity sync to Twenty CRM) superseded — ADR-0033 retired Twenty CRM; requirement closed without implementation following FR-CRM-002 precedent.**
 [wf-20260803-feat-200](../tasks/completed/wf-20260803-feat-200/handoff.yaml)
 (PR [#250](https://github.com/aiqadam/ai-qadam-platform/pull/250), squash-merged 95f0bfd, GitHub issue [#132](https://github.com/aiqadam/ai-qadam-platform/issues/132) closed):
