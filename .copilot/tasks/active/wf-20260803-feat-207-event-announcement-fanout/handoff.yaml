@@ -1,0 +1,212 @@
+﻿# Handoff File Schema v1.0
+
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-feat-207-event-announcement-fanout"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T00:00:00Z"
+last_updated_at: "2026-08-03T00:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "FR-NTF-002"
+requirement_text: "Event announcement fan-out - When an event is published, the platform sends an announcement to all members whose topic interests intersect with the event's topics, for the same country."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/136"
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "feature/FR-NTF-002-event-announcement-fanout"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 11
+current_step_name: "Commit and PR"
+workflow_status: "running"
+
+# ─── Subworkflow Link ────────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+# ─── Subworkflow History ─────────────────────────────────────────────────────
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "FR-NTF-002 is specific, testable, non-conflicting, architecturally feasible, and scoped to Notifications module."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/01-requirement-validation.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "No schema changes; 1 service modified; 3 test files; 1 MAJOR security risk flagged with mitigation."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/02-impact-analysis.md"
+  code-implementation:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Fixed circular dependencies in LeadsModule and AuthModule with forwardRef(); typecheck and lint passed."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/03-code-summary-retry2.md"
+  security-review:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "All security invariants satisfied; MAJOR risk (cross-tenant topic leak) fully mitigated; no BLOCKER or MAJOR findings."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/04-security-review.md"
+  test-strategy:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Test strategy complete; unit (7) and integration (6) tests verified; E2E and performance tests identified as gaps with deferral."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/06-test-strategy.md"
+  test-runner:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Unit tests passed (7/7); integration tests blocked by missing Directus Testcontainer infrastructure; deferred to follow-up."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/07-test-results-retry2.md"
+    deferred_work: "Integration tests require Directus Testcontainer setup; follow-up workflow needed"
+  doc-writer:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "Fixed status inconsistency; added context_update YAML block; updated workspace-state.md."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/08-doc-update-retry2.md"
+  quality-gate:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-04T00:00:00Z"
+    summary: "All documentation fixes applied; context_update block present; status consistency achieved; workspace-state.md updated."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/09-quality-gate-retry2.md"
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/01-requirement-validation.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/02-impact-analysis.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/03-code-summary-retry2.md"
+    timestamp: "2026-08-03T00:00:00Z"
+    retry_count: 1
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/04-security-review.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  test-strategist:
+    status: completed
+    step: 6
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/06-test-strategy.md"
+    timestamp: "2026-08-03T00:00:00Z"
+  test-runner:
+    status: completed
+    step: 8
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/07-test-results-retry2.md"
+    timestamp: "2026-08-03T00:00:00Z"
+    retry_count: 1
+  doc-writer:
+    status: completed
+    step: 9
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/08-doc-update-retry2.md"
+    timestamp: "2026-08-03T00:00:00Z"
+    retry_count: 1
+  quality-gate:
+    status: completed
+    step: 10
+    output_file: ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/09-quality-gate-retry2.md"
+    timestamp: "2026-08-04T00:00:00Z"
+    retry_count: 1
+
+# ─── Retry State ─────────────────────────────────────────────────────────────
+
+retry_counts:
+  code-developer: 1
+  test-runner: 1
+  doc-writer: 1
+  quality-gate: 1
+
+# ─── Retry Limits ────────────────────────────────────────────────────────────
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+# ─── Issues ──────────────────────────────────────────────────────────────────
+
+issues_created: ["ISS-NTF-002-TESTINFRA"]
+issue_ref: ""
+
+# ─── Deferrals ───────────────────────────────────────────────────────────────
+
+deferrals:
+  - from_feature: "FR-NTF-002"
+    to_issue: "ISS-NTF-002-TESTINFRA"
+    reason: "Integration tests require Directus Testcontainer setup in test/setup-pg.ts"
+    step: 8
+    timestamp: "2026-08-03T00:00:00Z"
+
+# ─── Context Drift Guard ─────────────────────────────────────────────────────
+
+expects_registry_update: true
+context_sync_commits: 0
+
+# ─── UAT Target ──────────────────────────────────────────────────────────────
+
+uat_target: "local"
+
+# ─── Business-Process Linkage ────────────────────────────────────────────────
+
+business_process: []
+post_merge_uat_runs: []
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/03-code-summary-retry2.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/07-test-results-retry2.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/08-doc-update-retry2.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/09-quality-gate.md"
+  - ".copilot/tasks/active/wf-20260803-feat-207-event-announcement-fanout/09-quality-gate-retry2.md"

@@ -93,7 +93,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 49 | [FR-PTN-002](FR-PTN-002.md) | Partner onboarding workflow | Superseded (ADR-0033) | PTN-001 |
 | 50 | [FR-EVT-007](FR-EVT-007.md) | Topic tagging | In Progress | EVT-001 |
 | 51 | [FR-NTF-005](FR-NTF-005.md) | Notification preferences + topic interests | Shipped | USR-004, EVT-007 |
-| 52 | [FR-NTF-002](FR-NTF-002.md) | Event announcement fan-out | Planned | NTF-001, EVT-007, NTF-005 |
+| 52 | [FR-NTF-002](FR-NTF-002.md) | Event announcement fan-out | Implemented | NTF-001, EVT-007, NTF-005 |
 | 53 | [FR-CMS-005](FR-CMS-005.md) | Audience segment builder | Shipped | ADM-002, EVT-007 |
 | 54 | [FR-CMS-004](FR-CMS-004.md) | Telegram broadcast composer | Shipped | CMS-005, ADM-002 |
 | 55 | [FR-BOT-001](FR-BOT-001.md) | Telegram bot scaffold | Shipped | AUTH-002 |
