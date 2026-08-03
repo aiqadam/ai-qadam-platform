@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { DB, type Db } from '../../../db';
 import { OutboxPublisher } from '../../telegram/outbox-publisher.service';
 import type { AdapterResult, ChannelAdapter, ResolvedRecipient } from '../interactions.types';
+import { sanitizeTelegramHtml } from './telegram-html-sanitizer';
 
 // Telegram channel adapter per ADR-0034 §"NestJS-side endpoints" +
 // §"Outbox pattern". Builds a tg.dispatch.v1 envelope and publishes
@@ -29,6 +30,30 @@ import type { AdapterResult, ChannelAdapter, ResolvedRecipient } from '../intera
 //   + tg_send_log UNIQUE. Documented honestly so future readers don't
 //   over-trust the property.
 
+// Telegram inline keyboard button — matches the Bot API's InlineKeyboardButton
+// URL-button shape (a subset; we only need the url variant today).
+//
+// Bounds (security review MAJOR-1, wf-20260803-feat-197 retry 1): Telegram
+// doesn't hard-cap button label/URL length in its public docs, but 64 chars
+// is the widely-observed practical rendering limit for an inline button's
+// label before Telegram truncates it client-side, and 2048 is the
+// conventional practical URL-length ceiling (matches most browsers/servers'
+// own limits) — both chosen so an oversized value fails fast here with a
+// clear adapter-level error instead of reaching the outbox jsonb column and
+// only failing later, opaquely, at the Telegram Bot API layer.
+const inlineButtonSchema = z.object({
+  text: z.string().min(1).max(64),
+  url: z.string().min(1).max(2048).url(),
+});
+
+// Rows of buttons (a 2D array), matching Telegram's inline_keyboard shape.
+// Telegram has no documented hard cap on rows/columns, but a small,
+// reasonable bound on both dimensions is a cheap guard consistent with
+// security.md's "every field has a max length" rule — 10 rows x 10
+// buttons-per-row comfortably covers every real use case (today's callers
+// use a single row, single button) while still rejecting pathological input.
+const inlineButtonsSchema = z.array(z.array(inlineButtonSchema).max(10)).max(10);
+
 // Payload shape over the dispatcher wire. Accepts a minimum-viable set;
 // extend when new template needs arise. parse_mode defaults to 'None' so
 // raw user text doesn't surprise-render as MarkdownV2.
@@ -36,6 +61,9 @@ const payloadSchema = z.object({
   text: z.string().min(1).max(4096),
   parse_mode: z.enum(['MarkdownV2', 'HTML', 'None']).default('None'),
   disable_web_page_preview: z.boolean().default(true),
+  // Optional — AC-2 requires omitted stays backward-compatible (envelope
+  // defaults to null downstream, same as before this field existed).
+  inline_buttons: inlineButtonsSchema.optional(),
 });
 
 const TELEGRAM_STREAM = 'tg.dispatch.v1';
@@ -67,6 +95,15 @@ export class TelegramAdapter implements ChannelAdapter {
       };
     }
 
+    // Telegram-safe HTML enforcement (FR-NTF-004 §3): strip any tag
+    // outside the allowlist before the envelope is built, so every
+    // caller (current and future) gets this guarantee uniformly rather
+    // than relying on each caller to sanitize its own text. This is a
+    // defense-in-depth backstop, not an escaping mechanism — callers
+    // remain responsible for HTML-escaping user-controlled data (event
+    // titles, names) before interpolating it into their own text.
+    const sanitizedText = sanitizeTelegramHtml(parsed.data.text);
+
     // chat_id is the recipient's tg_user_id. Bigint over the wire as a
     // string; Telegram Bot API accepts the integer.
     const chatId = Number.parseInt(input.recipient.telegramUserId ?? '', 10);
@@ -93,12 +130,12 @@ export class TelegramAdapter implements ChannelAdapter {
           tenant: input.recipient.tenant,
         },
         template: {
-          text: parsed.data.text,
+          text: sanitizedText,
           parse_mode: parsed.data.parse_mode,
           disable_web_page_preview: parsed.data.disable_web_page_preview,
           media_url: null,
           media_kind: null,
-          inline_buttons: null,
+          inline_buttons: parsed.data.inline_buttons ?? null,
         },
         // delivery_key — UNIQUE in tg_send_log (A3). 1:1 with envelopeId
         // is the simplest choice; producer retries (in this same flow)

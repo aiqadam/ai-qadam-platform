@@ -37,8 +37,18 @@ const FOLLOWUP_KINDS = [
   'sponsor_report_delivered',
 ] as const;
 
+// Security review MAJOR-2 (wf-20260803-feat-197 retry 1): event titles are
+// interpolated raw into Directus Liquid-templated JSON request bodies (the
+// pre-existing email notification ops and the new Telegram ops added by
+// FR-NTF-004) with no escaping primitive available at the Liquid layer. A
+// literal `"` or `\` in a title could break the outer JSON structure of the
+// rendered HTTP body sent to /v1/internal/interactions/dispatch. Cheapest
+// fix is at the source: disallow those two characters in the title itself.
+const TITLE_SAFE_CHARS = /^[^"\\]*$/;
+const TITLE_SAFE_MESSAGE = 'Title cannot contain a quote (") or backslash (\\) character.';
+
 const patchEventSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
+  title: z.string().trim().min(1).max(200).regex(TITLE_SAFE_CHARS, TITLE_SAFE_MESSAGE).optional(),
   description: z.string().trim().max(20000).optional(),
   status: z.enum(['draft', 'published', 'cancelled']).optional(),
   starts_at: z.string().datetime().optional(),

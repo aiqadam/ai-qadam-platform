@@ -101,7 +101,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 57 | [FR-AUTH-006](FR-AUTH-006.md) | Temporary account upgrade | Shipped | AUTH-002, AUTH-004, GAM-001 |
 | 58 | [FR-BOT-002](FR-BOT-002.md) | Member bot commands | Shipped | BOT-001, REG-001, GAM-003, EVT-003 |
 | 59 | [FR-BOT-003](FR-BOT-003.md) | Operator runtime commands | Shipped | BOT-001, REG-004 |
-| 60 | [FR-NTF-004](FR-NTF-004.md) | Telegram channel notification adapter | Planned | NTF-001, BOT-001, AUTH-002 |
+| 60 | [FR-NTF-004](FR-NTF-004.md) | Telegram channel notification adapter | Shipped | NTF-001, BOT-001, AUTH-002 |
 | 61 | [FR-AUTH-007](FR-AUTH-007.md) | Linked identity surface | Planned | AUTH-002, AUTH-003, AUTH-005 |
 | 62 | [FR-WORKFLOW-001](FR-WORKFLOW-001.md) | Context drift guard for the agentic workflow layer | Shipped | — |
 | 63 | [FR-WORKFLOW-003](FR-WORKFLOW-003.md) | UAT fixture state reset — order-independent, re-entrant UAT runs | Shipped | WORKFLOW-002 (UAT infra, shipped) |

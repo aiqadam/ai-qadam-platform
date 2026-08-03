@@ -70,6 +70,13 @@ OP_CAPACITY_USER_LOOKUP="11111111-c3c1-4001-8001-000000000014"
 OP_CAPACITY_EMAIL_CONFIRMED="11111111-c3c1-4001-8001-000000000015"
 OP_CAPACITY_USER_LOOKUP_WL="11111111-c3c1-4001-8001-000000000016"
 OP_CAPACITY_EMAIL_WAITLISTED="11111111-c3c1-4001-8001-000000000017"
+# FR-NTF-004 gap-fill (wf-20260803-feat-197): Telegram-branch siblings
+# chained after each email op, gated on an exec op that checks the
+# lookup op's telegram_user_id/telegram_opted_out_at fields.
+OP_CAPACITY_TELEGRAM_GATE="11111111-c3c1-4001-8001-000000000018"
+OP_CAPACITY_TELEGRAM_CONFIRMED="11111111-c3c1-4001-8001-000000000019"
+OP_CAPACITY_TELEGRAM_GATE_WL="11111111-c3c1-4001-8001-000000000020"
+OP_CAPACITY_TELEGRAM_WAITLISTED="11111111-c3c1-4001-8001-000000000021"
 
 FLOW_REG_PROMOTION="11111111-c3c2-4002-8002-000000000001"
 OP_PROMO_GATE="11111111-c3c2-4002-8002-000000000010"
@@ -80,6 +87,9 @@ OP_PROMOTE="11111111-c3c2-4002-8002-000000000014"
 OP_PROMO_LOAD_EVENT="11111111-c3c2-4002-8002-000000000015"
 OP_PROMO_USER_LOOKUP="11111111-c3c2-4002-8002-000000000016"
 OP_PROMO_EMAIL_PROMOTED="11111111-c3c2-4002-8002-000000000017"
+# FR-NTF-004 gap-fill (wf-20260803-feat-197): Telegram-branch sibling.
+OP_PROMO_TELEGRAM_GATE="11111111-c3c2-4002-8002-000000000018"
+OP_PROMO_TELEGRAM_PROMOTED="11111111-c3c2-4002-8002-000000000019"
 
 FLOW_REG_CHECKIN="11111111-c3c3-4003-8003-000000000001"
 OP_CHECKIN_GATE="11111111-c3c3-4003-8003-000000000010"
@@ -210,8 +220,64 @@ JSON
 # then decide_status → patch_status, then count_registered → decide_status,
 # then event_lookup → count_registered.
 
+# Op 4d (terminal of the Telegram branch): POST the Telegram-shaped
+# dispatch. Only reached when capacity_telegram_gate_wl resolves (i.e.
+# the waitlisted user is Telegram-eligible) — email above always fires
+# unconditionally, this fires additionally when eligible. No button per
+# FR-NTF-004: the registration-waitlisted email template has none either.
+# recipientName lands inside a <b>...</b> textContent position only
+# (never inside a tag attribute) per the sanitizer's documented
+# escape-before-strip guidance — TelegramAdapter's allowlist sanitizer
+# (item 3) is the defense-in-depth backstop.
+upsert "op capacity_telegram_waitlisted" "operations" "${OP_CAPACITY_TELEGRAM_WAITLISTED}" "$(cat <<JSON
+{
+  "name": "Telegram registration-waitlisted",
+  "key": "capacity_telegram_waitlisted",
+  "type": "request",
+  "position_x": 109,
+  "position_y": 19,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/interactions/dispatch",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ \$trigger.payload.user }}\"] }, \"intent\": \"waitlisted\", \"payload\": { \"text\": \"You're on the waitlist for <b>{{ event_lookup.title }}</b>.\\\\n\\\\nWe'll notify you here if a spot opens up.\", \"parse_mode\": \"HTML\", \"disable_web_page_preview\": true }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"telegram\"] }"
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 4c: gate. Mirrors decide_status's exec-op-gate pattern — receives
+# all prior op results in `data`, reads the waitlisted-user lookup's
+# telegram_user_id/telegram_opted_out_at, and either resolves into the
+# Telegram request (eligible) or rejects (not eligible → reject:null,
+# a clean no-op; email already sent unconditionally above).
+upsert "op capacity_telegram_gate_wl" "operations" "${OP_CAPACITY_TELEGRAM_GATE_WL}" "$(cat <<JSON
+{
+  "name": "Telegram eligibility gate (waitlisted)",
+  "key": "capacity_telegram_gate_wl",
+  "type": "exec",
+  "position_x": 91,
+  "position_y": 19,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const user = data.capacity_user_lookup_wl || {};\n  const tgId = Number.parseInt(String(user.telegram_user_id ?? ''), 10);\n  const eligible = Number.isFinite(tgId) && tgId > 0 && !user.telegram_opted_out_at;\n  if (!eligible) {\n    throw new Error('not-telegram-eligible');\n  }\n  return { eligible: true };\n}"
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": "${OP_CAPACITY_TELEGRAM_WAITLISTED}",
+  "reject": null
+}
+JSON
+)"
+
 # Op 4b (terminal of overflow email branch): POST /v1/internal/email
-# with the waitlisted template.
+# with the waitlisted template. Resolve now chains (unconditionally) into
+# the Telegram eligibility gate — email always sends regardless of
+# Telegram eligibility; the gate op decides whether Telegram also fires.
 upsert "op capacity_email_waitlisted" "operations" "${OP_CAPACITY_EMAIL_WAITLISTED}" "$(cat <<JSON
 {
   "name": "Email registration-waitlisted",
@@ -229,7 +295,7 @@ upsert "op capacity_email_waitlisted" "operations" "${OP_CAPACITY_EMAIL_WAITLIST
     "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ \$trigger.payload.user }}\"] }, \"intent\": \"waitlisted\", \"payload\": { \"template\": \"registration-waitlisted\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup_wl.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"email\"] }"
   },
   "flow": "${FLOW_REG_CAPACITY}",
-  "resolve": null,
+  "resolve": "${OP_CAPACITY_TELEGRAM_GATE_WL}",
   "reject": null
 }
 JSON
@@ -238,6 +304,9 @@ JSON
 # Op 4a: look up the just-waitlisted user's email. Separate from
 # capacity_user_lookup so each branch keys its data independently
 # (Directus references by operation key, not aliased per branch).
+# FR-NTF-004 gap-fill: fields extended with telegram_user_id +
+# telegram_opted_out_at so capacity_telegram_gate_wl can evaluate
+# eligibility without a second lookup.
 upsert "op capacity_user_lookup_wl" "operations" "${OP_CAPACITY_USER_LOOKUP_WL}" "$(cat <<JSON
 {
   "name": "Lookup waitlisted user",
@@ -249,7 +318,7 @@ upsert "op capacity_user_lookup_wl" "operations" "${OP_CAPACITY_USER_LOOKUP_WL}"
     "collection": "directus_users",
     "key": "{{ \$trigger.payload.user }}",
     "query": {
-      "fields": ["email", "first_name"]
+      "fields": ["email", "first_name", "telegram_user_id", "telegram_opted_out_at"]
     }
   },
   "flow": "${FLOW_REG_CAPACITY}",
@@ -284,11 +353,70 @@ upsert "op patch_status" "operations" "${OP_PATCH_STATUS}" "$(cat <<JSON
 JSON
 )"
 
+# Op 3c (terminal of the Telegram branch): POST the Telegram-shaped
+# dispatch, with the FR-NTF-004 "Open event page" inline button. Only
+# reached when capacity_telegram_gate resolves (registering user is
+# Telegram-eligible) — email above always fires unconditionally. The
+# event id feeding the button URL comes from event_lookup.id (trusted
+# Directus item-read output, never a user-settable field) — not from
+# $trigger.payload, per the security review flag on URL sourcing.
+# recipientName/eventTitle land inside <b>...</b> textContent only
+# (never inside the <a> tag's attributes) so a malicious title can't
+# smuggle markup into the href; TelegramAdapter's allowlist sanitizer
+# (item 3) is the defense-in-depth backstop.
+upsert "op capacity_telegram_confirmed" "operations" "${OP_CAPACITY_TELEGRAM_CONFIRMED}" "$(cat <<JSON
+{
+  "name": "Telegram registration-confirmed",
+  "key": "capacity_telegram_confirmed",
+  "type": "request",
+  "position_x": 73,
+  "position_y": 35,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/interactions/dispatch",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ \$trigger.payload.user }}\"] }, \"intent\": \"registered\", \"payload\": { \"text\": \"You're registered for <b>{{ event_lookup.title }}</b>!\\\\n\\\\n{{ event_lookup.starts_at }} · {{ event_lookup.location }}\", \"parse_mode\": \"HTML\", \"disable_web_page_preview\": true, \"inline_buttons\": [[{ \"text\": \"Open event page\", \"url\": \"https://aiqadam.org/events/{{ event_lookup.id }}\" }]] }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"telegram\"] }"
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 3b: gate. Mirrors decide_status's exec-op-gate pattern — receives
+# all prior op results in `data`, reads the registering-user lookup's
+# telegram_user_id/telegram_opted_out_at, and either resolves into the
+# Telegram request (eligible) or rejects (not eligible → reject:null,
+# a clean no-op; email already sent unconditionally above).
+upsert "op capacity_telegram_gate" "operations" "${OP_CAPACITY_TELEGRAM_GATE}" "$(cat <<JSON
+{
+  "name": "Telegram eligibility gate (confirmed)",
+  "key": "capacity_telegram_gate",
+  "type": "exec",
+  "position_x": 55,
+  "position_y": 35,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const user = data.capacity_user_lookup || {};\n  const tgId = Number.parseInt(String(user.telegram_user_id ?? ''), 10);\n  const eligible = Number.isFinite(tgId) && tgId > 0 && !user.telegram_opted_out_at;\n  if (!eligible) {\n    throw new Error('not-telegram-eligible');\n  }\n  return { eligible: true };\n}"
+  },
+  "flow": "${FLOW_REG_CAPACITY}",
+  "resolve": "${OP_CAPACITY_TELEGRAM_CONFIRMED}",
+  "reject": null
+}
+JSON
+)"
+
 # Op 3: exec script. Receives ALL prior op results in `data`. Returns a
 # truthy object → next op runs (patch_status). Returns null → resolve
 # chain still progresses but item-update gets called anyway, so we use
 # `reject` instead to short-circuit when no demotion is needed.
 # Op 5 (terminal of reject/email branch): POST /v1/internal/email.
+# Resolve now chains (unconditionally) into the Telegram eligibility
+# gate — email always sends regardless of Telegram eligibility; the
+# gate op decides whether Telegram also fires.
 upsert "op capacity_email_confirmed" "operations" "${OP_CAPACITY_EMAIL_CONFIRMED}" "$(cat <<JSON
 {
   "name": "Email registration-confirmed",
@@ -306,13 +434,16 @@ upsert "op capacity_email_confirmed" "operations" "${OP_CAPACITY_EMAIL_CONFIRMED
     "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ \$trigger.payload.user }}\"] }, \"intent\": \"registered\", \"payload\": { \"template\": \"registration-confirmed\", \"data\": { \"recipientName\": \"{{ capacity_user_lookup.first_name }}\", \"eventTitle\": \"{{ event_lookup.title }}\", \"eventStartsAt\": \"{{ event_lookup.starts_at }}\", \"eventLocation\": \"{{ event_lookup.location }}\" } }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"email\"] }"
   },
   "flow": "${FLOW_REG_CAPACITY}",
-  "resolve": null,
+  "resolve": "${OP_CAPACITY_TELEGRAM_GATE}",
   "reject": null
 }
 JSON
 )"
 
 # Op 4: look up the registering user's email (used by capacity_email_confirmed).
+# FR-NTF-004 gap-fill: fields extended with telegram_user_id +
+# telegram_opted_out_at so capacity_telegram_gate can evaluate
+# eligibility without a second lookup.
 upsert "op capacity_user_lookup" "operations" "${OP_CAPACITY_USER_LOOKUP}" "$(cat <<JSON
 {
   "name": "Lookup registering user",
@@ -324,7 +455,7 @@ upsert "op capacity_user_lookup" "operations" "${OP_CAPACITY_USER_LOOKUP}" "$(ca
     "collection": "directus_users",
     "key": "{{ \$trigger.payload.user }}",
     "query": {
-      "fields": ["email", "first_name"]
+      "fields": ["email", "first_name", "telegram_user_id", "telegram_opted_out_at"]
     }
   },
   "flow": "${FLOW_REG_CAPACITY}",
@@ -438,7 +569,64 @@ upsert "flow reg-waitlist-promotion" "flows" "${FLOW_REG_PROMOTION}" "$(cat <<JS
 JSON
 )"
 
+# Op 8c (terminal of the Telegram branch): POST the Telegram-shaped
+# dispatch, with the FR-NTF-004 "Open event page" inline button (required
+# for promotion per the FR's stated AC: "Promotion from waitlist:
+# [Open event page]"). Only reached when promo_telegram_gate resolves.
+# Event id feeding the button URL comes from promo_load_event.id (trusted
+# Directus item-read output), not from any user-settable field.
+# recipientName/eventTitle land inside <b>...</b> textContent only
+# (never inside the <a> tag's attributes); TelegramAdapter's allowlist
+# sanitizer (item 3) is the defense-in-depth backstop.
+upsert "op promo_telegram_promoted" "operations" "${OP_PROMO_TELEGRAM_PROMOTED}" "$(cat <<JSON
+{
+  "name": "Telegram registration-promoted",
+  "key": "promo_telegram_promoted",
+  "type": "request",
+  "position_x": 163,
+  "position_y": 19,
+  "options": {
+    "method": "POST",
+    "url": "https://uz.aiqadam.org/api/v1/internal/interactions/dispatch",
+    "headers": [
+      { "header": "x-internal-auth", "value": "{{ \$env.INTERNAL_API_TOKEN }}" },
+      { "header": "content-type", "value": "application/json" }
+    ],
+    "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ find_waitlist[0].user }}\"] }, \"intent\": \"promoted\", \"payload\": { \"text\": \"Good news — you're off the waitlist for <b>{{ promo_load_event.title }}</b>!\\\\n\\\\n{{ promo_load_event.starts_at }} · {{ promo_load_event.location }}\", \"parse_mode\": \"HTML\", \"disable_web_page_preview\": true, \"inline_buttons\": [[{ \"text\": \"Open event page\", \"url\": \"https://aiqadam.org/events/{{ promo_load_event.id }}\" }]] }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"telegram\"] }"
+  },
+  "flow": "${FLOW_REG_PROMOTION}",
+  "resolve": null,
+  "reject": null
+}
+JSON
+)"
+
+# Op 8b: gate. Mirrors decide_status's exec-op-gate pattern — receives
+# all prior op results in `data`, reads the promoted-user lookup's
+# telegram_user_id/telegram_opted_out_at, and either resolves into the
+# Telegram request (eligible) or rejects (not eligible → reject:null,
+# a clean no-op; email already sent unconditionally above).
+upsert "op promo_telegram_gate" "operations" "${OP_PROMO_TELEGRAM_GATE}" "$(cat <<JSON
+{
+  "name": "Telegram eligibility gate (promoted)",
+  "key": "promo_telegram_gate",
+  "type": "exec",
+  "position_x": 145,
+  "position_y": 19,
+  "options": {
+    "code": "module.exports = async function(data) {\n  const user = data.promo_user_lookup || {};\n  const tgId = Number.parseInt(String(user.telegram_user_id ?? ''), 10);\n  const eligible = Number.isFinite(tgId) && tgId > 0 && !user.telegram_opted_out_at;\n  if (!eligible) {\n    throw new Error('not-telegram-eligible');\n  }\n  return { eligible: true };\n}"
+  },
+  "flow": "${FLOW_REG_PROMOTION}",
+  "resolve": "${OP_PROMO_TELEGRAM_PROMOTED}",
+  "reject": null
+}
+JSON
+)"
+
 # Op 8 (terminal of promotion email path): POST /v1/internal/email.
+# Resolve now chains (unconditionally) into the Telegram eligibility
+# gate — email always sends regardless of Telegram eligibility; the
+# gate op decides whether Telegram also fires.
 upsert "op promo_email_promoted" "operations" "${OP_PROMO_EMAIL_PROMOTED}" "$(cat <<JSON
 {
   "name": "Email registration-promoted",
@@ -456,7 +644,7 @@ upsert "op promo_email_promoted" "operations" "${OP_PROMO_EMAIL_PROMOTED}" "$(ca
     "body": "{ \"initiatorActor\": \"system\", \"audience\": { \"userIds\": [\"{{ find_waitlist[0].user }}\"] }, \"intent\": \"promoted\", \"payload\": { \"template\": \"registration-promoted\", \"data\": { \"recipientName\": \"{{ promo_user_lookup.first_name }}\", \"eventTitle\": \"{{ promo_load_event.title }}\", \"eventStartsAt\": \"{{ promo_load_event.starts_at }}\", \"eventLocation\": \"{{ promo_load_event.location }}\" } }, \"consentBasis\": \"operational_contract\", \"allowedChannels\": [\"email\"] }"
   },
   "flow": "${FLOW_REG_PROMOTION}",
-  "resolve": null,
+  "resolve": "${OP_PROMO_TELEGRAM_GATE}",
   "reject": null
 }
 JSON
@@ -465,6 +653,9 @@ JSON
 # Op 7: look up the promoted user's email + name.
 # pick_target's output is { id: <reg uuid> }; find_waitlist row 0 carries
 # the user uuid — reach for it directly.
+# FR-NTF-004 gap-fill: fields extended with telegram_user_id +
+# telegram_opted_out_at so promo_telegram_gate can evaluate eligibility
+# without a second lookup.
 upsert "op promo_user_lookup" "operations" "${OP_PROMO_USER_LOOKUP}" "$(cat <<JSON
 {
   "name": "Lookup promoted user",
@@ -476,7 +667,7 @@ upsert "op promo_user_lookup" "operations" "${OP_PROMO_USER_LOOKUP}" "$(cat <<JS
     "collection": "directus_users",
     "key": "{{ find_waitlist[0].user }}",
     "query": {
-      "fields": ["email", "first_name"]
+      "fields": ["email", "first_name", "telegram_user_id", "telegram_opted_out_at"]
     }
   },
   "flow": "${FLOW_REG_PROMOTION}",
