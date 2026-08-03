@@ -1,0 +1,37 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-feat-198"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T00:00:00Z"
+last_updated_at: "2026-08-03T00:00:00Z"
+
+requirement_ref: "FR-AUTH-005"
+requirement_text: "A member who already has a web account can link their Telegram identity to it. Link initiation via POST /v1/auth/telegram/link-token on /me; link completion via bot calling POST /v1/internal/telegram/link-user; sets attributes.telegram_id on Authentik user."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/138"
+
+branch: "feature/AUTH-005-telegram-account-linking"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "initialize"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}

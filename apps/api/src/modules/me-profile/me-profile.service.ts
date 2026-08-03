@@ -64,6 +64,8 @@ export interface MemberProfile {
   appear_on_public_leaderboard: boolean;
   show_company_on_public_profile: boolean;
   onboarded_at: string | null;
+  telegram_user_id: string | null;
+  telegram_username: string | null;
 }
 
 export interface MemberConsentSummary {
@@ -116,6 +118,8 @@ interface DirectusUserRow {
   appear_on_public_leaderboard: boolean | null;
   show_company_on_public_profile: boolean | null;
   onboarded_at: string | null;
+  telegram_user_id: string | null;
+  telegram_username: string | null;
 }
 
 interface MemberConsentRow {
@@ -164,7 +168,7 @@ export interface AddEmploymentInput {
 }
 
 const PROFILE_FIELDS =
-  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory,appear_in_matches,appear_on_attendee_list,appear_on_public_leaderboard,show_company_on_public_profile,onboarded_at';
+  'id,email,first_name,last_name,job_title,seniority,industry_tags,is_student,bio_md,appear_in_directory,appear_in_matches,appear_on_attendee_list,appear_on_public_leaderboard,show_company_on_public_profile,onboarded_at,telegram_user_id,telegram_username';
 
 @Injectable()
 export class MeProfileService {
@@ -539,6 +543,8 @@ export class MeProfileService {
       appear_on_public_leaderboard: row.appear_on_public_leaderboard ?? true,
       show_company_on_public_profile: row.show_company_on_public_profile ?? false,
       onboarded_at: row.onboarded_at ?? null,
+      telegram_user_id: row.telegram_user_id ?? null,
+      telegram_username: row.telegram_username ?? null,
     };
   }
 }

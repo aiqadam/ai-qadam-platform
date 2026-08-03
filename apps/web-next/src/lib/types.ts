@@ -211,6 +211,8 @@ export interface MeProfileCore {
   appear_on_attendee_list: boolean;
   appear_on_public_leaderboard: boolean;
   show_company_on_public_profile: boolean;
+  telegram_user_id: string | null;
+  telegram_username: string | null;
 }
 
 export interface MeProfileFull {
