@@ -1,0 +1,96 @@
+# Handoff File v1.0
+# Workflow: wf-20260803-feat-200
+# Requirement: FR-CRM-003 - Activity sync — events and registrations to CRM
+# GitHub Issue: https://github.com/aiqadam/ai-qadam-platform/issues/132
+
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-feat-200"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T00:00:00Z"
+last_updated_at: "2026-08-03T00:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "FR-CRM-003"
+requirement_text: "Registration and attendance events are logged to Twenty CRM as Activities on the corresponding Person record. This gives the operator team a timeline view of each community member's engagement: what they registered for, attended, cancelled, or was promoted from waitlist."
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/132"
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "feature/FEAT-CRM-003-activity-sync"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 1
+current_step_name: "Requirement Validation"
+workflow_status: "running"
+
+# ─── Subworkflow Link ────────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+# ─── Subworkflow History ─────────────────────────────────────────────────────
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+# ─── Gate Results ────────────────────────────────────────────────────────────
+
+gate_results:
+  requirement-validation:
+    status: passed
+    resolution: supersede
+    attempt: 1
+    timestamp: "2026-08-03T00:00:00Z"
+    summary: "FR-CRM-003 superseded per ADR-0033; Twenty CRM was architecturally retired. GitHub issue #132 closed. Dependent requirements updated."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-200/01-requirement-validation.md"
+    requires_implementation: false
+    documentation_only: true
+
+# ─── Agent Assignments ───────────────────────────────────────────────────────
+
+agent_assignments:
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260803-feat-200/01-requirement-validation.md"
+
+# ─── Artifacts ───────────────────────────────────────────────────────────────
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260803-feat-200/01-requirement-validation.md"
+  - "docs/03-requirements/FR-CRM-003.md"
+  - "docs/03-requirements/FR-REG-001.md"
+  - "docs/03-requirements/FR-REG-002.md"
+  - "docs/03-requirements/FR-REG-003.md"
+  - "docs/03-requirements/FR-REG-004.md"
+  - "docs/03-requirements/FR-REG-005.md"
+
+# ─── Retry Limits ────────────────────────────────────────────────────────────
+# See protocol.md for counter semantics
+
+retry_limits:
+  requirement_analyst: 2
+  impact_analyzer: 2
+  code_developer: 2
+  security_reviewer: 1
+  test_strategist: 2
+  test_designer: 2
+  test_runner: 3
+  doc_writer: 1
+  quality_gate: 0

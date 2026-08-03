@@ -1,10 +1,13 @@
 ---
 code: FR-CRM-003
 name: Activity sync — events and registrations to CRM
-status: Planned
+status: Superseded
 module: CRM (CRM)
 phase: Roadmap Sprint 5
 github_issue: https://github.com/aiqadam/ai-qadam-platform/issues/132
+superseded_by: ADR-0033
+superseded_date: 2026-08-03
+superseded_reason: Twenty CRM was architecturally retired per ADR-0033 (Accepted 2026-05-20). Member relationship management lives in the Directus member graph. This requirement followed the same fate as FR-CRM-002 (Contact sync).
 ---
 
 ## Description

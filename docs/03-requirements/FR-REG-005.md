@@ -20,7 +20,6 @@ System (automated); Organizers (view).
 2. **Streak impact** — When a no-show is recorded, `GamificationService` evaluates whether the member was "in range" for the streak (attended at least some meetups in the streak window). If so, their `streak_current` resets to 0 (see FR-GAM-004).
 3. **Operator view** — No-show counts visible in the operator event control panel (FR-EVT-005) under the registration breakdown.
 4. **Post-event lock** — After `ends_at`, registrations for that event are locked: members cannot cancel, and the register endpoint returns `409 Event has ended`. Waitlist entries are cleaned up (set to `cancelled`) when the event closes.
-5. **CRM activity** — Log `no_show` activity to Twenty CRM for each affected member (FR-CRM-003).
 
 ## Acceptance criteria
 
