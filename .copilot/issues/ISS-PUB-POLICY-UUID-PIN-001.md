@@ -5,10 +5,10 @@
 | ID | ISS-PUB-POLICY-UUID-PIN-001 |
 | Severity | minor |
 | Module | infrastructure/directus-bootstrap |
-| Status | open |
+| Status | resolved |
 | Reported | 2026-08-01 |
-| Resolved | — |
-| Workflow | wf-20260801-fix-187-followup-public-policy-uuid-lookup (queued) |
+| Resolved | 2026-08-03 |
+| Workflow | wf-20260801-fix-188-public-policy-uuid-lookup |
 | Reporter | Orchestrator (discovered while live-verifying wf-20260801-fix-187 / ISS-SEC-PUBLIC-UNMANAGED-001) |
 | Business-Process | none |
 | GitHub-Issue | https://github.com/aiqadam/ai-qadam-platform/issues/247 |
@@ -101,6 +101,32 @@ this; workflow queued as named follow-up.
 
 ## Resolution
 
-- **Workflow:** wf-20260801-fix-187-followup-public-policy-uuid-lookup (queued)
-- **PR:** —
-- **Status:** open
+- **Workflow:** wf-20260801-fix-188-public-policy-uuid-lookup
+- **PR:** <pending>
+- **Root cause:** `infrastructure/directus/bootstrap.sh` referenced a
+  hardcoded Directus Public policy UUID; on envs whose actual Public
+  policy id differed, the eight lower public-read grant blocks silently
+  skipped. The Public role's policy has a fixed name (`$t:public_label`)
+  but an instance-specific id, so the constant could not survive
+  environment churn.
+- **Fix:** replaced the UUID pin in every affected block with the same
+  `PUBLIC_POLICY_ID=$(curl … /policies?filter[name][_eq]=$t:public_label…)`
+  pattern that the ISS-SEC-DIRECTUS-USERS-PUBLIC-001 and
+  ISS-SEC-PUBLIC-UNMANAGED-001 blocks already use. The variable
+  `POLICY_PUBLIC_PROD` no longer appears in `bootstrap.sh` (verified via
+  grep). Each block still guards on `[ -n "${PUBLIC_POLICY_ID}" ]`
+  before issuing the count-then-POST sequence, so the existing
+  idempotent behavior is preserved. `bash -n` is clean.
+- **Regression test:** new static bats file
+  `scripts/tests/bootstrap-public-policy-name-lookup.bats` (5 cases)
+  proves the hardcoded pin/UUID is gone, that exactly eight
+  name-lookup blocks exist, and that each block guards its permissions
+  call. The suite fails on `origin/main` and passes on the fix branch
+  (verified locally, 5/5 green).
+- **Live verification:** Directus health ping returned `pong`; the
+  `$t:public_label` policy lookup returned the local env's actual id
+  `abf8a154-5b1c-4a46-ac9c-7300570f4f17`; running `bootstrap.sh` end
+  to end applied every intended public-read grant (rows 135–139 are
+  newly created), and a re-run was idempotent (`(public, exists)` for
+  every migrated block, no new POSTs).
+- **Merged:** <pending — Step 12.5 back-fills the squash SHA.>

@@ -4499,18 +4499,23 @@ ensure "relation event_materials.file -> directus_files.id" \
   '{"collection":"event_materials","field":"file","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
 
 # Public-policy read so the unauthenticated SSR layer can fetch via
-# /items/event_materials. Same policy that already grants events /
-# partners / homepage_hero (pk = 87bf5954-616e-40fa-bd61-2587e8c3f49b
-# on prod, named "Public").
-POLICY_PUBLIC_PROD="87bf5954-616e-40fa-bd61-2587e8c3f49b"
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# /items/event_materials. ISS-PUB-POLICY-UUID-PIN-001 (2026-08-01):
+# look up the built-in Public policy by its stable name ($t:public_label)
+# rather than by the env-specific UUID pin used previously — that pin
+# silently skipped on every env except the one it was observed on
+# (production). Same name-lookup pattern as ISS-SEC-DIRECTUS-USERS-
+# PUBLIC-001 (line 178).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_materials&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=event_materials&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm event_materials/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"event_materials", action:"read", permissions:{}, fields:["*"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -4523,7 +4528,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public read for event_materials. Add manually via Directus admin if this is a non-prod environment."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for event_materials. Add manually via Directus admin if this is a non-prod environment."
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -4571,16 +4576,20 @@ ensure "relation event_photos.file -> directus_files.id" \
   "${DIRECTUS_URL}/relations" \
   '{"collection":"event_photos","field":"file","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
 
-# Public-policy read — same pattern as event_materials. Reuses the
-# POLICY_PUBLIC_PROD pin set earlier in the F-WebU3 block.
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# Public-policy read — same pattern as event_materials. ISS-PUB-POLICY-
+# UUID-PIN-001: name lookup ($t:public_label) instead of env-specific
+# UUID pin (silently skipped on local / QA without this fix).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_photos&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=event_photos&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm event_photos/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"event_photos", action:"read", permissions:{}, fields:["*"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -4593,7 +4602,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public read for event_photos. Add manually via Directus admin."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for event_photos. Add manually via Directus admin."
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -4658,14 +4667,18 @@ ensure "relation event_questions.parent_question -> event_questions.id" \
 
 # Public-policy read filtered to status=published; restricted fields so
 # operator-internal flags (status text, date_updated) don't leak.
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# ISS-PUB-POLICY-UUID-PIN-001: name lookup ($t:public_label).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_questions&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=event_questions&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm event_questions/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"event_questions", action:"read", permissions:{"status":{"_eq":"published"}}, fields:["id","event","user","parent_question","question_text","is_pinned","is_answered","date_created"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -4678,7 +4691,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public read for event_questions."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for event_questions."
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -4738,15 +4751,19 @@ ensure "relation event_sponsors.sponsor -> sponsors.id" \
 # page can deep-read sponsor.name / sponsor.logo / sponsor.website via
 # `?fields=sponsor.*`. We grant a *restricted* set on `sponsors` (name,
 # slug, country, status, logo, website, description) — rep_user + the
-# unused org-level tier stay private.
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# unused org-level tier stay private. ISS-PUB-POLICY-UUID-PIN-001:
+# name lookup ($t:public_label).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=event_sponsors&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=event_sponsors&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm event_sponsors/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"event_sponsors", action:"read", permissions:{}, fields:["*"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -4760,12 +4777,12 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
   fi
   # And the restricted sponsors read (status=active only, public-safe fields)
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=sponsors&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=sponsors&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm sponsors/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"sponsors", action:"read", permissions:{"status":{"_eq":"active"}}, fields:["id","name","slug","country","status","logo","website","description"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -4778,7 +4795,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy ${POLICY_PUBLIC_PROD} not found — skipping public reads for event_sponsors + sponsors."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public reads for event_sponsors + sponsors."
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -5331,14 +5348,18 @@ fi
 ensure_perm "perm site_settings/read" site_settings read '{}'
 
 # Public-policy read perm so the unauthenticated SSR homepage can read.
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# ISS-PUB-POLICY-UUID-PIN-001: name lookup ($t:public_label).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=site_settings&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=site_settings&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm site_settings/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"site_settings", action:"read", permissions:{}, fields:["*"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -5351,7 +5372,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy not found — skipping public read for site_settings."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for site_settings."
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -5417,14 +5438,18 @@ fi
 ensure_perm "perm press_page/read" press_page read '{}'
 
 # Public-policy read so anon visitors to /press can fetch.
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# ISS-PUB-POLICY-UUID-PIN-001: name lookup ($t:public_label).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=press_page&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=press_page&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm press_page/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"press_page", action:"read", permissions:{}, fields:["*"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -5437,7 +5462,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy not found — skipping public read for press_page."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for press_page."
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -5533,14 +5558,18 @@ seed_badge "community_connector" '{"key":"community_connector","category":"speci
 # anonymously (display labels + icons).
 ensure_perm "perm badge_definitions/read" badge_definitions read '{"active":{"_eq":true}}'
 
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# ISS-PUB-POLICY-UUID-PIN-001: name lookup ($t:public_label).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=badge_definitions&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=badge_definitions&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm badge_definitions/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"badge_definitions", action:"read", permissions:{active:{_eq:true}}, fields:["*"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -5553,7 +5582,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy not found — skipping public read for badge_definitions."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for badge_definitions."
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -5634,14 +5663,18 @@ seed_team_member "Viktor Drukker" '{"name":"Viktor Drukker","title":"COO + Head 
 
 ensure_perm "perm team_members/read" team_members read '{"active":{"_eq":true}}'
 
-if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/dev/null 2>&1; then
+# ISS-PUB-POLICY-UUID-PIN-001: name lookup ($t:public_label).
+PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${PUBLIC_POLICY_ID}" ]; then
   count=$(curl -s -H "${H_AUTH}" \
-    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${POLICY_PUBLIC_PROD}&filter%5Bcollection%5D%5B_eq%5D=team_members&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${PUBLIC_POLICY_ID}&filter%5Bcollection%5D%5B_eq%5D=team_members&filter%5Baction%5D%5B_eq%5D=read&limit=1&fields=id" \
     | jq -r '.data | length' 2>/dev/null || echo 0)
   if [ "${count}" -gt 0 ]; then
     echo "  ✓ perm team_members/read (public, exists)"
   else
-    body=$(jq -nc --arg pol "$POLICY_PUBLIC_PROD" \
+    body=$(jq -nc --arg pol "$PUBLIC_POLICY_ID" \
       '{policy:$pol, collection:"team_members", action:"read", permissions:{active:{_eq:true}}, fields:["*"]}')
     if directus_request_with_retry POST "${DIRECTUS_URL}/permissions" \
          -H "${H_AUTH}" -H "${H_JSON}" --data "${body}"; then
@@ -5654,7 +5687,7 @@ if curl -sf -H "${H_AUTH}" "${DIRECTUS_URL}/policies/${POLICY_PUBLIC_PROD}" >/de
     fi
   fi
 else
-  echo "  ⚠ Public policy not found — skipping public read for team_members."
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for team_members."
 fi
 
 echo
