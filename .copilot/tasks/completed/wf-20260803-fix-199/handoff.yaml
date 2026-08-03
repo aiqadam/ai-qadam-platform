@@ -6,7 +6,7 @@ base_branch: main
 issue_ref: ISS-NTF-003-VERIFY-001
 github_issue_url: https://github.com/aiqadam/ai-qadam-platform/issues/131
 parent_link: ""
-workflow_status: in-progress
+workflow_status: completed
 
 step_0_context_sync:
   status: skipped
