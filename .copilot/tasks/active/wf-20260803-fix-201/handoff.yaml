@@ -19,7 +19,7 @@ github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/133"
 
 branch: "fix/ISS-133-ptn-002-superseded"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/252"
 
 # ─── Workflow Progress ───────────────────────────────────────────────────────
 
