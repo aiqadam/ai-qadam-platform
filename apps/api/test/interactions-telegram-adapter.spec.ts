@@ -182,3 +182,176 @@ describe('TelegramAdapter — happy path', () => {
     expect(res.failureReason).toMatch(/outbox publish failed/i);
   });
 });
+
+describe('TelegramAdapter — inline_buttons', () => {
+  it('passes a valid inline_buttons array through into the envelope template unchanged', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const buttons = [[{ text: 'Open event page', url: 'https://aiqadam.org/events/abc' }]];
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: 'hi', inline_buttons: buttons },
+    });
+    expect(res.state).toBe('sent');
+
+    const rows = await db.select().from(outbox);
+    const payload = rows[0]?.payload as { payload: { template: { inline_buttons: unknown } } };
+    expect(payload.payload.template.inline_buttons).toEqual(buttons);
+  });
+
+  it('defaults inline_buttons to null when omitted (AC-2 backward compatibility)', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: 'hi' },
+    });
+    expect(res.state).toBe('sent');
+
+    const rows = await db.select().from(outbox);
+    const payload = rows[0]?.payload as { payload: { template: { inline_buttons: unknown } } };
+    expect(payload.payload.template.inline_buttons).toBeNull();
+  });
+});
+
+describe('TelegramAdapter — inline_buttons size/format bounds (MAJOR-1)', () => {
+  it('fails when the outer array has more than 10 rows', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const rows = Array.from({ length: 11 }, (_, i) => [
+      { text: `btn${i}`, url: 'https://aiqadam.org/events/abc' },
+    ]);
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: 'hi', inline_buttons: rows },
+    });
+    expect(res.state).toBe('failed');
+    expect(res.failureReason).toMatch(/payload invalid/i);
+  });
+
+  it('fails when a single row has more than 10 buttons', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const row = Array.from({ length: 11 }, (_, i) => ({
+      text: `btn${i}`,
+      url: 'https://aiqadam.org/events/abc',
+    }));
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: 'hi', inline_buttons: [row] },
+    });
+    expect(res.state).toBe('failed');
+    expect(res.failureReason).toMatch(/payload invalid/i);
+  });
+
+  it('passes with a 64-char button text (boundary-exact, inclusive)', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const text64 = 'x'.repeat(64);
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: {
+        text: 'hi',
+        inline_buttons: [[{ text: text64, url: 'https://aiqadam.org/events/abc' }]],
+      },
+    });
+    expect(res.state).toBe('sent');
+  });
+
+  it('fails when button text is 65 chars (over the boundary)', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const text65 = 'x'.repeat(65);
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: {
+        text: 'hi',
+        inline_buttons: [[{ text: text65, url: 'https://aiqadam.org/events/abc' }]],
+      },
+    });
+    expect(res.state).toBe('failed');
+    expect(res.failureReason).toMatch(/payload invalid/i);
+  });
+
+  it('fails when button url is 2049+ chars', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const longUrl = `https://aiqadam.org/events/${'a'.repeat(2049)}`;
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: 'hi', inline_buttons: [[{ text: 'Open', url: longUrl }]] },
+    });
+    expect(res.state).toBe('failed');
+    expect(res.failureReason).toMatch(/payload invalid/i);
+  });
+
+  it('fails when button url is malformed (not a valid URL)', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: 'hi', inline_buttons: [[{ text: 'Open', url: 'not-a-url' }]] },
+    });
+    expect(res.state).toBe('failed');
+    expect(res.failureReason).toMatch(/payload invalid/i);
+  });
+
+  // NOTE: 'javascript:alert(1)' is deliberately NOT tested as a rejection
+  // case here. Zod's `.url()` is backed by the WHATWG URL parser, which
+  // validates well-formedness only (scheme + authority/path shape), not a
+  // scheme allowlist — `new URL('javascript:alert(1)')` parses
+  // successfully (confirmed directly: z.string().url().safeParse(
+  // 'javascript:alert(1)').success === true), so this string legitimately
+  // passes `.url()` and reaches 'sent'. The test strategy suggested this
+  // case "worth including" but its own framing already flagged that
+  // ".url() is what's actually being tested here, not a sanitizer
+  // concern" — tracing it further shows .url() doesn't reject this
+  // particular string at all, so asserting 'failed' here would be a wrong
+  // test, not a real bug: the adapter's payload validation was never
+  // meant to be a scheme allowlist, and scheme-smuggling mitigation (if
+  // ever needed) belongs in a dedicated check, not folded into this
+  // MAJOR-1 size/format-bounds fix. Flagging this here rather than
+  // silently asserting the wrong expected value.
+});
+
+describe('TelegramAdapter — sanitizer + inline_buttons integration (outbox-durable)', () => {
+  it('writes the sanitized text (not the raw input) to the outbox row', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: '<div>hi</div>', parse_mode: 'HTML' },
+    });
+    expect(res.state).toBe('sent');
+
+    const rows = await db.select().from(outbox);
+    const payload = rows[0]?.payload as { payload: { template: { text: string } } };
+    expect(payload.payload.template.text).toBe('hi');
+  });
+
+  it('never writes an outbox row when inline_buttons is oversized (11 rows)', async () => {
+    const publisher = new OutboxPublisher(db);
+    const adapter = new TelegramAdapter(publisher, db);
+    const rows = Array.from({ length: 11 }, (_, i) => [
+      { text: `btn${i}`, url: 'https://aiqadam.org/events/abc' },
+    ]);
+    const res = await adapter.send({
+      recipient: recipient(),
+      intent: 'event_announce',
+      payload: { text: 'hi', inline_buttons: rows },
+    });
+    expect(res.state).toBe('failed');
+
+    const outboxRows = await db.select().from(outbox);
+    expect(outboxRows).toHaveLength(0);
+  });
+});

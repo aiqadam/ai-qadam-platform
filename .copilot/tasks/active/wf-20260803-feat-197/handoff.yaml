@@ -1,0 +1,223 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260803-feat-197"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-03T00:00:00Z"
+last_updated_at: "2026-08-03T00:00:00Z"
+
+# ─── Source ──────────────────────────────────────────────────────────────────
+
+requirement_ref: "FR-NTF-004"
+requirement_text: >
+  Implement GitHub issue #142 (FR-NTF-004, Telegram notification channel
+  adapter) as a gap-fill against the ALREADY-SHIPPED ADR-0034 architecture,
+  not a literal re-read of the FR/issue text. Pre-workflow investigation
+  (this session, before Step 0) found the issue text describes an
+  architecture that conflicts with what's live: it says the NestJS API
+  should call the Telegram Bot API directly, using "the existing BullMQ
+  outbox/dispatcher rate limiter," keyed on Authentik
+  attributes.telegram_id + notification_telegram_enabled, logging to a
+  notifications_sent table. None of that exists. What's actually shipped
+  (ADR-0034, accepted 2026-07-31): apps/api/src/modules/interactions/
+  channels/telegram-adapter.ts (TelegramAdapter) already writes a
+  tg.dispatch.v1 envelope to a Postgres outbox; a relay XADDs to Redis
+  Streams; a separate Python notifier process (apps/bot submodule) is the
+  ONLY thing that calls the real Telegram Bot API and owns rate limiting
+  there. Eligibility already reads directus_users.telegram_user_id /
+  telegram_opted_out_at (not Authentik attributes). The user was asked
+  and confirmed (AskUserQuestion, this session): "Gap-fill the real
+  adapter" — treat the existing TelegramAdapter as the correct
+  implementation, correct FR-NTF-004.md's text to match reality (same
+  disposition precedent as FR-CRM-002/ADR-0033), and implement only the
+  genuinely missing pieces found by direct investigation:
+
+  1. TelegramAdapter silently drops `inline_buttons` from the dispatch
+     payload — payloadSchema (telegram-adapter.ts) only declares text/
+     parse_mode/disable_web_page_preview, and the envelope hardcodes
+     `inline_buttons: null` regardless of input. This is a real,
+     reproducible bug: apps/api/src/modules/workspace/event-reminders.service.ts
+     `buildReminderPayload()` ALREADY constructs an `inline_buttons` array
+     (e.g. `[[{ text: '📖 Details', url }]]`) expecting it to reach
+     Telegram — it never does. Fix: extend payloadSchema to accept and
+     pass through inline_buttons into the envelope's template.inline_buttons
+     field (currently hardcoded null).
+  2. Registration-confirmed / registration-waitlisted / registration-promoted
+     notifications never reach Telegram at all — the three Directus flows
+     in infrastructure/directus/flows-bootstrap.sh (capacity_email_confirmed,
+     capacity_email_waitlisted, capacity_email_confirmed's promotion
+     counterpart around line ~444) call POST /v1/internal/interactions/dispatch
+     with `"allowedChannels": ["email"]` hardcoded — Telegram is
+     structurally excluded even for telegram-linked, opted-in members.
+     This is the FR's stated AC ("registration confirmation DM includes
+     an Open event page inline button") and it is currently unreachable.
+     Fix: add Telegram-safe HTML body + inline "Open event page" button
+     content for these 3 intents (mirroring the existing pattern in
+     event-reminders.service.ts's buildReminderPayload/telegramHtmlBody),
+     and change allowedChannels to include 'telegram' (multi-channel
+     dispatch — both email AND telegram, not a fallback chain per
+     interactions.types.ts's documented Phase deferral of fallback
+     chains). Promotion-from-waitlist gets the same treatment per the
+     FR's AC.
+  3. Telegram-safe HTML enforcement — FR-NTF-004 functional scope item 3
+     requires templates rendered as a Telegram-safe HTML subset (<b> <i>
+     <u> <s> <a> <code> <pre>) with unsupported tags stripped on send.
+     No such stripping/validation exists today anywhere in the dispatch
+     path — the adapter trusts `text` as already-safe. Add a small
+     sanitizer (allowlist-tag-strip, not a full HTML parser dependency)
+     applied in TelegramAdapter before the envelope is built, so ANY
+     caller (not just the 2 call sites touched above) gets the safety
+     guarantee the FR requires.
+  4. Documentation correction: FR-NTF-004.md's functional-scope text
+     currently describes the wrong architecture (direct Telegram API call
+     from NestJS, Authentik telegram_id, BullMQ, notifications_sent). Correct
+     it to describe the real shipped mechanism (outbox → Streams →
+     notifier), matching the FR-CRM-002/ADR-0033 precedent for correcting
+     FR text against a since-established architectural decision. Do NOT
+     silently leave the stale text in place.
+
+  Explicitly OUT of scope for this workflow (do not build): BullMQ in any
+  form, NestJS calling the real Telegram Bot API directly, an Authentik
+  attributes.telegram_id lookup path, a new notifications_sent table
+  (interaction_deliveries + tg_send_log already serve this purpose),
+  building the Python notifier's actual sendMessage/rate-limit code in
+  apps/bot (that is the notifier's own, separately-scoped, not-yet-built
+  piece — flag as a known gap in FR-NTF-004.md's Notes, do not silently
+  invent it here; a message with a valid envelope in the outbox is as far
+  as the NestJS side of this FR can verify without that piece existing).
+  FR-AUTH-005 (Authentik-agnostic Telegram account LINKING) is a separate,
+  still-Planned FR — do not implement it here; this workflow's eligibility
+  check continues to use the already-shipped directus_users.telegram_user_id/
+  telegram_opted_out_at fields exactly as InteractionsService.resolveRecipients
+  already does.
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/142"
+
+# ─── Git State ───────────────────────────────────────────────────────────────
+
+branch: "feature/ntf-197-telegram-notification-adapter"
+base_branch: "main"
+github_pr_url: ""
+
+# ─── Workflow Progress ───────────────────────────────────────────────────────
+
+current_step: 11
+current_step_name: "commit-push-pr"
+workflow_status: "running"
+
+# ─── Subworkflow Link ─────────────────────────────────────────────────────────
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-03T00:30:00Z"
+    summary: "FR-NTF-004's 4-item gap-fill scope confirmed feasible; Finding A (allowedChannels does not fan out) surfaced and resolved with 2 implementation options; ACs rewritten against outbox/envelope state boundary; business_process left empty (BP-UAT-010 doesn't cover Telegram content)."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-197/01-requirement-validation.md"
+  security-review:
+    status: passed
+    attempt: 2
+    timestamp: "2026-08-03T02:30:00Z"
+    summary: "Retry 1 verified: both MAJOR findings resolved (inline_buttons size bounds added; event title \"/\\\\ character guard added to patchEventSchema.title). Fresh INV-1..11 re-run, all pass/N-A. No new findings."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-197/04-security-review.md"
+  impact-analysis:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-03T01:00:00Z"
+    summary: "Impact fully analyzed: primary surface is apps/api/src/modules/interactions/ (TelegramAdapter); flows-bootstrap.sh flagged as a second, non-NestJS surface needing 3 lookup-op field extensions + branching for Finding A's per-channel split. No DB migration, no breaking API change. Security review flagged for sanitizer escape-ordering + inline-button URL sourcing. No flows-bootstrap.sh unit-test precedent exists; recommend live-local-run verification (per commit da9e242 precedent) for AC-5..AC-8."
+    output_file: ".copilot/tasks/active/wf-20260803-feat-197/02-impact-analysis.md"
+agent_assignments:
+  security-reviewer:
+    status: completed
+    step: 5
+    output_file: ".copilot/tasks/active/wf-20260803-feat-197/04-security-review.md"
+    timestamp: "2026-08-03T02:30:00Z"
+  code-developer:
+    status: completed
+    step: 4
+    output_file: ".copilot/tasks/active/wf-20260803-feat-197/03-code-summary.md"
+    timestamp: "2026-08-03T02:15:00Z"
+  requirement-analyst:
+    status: completed
+    step: 1
+    output_file: ".copilot/tasks/active/wf-20260803-feat-197/01-requirement-validation.md"
+    timestamp: "2026-08-03T00:30:00Z"
+  impact-analyzer:
+    status: completed
+    step: 2
+    output_file: ".copilot/tasks/active/wf-20260803-feat-197/02-impact-analysis.md"
+    timestamp: "2026-08-03T01:00:00Z"
+retry_counts:
+  code-developer: 1
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/tasks/active/wf-20260803-feat-197/01-requirement-validation.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/02-impact-analysis.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/03-code-summary.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/04-security-review.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/06-test-strategy.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/06-test-design.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/07-test-results.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/08-doc-update.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/09-quality-gate.md"
+  - ".copilot/tasks/active/wf-20260803-feat-197/02-impact-analysis.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/adr/0034-telegram-bot-and-sender.md
+  - docs/03-requirements/FR-NTF-004.md
+  - docs/03-requirements/FR-NTF-001.md
+  - apps/api/src/modules/interactions/channels/telegram-adapter.ts
+  - apps/api/src/modules/interactions/interactions.service.ts
+  - apps/api/src/modules/interactions/interactions.types.ts
+  - apps/api/src/modules/workspace/event-reminders.service.ts
+  - infrastructure/directus/flows-bootstrap.sh
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260803-feat-197/NEEDS_REVIEW.md"
+
+merge_mode: "auto"
