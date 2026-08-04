@@ -1,6 +1,13 @@
 # Workspace State
 
-**Last updated:** 2026-08-04 — `wf-20260804-fix-210-bot-me-telegram-link-status` (merged).
+**Last updated:** 2026-08-04 — `wf-20260804-fix-211-ci-api-tests` (merged).
+**ISS-CI-API-TESTS-264 resolved — `apps/api` test suite green on `main` again (was red for every PR regardless of what it touched).**
+[wf-20260804-fix-211-ci-api-tests](../tasks/completed/wf-20260804-fix-211-ci-api-tests/handoff.yaml)
+(PR [#270](https://github.com/aiqadam/ai-qadam-platform/pull/270), squash-merged `a6954b4`, GitHub issue [#264](https://github.com/aiqadam/ai-qadam-platform/issues/264) closed):
+Two independent failures. (1) `interactions-service.spec.ts`: FR-NTF-005 added a per-recipient `resolveUser()` Directus call inside `deliverToRecipient()`, on top of the pre-existing batch `resolveRecipients()` call — the test helper `wireDirectusUserLookup()` only stubbed the first `dx.get` call, so the second returned `undefined` and tripped `resolveUser()`'s own defensive throw. Fixed the helper to stub both call sites; 11/11 tests pass (was 10 failing). (2) `event-broadcast-topic-filtering.integration.spec.ts`: needs a live Directus + Authentik (via `InteractionsModule` → `AuthModule` → OIDC issuer discovery at bootstrap) that CI never provisions (confirmed zero Directus/Authentik references in `ci-cd.yml` — only Postgres Testcontainers exists). `afterAll`'s unguarded `module.close()` masked the real connection error with a `TypeError` when `beforeAll` failed before `module` was assigned; guarded it, then `describe.skip`'d the whole suite since the teardown fix alone can't make it pass in CI. Filed [ISS-NTF-002-TESTINFRA](../issues/ISS-NTF-002-TESTINFRA.md) as the tracking issue for that infra gap — it had been *named* by `FR-NTF-002.md` and `wf-20260803-feat-207` as a deferral target but never actually created, a dangling reference found during this investigation. Also repaired `.copilot/issues/registry.md`'s last 3 rows, corrupted to UTF-16LE by a prior session's PowerShell `Out-File`/`>>` encoding mismatch (rendered as garbled space-separated text) — fixed via `iconv` at the exact corruption byte offset, content unchanged. Full `apps/api` suite verified green except one pre-existing, already-tracked flake (`ISS-USR-CLOCK-001`, unrelated clock-ordering issue). `ci-cd` `build` job confirmed green on the PR (previously red on every PR regardless of diff). `business_process: []` — infra/CI fix, no user-facing surface.
+
+
+**Prior last updated:** 2026-08-04 — `wf-20260804-fix-210-bot-me-telegram-link-status` (merged).
 **ISS-BOT-ME-TG-LINK-001 resolved — bot `/me` now shows real Telegram link status, closing a gap where FR-AUTH-007's bot-side work was implemented locally but never committed after PR #260.**
 [wf-20260804-fix-210-bot-me-telegram-link-status](../tasks/completed/wf-20260804-fix-210-bot-me-telegram-link-status/handoff.yaml)
 (PR [#268](https://github.com/aiqadam/ai-qadam-platform/pull/268), squash-merged `af002bf`):
