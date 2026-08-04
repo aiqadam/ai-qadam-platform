@@ -8,7 +8,7 @@
 | Status | resolved |
 | Reported | 2026-08-04 |
 | Resolved | 2026-08-04 |
-| Workflow | fix/ISS-CI-API-TESTS-264 |
+| Workflow | wf-20260804-fix-211-ci-api-tests ([PR #270](https://github.com/aiqadam/ai-qadam-platform/pull/270) squash `a6954b4`) |
 | Reporter | tvolodi (GitHub issue) |
 | Related | FR-NTF-005, FR-NTF-002, ISS-NTF-002-TESTINFRA |
 | Business-Process | — |
