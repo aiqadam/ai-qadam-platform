@@ -102,6 +102,11 @@ services:
       # Public origin, not a Docker-internal alias. NOTE: no /v1 suffix
       # — see docker-compose.qa.yml's equivalent comment.
       INTERNAL_API_URL: "https://aiqadam.org"
+      # Authentik's public origin, read client-side by AccountChip's
+      # "Engineering Deck" link (ISS-262) — must match the nginx
+      # server_name that actually fronts Authentik (deploy/nginx/aiqadam.org.conf
+      # has no vhost for a bare 'login.aiqadam.org', only 'auth.aiqadam.org').
+      PUBLIC_AUTHENTIK_URL: "https://auth.aiqadam.org"
       # See docker-compose.qa.yml's equivalent comment — cms.ts's
       # default (http://directus:8055) doesn't resolve under
       # network_mode: host and hangs ~10s per request before falling
