@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-04 — `wf-20260804-feat-208-linked-accounts-management` (merged).
+**Last updated:** 2026-08-04 — `wf-20260804-fix-209-fast-uri-supply-chain` (merged).
+**ISS-CI-SUPPLYCHAIN-FASTURI-001 resolved — `supply-chain` `pnpm audit (high+critical block)` green on `main` again.**
+[wf-20260804-fix-209-fast-uri-supply-chain](../tasks/completed/wf-20260804-fix-209-fast-uri-supply-chain/handoff.yaml)
+(PR [#266](https://github.com/aiqadam/ai-qadam-platform/pull/266), squash-merged `dc22f79`, GitHub issue [#265](https://github.com/aiqadam/ai-qadam-platform/issues/265) closed):
+Root cause: the root `package.json`'s `pnpm.overrides.fast-uri` floor was pinned at `>=3.1.4` (leftover from an earlier, different advisory) — too low to force a bump past the newly-vulnerable range `>=4.0.0 <4.1.2` (GHSA-7p8r-x3mc-p8w7, host confusion via backslash authority introducer), transitive via `@astrojs/check`'s dev-only YAML language server (`apps/web`, `apps/storybook`). Fix: bumped the floor to `>=4.1.2` and regenerated `pnpm-lock.yaml`; `fast-uri` now resolves to `4.1.2` everywhere. `pnpm audit --prod --audit-level=high` now exits `0` (`2 low | 2 moderate`, zero high/critical), confirmed both locally and via the post-merge `supply-chain` run on `main` HEAD (`dc22f79`, `success`). Dependency-only change, no application code touched. CI override applied silently per AGENTS.md §6.3 user opt-out — this PR's `ci`/`build` jobs failed on unrelated pre-existing `apps/api` test failures (`interactions-service.spec.ts`, `event-broadcast-topic-filtering.integration.spec.ts` — Directus/Authentik unreachable in the CI runner, same class already open on `main` HEAD across the last 5 commits); zero file-path intersection with this PR's 6-file diff confirmed before merging via admin override.
+
+**Prior last updated:** 2026-08-04 — `wf-20260804-feat-208-linked-accounts-management` (merged).
 **FR-AUTH-007 implemented — Identity surface: linked accounts management. 3 new API endpoints, LinkedAccountsPanel replaces TelegramLinkStatus on /me, bot /me updated with Telegram link state. 21/21 unit tests pass. E2E OAuth link flow deferred to wf-20260804-bp-uat-022-linked-accounts-uat (queued).**
 [wf-20260804-feat-208-linked-accounts-management](../tasks/completed/wf-20260804-feat-208-linked-accounts-management/handoff.yaml)
 (PR [#260](https://github.com/aiqadam/ai-qadam-platform/pull/260), squash-merged 4edb1c4, GitHub issue [#143](https://github.com/aiqadam/ai-qadam-platform/issues/143) closed):

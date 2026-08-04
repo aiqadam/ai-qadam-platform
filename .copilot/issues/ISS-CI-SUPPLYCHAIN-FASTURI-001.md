@@ -49,7 +49,7 @@ override never forced a bump past the vulnerable range `>=4.0.0
 ## Resolution
 
 - **Workflow:** wf-20260804-fix-209-fast-uri-supply-chain
-- **PR:** <pending — back-filled at Step 12.5>
+- **PR:** [#266](https://github.com/aiqadam/ai-qadam-platform/pull/266)
 - **Fix:** bumped the existing `pnpm.overrides["fast-uri"]` floor from
   `>=3.1.4` to `>=4.1.2` in the root `package.json`, then regenerated
   `pnpm-lock.yaml` via `pnpm install`. `fast-uri` now resolves to
@@ -65,4 +65,18 @@ override never forced a bump past the vulnerable range `>=4.0.0
   a dev-only type-checking tool, not part of any production bundle.
   `Business-Process: —` — infra/CI/dependency fix, no user-facing
   process to link or re-verify.
-- **Merged:** <pending — Step 12.5 back-fills the squash SHA.>
+- **CI override applied silently per AGENTS.md §6.3 user opt-out:** the
+  PR's `ci`/`build` jobs failed on unrelated `apps/api` test files
+  (`interactions-service.spec.ts`,
+  `event-broadcast-topic-filtering.integration.spec.ts` — "invalid
+  response from Directus" / Authentik 500/ECONNREFUSED in the CI
+  runner). Confirmed pre-existing on `origin/main`: `main` HEAD
+  (`c2eeac0`) and the prior 4 commits are all independently `ci-cd`-red
+  with the same environment-unreachable symptom class, and this PR's
+  6-file diff (`package.json`, `pnpm-lock.yaml`, `.copilot/*`) has zero
+  intersection with the failing jobs' file trace. `supply-chain`
+  (`pnpm audit`, `gitleaks`) — the job this issue is actually about —
+  passed clean. Merged via `gh pr merge --squash --admin`.
+- **Merged:** squash SHA `dc22f79b7b6f306006e3c9660d60b4ee7cc0367f`
+  (2026-08-04). Post-merge `supply-chain` run on `main` HEAD confirmed
+  green (`success`, run `30880960525`).

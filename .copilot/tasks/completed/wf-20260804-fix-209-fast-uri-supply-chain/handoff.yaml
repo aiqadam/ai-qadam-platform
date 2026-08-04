@@ -15,9 +15,9 @@ branch: "fix/ISS-CI-SUPPLYCHAIN-FASTURI-001-bump-fast-uri-override"
 base_branch: "main"
 github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/266"
 
-current_step: 11
-current_step_name: "workflow-finish"
-workflow_status: "running"
+current_step: 12
+current_step_name: "completed"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
