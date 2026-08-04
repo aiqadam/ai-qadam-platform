@@ -1,0 +1,90 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260804-fix-210-bot-me-telegram-link-status"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-08-04T00:00:00Z"
+last_updated_at: "2026-08-04T00:00:00Z"
+
+requirement_ref: "ISS-BOT-ME-TG-LINK-001"
+requirement_text: "Bot-side FR-AUTH-007 work (/me Telegram link status) was implemented locally but never committed, pushed, or merged"
+github_issue_url: ""
+
+branch: "feat/AUTH-007-bot-me-telegram-link-status"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 11
+current_step_name: "workflow-finish"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  fix:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-04T00:00:00Z"
+    summary: "Bot /me now renders real Telegram link status via telegramLinked/telegramUsername; hardcoded strings moved to locale tables; dead me.link_web_cta key removed; 212/212 bot tests pass, ruff clean on changed files."
+    output_file: ".copilot/issues/ISS-BOT-ME-TG-LINK-001.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created:
+  - "ISS-BOT-ME-TG-LINK-001"
+issue_ref: "ISS-BOT-ME-TG-LINK-001"
+
+deferrals: []
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/issues/ISS-BOT-ME-TG-LINK-001.md"
+  - "docs/03-requirements/FR-AUTH-007.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - apps/bot/src/handlers/me.py
+  - apps/bot/src/services/api_client.py
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
