@@ -250,6 +250,11 @@ services:
       # NOTE: no /v1 suffix — apps/web-next/src/lib/api-ssr.ts appends
       # '/v1/...' itself; INTERNAL_API_URL is the bare origin.
       INTERNAL_API_URL: "https://qa.aiqadam.org"
+      # Authentik's public origin, read client-side by AccountChip's
+      # "Engineering Deck" link (ISS-262) — matches
+      # deploy/nginx/qa.aiqadam.org.conf's auth.qa.aiqadam.org vhost
+      # and this same file's api OIDC_ISSUER_URL above.
+      PUBLIC_AUTHENTIK_URL: "https://auth.qa.aiqadam.org"
       # Directus is now real (see the `directus` service above) — this
       # used to point at a deliberately-unreachable loopback port because
       # Directus was out of scope for QA (ai-qadam-infra T-0110's original

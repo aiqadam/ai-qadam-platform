@@ -18,7 +18,20 @@ import { type AuthMe, getAuthState, signOut } from '../lib/auth-bootstrap';
 // island piggybacks on whatever /refresh + /me round-trip another
 // island on the page already made (#339 dedupe).
 
-const ENGINEERING_DECK_URL = 'https://login.aiqadam.org/if/user/#/library';
+// PUBLIC_AUTHENTIK_URL is per-environment (prod: auth.aiqadam.org, QA:
+// auth.qa.aiqadam.org — see deploy/docker-compose.{prod,qa}.yml) so this
+// link opens the SAME Authentik instance the viewer is actually signed
+// into. The prior hardcoded 'login.aiqadam.org' had no nginx vhost on
+// any host at all (ISS-262) — auth.aiqadam.org is the real, provisioned
+// hostname (matches apps/api's AUTHENTIK_ADMIN_URL default).
+function engineeringDeckUrl(): string {
+  const { PUBLIC_AUTHENTIK_URL } = import.meta.env;
+  const base =
+    typeof PUBLIC_AUTHENTIK_URL === 'string' && PUBLIC_AUTHENTIK_URL.length > 0
+      ? PUBLIC_AUTHENTIK_URL
+      : 'https://auth.aiqadam.org';
+  return `${base}/if/user/#/library`;
+}
 
 interface I18n {
   signed_in_as: string;
@@ -201,7 +214,7 @@ export function NavAccountMenu({ t }: Props): ReactElement | null {
               )}
               {showEngineering && (
                 <a
-                  href={ENGINEERING_DECK_URL}
+                  href={engineeringDeckUrl()}
                   role="menuitem"
                   style={menuItemStyle}
                   target="_blank"
