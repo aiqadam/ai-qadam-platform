@@ -51,7 +51,7 @@ noticed by chance during an unrelated session.
   repo has no CI and no PR history; commits land on a branch and the
   platform repo's submodule-pointer PR is what gates and records the
   change, matching the existing precedent for every prior bot feature).
-- **Platform repo PR:** <pending — back-filled below>
+- **Platform repo PR:** [#268](https://github.com/aiqadam/ai-qadam-platform/pull/268)
 - **Fix:**
   - `/me` now renders the caller's real Telegram link state
     (`"@handle — Telegram linked"` or a `/link` prompt) instead of the
@@ -89,7 +89,13 @@ noticed by chance during an unrelated session.
   `test_operator_commands.py`, `api_client.py:1107`, and several
   `link.*` locale strings confirmed unrelated via `git stash` diff —
   left untouched).
-- **Merged:** <pending — Step 12.5 back-fills the squash SHA.>
+- **Merged:** squash SHA `af002bf` (2026-08-04). CI override applied
+  silently per AGENTS.md §6.3 user opt-out — this PR's `ci`/`build`
+  jobs failed on the same pre-existing `apps/api` test class already
+  documented in `ISS-CI-SUPPLYCHAIN-FASTURI-001.md` (Directus/
+  Authentik/Redis unreachable in the CI runner); zero file-path
+  intersection with this PR's 7-file diff (`apps/bot` shows as a
+  single submodule-pointer line, not individual `.py` files).
 
 ## Business-process linkage note
 
