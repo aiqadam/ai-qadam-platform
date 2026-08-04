@@ -1,0 +1,89 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260804-fix-209-fast-uri-supply-chain"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-08-04T00:00:00Z"
+last_updated_at: "2026-08-04T00:00:00Z"
+
+requirement_ref: "ISS-CI-SUPPLYCHAIN-FASTURI-001"
+requirement_text: "supply-chain pnpm audit (high+critical block) red on main via transitive fast-uri advisory (GHSA-7p8r-x3mc-p8w7)"
+github_issue_url: "https://github.com/aiqadam/ai-qadam-platform/issues/265"
+
+branch: "fix/ISS-CI-SUPPLYCHAIN-FASTURI-001-bump-fast-uri-override"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 11
+current_step_name: "workflow-finish"
+workflow_status: "running"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  fix:
+    status: passed
+    attempt: 1
+    timestamp: "2026-08-04T00:00:00Z"
+    summary: "Bumped pnpm.overrides fast-uri floor from >=3.1.4 to >=4.1.2; pnpm audit --prod --audit-level=high now exits 0 with 0 high/critical findings."
+    output_file: ".copilot/issues/ISS-CI-SUPPLYCHAIN-FASTURI-001.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created:
+  - "ISS-CI-SUPPLYCHAIN-FASTURI-001"
+issue_ref: "ISS-CI-SUPPLYCHAIN-FASTURI-001"
+
+deferrals: []
+
+expects_registry_update: true
+
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/issues/ISS-CI-SUPPLYCHAIN-FASTURI-001.md"
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - package.json
+  - pnpm-lock.yaml
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
