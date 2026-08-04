@@ -62,7 +62,15 @@ function baseInput(overrides: Partial<DispatchInput> = {}): DispatchInput {
 }
 
 function wireDirectusUserLookup(d: FakeDirectus, users: Array<{ id: string; email: string }>) {
+  // First dx.get call: resolveRecipients()'s batch lookup.
   d.get.mockResolvedValueOnce({ data: users });
+  // Subsequent dx.get calls: resolveUser()'s per-recipient lookup inside
+  // deliverToRecipient() (FR-NTF-005 channel-toggle enforcement) — one per
+  // recipient, after the batch call above. Default-stub every user so
+  // per-test wiring doesn't need to know this second call exists.
+  for (const user of users) {
+    d.get.mockResolvedValueOnce({ data: user });
+  }
 }
 
 function wireInteractionRow(d: FakeDirectus, id = IX) {
@@ -98,8 +106,9 @@ describe('InteractionsService.dispatch — happy path', () => {
     expect(first.recipientUserId).toBe(USER_A);
     expect(first.channel).toBe('email');
 
-    // Directus call sequence: GET users → POST interactions → POST deliveries
-    expect(dx.get).toHaveBeenCalledTimes(1);
+    // Directus call sequence: GET users (batch) → POST interactions →
+    // POST deliveries → GET user (resolveUser, per-recipient channel-toggle check)
+    expect(dx.get).toHaveBeenCalledTimes(2);
     expect(dx.post).toHaveBeenCalledTimes(2);
     const interactionBody = dx.post.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(interactionBody.policy_state).toBe('sending');
