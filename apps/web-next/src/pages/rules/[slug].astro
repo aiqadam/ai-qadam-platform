@@ -1,0 +1,68 @@
+---
+// @generated-from gen:page
+// slug: rules/[slug]
+//
+// FR-CMS-007 — Community Rules & Documents (one-page-per-document
+// detail view). Follows welcome/[slug].astro's structure/routing
+// pattern (Astro.params, 404-on-miss, prerender = false) but NOT its
+// body-rendering — that binding is dead code (set:html="" — a literal
+// empty string, never page.bodyMd; see 02-impact-analysis.md). This
+// page uses the real renderMarkdown() helper instead.
+//
+// AC-3: each document's own structure/headings/wording is reflowed
+// as-is — the body_md for this row is never merged or reconciled with
+// any other row's terminology (e.g. "Хранитель" vs "Основатель" stays
+// exactly as its own source document wrote it).
+// AC-4: superseded documents show their status_label but remain fully
+// readable — never redacted or redirected away.
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { PageHead } from '../../blocks/common';
+import { fetchContentDocument } from '../../lib/cms';
+import { renderMarkdown } from '../../lib/render-markdown';
+import { getLocale, makeT } from '../../lib/i18n';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/rules');
+
+const doc = await fetchContentDocument(slug);
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+if (!doc) {
+  return new Response(null, { status: 404 });
+}
+
+const bodyHtml = renderMarkdown(doc.bodyMd);
+---
+
+<Layout title={`${doc.title} — AI Qadam`} description={doc.title}>
+  <PageHead slot="head" title={`${doc.title} — AI Qadam`} description={doc.title} />
+  <main class="mx-auto max-w-3xl px-6 py-16">
+    <a
+      href="/rules"
+      class="mb-8 inline-block text-sm font-medium text-muted-foreground hover:text-foreground"
+    >
+      {t('rules.back_to_library')}
+    </a>
+
+    <div class="mb-8 flex flex-wrap items-center gap-3">
+      <h1 class="font-display text-3xl font-semibold tracking-tight text-foreground">
+        {doc.title}
+      </h1>
+      {doc.statusLabel && (
+        <span class="inline-flex items-center rounded-full border border-transparent bg-secondary px-2.5 py-0.5 font-mono text-xs uppercase tracking-wide text-secondary-foreground">
+          {doc.statusLabel}
+        </span>
+      )}
+    </div>
+
+    {doc.sourceDocumentLabel && (
+      <p class="mb-8 font-mono text-xs text-muted-foreground">{doc.sourceDocumentLabel}</p>
+    )}
+
+    {bodyHtml && <div class="prose prose-stone max-w-none" set:html={bodyHtml} />}
+  </main>
+</Layout>

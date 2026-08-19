@@ -54,7 +54,7 @@ const year = new Date().getUTCFullYear();
 ---
 
 <footer class="border-t border-border mt-16 bg-card">
-  <div class="mx-auto max-w-5xl px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+  <div class="mx-auto max-w-5xl px-6 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
     <div>
       <p class="font-display text-lg font-semibold text-foreground mb-2">{t('footer.brand')}</p>
       <p class="text-sm text-muted-foreground leading-relaxed">
@@ -63,6 +63,34 @@ const year = new Date().getUTCFullYear();
       <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mt-3">
         {t('footer.countries_served', { count: settings.countriesServed })}
       </p>
+    </div>
+
+    <div>
+      <p class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+        {t('footer.site')}
+      </p>
+      <ul class="list-none p-0 m-0 space-y-2">
+        <li>
+          <a href="/about" class="text-sm text-foreground no-underline hover:text-primary transition-colors">
+            {t('nav.about')}
+          </a>
+        </li>
+        <li>
+          <a href="/history" class="text-sm text-foreground no-underline hover:text-primary transition-colors">
+            {t('nav.history')}
+          </a>
+        </li>
+        <li>
+          <a href="/rules" class="text-sm text-foreground no-underline hover:text-primary transition-colors">
+            {t('nav.rules')}
+          </a>
+        </li>
+        <li>
+          <a href="/partners" class="text-sm text-foreground no-underline hover:text-primary transition-colors">
+            {t('nav.partners')}
+          </a>
+        </li>
+      </ul>
     </div>
 
     {socials.length > 0 && (

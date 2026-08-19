@@ -135,11 +135,25 @@ apps/api/src/
 │   ├── partners/             # Partner profiles
 │   ├── gamification/         # Points, badges, streaks, leaderboards
 │   ├── activities/           # Activity feed, notifications
-│   ├── content/              # Bridge to Directus for content reads
 │   ├── notifications/        # Email + Telegram delivery
 │   └── admin/                # Admin-only operations
 └── main.ts
 ```
+
+> **Content reads do not go through a NestJS module.** An earlier version of
+> this diagram listed a `content/` module ("Bridge to Directus for content
+> reads") here. It was never built — confirmed by directory listing during
+> `FR-CMS-007` (2026-08-19). Every CMS-backed page (`FR-CMS-001` `/press`,
+> `FR-CMS-002` `/welcome/[slug]`, `FR-CMS-007` `/about` `/rules` `/history`
+> `/partners`) instead reads Directus directly from Astro SSR via
+> `apps/web-next/src/lib/cms.ts` fetch helpers — no NestJS hop in the
+> request path. `apps/api/src/modules/directus/` does exist, but is scoped
+> narrowly to syncing platform users into Directus for attribution
+> (`DirectusUsersBridgeService`); it is not a general content bridge and
+> should not be repurposed as one without a separate architectural decision.
+> If a future requirement genuinely needs server-side content aggregation
+> or write-through, add a real `content/` module then — don't resurrect this
+> line as aspirational documentation for code that doesn't exist.
 
 ### Rules for module boundaries
 
@@ -170,7 +184,7 @@ apps/api/src/
 | Schema in Postgres | Owner | Who reads | Who writes |
 |--------------------|-------|-----------|------------|
 | `platform` | NestJS API | All apps via API | NestJS API only |
-| `directus` | Directus CMS | NestJS reads via Directus API | Directus admin UI |
+| `directus` | Directus CMS | Astro (`apps/web-next`) reads directly via Directus's REST API, server-side only; no NestJS hop for content reads (see Module boundaries note above) | Directus admin UI |
 | `authentik` | Authentik | None | Authentik only |
 | `twenty` | Twenty CRM | None directly | Twenty only |
 | `listmonk` | Listmonk | None directly | Listmonk only |

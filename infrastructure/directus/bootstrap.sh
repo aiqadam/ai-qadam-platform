@@ -5690,6 +5690,118 @@ else
   echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for team_members."
 fi
 
+
+# ════════════════════════════════════════════════════════════════════════
+# FR-CMS-007 — content_pages + content_documents (About/History/Partners
+# and the Rules & Documents library).
+# ════════════════════════════════════════════════════════════════════════
+#
+# content_pages mirrors landing_pages' field shape (slug/status/body_md)
+# but adds a `translations` flat-JSON field for ru/en — the proven i18n
+# pattern already shipped on events.translations (line ~4866), NOT
+# Directus-native o2m translations (landing_pages itself has none; no
+# collection in this schema uses the native mechanism yet). Top-level
+# fields hold the tenant-default-locale (en) fallback; `translations`
+# holds per-locale overrides as {"ru": {...}, "en": {...}}.
+#
+# content_documents is the one-row-per-source-document library for
+# Community Rules & Documents (AC-2/AC-3/AC-4) — ru-only for this pass,
+# no translations field (matches AC-2's explicit no-en-toggle scope).
+
+echo "[content_pages]"
+ensure "collection content_pages" \
+  "${DIRECTUS_URL}/collections/content_pages" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"content_pages",
+    "schema":{"name":"content_pages"},
+    "meta":{
+      "icon":"article",
+      "note":"Public marketing/content pages (About Us, Events & History, Partner With Us) at /{slug}. FR-CMS-007.",
+      "sort_field":"date_created"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":64,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"URL fragment — /{slug}. Lowercase + hyphens."}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"draft","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Draft (not served)","value":"draft"},
+          {"text":"Published","value":"published"},
+          {"text":"Archived (not served)","value":"archived"}
+        ]}
+      }},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":160},"meta":{"interface":"input","width":"full","required":true,"note":"H1 + meta title, default (en) locale."}},
+      {"field":"subtitle","type":"string","schema":{"is_nullable":true,"max_length":280},"meta":{"interface":"input","width":"full","note":"Dek under the H1, default (en) locale."}},
+      {"field":"body_md","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-rich-text-md","width":"full","note":"Body content (markdown), default (en) locale. Rendered as sanitized HTML via lib/render-markdown.ts."}},
+      {"field":"translations","type":"json","schema":{"is_nullable":true},"meta":{
+        "interface":"input-code",
+        "options":{"language":"json","placeholder":"{\"ru\":{\"title\":\"...\",\"subtitle\":\"...\",\"body_md\":\"...\"}}"},
+        "width":"full",
+        "note":"FR-CMS-007 — per-locale subobject map, mirrors events.translations. Keys = locale codes (ru/en). Missing keys fall back to the top-level (en) fields."
+      }},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+echo "[content_documents]"
+ensure "collection content_documents" \
+  "${DIRECTUS_URL}/collections/content_documents" \
+  "${DIRECTUS_URL}/collections" \
+  '{
+    "collection":"content_documents",
+    "schema":{"name":"content_documents"},
+    "meta":{
+      "icon":"description",
+      "note":"Community Rules & Documents library — one row per source governance document, ru-only. Rendered at /rules (index) and /rules/{slug} (detail). FR-CMS-007.",
+      "sort_field":"display_order"
+    },
+    "fields":[
+      {"field":"id","type":"uuid","schema":{"is_primary_key":true,"default_value":"gen_random_uuid()","is_nullable":false},"meta":{"interface":"input","readonly":true,"hidden":true,"special":["uuid"]}},
+      {"field":"slug","type":"string","schema":{"is_nullable":false,"max_length":64,"is_unique":true},"meta":{"interface":"input","width":"half","required":true,"note":"URL fragment — /rules/{slug}."}},
+      {"field":"status","type":"string","schema":{"is_nullable":false,"default_value":"published","max_length":20},"meta":{
+        "interface":"select-dropdown",
+        "width":"half",
+        "required":true,
+        "options":{"choices":[
+          {"text":"Draft (not served)","value":"draft"},
+          {"text":"Published","value":"published"}
+        ]}
+      }},
+      {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":160},"meta":{"interface":"input","width":"full","required":true,"note":"Document title, e.g. \"AI Qadam Charter v0.1\"."}},
+      {"field":"source_document_label","type":"string","schema":{"is_nullable":true,"max_length":160},"meta":{"interface":"input","width":"full","note":"Original filename / source reference shown on the detail page, e.g. \"AI Qadam Charter v0 1.docx\"."}},
+      {"field":"status_label","type":"string","schema":{"is_nullable":true,"max_length":80},"meta":{"interface":"input","width":"half","note":"e.g. \"Current\" or \"Superseded by Charter v0.1\" (AC-4)."}},
+      {"field":"body_md","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-rich-text-md","width":"full","note":"Full document body (markdown), reflowed as-is from the source (AC-3) — never merged/synthesized with another row."}},
+      {"field":"display_order","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
+      {"field":"date_created","type":"timestamp","schema":{"default_value":"now()"},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-created"]}},
+      {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
+    ]
+  }'
+
+# Public READ-ONLY grants (ensure_perm_for_policy — name-lookup on
+# $t:public_label, not a hardcoded UUID; see ISS-SEC-PUBLIC-UNMANAGED-001
+# note at line ~2967 for why this is the preferred pattern over the
+# older hardcoded-UUID public-read blocks elsewhere in this file). Both
+# collections are global/public content — no country scoping, no write
+# grant for the Public policy.
+echo "[FR-CMS-007 — public read: content_pages, content_documents]"
+FR_CMS_007_PUBLIC_POLICY_ID=$(curl -s -H "${H_AUTH}" \
+  "${DIRECTUS_URL}/policies?filter%5Bname%5D%5B_eq%5D=%24t%3Apublic_label&fields=id&limit=1" \
+  | jq -r '.data[0].id // empty' 2>/dev/null || true)
+if [ -n "${FR_CMS_007_PUBLIC_POLICY_ID}" ]; then
+  ensure_perm_for_policy "${FR_CMS_007_PUBLIC_POLICY_ID}" "perm public content_pages/read" \
+    content_pages read '{"status":{"_eq":"published"}}' \
+    '["id","slug","status","title","subtitle","body_md","translations","date_updated"]'
+  ensure_perm_for_policy "${FR_CMS_007_PUBLIC_POLICY_ID}" "perm public content_documents/read" \
+    content_documents read '{"status":{"_eq":"published"}}' \
+    '["id","slug","status","title","source_document_label","status_label","body_md","display_order"]'
+else
+  echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for content_pages/content_documents."
+fi
+
 echo
 echo "✅ Directus schema bootstrapped."
 echo "Next: run infrastructure/directus/migrate-from-platform.sh to copy"
