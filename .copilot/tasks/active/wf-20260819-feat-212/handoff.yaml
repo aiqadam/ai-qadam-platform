@@ -70,7 +70,7 @@ requirement_text: >
 
 branch: "feature/portal-content-004-about-rules-events-partners"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/272"
 
 current_step: 11
 current_step_name: "commit-push-pr"
