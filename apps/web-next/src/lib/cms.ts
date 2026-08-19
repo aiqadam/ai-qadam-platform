@@ -973,3 +973,174 @@ export async function fetchEventCountForCountry(country: string): Promise<number
     return 0;
   }
 }
+
+// ---------------------------------------------------------------------------
+// content_pages — About Us / Events & History / Partner With Us (FR-CMS-007).
+//
+// Same shape family as landing_pages, plus a `translations` flat-JSON
+// field (mirrors events.translations — the proven i18n pattern in this
+// codebase; landing_pages itself has no translations field, so it is
+// not the precedent for the i18n *shape*, only for the body_md/status
+// field shape). Top-level fields are the (en) default-locale fallback;
+// `translations.ru` (etc.) overrides per-locale when present. Global,
+// non-tenant-scoped content — no countryFromHost filtering.
+// ---------------------------------------------------------------------------
+
+export interface CmsContentPage {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  bodyMd: string | null;
+}
+
+interface CmsContentPageTranslation {
+  title?: string;
+  subtitle?: string;
+  body_md?: string;
+}
+
+interface CmsContentPageRow {
+  slug: string;
+  status: string;
+  title: string;
+  subtitle: string | null;
+  body_md: string | null;
+  translations: Record<string, CmsContentPageTranslation> | null;
+}
+
+const CONTENT_PAGE_FIELDS = 'slug,status,title,subtitle,body_md,translations';
+
+/** Slug shape guard — same convention as fetchLandingPage. */
+function isValidContentSlug(slug: string): boolean {
+  return /^[a-z0-9][a-z0-9-]{0,63}$/.test(slug);
+}
+
+function normalizeContentPageRow(row: CmsContentPageRow, locale: string): CmsContentPage {
+  const localized = row.translations?.[locale];
+  return {
+    slug: row.slug,
+    title: localized?.title ?? row.title,
+    subtitle: localized?.subtitle ?? row.subtitle,
+    bodyMd: localized?.body_md ?? row.body_md,
+  };
+}
+
+/**
+ * Fetch a content_pages row by slug, resolved to the requested locale.
+ * `locale` defaults to 'en' (the top-level fields' locale) when omitted
+ * or unsupported. Returns null on miss, unpublished, or Directus
+ * failure — never throws into the page (AC-8).
+ */
+export async function fetchContentPage(
+  slug: string,
+  locale = 'en',
+): Promise<CmsContentPage | null> {
+  const trimmed = slug.trim().toLowerCase();
+  if (!isValidContentSlug(trimmed)) return null;
+  try {
+    const params = new URLSearchParams({
+      'filter[slug][_eq]': trimmed,
+      'filter[status][_eq]': 'published',
+      fields: CONTENT_PAGE_FIELDS,
+      limit: '1',
+    });
+    const body = await get<{ data: CmsContentPageRow[] }>(
+      `/items/content_pages?${params.toString()}`,
+    );
+    const row = body.data[0];
+    if (!row) return null;
+    return normalizeContentPageRow(row, locale);
+  } catch (err) {
+    console.error(`[cms] fetchContentPage(${slug}) failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// content_documents — Community Rules & Documents library (FR-CMS-007).
+//
+// ru-only for this pass (AC-2) — no translations field, no locale param.
+// fetchContentDocuments() lists all published rows (library index,
+// /rules); fetchContentDocument(slug) loads one row's full body
+// (/rules/[slug]). Both return empty/null on failure — never throw.
+// ---------------------------------------------------------------------------
+
+export interface CmsContentDocument {
+  id: string;
+  slug: string;
+  title: string;
+  sourceDocumentLabel: string | null;
+  statusLabel: string | null;
+  bodyMd: string | null;
+  displayOrder: number;
+}
+
+interface CmsContentDocumentRow {
+  id: string;
+  slug: string;
+  status: string;
+  title: string;
+  source_document_label: string | null;
+  status_label: string | null;
+  body_md: string | null;
+  display_order: number | null;
+}
+
+const CONTENT_DOCUMENT_LIST_FIELDS = 'id,slug,status,title,source_document_label,status_label,display_order';
+const CONTENT_DOCUMENT_DETAIL_FIELDS = `${CONTENT_DOCUMENT_LIST_FIELDS},body_md`;
+
+function normalizeContentDocumentRow(row: CmsContentDocumentRow): CmsContentDocument {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    sourceDocumentLabel: row.source_document_label,
+    statusLabel: row.status_label,
+    bodyMd: row.body_md,
+    displayOrder: row.display_order ?? 100,
+  };
+}
+
+/** List every published content_documents row, sorted by display_order (AC-2: exactly the 5 seeded rows in this pass). */
+export async function fetchContentDocuments(): Promise<CmsContentDocument[]> {
+  try {
+    const params = new URLSearchParams({
+      'filter[status][_eq]': 'published',
+      fields: CONTENT_DOCUMENT_LIST_FIELDS,
+      sort: 'display_order',
+      limit: '50',
+    });
+    const body = await get<{ data: CmsContentDocumentRow[] }>(
+      `/items/content_documents?${params.toString()}`,
+    );
+    return body.data.map(normalizeContentDocumentRow);
+  } catch (err) {
+    console.error('[cms] fetchContentDocuments failed:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+/** Fetch one content_documents row (with body_md) by slug. Returns null on miss/unpublished/failure. */
+export async function fetchContentDocument(slug: string): Promise<CmsContentDocument | null> {
+  const trimmed = slug.trim().toLowerCase();
+  if (!isValidContentSlug(trimmed)) return null;
+  try {
+    const params = new URLSearchParams({
+      'filter[slug][_eq]': trimmed,
+      'filter[status][_eq]': 'published',
+      fields: CONTENT_DOCUMENT_DETAIL_FIELDS,
+      limit: '1',
+    });
+    const body = await get<{ data: CmsContentDocumentRow[] }>(
+      `/items/content_documents?${params.toString()}`,
+    );
+    const row = body.data[0];
+    return row ? normalizeContentDocumentRow(row) : null;
+  } catch (err) {
+    console.error(
+      `[cms] fetchContentDocument(${slug}) failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}

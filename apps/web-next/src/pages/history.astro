@@ -1,0 +1,166 @@
+---
+// @generated-from gen:page
+// slug: history
+// generated: 2026-08-19
+//
+// FR-CMS-007 — Events & History. Founding timeline (Nov 2025 founding,
+// 25 Apr 2026 first meetup Tashkent), Meetup #1 and #2 recaps
+// (metrics + speaker rosters + talk titles), growth trajectory,
+// roadmap. ru+en via content_pages.translations. Source:
+// AI-Qadam-factsheet-NEW.docx (bilingual), AI-Qadam-sponsorship-deck-
+// en.pdf (richest EN source, full speaker rosters both meetups),
+// AI_Qadam_Partnership_Deck (May 2026)_upd.pptx (EN),
+// AI_Qadam_Deck_RU_CentralAsia_Regulator (May 2026).pptx (RU),
+// AI_Qadam_Kazakhstan_MoU-2105 (3).docx (RU, founding date) per
+// 00-content-triage.md §3 Page C.
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { PageHead } from '../blocks/common';
+import { fetchContentPage } from '../lib/cms';
+import { renderMarkdown } from '../lib/render-markdown';
+import { getLocale, makeT } from '../lib/i18n';
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const page = await fetchContentPage('history', locale);
+
+const title = page?.title ?? t('history.title');
+const subtitle = page?.subtitle ?? t('history.subtitle');
+const bodyHtml = renderMarkdown(page?.bodyMd);
+
+interface MeetupMetric {
+  label: string;
+  value: string;
+}
+
+const meetup1Metrics: MeetupMetric[] = [
+  { label: t('history.metric_signups'), value: '158' },
+  { label: t('history.metric_show_rate'), value: '63%' },
+  { label: t('history.metric_tg_group'), value: '99' },
+  { label: t('history.metric_nps'), value: '+78' },
+];
+
+const meetup1Speakers = [
+  { name: 'Anton Ustinov', talk: 'AI agents in compliance' },
+  { name: 'Shokhzod Rakhmatov', talk: 'Hacking with AI' },
+  { name: 'Veronika Nasledova', talk: 'From demo to product' },
+  { name: 'Alex Kulagin', talk: 'An AI bot with memory' },
+];
+
+const meetup2Metrics: MeetupMetric[] = [
+  { label: t('history.metric_signups'), value: '142' },
+  { label: t('history.metric_show_rate'), value: '70%' },
+  { label: t('history.metric_tg_group'), value: '102' },
+  { label: t('history.metric_nps'), value: '—' },
+];
+
+const meetup2Speakers = [
+  { name: 'Pavel Popov', talk: 'From chatbot to an orchestra of agents' },
+  { name: 'Alex Juraev', talk: 'Low-code AI for operational resilience' },
+  { name: 'Konstantin Gus', talk: 'Governance for swarms of AI agents' },
+];
+---
+
+<Layout title={`${title} — AI Qadam`} description={subtitle ?? undefined}>
+  <PageHead slot="head" title={`${title} — AI Qadam`} description={subtitle ?? undefined} />
+  <main class="mx-auto max-w-4xl px-6 py-16">
+    <section class="mb-12">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.eyebrow')}
+      </p>
+      <h1 class="mb-4 font-display text-4xl font-semibold tracking-tight text-foreground">
+        {title}
+      </h1>
+      {subtitle && (
+        <p class="max-w-2xl text-lg leading-relaxed text-muted-foreground">{subtitle}</p>
+      )}
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.founding_heading')}
+      </p>
+      <p class="max-w-2xl text-base leading-relaxed text-card-foreground">
+        {t('history.founding_body')}
+      </p>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.meetup1_heading')}
+      </p>
+      <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {meetup1Metrics.map((metric) => (
+          <div class="rounded-lg border border-border bg-card p-4 text-center">
+            <p class="font-mono text-2xl font-semibold text-primary">{metric.value}</p>
+            <p class="mt-1 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              {metric.label}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.speakers_heading')}
+      </p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        {meetup1Speakers.map((speaker) => (
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="font-display font-semibold text-card-foreground">{speaker.name}</p>
+            <p class="text-sm text-muted-foreground">{speaker.talk}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.meetup2_heading')}
+      </p>
+      <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {meetup2Metrics.map((metric) => (
+          <div class="rounded-lg border border-border bg-card p-4 text-center">
+            <p class="font-mono text-2xl font-semibold text-primary">{metric.value}</p>
+            <p class="mt-1 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              {metric.label}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.speakers_heading')}
+      </p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        {meetup2Speakers.map((speaker) => (
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="font-display font-semibold text-card-foreground">{speaker.name}</p>
+            <p class="text-sm text-muted-foreground">{speaker.talk}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.growth_heading')}
+      </p>
+      <p class="max-w-2xl text-base leading-relaxed text-card-foreground">
+        {t('history.growth_body')}
+      </p>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('history.roadmap_heading')}
+      </p>
+      <p class="max-w-2xl text-base leading-relaxed text-card-foreground">
+        {t('history.roadmap_body')}
+      </p>
+    </section>
+
+    {bodyHtml && (
+      <section class="prose prose-stone max-w-none border-t border-border pt-8" set:html={bodyHtml} />
+    )}
+  </main>
+</Layout>

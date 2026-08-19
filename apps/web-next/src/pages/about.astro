@@ -1,0 +1,109 @@
+---
+// @generated-from gen:page
+// slug: about
+// generated: 2026-08-19
+//
+// FR-CMS-007 — About Us. Mission statement, seven principles, governance
+// model summary, chapter model, leadership team, closing tagline.
+// ru+en via content_pages.translations. Content pulled from AI Qadam
+// Manifesto.docx (RU), AI_Qadam_Partnership_Deck (May 2026)_upd.pptx
+// (EN), AI_Qadam_Deck_RU_CentralAsia_Regulator (May 2026).pptx (RU),
+// AI-Qadam-factsheet-NEW.docx (bilingual one-liner) per
+// 00-content-triage.md §3 Page A.
+//
+// content_pages row for slug "about" carries the seven-principles +
+// governance + leadership prose as body_md (see AC-1); the page itself
+// composes the structural sections (chapter model, leadership cards)
+// from static, source-verified copy since those are richer as
+// structured UI than flat markdown. Falls back to hardcoded defaults
+// if Directus is unreachable (AC-8) — content_pages fetch failure never
+// 500s the page.
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { PageHead } from '../blocks/common';
+import { fetchContentPage } from '../lib/cms';
+import { renderMarkdown } from '../lib/render-markdown';
+import { getLocale, makeT } from '../lib/i18n';
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const page = await fetchContentPage('about', locale);
+
+const title = page?.title ?? t('about.title');
+const subtitle = page?.subtitle ?? t('about.subtitle');
+const bodyHtml = renderMarkdown(page?.bodyMd);
+
+const chapters = [
+  { country: t('about.chapter_uz'), status: t('about.chapter_uz_status') },
+  { country: t('about.chapter_kz'), status: t('about.chapter_kz_status') },
+  { country: t('about.chapter_tj'), status: t('about.chapter_tj_status') },
+  { country: t('about.chapter_beyond'), status: t('about.chapter_beyond_status') },
+];
+
+const leadership = [
+  { name: 'Binali Rustamov', role: t('about.leader_binali_role') },
+  { name: 'Aigerim Kambetbayeva', role: t('about.leader_aigerim_role') },
+  { name: 'Ekaterina Vashurina', role: t('about.leader_ekaterina_role') },
+  { name: 'Viktor Drukker', role: t('about.leader_viktor_role') },
+  { name: 'Volodymyr Tytenko', role: t('about.leader_volodymyr_role') },
+];
+---
+
+<Layout title={`${title} — AI Qadam`} description={subtitle ?? undefined}>
+  <PageHead slot="head" title={`${title} — AI Qadam`} description={subtitle ?? undefined} />
+  <main class="mx-auto max-w-4xl px-6 py-16">
+    <section class="mb-12">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('about.eyebrow')}
+      </p>
+      <h1 class="mb-4 font-display text-4xl font-semibold tracking-tight text-foreground">
+        {title}
+      </h1>
+      {subtitle && (
+        <p class="max-w-2xl text-lg leading-relaxed text-muted-foreground">{subtitle}</p>
+      )}
+    </section>
+
+    {bodyHtml && (
+      <section class="prose prose-stone mb-12 max-w-none border-t border-border pt-8" set:html={bodyHtml} />
+    )}
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('about.chapter_model_heading')}
+      </p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        {chapters.map((chapter) => (
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="mb-1 font-display font-semibold text-card-foreground">{chapter.country}</p>
+            <p class="text-sm text-muted-foreground">{chapter.status}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('about.leadership_heading')}
+      </p>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {leadership.map((member) => (
+          <div class="rounded-xl border border-border bg-card p-6">
+            <h2 class="mb-1 font-display text-xl font-semibold text-card-foreground">
+              {member.name}
+            </h2>
+            <p class="font-mono text-xs tracking-wide text-muted-foreground">{member.role}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="border-t border-border pt-8 pb-4 text-center">
+      <p class="mx-auto max-w-xl font-display text-xl italic text-foreground">
+        {t('about.closing_tagline')}
+      </p>
+    </section>
+  </main>
+</Layout>

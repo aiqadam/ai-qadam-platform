@@ -72,8 +72,8 @@ branch: "feature/portal-content-004-about-rules-events-partners"
 base_branch: "main"
 github_pr_url: ""
 
-current_step: 0
-current_step_name: "init"
+current_step: 11
+current_step_name: "commit-push-pr"
 workflow_status: "running"
 
 merge_mode: "auto"
@@ -95,7 +95,8 @@ paused_at_gate: ""
 
 gate_results: {}
 agent_assignments: {}
-retry_counts: {}
+retry_counts:
+  code-developer: 1
 
 retry_limits:
   requirement-analyst: 1

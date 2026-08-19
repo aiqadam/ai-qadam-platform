@@ -1,0 +1,71 @@
+---
+// @generated-from gen:page
+// slug: rules
+// generated: 2026-08-19
+//
+// FR-CMS-007 — Community Rules & Documents (library index). Lists the
+// five content_documents rows (Manifesto, Charter v0.1, Kazakhstan MoU,
+// Global Board Положение v1.0, Soglashenie v1.0), each linking to its
+// own /rules/[slug] detail page (AC-2). ru-only for this pass — no
+// locale toggle offered (AC-2), an explicit "translation coming" note
+// instead. Superseded documents (Положение, Soglashenie) show their
+// status_label inline (AC-4).
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { EmptyState, PageHead } from '../blocks/common';
+import { fetchContentDocuments } from '../lib/cms';
+import { getLocale, makeT } from '../lib/i18n';
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const documents = await fetchContentDocuments();
+---
+
+<Layout title={`${t('rules.title')} — AI Qadam`} description={t('rules.subtitle')}>
+  <PageHead slot="head" title={`${t('rules.title')} — AI Qadam`} description={t('rules.subtitle')} />
+  <main class="mx-auto max-w-4xl px-6 py-16">
+    <section class="mb-10">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('rules.eyebrow')}
+      </p>
+      <h1 class="mb-4 font-display text-4xl font-semibold tracking-tight text-foreground">
+        {t('rules.title')}
+      </h1>
+      <p class="max-w-2xl text-lg leading-relaxed text-muted-foreground">{t('rules.subtitle')}</p>
+    </section>
+
+    <section class="mb-10 rounded-lg border border-dashed border-border bg-card p-4">
+      <p class="text-sm text-muted-foreground">{t('rules.language_note')}</p>
+    </section>
+
+    {documents.length === 0 ? (
+      <EmptyState heading={t('rules.empty_state')} />
+    ) : (
+      <ul class="flex flex-col gap-3">
+        {documents.map((doc) => (
+          <li class="rounded-xl border border-border bg-card p-6">
+            <div class="mb-2 flex flex-wrap items-center gap-3">
+              <h2 class="font-display text-xl font-semibold text-card-foreground">{doc.title}</h2>
+              {doc.statusLabel && (
+                <span class="inline-flex items-center rounded-full border border-transparent bg-secondary px-2.5 py-0.5 font-mono text-xs uppercase tracking-wide text-secondary-foreground">
+                  {doc.statusLabel}
+                </span>
+              )}
+            </div>
+            {doc.sourceDocumentLabel && (
+              <p class="mb-3 font-mono text-xs text-muted-foreground">{doc.sourceDocumentLabel}</p>
+            )}
+            <a
+              href={`/rules/${doc.slug}`}
+              class="text-sm font-medium text-primary hover:underline"
+            >
+              {t('rules.read_document')}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </main>
+</Layout>

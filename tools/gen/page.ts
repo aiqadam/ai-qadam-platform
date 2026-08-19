@@ -9,8 +9,14 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = resolve(new URL('../..', import.meta.url).pathname);
+// fileURLToPath (not `.pathname`) is required for Windows compatibility:
+// `new URL(...).pathname` on Windows yields a leading-slash path like
+// `/C:/Users/...`, which `resolve()` then treats as relative to the
+// current drive, producing a doubled-up `C:\C:\Users\...` and an ENOENT.
+// fileURLToPath handles the platform-specific conversion correctly.
+const REPO_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const TEMPLATE = join(REPO_ROOT, 'tools', 'gen', 'templates', 'page.astro.tmpl');
 const PAGES_DIR = join(REPO_ROOT, 'apps', 'web-next', 'src', 'pages');
 

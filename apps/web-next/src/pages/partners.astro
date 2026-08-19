@@ -1,0 +1,141 @@
+---
+// @generated-from gen:page
+// slug: partners
+// generated: 2026-08-19
+//
+// FR-CMS-007 — Partner With Us. Partnership tiers, what partners
+// unlock, current partners, regulator/government value prop,
+// sponsorship CTA. en complete, ru best-effort (AC-6: a partial-content
+// or English-only Russian fallback is an acceptable release state, not
+// a defect — AI-Qadam-sponsorship-deck-ru.pdf has a font-embedding
+// defect preventing full RU text recovery). Source:
+// AI_Qadam_Partnership_Deck (May 2026)_upd.pptx (EN, complete),
+// AI-Qadam-sponsorship-deck-en.pdf (EN, complete),
+// AI_Qadam_Deck_RU_CentralAsia_Regulator (May 2026).pptx (RU, regulator
+// angle) per 00-content-triage.md §3 (new 4th page, added 2026-08-19).
+// Explicitly excludes the "BUILD" product-roadmap slide from
+// AI-Qadam-sponsorship-deck-ru.pdf (out-of-scope product content, not
+// partnership copy — AC-7).
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { PageHead } from '../blocks/common';
+import { fetchContentPage } from '../lib/cms';
+import { renderMarkdown } from '../lib/render-markdown';
+import { getLocale, makeT } from '../lib/i18n';
+
+const locale = getLocale(Astro);
+const t = makeT(locale);
+
+const page = await fetchContentPage('partners', locale);
+
+const title = page?.title ?? t('partners.title');
+const subtitle = page?.subtitle ?? t('partners.subtitle');
+const bodyHtml = renderMarkdown(page?.bodyMd);
+
+const tiers = [
+  { name: t('partners.tier_one_off'), body: t('partners.tier_one_off_body') },
+  { name: t('partners.tier_monthly'), body: t('partners.tier_monthly_body') },
+  { name: t('partners.tier_annual'), body: t('partners.tier_annual_body') },
+];
+
+const unlocks = [
+  'Production — media & professional livestream',
+  'Infra — tools, venue tech, broadcast',
+  'Talent — new formats, coaching',
+  'Reputation — co-marketing and reach',
+];
+
+const currentPartners = [
+  { name: 'Venue partner', detail: 'Tashkent tech hub — HUB & Studio' },
+  { name: 'Infra partner', detail: 'Uzbekistan cloud (IaaS/PaaS/DBaaS), 99.999% SLA' },
+  { name: 'Pizza & merch partner', detail: 'Fintech behind Beepul (VEON Group)' },
+  { name: 'Livestream sponsor', detail: 'Uzbek speech-AI for banks' },
+];
+---
+
+<Layout title={`${title} — AI Qadam`} description={subtitle ?? undefined}>
+  <PageHead slot="head" title={`${title} — AI Qadam`} description={subtitle ?? undefined} />
+  <main class="mx-auto max-w-4xl px-6 py-16">
+    <section class="mb-12">
+      <p class="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('partners.eyebrow')}
+      </p>
+      <h1 class="mb-4 font-display text-4xl font-semibold tracking-tight text-foreground">
+        {title}
+      </h1>
+      {subtitle && (
+        <p class="max-w-2xl text-lg leading-relaxed text-muted-foreground">{subtitle}</p>
+      )}
+    </section>
+
+    {bodyHtml && (
+      <section class="prose prose-stone mb-12 max-w-none border-t border-border pt-8" set:html={bodyHtml} />
+    )}
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('partners.tiers_heading')}
+      </p>
+      <div class="grid gap-4 sm:grid-cols-3">
+        {tiers.map((tier) => (
+          <div class="rounded-xl border border-border bg-card p-6">
+            <h2 class="mb-2 font-display text-lg font-semibold text-card-foreground">
+              {tier.name}
+            </h2>
+            <p class="text-sm leading-relaxed text-muted-foreground">{tier.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('partners.unlocks_heading')}
+      </p>
+      <ul class="grid gap-2.5 sm:grid-cols-2">
+        {unlocks.map((item) => (
+          <li class="rounded-lg border border-border bg-card p-4 text-sm text-card-foreground">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('partners.current_partners_heading')}
+      </p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        {currentPartners.map((partner) => (
+          <div class="rounded-lg border border-border bg-card p-4">
+            <p class="font-display font-semibold text-card-foreground">{partner.name}</p>
+            <p class="text-sm text-muted-foreground">{partner.detail}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-12 border-t border-border pt-8">
+      <p class="mb-3 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+        {t('partners.regulator_heading')}
+      </p>
+      <p class="max-w-2xl text-base leading-relaxed text-card-foreground">
+        {t('partners.regulator_body')}
+      </p>
+    </section>
+
+    <section class="rounded-xl border border-border bg-card p-8 text-center">
+      <h2 class="mb-2 font-display text-2xl font-semibold text-card-foreground">
+        {t('partners.cta_heading')}
+      </h2>
+      <p class="mb-5 text-base text-muted-foreground">{t('partners.cta_body')}</p>
+      <a
+        href="mailto:partners@aiqadam.org"
+        class="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        {t('partners.cta_button')}
+      </a>
+    </section>
+  </main>
+</Layout>
