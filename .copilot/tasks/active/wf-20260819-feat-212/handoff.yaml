@@ -1,0 +1,137 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260819-feat-212"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-19T00:00:00Z"
+last_updated_at: "2026-08-19T00:00:00Z"
+
+requirement_ref: "FEAT-CONTENT-1"
+requirement_text: >
+  Add four public marketing/content pages to the portal — About Us, Community
+  Rules & Documents, Events & History, and Partner With Us — sourced from the
+  community's existing source documents (manifesto, charter, agreements,
+  MoU, factsheet, partnership/sponsorship decks) under
+  portal-content/20260819/ (gitignored, local-only, not part of this diff).
+  Content must be authored in Directus CMS (per architecture.md's existing
+  Directus-native content model) with ru/en translations where source
+  material supports it, rendered via new Astro pages in apps/web-next
+  styled strictly per docs/04-development/design-system/Design system for
+  AI agents/readme.md (Lucide icons only, no raw hex, no new tokens,
+  existing component classes).
+
+  Page-by-page scope:
+  1. About Us — mission statement, seven community principles, governance
+     model summary (council of equals / consent / country leads), chapter
+     model (UZ/KZ/TJ/beyond), leadership team, closing tagline. ru+en.
+  2. Community Rules & Documents — a document library, ONE PAGE PER SOURCE
+     DOCUMENT (not synthesized/merged prose): Manifesto, Charter v0.1
+     (current), Kazakhstan MoU (current), Global Board Положение v1.0
+     (label as superseded by Charter), Soglashenie v1.0 (label as
+     superseded by Charter). Each document's own structure/headings/wording
+     is reflowed as-is into portal page markup using design-system
+     typography/components — do not rewrite, merge, or reconcile wording
+     differences between documents (e.g. do not resolve the
+     "Хранитель" vs "Основатель" founder-title inconsistency — each
+     document keeps its own original term). ru-only for this pass; note
+     English translation as an explicit tracked gap, not a blocker.
+  3. Events & History — founding timeline (Nov 2025 founding, 25 Apr 2026
+     first meetup Tashkent), Meetup #1 and #2 recaps (metrics + speaker
+     rosters + talk titles), growth trajectory, roadmap/what's-next. ru+en.
+  4. Partner With Us (new, added to original 3-page scope per PO decision
+     2026-08-19) — partnership tiers and what partners unlock, current
+     partners, regulator/government-partner value proposition, sponsorship
+     call-to-action. Sourced primarily from the English partnership/
+     sponsorship decks (complete) plus the Russian regulator deck; note
+     that AI-Qadam-sponsorship-deck-ru.pdf has a font-embedding defect
+     preventing full Russian text recovery and may need re-export before
+     its content can be used for the ru version of this page — flag as a
+     known content gap, not a blocking defect in the code.
+
+  Explicitly excluded from source material: AI Qadam BFT v0_1 (internal
+  product-requirements doc, not portal content) and
+  Приложение№1_2026.doc (unrelated ABiTech/InterKvadroSoft contract
+  annex, appears misplaced in the source folder).
+
+  A prior triage pass (this session) produced a full file-by-file content
+  map and per-page heading outlines with source attribution — the
+  RequirementAnalyst and CodeDeveloper should treat that outline as the
+  authoritative content plan rather than re-deriving it from the raw
+  source files, though the raw files remain available on disk under
+  portal-content/20260819/ for exact wording/copy extraction.
+
+  Architecture guidance: docs/04-development/architecture/architecture.md
+  already specifies Directus as CMS with a NestJS "content bridge" module
+  for content reads (no such module exists yet — this is new, greenfield
+  work) and Directus-native translations for i18n. Follow that existing
+  architectural decision rather than introducing static MDX/markdown
+  content or a new content system.
+
+branch: "feature/portal-content-004-about-rules-events-partners"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 0
+current_step_name: "init"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/design-system/Design system for AI agents/readme.md
+  - docs/01-business/project.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260819-feat-212/NEEDS_REVIEW.md"
