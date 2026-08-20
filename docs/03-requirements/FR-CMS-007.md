@@ -39,7 +39,10 @@ Content editors (author/translate in Directus); Public (view, unauthenticated).
    Manifesto, Charter v0.1, Kazakhstan MoU, Global Board Положение v1.0,
    Soglashenie v1.0). Fields: `slug`, `title`, `source_document_label`,
    `status_label` (e.g. "Current" / "Superseded by Charter v0.1"), `body_md`
-   (ru-only for this pass), `display_order`. Each row's `body_md` is a
+   (ru-only for this pass), `display_order`. `source_document_label` is a
+   citation string only in this requirement — [`FR-CMS-008`](FR-CMS-008.md)
+   later adds a `source_file` relation and renders a real download link
+   alongside it. Each row's `body_md` is a
    faithful reflow of that document's own structure/headings/wording — not
    synthesized, merged, or reconciled with any other row (e.g. the
    "Хранитель" vs "Основатель" founder-title difference between documents is

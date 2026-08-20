@@ -5773,6 +5773,7 @@ ensure "collection content_documents" \
       }},
       {"field":"title","type":"string","schema":{"is_nullable":false,"max_length":160},"meta":{"interface":"input","width":"full","required":true,"note":"Document title, e.g. \"AI Qadam Charter v0.1\"."}},
       {"field":"source_document_label","type":"string","schema":{"is_nullable":true,"max_length":160},"meta":{"interface":"input","width":"full","note":"Original filename / source reference shown on the detail page, e.g. \"AI Qadam Charter v0 1.docx\"."}},
+      {"field":"source_file","type":"uuid","schema":{"is_nullable":true},"meta":{"interface":"file","width":"full","note":"FR-CMS-008 — the original source document (.docx) offered as a real download link next to source_document_label on /rules/{slug}. Optional: when empty the page renders label-only, exactly as before."}},
       {"field":"status_label","type":"string","schema":{"is_nullable":true,"max_length":80},"meta":{"interface":"input","width":"half","note":"e.g. \"Current\" or \"Superseded by Charter v0.1\" (AC-4)."}},
       {"field":"body_md","type":"text","schema":{"is_nullable":true},"meta":{"interface":"input-rich-text-md","width":"full","note":"Full document body (markdown), reflowed as-is from the source (AC-3) — never merged/synthesized with another row."}},
       {"field":"display_order","type":"integer","schema":{"is_nullable":false,"default_value":100},"meta":{"interface":"input","width":"half"}},
@@ -5780,6 +5781,57 @@ ensure "collection content_documents" \
       {"field":"date_updated","type":"timestamp","schema":{"is_nullable":true},"meta":{"interface":"datetime","readonly":true,"hidden":true,"special":["date-updated"]}}
     ]
   }'
+
+# FR-CMS-008 — source_file -> directus_files. SET NULL (not RESTRICT):
+# the document row's body_md stays fully servable if the uploaded asset
+# is ever deleted; only the download link disappears. Matches
+# event_materials.file / partners.logo / speakers.photo / sponsors.logo.
+ensure "relation content_documents.source_file -> directus_files.id" \
+  "${DIRECTUS_URL}/relations/content_documents/source_file" \
+  "${DIRECTUS_URL}/relations" \
+  '{"collection":"content_documents","field":"source_file","related_collection":"directus_files","schema":{"on_delete":"SET NULL"}}'
+
+# FR-CMS-008 — the public-assets folder.
+#
+# WHY THIS EXISTS (verified empirically against a live, already-bootstrapped
+# Directus 11 during this feature's security review — do not remove on the
+# assumption that /assets/ is open):
+#
+#   Directus does NOT serve /assets/:id to anonymous callers without a
+#   directus_files read grant. An anonymous GET /assets/<id> returns 403
+#   with "You don't have permission to access collection directus_files".
+#   Before FR-CMS-008 this file contained twelve `related_collection:
+#   directus_files` RELATION blocks but zero directus_files PERMISSION
+#   grants, so no anonymous asset had ever actually been served by this
+#   stack (the other file-bearing collections are all empty, which is why
+#   the gap went unnoticed).
+#
+# WHY IT IS FOLDER-SCOPED (this is the security-critical part):
+#
+#   An UNFILTERED directus_files read grant (permissions:{}) also lets an
+#   anonymous GET /files enumerate the ENTIRE file table — member avatars,
+#   partner logos, and every future internal upload, with their filenames.
+#   That would itself be a security finding. Scoping the grant to a single
+#   dedicated folder means anonymous users can read exactly the governance
+#   documents deliberately placed there and nothing else. Verified live:
+#   with this grant in place, /assets/<in-folder-id> → 200 with
+#   Content-Disposition: attachment, /assets/<out-of-folder-id> → 403, and
+#   GET /files lists ONLY the in-folder rows.
+#
+#   Do NOT relax `permissions` to {} and do NOT widen `fields` to ["*"].
+#
+# The id is a hardcoded constant rather than a name lookup so the
+# permission filter below can reference it literally and so it is
+# identical across every environment. Directus accepts a client-supplied
+# uuid on POST /folders (verified live). seed-content-documents.sh
+# uploads into this same id via its own PUBLIC_ASSET_FOLDER_ID default.
+PUBLIC_ASSET_FOLDER_ID="0f9b1c2d-3e4f-5a6b-8c9d-0e1f2a3b4c5d"
+
+echo "[FR-CMS-008 — public-assets folder]"
+ensure "folder public-documents" \
+  "${DIRECTUS_URL}/folders/${PUBLIC_ASSET_FOLDER_ID}" \
+  "${DIRECTUS_URL}/folders" \
+  "{\"id\":\"${PUBLIC_ASSET_FOLDER_ID}\",\"name\":\"public-documents\"}"
 
 # Public READ-ONLY grants (ensure_perm_for_policy — name-lookup on
 # $t:public_label, not a hardcoded UUID; see ISS-SEC-PUBLIC-UNMANAGED-001
@@ -5795,9 +5847,27 @@ if [ -n "${FR_CMS_007_PUBLIC_POLICY_ID}" ]; then
   ensure_perm_for_policy "${FR_CMS_007_PUBLIC_POLICY_ID}" "perm public content_pages/read" \
     content_pages read '{"status":{"_eq":"published"}}' \
     '["id","slug","status","title","subtitle","body_md","translations","date_updated"]'
+  # NOTE (FR-CMS-008): source_file MUST stay in this allowlist. Without it
+  # the field exists and is settable via an admin token, but serialises as
+  # absent on anonymous public reads — the /rules/{slug} download link then
+  # silently never renders, which looks like a frontend bug rather than a
+  # permissions gap. Do not trim this array when editing.
   ensure_perm_for_policy "${FR_CMS_007_PUBLIC_POLICY_ID}" "perm public content_documents/read" \
     content_documents read '{"status":{"_eq":"published"}}' \
-    '["id","slug","status","title","source_document_label","status_label","body_md","display_order"]'
+    '["id","slug","status","title","source_document_label","status_label","body_md","display_order","source_file"]'
+
+  # FR-CMS-008 — the grant that actually makes /assets/:id downloadable by
+  # anonymous visitors. Without it the source_file uuid serialises fine and
+  # the <a href> renders, but every click returns a 403 JSON blob instead of
+  # the document. See the PUBLIC_ASSET_FOLDER_ID block above for the full
+  # empirical rationale.
+  #
+  # The filter is what keeps this safe — it MUST stay folder-scoped, and
+  # `fields` MUST stay an explicit allowlist. An unfiltered grant lets an
+  # anonymous GET /files enumerate every asset in the instance.
+  ensure_perm_for_policy "${FR_CMS_007_PUBLIC_POLICY_ID}" "perm public directus_files/read" \
+    directus_files read "{\"folder\":{\"_eq\":\"${PUBLIC_ASSET_FOLDER_ID}\"}}" \
+    '["id","filename_download","type","filesize","title","folder"]'
 else
   echo "  ⚠ Public policy (\$t:public_label) not found — skipping public read for content_pages/content_documents."
 fi

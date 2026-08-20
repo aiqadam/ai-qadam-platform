@@ -1,0 +1,117 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260821-feat-213"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-21T00:00:00Z"
+last_updated_at: "2026-08-21T00:00:00Z"
+
+requirement_ref: "FR-CMS-008"
+requirement_text: >
+  On the Community Rules & Documents page (FR-CMS-007, /rules and
+  /rules/[slug]), each document detail page shows a source-attribution
+  label (e.g. "AI Qadam Manifesto.docx") naming the original file the
+  page's reflowed markdown content was sourced from. This label
+  currently looks like a filename/link but has no download mechanism
+  behind it — user-reported confusion: "I cannot download it."
+
+  Add a real download link for the original source document next to
+  (or replacing) that label, for all 5 content_documents rows
+  (manifesto, charter-v0-1, kazakhstan-mou, global-board-polozhenie-v1,
+  soglashenie-v1). Source .docx files are available locally at
+  portal-content/20260819/ (gitignored, not part of this diff — same
+  source material FR-CMS-007 used) and need to be uploaded as Directus
+  file assets, then linked to their corresponding content_documents row.
+
+  Follow the existing pattern this codebase already uses for
+  file-to-collection relations (see infrastructure/directus/bootstrap.sh:
+  partners.logo, speakers.photo, sponsors.logo — all
+  `related_collection: directus_files` with `on_delete: SET NULL`): add
+  a new `source_file` field on `content_documents` relating to
+  `directus_files.id`, upload the 5 source files via Directus's file
+  upload API, set each row's `source_file`, and render an actual
+  download link (using the file's real filename/extension, e.g. "AI
+  Qadam Manifesto.docx") on the /rules/[slug] page next to the existing
+  source_document_label text — do not remove the existing label, add
+  the link alongside or make the label itself the link target.
+
+  Design-system compliance required per
+  docs/04-development/design-system/Design system for AI agents/readme.md
+  (existing component classes, Lucide icons only — e.g. a download icon
+  if one is used, no raw hex).
+
+  This is scoped narrowly to Community Rules & Documents' 5 governance
+  documents. Do NOT extend to Events & History, Partner With Us, or
+  About Us — those pages don't have this source-attribution-without-link
+  pattern and are out of scope for this fix.
+
+branch: "feature/cms-008-rules-document-downloads"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/274"
+
+current_step: 9
+current_step_name: "update-documentation"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  requirement-validation: "passed"
+agent_assignments: {}
+retry_counts:
+  code-developer: 1
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/04-development/design-system/Design system for AI agents/readme.md
+  - docs/03-requirements/FR-CMS-007.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260821-feat-213/NEEDS_REVIEW.md"

@@ -847,6 +847,34 @@ function assetUrl(fileId: string | null): string | null {
   return `${directusBase()}/assets/${fileId}`;
 }
 
+/**
+ * FR-CMS-008 — asset URL for values emitted directly into browser-facing
+ * HTML, e.g. a user-clickable `<a href>` download link.
+ *
+ * Deliberately NOT `assetUrl()`. `directusBase()` is realm-dependent and
+ * every page that consumes this module runs with `prerender = false`, so
+ * `typeof window === 'undefined'` is always true at render time and
+ * `assetUrl()` therefore always resolves to INTERNAL_DIRECTUS_URL — the
+ * Docker-network alias `http://directus:8055`. That is correct for an SSR
+ * `fetch()` (it stays inside the compose network), but a browser cannot
+ * resolve it, and the plaintext `http://` scheme would additionally be a
+ * mixed-content downgrade from the HTTPS page. A link built that way is
+ * dead for every real visitor.
+ *
+ * The public base is unconditional here because this value's only consumer
+ * is the visitor's browser, never a server-side fetch.
+ *
+ * `assetUrl()` is left alone on purpose: its three existing callers
+ * (`marketing_assets` file/thumbnail) and the inline `${directusBase()}
+ * /assets/...` sites feed paths that may legitimately want the internal
+ * base. Widening the fix to those is a separate change with its own
+ * blast radius — see this feature's security review.
+ */
+function publicAssetUrl(fileId: string | null): string | null {
+  if (!fileId) return null;
+  return `${PUBLIC_DIRECTUS_URL}/assets/${fileId}`;
+}
+
 export interface FetchMarketingAssetsOpts {
   category: string | string[];
   limit?: number;
@@ -1070,6 +1098,13 @@ export interface CmsContentDocument {
   slug: string;
   title: string;
   sourceDocumentLabel: string | null;
+  /**
+   * FR-CMS-008 — direct download URL for the original source document,
+   * or null when the row has no source_file attached yet (the upload is
+   * an operator-run seed step, so null is a normal steady state and the
+   * page must render label-only without it).
+   */
+  sourceFileUrl: string | null;
   statusLabel: string | null;
   bodyMd: string | null;
   displayOrder: number;
@@ -1081,13 +1116,33 @@ interface CmsContentDocumentRow {
   status: string;
   title: string;
   source_document_label: string | null;
+  source_file: string | null;
   status_label: string | null;
   body_md: string | null;
   display_order: number | null;
 }
 
-const CONTENT_DOCUMENT_LIST_FIELDS = 'id,slug,status,title,source_document_label,status_label,display_order';
+const CONTENT_DOCUMENT_LIST_FIELDS =
+  'id,slug,status,title,source_document_label,source_file,status_label,display_order';
 const CONTENT_DOCUMENT_DETAIL_FIELDS = `${CONTENT_DOCUMENT_LIST_FIELDS},body_md`;
+
+/**
+ * FR-CMS-008 AC-6 — the download must arrive under the source document's
+ * real filename. `?download` is Directus's own asset flag: it switches
+ * Content-Disposition from `inline` to `attachment` and names the file
+ * from the asset's `filename_download`. The HTML `download` attribute
+ * alone is not enough here, since Directus is a different origin from
+ * web-next and browsers ignore the attribute cross-origin.
+ *
+ * Uses `publicAssetUrl()`, not `assetUrl()` — this string is rendered
+ * straight into an `<a href>` the visitor clicks, so it must carry the
+ * public HTTPS base rather than the internal Docker alias SSR would
+ * otherwise produce. See `publicAssetUrl()` for the full rationale.
+ */
+function sourceFileDownloadUrl(fileId: string | null): string | null {
+  const url = publicAssetUrl(fileId);
+  return url ? `${url}?download` : null;
+}
 
 function normalizeContentDocumentRow(row: CmsContentDocumentRow): CmsContentDocument {
   return {
@@ -1095,6 +1150,7 @@ function normalizeContentDocumentRow(row: CmsContentDocumentRow): CmsContentDocu
     slug: row.slug,
     title: row.title,
     sourceDocumentLabel: row.source_document_label,
+    sourceFileUrl: sourceFileDownloadUrl(row.source_file),
     statusLabel: row.status_label,
     bodyMd: row.body_md,
     displayOrder: row.display_order ?? 100,

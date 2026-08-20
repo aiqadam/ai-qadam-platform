@@ -240,6 +240,7 @@
     "empty_state": "No documents are published yet.",
     "back_to_library": "← Back to the document library",
     "read_document": "Read document →",
+    "download_source": "Download original",
     "not_found_title": "Document not found",
     "not_found_body": "This document may have been renamed or removed."
   },
