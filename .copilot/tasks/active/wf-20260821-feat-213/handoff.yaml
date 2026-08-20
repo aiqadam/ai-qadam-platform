@@ -48,7 +48,7 @@ requirement_text: >
 
 branch: "feature/cms-008-rules-document-downloads"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/274"
 
 current_step: 9
 current_step_name: "update-documentation"
