@@ -59,8 +59,28 @@ const bodyHtml = renderMarkdown(doc.bodyMd);
       )}
     </div>
 
-    {doc.sourceDocumentLabel && (
-      <p class="mb-8 font-mono text-xs text-muted-foreground">{doc.sourceDocumentLabel}</p>
+    {/*
+      FR-CMS-008 — the source-attribution label stays exactly as it was
+      (AC-7); the download link is an additive sibling, rendered only when
+      the row actually has a source_file attached. When it is null the
+      block below disappears entirely and the page renders as before
+      (AC-8) — never a dead or placeholder link.
+    */}
+    {(doc.sourceDocumentLabel || doc.sourceFileUrl) && (
+      <div class="mb-8 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {doc.sourceDocumentLabel && (
+          <p class="font-mono text-xs text-muted-foreground">{doc.sourceDocumentLabel}</p>
+        )}
+        {doc.sourceFileUrl && (
+          <a
+            href={doc.sourceFileUrl}
+            download
+            class="text-xs font-medium text-primary hover:underline"
+          >
+            {t('rules.download_source')}
+          </a>
+        )}
+      </div>
     )}
 
     {bodyHtml && <div class="prose prose-stone max-w-none" set:html={bodyHtml} />}

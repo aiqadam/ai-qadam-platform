@@ -206,6 +206,7 @@ interface CmsContentDocument {
   slug: string;
   title: string;
   sourceDocumentLabel: string | null;
+  sourceFileUrl: string | null;
   statusLabel: string | null;
   bodyMd: string | null;
   displayOrder: number;
@@ -217,9 +218,35 @@ interface CmsContentDocumentRow {
   status: string;
   title: string;
   source_document_label: string | null;
+  source_file: string | null;
   status_label: string | null;
   body_md: string | null;
   display_order: number | null;
+}
+
+// FR-CMS-008 — mirrors lib/cms.ts's PUBLIC_DIRECTUS_URL and its
+// publicAssetUrl() helper.
+//
+// The real module has TWO bases: directusBase() (internal docker alias
+// under SSR, used for fetches) and PUBLIC_DIRECTUS_URL (used for values
+// emitted into browser-facing HTML). Only the public one is mirrored here,
+// because the content-documents path this file covers is browser-facing;
+// mirroring directusBase() too would just be dead code. A regression that
+// switched sourceFileDownloadUrl() back to the internal base would show up
+// as a changed host in the asserted URLs below.
+const PUBLIC_DIRECTUS_BASE = 'https://cms.aiqadam.test';
+
+function publicAssetUrl(fileId: string | null): string | null {
+  if (!fileId) return null;
+  return `${PUBLIC_DIRECTUS_BASE}/assets/${fileId}`;
+}
+
+// FR-CMS-008 — mirrors lib/cms.ts's sourceFileDownloadUrl(): `?download`
+// makes Directus serve the asset as an attachment under its real
+// filename cross-origin (AC-6).
+function sourceFileDownloadUrl(fileId: string | null): string | null {
+  const url = publicAssetUrl(fileId);
+  return url ? `${url}?download` : null;
 }
 
 function normalizeContentDocumentRow(row: CmsContentDocumentRow): CmsContentDocument {
@@ -228,6 +255,7 @@ function normalizeContentDocumentRow(row: CmsContentDocumentRow): CmsContentDocu
     slug: row.slug,
     title: row.title,
     sourceDocumentLabel: row.source_document_label,
+    sourceFileUrl: sourceFileDownloadUrl(row.source_file),
     statusLabel: row.status_label,
     bodyMd: row.body_md,
     displayOrder: row.display_order ?? 100,
@@ -275,6 +303,7 @@ describe('fetchContentDocuments — happy path', () => {
         status: 'published',
         title: 'AI Qadam Manifesto',
         source_document_label: 'AI Qadam Manifesto.docx',
+        source_file: '11111111-2222-3333-4444-555555555555',
         status_label: 'Current',
         body_md: null,
         display_order: 10,
@@ -285,6 +314,7 @@ describe('fetchContentDocuments — happy path', () => {
         status: 'published',
         title: 'AI Qadam Global Board Положение v1.0',
         source_document_label: 'AI Qadam Global Board Положение (2).docx',
+        source_file: null,
         status_label: 'Superseded by Charter v0.1',
         body_md: null,
         display_order: 40,
@@ -312,6 +342,7 @@ describe('fetchContentDocuments — happy path', () => {
       status: 'published',
       title: 'X',
       source_document_label: null,
+      source_file: null,
       status_label: null,
       body_md: null,
       display_order: null,
@@ -328,6 +359,7 @@ describe('fetchContentDocument — single document (AC-3/AC-4)', () => {
       status: 'published',
       title: 'AI Qadam Соглашение v1.0',
       source_document_label: 'AI Qadam Soglashenie v1 (2).docx',
+      source_file: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
       status_label: 'Superseded by Charter v0.1',
       body_md: '## Основатель (Founder Global)',
       display_order: 50,
@@ -351,5 +383,248 @@ describe('fetchContentDocument — single document (AC-3/AC-4)', () => {
       body: { data: [] },
     });
     expect(result).toBeNull();
+  });
+});
+
+// ─── Tests: source_file → sourceFileUrl derivation (FR-CMS-008) ─────────────
+//
+// The one part of FR-CMS-008 that lives in TypeScript and can regress
+// silently on a future PR. The Directus half (schema, folder-scoped
+// permission grant, seed-script idempotency, Content-Disposition) was
+// verified against a live instance during security review and has no
+// CI-runnable equivalent — see 06-test-strategy.md.
+
+const SOURCE_FILE_UUID = '11111111-2222-3333-4444-555555555555';
+
+/** A published row with no source_file — the steady state on every
+ *  environment until an operator runs the seed script (AC-8). */
+function documentRowWithoutSourceFile(): CmsContentDocumentRow {
+  return {
+    id: '10',
+    slug: 'manifesto',
+    status: 'published',
+    title: 'AI Qadam Manifesto',
+    source_document_label: 'AI Qadam Manifesto.docx',
+    source_file: null,
+    status_label: 'Current',
+    body_md: '## Манифест',
+    display_order: 10,
+  };
+}
+
+/** The same row once its source_file has been uploaded and linked. */
+function documentRowWithSourceFile(): CmsContentDocumentRow {
+  return { ...documentRowWithoutSourceFile(), source_file: SOURCE_FILE_UUID };
+}
+
+describe('sourceFileDownloadUrl — derivation (AC-5, AC-6)', () => {
+  it('builds an assets URL from the file uuid', () => {
+    // Arrange
+    const fileId = SOURCE_FILE_UUID;
+
+    // Act
+    const url = sourceFileDownloadUrl(fileId);
+
+    // Assert
+    expect(url).toBe(`${PUBLIC_DIRECTUS_BASE}/assets/${SOURCE_FILE_UUID}?download`);
+  });
+
+  it('appends the ?download flag so Directus serves the real filename cross-origin (AC-6)', () => {
+    // Arrange
+    const fileId = SOURCE_FILE_UUID;
+
+    // Act
+    const url = sourceFileDownloadUrl(fileId);
+
+    // Assert
+    // Directus's own ?download flag is what switches Content-Disposition
+    // from inline to attachment. The HTML download attribute is ignored
+    // cross-origin, so dropping this flag would silently revert every
+    // download to an inline view under a uuid filename.
+    expect(url).toMatch(/\?download$/);
+  });
+
+  it('returns null when the row has no source_file attached (AC-8)', () => {
+    // Arrange
+    const fileId: string | null = null;
+
+    // Act
+    const url = sourceFileDownloadUrl(fileId);
+
+    // Assert
+    expect(url).toBeNull();
+  });
+
+  it('returns null for an empty-string file id rather than a base-only URL', () => {
+    // Arrange
+    const fileId = '';
+
+    // Act
+    const url = sourceFileDownloadUrl(fileId);
+
+    // Assert
+    expect(url).toBeNull();
+  });
+});
+
+describe('sourceFileDownloadUrl — public base, never the internal host (MAJOR-2)', () => {
+  // The href is rendered into browser-facing HTML, but the derivation runs
+  // under SSR where a realm-dependent base would resolve to the internal
+  // docker alias. That regression is silent: the link still renders, it
+  // just DNS-fails for every visitor. Asserted negatively as well as
+  // positively — PUBLIC_DIRECTUS_BASE is deliberately a different host
+  // from the internal one, so a switch back shows up here.
+
+  it('uses the public Directus base', () => {
+    // Arrange
+    const fileId = SOURCE_FILE_UUID;
+
+    // Act
+    const url = sourceFileDownloadUrl(fileId);
+
+    // Assert
+    expect(url?.startsWith(`${PUBLIC_DIRECTUS_BASE}/`)).toBe(true);
+  });
+
+  it('never emits the internal docker hostname', () => {
+    // Arrange
+    const fileId = SOURCE_FILE_UUID;
+
+    // Act
+    const url = sourceFileDownloadUrl(fileId);
+
+    // Assert
+    expect(url).not.toContain('directus:8055');
+    expect(url).not.toContain('//directus');
+  });
+
+  it('emits an https absolute URL, not a plaintext or relative one', () => {
+    // Arrange
+    const fileId = SOURCE_FILE_UUID;
+
+    // Act
+    const url = sourceFileDownloadUrl(fileId);
+
+    // Assert
+    expect(url).toMatch(/^https:\/\//);
+  });
+});
+
+describe('normalizeContentDocumentRow — source_file mapping (AC-7, AC-8)', () => {
+  it('derives sourceFileUrl when the row has a source_file', () => {
+    // Arrange
+    const row = documentRowWithSourceFile();
+
+    // Act
+    const doc = normalizeContentDocumentRow(row);
+
+    // Assert
+    expect(doc.sourceFileUrl).toBe(`${PUBLIC_DIRECTUS_BASE}/assets/${SOURCE_FILE_UUID}?download`);
+  });
+
+  it('leaves sourceFileUrl null when source_file is null (AC-8)', () => {
+    // Arrange
+    const row = documentRowWithoutSourceFile();
+
+    // Act
+    const doc = normalizeContentDocumentRow(row);
+
+    // Assert
+    expect(doc.sourceFileUrl).toBeNull();
+  });
+
+  it('keeps sourceDocumentLabel intact alongside the derived URL (AC-7)', () => {
+    // Arrange
+    const row = documentRowWithSourceFile();
+
+    // Act
+    const doc = normalizeContentDocumentRow(row);
+
+    // Assert
+    // The download link is additive — the label must not be displaced by it.
+    expect(doc.sourceDocumentLabel).toBe('AI Qadam Manifesto.docx');
+    expect(doc.sourceFileUrl).not.toBeNull();
+  });
+
+  it('still renders the label when source_file is null, so the page degrades to label-only (AC-8)', () => {
+    // Arrange
+    const row = documentRowWithoutSourceFile();
+
+    // Act
+    const doc = normalizeContentDocumentRow(row);
+
+    // Assert
+    expect(doc.sourceDocumentLabel).toBe('AI Qadam Manifesto.docx');
+    expect(doc.sourceFileUrl).toBeNull();
+  });
+
+  it('leaves every other mapped field untouched by the new derivation', () => {
+    // Arrange
+    const row = documentRowWithSourceFile();
+
+    // Act
+    const doc = normalizeContentDocumentRow(row);
+
+    // Assert
+    expect(doc.id).toBe('10');
+    expect(doc.slug).toBe('manifesto');
+    expect(doc.title).toBe('AI Qadam Manifesto');
+    expect(doc.statusLabel).toBe('Current');
+    expect(doc.bodyMd).toBe('## Манифест');
+    expect(doc.displayOrder).toBe(10);
+  });
+});
+
+describe('fetchContentDocument — sourceFileUrl on the detail path (AC-5, AC-8)', () => {
+  it('exposes sourceFileUrl for a row that has a source_file', async () => {
+    // Arrange
+    const row = documentRowWithSourceFile();
+
+    // Act
+    const result = await simulatedFetchContentDocument('manifesto', {
+      ok: true,
+      body: { data: [row] },
+    });
+
+    // Assert
+    expect(result?.sourceFileUrl).toBe(
+      `${PUBLIC_DIRECTUS_BASE}/assets/${SOURCE_FILE_UUID}?download`,
+    );
+  });
+
+  it('returns the document (not null) with a null sourceFileUrl when source_file is unset (AC-8)', async () => {
+    // Arrange
+    const row = documentRowWithoutSourceFile();
+
+    // Act
+    const result = await simulatedFetchContentDocument('manifesto', {
+      ok: true,
+      body: { data: [row] },
+    });
+
+    // Assert
+    // Absence degrades the field, never the page.
+    expect(result).not.toBeNull();
+    expect(result?.sourceFileUrl).toBeNull();
+    expect(result?.bodyMd).toBe('## Манифест');
+  });
+});
+
+describe('fetchContentDocuments — per-row source_file independence', () => {
+  it('derives a URL only for the rows that have a source_file', async () => {
+    // Arrange
+    const rows: CmsContentDocumentRow[] = [
+      documentRowWithSourceFile(),
+      { ...documentRowWithoutSourceFile(), id: '11', slug: 'charter-v0-1' },
+    ];
+
+    // Act
+    const result = await simulatedFetchContentDocuments({ ok: true, body: { data: rows } });
+
+    // Assert
+    expect(result[0]?.sourceFileUrl).toBe(
+      `${PUBLIC_DIRECTUS_BASE}/assets/${SOURCE_FILE_UUID}?download`,
+    );
+    expect(result[1]?.sourceFileUrl).toBeNull();
   });
 });

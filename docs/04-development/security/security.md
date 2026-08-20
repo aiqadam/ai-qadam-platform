@@ -294,6 +294,47 @@ Required before launch. Drafted with help from a lawyer or template (open-source
 - **`Content-Disposition` headers** correctly set.
 - **No direct access to private buckets.**
 
+### Directus assets (`/assets/:id`) — public serving requires an explicit, scoped grant
+
+Do **not** assume Directus serves `/assets/:id` to anonymous callers just
+because a collection has a `related_collection: directus_files` relation.
+**Relations are not permissions.** Verified empirically against a live Directus
+11 instance (FR-CMS-008, 2026-08-21): with no `directus_files` permission
+granted to the Public policy, an anonymous `GET /assets/<id>` returns `403
+FORBIDDEN` ("You don't have permission to access collection `directus_files`").
+The pre-existing file-relation fields (`partners.logo`, `speakers.photo`,
+`sponsors.logo`, `event_materials.file`, `marketing_assets.file`) do not
+disprove this — those collections are empty, so the path had never been
+exercised.
+
+When a requirement needs to serve a public asset from Directus:
+
+1. **Add an explicit `directus_files` `read` grant** for the Public policy in
+   `infrastructure/directus/bootstrap.sh`. Without it the link renders and every
+   click 403s.
+2. **Scope it — never grant it blanket.** An unfiltered grant lets an anonymous
+   `GET /files` enumerate every asset in the instance, including future private
+   uploads. Filter on a dedicated public folder
+   (`{"folder":{"_eq":"<PUBLIC_ASSET_FOLDER_ID>"}}`) and supply an explicit
+   `fields` allowlist. Never `permissions: {}`, never `fields: ["*"]`.
+3. **Restrict the field allowlist to non-sensitive metadata** — e.g. `id`,
+   `filename_download`, `type`, `filesize`, `title`, `folder`. Do **not** expose
+   `storage`, `filename_disk`, `uploaded_by`, or `metadata` (EXIF).
+4. **Upload into that folder**, passing the multipart `folder` part **before**
+   the `file` part — Directus applies already-parsed fields to the file it
+   creates, so a `folder` part sent afterwards is silently ignored and the asset
+   lands at the root, outside the grant.
+5. **Build browser-facing asset URLs from the public base**, never from a
+   realm-dependent helper that can resolve to the internal Docker hostname
+   (`http://directus:8055`) during SSR. See `publicAssetUrl()` in
+   `apps/web-next/src/lib/cms.ts`.
+6. **Use Directus's `?download` flag** where a real filename must be preserved —
+   the HTML `download` attribute is ignored cross-origin.
+
+Reference implementation and the bypass-probe results (filter inversion,
+`fields=*`, private-field requests, `limit=-1`, aggregate counts, relational
+traversal) are recorded in [`FR-CMS-008`](../../03-requirements/FR-CMS-008.md).
+
 ---
 
 ## Dependency security
