@@ -335,6 +335,37 @@ Reference implementation and the bypass-probe results (filter inversion,
 `fields=*`, private-field requests, `limit=-1`, aggregate counts, relational
 traversal) are recorded in [`FR-CMS-008`](../../03-requirements/FR-CMS-008.md).
 
+### `bootstrap.sh`'s `ensure()` pattern is collection-existence-checked, not field-existence-checked
+
+Found 2026-08-21 (`ISS-CMS-BOOTSTRAP-SOURCE-FILE-215`) re-running
+`infrastructure/directus/bootstrap.sh` against an environment (QA) whose
+`content_documents` collection already existed from an earlier bootstrap run.
+A new field (`source_file`, FR-CMS-008) had been added to that collection's
+own creation payload — but `ensure()` checks existence with a bare `GET` on
+the **collection** URL, and short-circuits the **entire** creation call,
+embedded fields included, the moment that `GET` returns 200. The field was
+silently never added on the already-existing instance; only a fresh Directus
+that had never seen `content_documents` before would get it. The same shape
+of bug independently hit `ensure_perm_for_policy`, whose existence check is
+`(policy, collection, action)` only — appending a new field to an
+already-existing permission row's `fields` allowlist was equally silently
+skipped.
+
+**Rule for future `bootstrap.sh` changes:** a field added to a collection
+that might already exist on some target environment needs its **own**
+dedicated `ensure "field <collection>.<field>" ...` call against
+`/fields/<collection>/<field>` (see the `events.translations` block for the
+reference pattern) — never rely on the field being picked up from inside a
+collection-creation payload alone. Likewise, a field appended to an existing
+permission's `fields` allowlist needs a dedicated PATCH-if-missing helper
+(`ensure_perm_fields_include()`, added by this fix) rather than assuming
+`ensure_perm_for_policy` will apply it. Both gaps are invisible on a
+genuinely fresh Directus instance, which is exactly why they went unnoticed
+until re-run against a non-fresh one — treat "works on Directus with the
+collection already present" as its own explicit test case for any bootstrap
+change that modifies an existing collection or permission, not just
+"passes against fresh."
+
 ---
 
 ## Dependency security

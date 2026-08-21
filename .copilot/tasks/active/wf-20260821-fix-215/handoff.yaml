@@ -1,0 +1,80 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260821-fix-215"
+workflow_type: "issue-resolution"
+workflow_version: "1.0"
+
+created_at: "2026-08-21T09:45:00Z"
+last_updated_at: "2026-08-21T09:45:00Z"
+
+requirement_ref: "ISS-CMS-BOOTSTRAP-SOURCE-FILE-215"
+requirement_text: "infrastructure/directus/bootstrap.sh silently skips adding content_documents.source_file (and its public-read allowlist entry) on any instance where content_documents already existed before FR-CMS-008 shipped — found live re-running against QA (ai-qadam-infra T-0141)"
+github_issue_url: ""
+
+branch: "fix/ISS-CMS-BOOTSTRAP-SOURCE-FILE-215-source-file-field-not-added"
+base_branch: "main"
+github_pr_url: ""
+
+current_step: 5
+current_step_name: "code-developer"
+workflow_status: "in-progress"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results:
+  fix:
+    status: pending
+    attempt: 1
+    timestamp: ""
+    summary: ""
+    output_file: ".copilot/issues/ISS-CMS-BOOTSTRAP-SOURCE-FILE-215.md"
+
+agent_assignments: {}
+
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created:
+  - "ISS-CMS-BOOTSTRAP-SOURCE-FILE-215"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts:
+  - ".copilot/issues/ISS-CMS-BOOTSTRAP-SOURCE-FILE-215.md"
+  - "scripts/tests/bootstrap-source-file-existing-collection.bats"
+
+context_refs:
+  - infrastructure/directus/bootstrap.sh
+  - infrastructure/directus/seed-content-documents.sh
+  - docs/03-requirements/FR-CMS-008.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ""
