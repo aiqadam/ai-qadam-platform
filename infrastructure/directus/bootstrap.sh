@@ -2898,6 +2898,46 @@ ensure_perm_for_policy() {
   fi
 }
 
+# FR-CMS-008 companion to ensure_perm_for_policy — that helper's
+# existence-check is (policy, collection, action) only, so a *new*
+# field appended to an already-existing permission's `fields` allowlist
+# is silently never applied on any instance where the permission row
+# predates the field (same class of gap as the collection/field bug
+# documented at the content_documents.source_file ensure() call above;
+# confirmed empirically 2026-08-21 against QA). This helper PATCHes the
+# permission's `fields` array to the given allowlist whenever the
+# required field is missing from what's currently stored — a no-op if
+# already present, so still safe to call unconditionally on every run.
+ensure_perm_fields_include() {
+  local policy_id="$1" kind="$2" collection="$3" action="$4" required_field="$5" fields_json="$6"
+  local row
+  row=$(curl -s -H "${H_AUTH}" \
+    "${DIRECTUS_URL}/permissions?filter%5Bpolicy%5D%5B_eq%5D=${policy_id}&filter%5Bcollection%5D%5B_eq%5D=${collection}&filter%5Baction%5D%5B_eq%5D=${action}&limit=1&fields=id,fields" \
+    2>/dev/null)
+  local perm_id has_field
+  perm_id=$(echo "${row}" | jq -r '.data[0].id // empty' 2>/dev/null)
+  if [ -z "${perm_id}" ]; then
+    echo "  ⚠ ${kind}: no existing permission row found — skipping fields-patch (ensure_perm_for_policy should have created it first)"
+    return 0
+  fi
+  has_field=$(echo "${row}" | jq -r --arg f "${required_field}" '(.data[0].fields // []) | index($f) != null' 2>/dev/null || echo false)
+  if [ "${has_field}" = "true" ]; then
+    echo "  ✓ ${kind} (fields already includes ${required_field})"
+    return 0
+  fi
+  if directus_request_with_retry PATCH "${DIRECTUS_URL}/permissions/${perm_id}" \
+       -H "${H_AUTH}" -H "${H_JSON}" --data "$(jq -nc --argjson flds "${fields_json}" '{fields:$flds}')"; then
+    echo "  ~ ${kind} (fields patched to include ${required_field})"
+  else
+    local last
+    last=$(cat /tmp/directus-last-code 2>/dev/null || echo "?")
+    echo "  ✗ ${kind} fields-patch HTTP ${last}"
+    head -c 300 /tmp/directus-retry-resp
+    echo
+    return 1
+  fi
+}
+
 # ISS-USR-PROFILE-002 / ISS-RBAC-PERMS-001 — policy.member's own-row grant
 # on directus_users, per ADR-0021 §4.1's "CRUD on own directus_users row".
 # This is the minimum slice needed for /me/profile to load without the
@@ -5782,6 +5822,27 @@ ensure "collection content_documents" \
     ]
   }'
 
+# FR-CMS-008 — source_file field. Declared inside content_documents's
+# own collection-creation payload above too, but that block is a no-op
+# on any instance where content_documents already existed before
+# FR-CMS-008 shipped (ensure()'s existence-check short-circuits the
+# whole collection payload, embedded fields included, the moment the
+# collection GET returns 200) — confirmed empirically 2026-08-21
+# against QA, which had content_documents from FR-CMS-007 (T-0136)
+# predating this feature. A dedicated field-level ensure() call, same
+# pattern as events.translations above, is required so the field is
+# added on any instance whose collection already existed at this
+# script version, not just genuinely-fresh ones.
+ensure "field content_documents.source_file" \
+  "${DIRECTUS_URL}/fields/content_documents/source_file" \
+  "${DIRECTUS_URL}/fields/content_documents" \
+  '{
+    "field":"source_file",
+    "type":"uuid",
+    "schema":{"is_nullable":true},
+    "meta":{"interface":"file","width":"full","note":"FR-CMS-008 — the original source document (.docx) offered as a real download link next to source_document_label on /rules/{slug}. Optional: when empty the page renders label-only, exactly as before."}
+  }'
+
 # FR-CMS-008 — source_file -> directus_files. SET NULL (not RESTRICT):
 # the document row's body_md stays fully servable if the uploaded asset
 # is ever deleted; only the download link disappears. Matches
@@ -5854,6 +5915,15 @@ if [ -n "${FR_CMS_007_PUBLIC_POLICY_ID}" ]; then
   # permissions gap. Do not trim this array when editing.
   ensure_perm_for_policy "${FR_CMS_007_PUBLIC_POLICY_ID}" "perm public content_documents/read" \
     content_documents read '{"status":{"_eq":"published"}}' \
+    '["id","slug","status","title","source_document_label","status_label","body_md","display_order"]'
+  # FR-CMS-008 — source_file, patched in separately (see
+  # ensure_perm_fields_include above): the ensure_perm_for_policy call
+  # just above is a no-op on any instance where this content_documents/
+  # read permission row already existed before FR-CMS-008 shipped (e.g.
+  # QA, seeded under FR-CMS-007/T-0136) — it only ever creates the row,
+  # never updates an existing row's `fields` allowlist.
+  ensure_perm_fields_include "${FR_CMS_007_PUBLIC_POLICY_ID}" "perm public content_documents/read fields" \
+    content_documents read source_file \
     '["id","slug","status","title","source_document_label","status_label","body_md","display_order","source_file"]'
 
   # FR-CMS-008 — the grant that actually makes /assets/:id downloadable by

@@ -172,6 +172,21 @@ PATCH fails and is reported, nothing is corrupted). Until both have run against
 a given environment, every row's `source_file` is null there and `/rules/[slug]`
 renders **label-only** — that is AC-8's required behaviour, **not a defect**.
 
+**Correction (2026-08-21, ISS-CMS-BOOTSTRAP-SOURCE-FILE-215):** re-running
+`bootstrap.sh` on an environment whose `content_documents` collection
+**already existed** (i.e. any environment that had already run FR-CMS-007's
+bootstrap before this PR merged, as QA had via T-0136) originally failed —
+`ensure()`'s existence-check short-circuits the whole collection-creation
+payload once the collection's `GET` returns 200, so the `source_file` field
+embedded in that payload was silently never added, and the relation-creation
+step then 400'd. The same gap independently affected the public-read
+allowlist patch. Fixed by adding a dedicated field-level `ensure()` call (same
+pattern as `events.translations`) plus a new `ensure_perm_fields_include()`
+helper that PATCHes an existing permission row's `fields` array when a
+required field is missing. Both fixes are no-ops on a genuinely fresh
+instance, so this correction changes nothing about the two-step operator
+sequence above — it only makes step 1 actually work on a non-fresh instance.
+
 ## Notes
 
 - **`?download` is what actually carries the real-filename guarantee.** The HTML
