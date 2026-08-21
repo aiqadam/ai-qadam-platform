@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-21 — `wf-20260821-fix-216` (merged).
+**Last updated:** 2026-08-21 — `wf-20260821-fix-217` (merged).
+**ISS-PROSE-TYPOGRAPHY-217 resolved — CMS document body text no longer renders unstyled ("formatting mush").**
+[wf-20260821-fix-217](../tasks/completed/wf-20260821-fix-217/handoff.yaml)
+(PR [#284](https://github.com/aiqadam/ai-qadam-platform/pull/284), squash-merged `4a82b7c`):
+User asked "where should this be fixed, platform or CMS?" after reporting `/rules/manifesto`'s body looked like unstyled "formatting mush" — investigation found the answer is squarely **platform**: five pages (`/rules/[slug]`, `/about`, `/history`, `/partners`, `/welcome/[slug]`) apply Tailwind's `prose prose-stone` classes to CMS-rendered markdown, but `@tailwindcss/typography` was never installed in this repo — the classes have been inert since FR-CMS-002/FR-CMS-007 shipped, and nobody had visually inspected a non-empty document body until now. Directus itself was never at fault; it correctly stores/serves the markdown, styling is purely a frontend concern. Installed the plugin (Tailwind 4 CSS-first `@plugin` registration in `globals.css`). Also found and fixed a second-order issue while at it: the plugin ships its own independent OKLCH color palette (`--tw-prose-*`), which would have violated the design system's "never add new color tokens" rule — added a `.prose` override rebinding every prose color variable to this project's existing tokens (`--foreground`, `--muted-foreground`, `--primary`, `--border`, `--muted`) so document body text follows the site's theme (incl. dark mode) instead of running a second, disconnected palette. Verified via direct compiled-CSS inspection (confirmed real heading/spacing rules generated, colors resolving to project tokens not plugin literals) and a standalone screenshot of a real document body (the Manifesto's actual markdown) rendered through the real `renderMarkdown()` pipeline — proper heading hierarchy, spacing, and theme-correct colors, no longer a wall of unstyled text. 1115/1115 `apps/web-next` unit tests pass, unchanged. `business_process: []` — CSS/dependency fix, no user-facing business-process surface; Step 13 skipped.
+
+**Prior last updated:** 2026-08-21 — `wf-20260821-fix-216` (merged).
 **ISS-NAV-WRAP-216 resolved — the top nav no longer wraps to two lines on the RU locale.**
 [wf-20260821-fix-216](../tasks/completed/wf-20260821-fix-216/handoff.yaml)
 (PR [#282](https://github.com/aiqadam/ai-qadam-platform/pull/282), squash-merged `7a2df92`):
