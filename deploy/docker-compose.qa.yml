@@ -264,17 +264,13 @@ services:
       # Read at SSR runtime from process.env, so a value change needs only a
       # container restart, not an image rebuild.
       #
-      # Deliberately left UNSET here: QA has no Directus vhost yet
-      # (cms.qa.aiqadam.org / directus.qa.aiqadam.org do not resolve), so
-      # there is no QA origin to point at. Unset falls back to the production
-      # default https://cms.aiqadam.org — which is why QA currently emits
-      # production download links. Set this once the QA vhost exists
-      # (infra, tracked alongside T-0141):
-      #   PUBLIC_DIRECTUS_URL: "https://cms.qa.aiqadam.org"
-      #
-      # Must be a public origin the browser can resolve — never the
-      # INTERNAL_DIRECTUS_URL value above — and https:// on an HTTPS site.
-      # PUBLIC_DIRECTUS_URL: ""
+      # Set (ai-qadam-infra T-0142): the QA Directus vhost now exists —
+      # cms.qa.aiqadam.org resolves, is nginx-proxied to 127.0.0.1:3119,
+      # and shares the qa.aiqadam.org certbot certificate via SAN
+      # expansion. Must be a public origin the browser can resolve —
+      # never the INTERNAL_DIRECTUS_URL value above — and https:// on an
+      # HTTPS site.
+      PUBLIC_DIRECTUS_URL: "https://cms.qa.aiqadam.org"
 
 volumes:
   authentik-media:
