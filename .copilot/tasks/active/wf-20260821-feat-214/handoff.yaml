@@ -1,0 +1,128 @@
+schema_version: "1.0"
+
+workflow_instance_id: "wf-20260821-feat-214"
+workflow_type: "requirement-development"
+workflow_version: "1.0"
+
+created_at: "2026-08-21T00:00:00Z"
+last_updated_at: "2026-08-21T00:00:00Z"
+
+requirement_ref: "FR-CMS-009"
+requirement_text: >
+  `apps/web-next/src/lib/cms.ts` hardcodes the public Directus origin as
+  a module constant:
+
+      const PUBLIC_DIRECTUS_URL = 'https://cms.aiqadam.org';   // L14
+
+  It has exactly two consumers (both in the same file): `directusBase()`
+  returns it on the client side (L30), and `publicAssetUrl()` builds
+  browser-facing asset URLs from it (L875) — the latter added by
+  FR-CMS-008 for the /rules source-document download links.
+
+  Because the value is hardcoded to the PRODUCTION hostname with no
+  environment override, any non-production deployment emits
+  browser-facing links pointing at production. Verified live 2026-08-21
+  on QA: the rendered download href would be
+  `https://cms.aiqadam.org/assets/<id>?download` regardless of
+  environment, and there is no QA Directus vhost at all
+  (`cms.qa.aiqadam.org` and `directus.qa.aiqadam.org` do not resolve;
+  `cms.aiqadam.org` itself currently returns 523). This makes the
+  FR-CMS-008 feature unverifiable and non-functional on QA, and blocked
+  infra task T-0141 before it touched anything.
+
+  Make the public Directus origin environment-configurable:
+  - Read it from an environment variable (name it consistently with this
+    codebase's existing conventions — check how other public/browser-
+    facing URLs are configured in apps/web-next before choosing; do NOT
+    invent a novel pattern if one exists).
+  - Default to the current production value (`https://cms.aiqadam.org`)
+    when unset, so production behavior is byte-identical and no
+    production deploy config change is required by this PR.
+  - Astro exposes build-time public env vars with a specific prefix
+    convention — confirm the actual mechanism this project uses
+    (`import.meta.env` vs `process.env`, and whether the value is needed
+    at build time, SSR time, or both) rather than assuming, since
+    `publicAssetUrl()` is called during SSR (the page is
+    `prerender = false`) while `directusBase()`'s client branch may run
+    in the browser.
+  - Update `.env.example` and any deploy/docs reference so a future
+    environment knows the knob exists.
+
+  Scope note: this changes ONLY how the public origin is resolved. Do not
+  alter `DEFAULT_INTERNAL_DIRECTUS_URL` / the server-side
+  `INTERNAL_DIRECTUS_URL` path — that half is correct and load-bearing
+  for SSR fetch performance. Do not change `assetUrl()`'s behavior for
+  its existing callers.
+
+  Known related gap, explicitly OUT of scope for this PR (infra, not
+  code): QA has no Directus vhost, so even after this change an operator
+  must expose QA's Directus at a QA hostname and set the new env var
+  accordingly. That is tracked separately on the infra side alongside
+  T-0141.
+
+branch: "feature/cms-009-configurable-public-cms-url"
+base_branch: "main"
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/276"
+
+current_step: 4
+current_step_name: "develop-code"
+workflow_status: "running"
+
+merge_mode: "auto"
+
+parent_link:
+  parent_workflow_id: ""
+  parent_branch: ""
+  parent_paused_at_step: 0
+  parent_paused_at_gate: ""
+  spawned_at: ""
+  spawned_by_issue: ""
+  resolution_for_parent: ""
+
+subworkflow_history: []
+subworkflow_retry_count: 0
+blocking_issue: ""
+paused_at_step: 0
+paused_at_gate: ""
+
+gate_results: {}
+agent_assignments: {}
+retry_counts: {}
+
+retry_limits:
+  requirement-analyst: 1
+  db-migration-author: 2
+  code-developer: 3
+  test-strategist: 2
+  test-designer: 3
+  doc-writer: 2
+  quality-gate: 3
+  subworkflow: 3
+
+issues_created: []
+issue_ref: ""
+
+deferrals: []
+
+expects_registry_update: true
+context_sync_commits: 0
+
+uat_target: "local"
+
+business_process: []
+
+post_merge_uat_runs: []
+
+artifacts: []
+
+context_refs:
+  - docs/04-development/architecture/architecture.md
+  - docs/04-development/standards.md
+  - docs/03-requirements/FR-CMS-008.md
+
+needs_review:
+  reason: ""
+  stopped_at_step: 0
+  stopped_at_step_name: ""
+  issue_ref: ""
+  artifact_file: ".copilot/tasks/active/wf-20260821-feat-214/NEEDS_REVIEW.md"

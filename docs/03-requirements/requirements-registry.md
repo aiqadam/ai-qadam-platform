@@ -29,7 +29,7 @@ Individual capability-level requirements live as `FR-<MODULE>-<NNN>.md` files in
 | Gamification | GAM | [FR-GAM-001](FR-GAM-001.md) · [002](FR-GAM-002.md) · [003](FR-GAM-003.md) · [004](FR-GAM-004.md) |
 | Notifications | NTF | [FR-NTF-001](FR-NTF-001.md) · [002](FR-NTF-002.md) · [003](FR-NTF-003.md) · [004](FR-NTF-004.md) · [005](FR-NTF-005.md) |
 | Telegram Bot | BOT | [FR-BOT-001](FR-BOT-001.md) · [002](FR-BOT-002.md) · [003](FR-BOT-003.md) |
-| CMS / Content | CMS | [FR-CMS-001](FR-CMS-001.md) · [002](FR-CMS-002.md) · [003](FR-CMS-003.md) · [004](FR-CMS-004.md) · [005](FR-CMS-005.md) · [006](FR-CMS-006.md) · [007](FR-CMS-007.md) · [008](FR-CMS-008.md) |
+| CMS / Content | CMS | [FR-CMS-001](FR-CMS-001.md) · [002](FR-CMS-002.md) · [003](FR-CMS-003.md) · [004](FR-CMS-004.md) · [005](FR-CMS-005.md) · [006](FR-CMS-006.md) · [007](FR-CMS-007.md) · [008](FR-CMS-008.md) · [009](FR-CMS-009.md) |
 | Admin / Operator | ADM | [FR-ADM-001](FR-ADM-001.md) · [002](FR-ADM-002.md) · [003](FR-ADM-003.md) · [004](FR-ADM-004.md) · [005](FR-ADM-005.md) · [006](FR-ADM-006.md) · [007](FR-ADM-007.md) · [008](FR-ADM-008.md) · [009](FR-ADM-009.md) · [010](FR-ADM-010.md) · [011](FR-ADM-011.md) |
 | CRM | CRM | [FR-CRM-001](FR-CRM-001.md) · [002](FR-CRM-002.md) · [003](FR-CRM-003.md) |
 | Ops / Infra | OPS | [FR-OPS-001](FR-OPS-001.md) |
@@ -112,6 +112,7 @@ All 61 FR files sorted by implementation dependencies. Items with no FR dependen
 | 68 | [FR-ADM-011](FR-ADM-011.md) | Admin user and role management screen | Shipped | ADM-005, ADM-007, ADM-008, ADM-010 |
 | 69 | [FR-CMS-007](FR-CMS-007.md) | Public content pages — About Us, Community Rules & Documents, Events & History, Partner With Us | Shipped | CMS-001 |
 | 70 | [FR-CMS-008](FR-CMS-008.md) | Community Rules & Documents — original source-file download link | Shipped | CMS-007 |
+| 71 | [FR-CMS-009](FR-CMS-009.md) | Environment-configurable public Directus origin | Shipped | CMS-008 |
 
 > **Note on CMS-004 / CMS-005:** both shipped in V1 against the existing `tg.dispatch.v1` notifier infrastructure (ADR-0034), not the planned aiogram bot (BOT-001). Their position above reflects this — they are independent of the BOT track.
 

@@ -11,12 +11,65 @@
 // if Directus is unreachable.
 
 const DEFAULT_INTERNAL_DIRECTUS_URL = 'http://directus:8055';
-const PUBLIC_DIRECTUS_URL = 'https://cms.aiqadam.org';
+
+/**
+ * FR-CMS-009 — production default for the public, browser-facing Directus
+ * origin. Kept as the fallback so an environment that sets nothing behaves
+ * byte-identically to the pre-FR-CMS-009 hardcoded constant, and no prod
+ * deploy config change is required by this feature.
+ */
+const DEFAULT_PUBLIC_DIRECTUS_URL = 'https://cms.aiqadam.org';
+
+/**
+ * FR-CMS-009 — resolves the public Directus origin used for values emitted
+ * into browser-facing HTML.
+ *
+ * MECHANISM IS LOAD-BEARING: this reads `process.env` at call time, NOT
+ * `import.meta.env`. `import.meta.env.PUBLIC_*` looks like the right pattern
+ * — `api-client.ts`'s `resolveBase()` appears to use it — but Vite inlines
+ * `import.meta.env` into a frozen literal object at `astro build` time, and
+ * this app's Dockerfile declares no build ARG, so no `PUBLIC_*` key is ever
+ * present in that literal. The compiled bundle proves it: in
+ * `dist/server/chunks/Layout_*.mjs`, `PUBLIC_API_URL` is destructured from an
+ * object containing only ASSETS_PREFIX/BASE_URL/DEV/MODE/PROD/SITE/SSR — i.e.
+ * that precedent is permanently `undefined` dead code, not a working pattern.
+ * `process.env` is read live in the SSR realm and is already how every other
+ * URL knob here is configured (INTERNAL_API_URL, INTERNAL_DIRECTUS_URL, HOST,
+ * PORT), so the value is changeable with one compose line and a restart — no
+ * image rebuild. The `PUBLIC_` NAME prefix is retained deliberately: Astro's
+ * prefix rule governs client-bundle exposure via `import.meta.env` and places
+ * no constraint on `process.env` key names, while the prefix still signals
+ * "this origin is emitted into browser-facing HTML".
+ *
+ * Pure and injectable so it is unit-testable without mutating the real
+ * environment (see cms-content-pages.test.ts).
+ *
+ * `process` is accessed defensively: `directusBase()`'s client branch calls
+ * this where `window` is defined, and `process` may be undefined if this
+ * module is ever pulled into a client bundle. The default must stay reachable
+ * without touching `process`.
+ *
+ * Empty / whitespace-only is treated as unset, mirroring `resolveBase()`'s
+ * `.length > 0` guard. Trailing slashes are NOT stripped — no existing helper
+ * in this app does, and the `INTERNAL_DIRECTUS_URL` values in the deploy
+ * compose files carry none.
+ */
+export function resolvePublicDirectusUrl(
+  env: { PUBLIC_DIRECTUS_URL?: string | undefined } | undefined = typeof process === 'undefined'
+    ? undefined
+    : process.env,
+): string {
+  const configured = env?.PUBLIC_DIRECTUS_URL;
+  if (typeof configured !== 'string') return DEFAULT_PUBLIC_DIRECTUS_URL;
+  const trimmed = configured.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_PUBLIC_DIRECTUS_URL;
+}
 
 function directusBase(): string {
   // Server side: prefer the internal docker-network alias so SSR
   // doesn't bounce through public DNS + TLS for every request.
-  // Client side: the public URL (cms.aiqadam.org). Pages should only
+  // Client side: the public URL (PUBLIC_DIRECTUS_URL, default
+  // cms.aiqadam.org). Pages should only
   // call these from frontmatter, but the dual-base keeps the module
   // usable from either realm just in case.
   //
@@ -27,7 +80,9 @@ function directusBase(): string {
     const { INTERNAL_DIRECTUS_URL } = process.env;
     return INTERNAL_DIRECTUS_URL ?? DEFAULT_INTERNAL_DIRECTUS_URL;
   }
-  return PUBLIC_DIRECTUS_URL;
+  // FR-CMS-009 — same resolved public origin publicAssetUrl() uses, so one
+  // module can never hold two divergent public bases.
+  return resolvePublicDirectusUrl();
 }
 
 async function get<T>(path: string): Promise<T> {
@@ -862,7 +917,11 @@ function assetUrl(fileId: string | null): string | null {
  * dead for every real visitor.
  *
  * The public base is unconditional here because this value's only consumer
- * is the visitor's browser, never a server-side fetch.
+ * is the visitor's browser, never a server-side fetch. "Unconditional" means
+ * realm-unconditional — no `typeof window` branch — which is what makes the
+ * internal-hostname and http:// downgrade impossible by construction.
+ * FR-CMS-009 makes the origin's VALUE environment-configurable without
+ * reintroducing a realm branch, so that invariant is preserved.
  *
  * `assetUrl()` is left alone on purpose: its three existing callers
  * (`marketing_assets` file/thumbnail) and the inline `${directusBase()}
@@ -872,7 +931,7 @@ function assetUrl(fileId: string | null): string | null {
  */
 function publicAssetUrl(fileId: string | null): string | null {
   if (!fileId) return null;
-  return `${PUBLIC_DIRECTUS_URL}/assets/${fileId}`;
+  return `${resolvePublicDirectusUrl()}/assets/${fileId}`;
 }
 
 export interface FetchMarketingAssetsOpts {
