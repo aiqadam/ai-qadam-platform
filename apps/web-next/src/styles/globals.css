@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
 
 /* L1 design tokens — apps/web-next/ greenfield build (ADR-0038).
  * The three design-system layers are imported here exactly as v1 does;
@@ -12,6 +11,11 @@
 @import "../../../../design-system/tokens.css";
 @import "../../../../design-system/components.css";
 @import "../../../../design-system/portal.css";
+
+/* @import rules must all precede other at-rules per CSS spec (and
+ * Biome's noInvalidPositionAtImportRule lint) — @plugin therefore comes
+ * after every @import above, not interleaved with them. */
+@plugin "@tailwindcss/typography";
 
 /* L2 kit ↔ Tailwind v4 theme bridge (PR-0c).
  *
