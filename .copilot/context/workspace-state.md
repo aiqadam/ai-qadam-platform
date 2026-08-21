@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-21 — `wf-20260821-fix-217` (merged).
+**Last updated:** 2026-08-21 — `wf-20260821-fix-218` (merged).
+**ISS-CI-CSS-IMPORT-ORDER-218 resolved — fixed a `ci-cd` build-lint regression that PR #284 introduced and that I initially, incorrectly, reported as CI-clean.**
+[wf-20260821-fix-218](../tasks/completed/wf-20260821-fix-218/handoff.yaml)
+(PR [#286](https://github.com/aiqadam/ai-qadam-platform/pull/286), squash-merged `61e8dd5`):
+PR #284 (ISS-PROSE-TYPOGRAPHY-217) inserted `@plugin "@tailwindcss/typography";` between the initial `@import "tailwindcss"` and the 3 design-system `@import` lines in `globals.css` — CSS spec requires every `@import` to precede all other at-rules, so Biome's `noInvalidPositionAtImportRule` correctly flagged the 3 design-system imports as invalid, breaking `ci-cd`'s `build`/`Lint` step on `main` immediately after merge. **Process failure, not just a code bug:** I had watched only the `ci` workflow (which happened to pass on a later, unrelated archival commit) and reported the merge as clean without ever checking `ci-cd` — the workflow whose `build` job actually runs this lint — on PR #284's own commit. User caught the real red `ci-cd`/`supply-chain` runs directly from the GitHub Actions UI. Fixed by moving `@plugin` to after all `@import` statements (functionally identical position for the plugin itself, only affects lint validity). This time, confirmed the fix by watching **both** `ci` and `ci-cd` to completion on PR #286's own exact commit SHA before reporting anything — both green (`build`: Lint/Typecheck/Build/Test/Docker builds all ✓). `pnpm audit (high+critical block)` remains red on `main`, confirmed via `gh run list` history as a **pre-existing** failure dating back to at least `05529a28` (well before today's nav/prose work) — unrelated `js-yaml`/`nanoid` transitive-dependency advisories, not introduced or worsened by either PR. **Lesson for future PRs in this repo: always watch every relevant CI workflow (`ci`, `ci-cd`, and any workflow whose job actually exercises the changed surface) on the exact commit being evaluated — never infer a merge's CI status from a different commit, even a nearby or "obviously unrelated" one.** `business_process: []` — CI/lint fix, no user-facing surface; Step 13 skipped.
+
+**Prior last updated:** 2026-08-21 — `wf-20260821-fix-217` (merged).
 **ISS-PROSE-TYPOGRAPHY-217 resolved — CMS document body text no longer renders unstyled ("formatting mush").**
 [wf-20260821-fix-217](../tasks/completed/wf-20260821-fix-217/handoff.yaml)
 (PR [#284](https://github.com/aiqadam/ai-qadam-platform/pull/284), squash-merged `4a82b7c`):
