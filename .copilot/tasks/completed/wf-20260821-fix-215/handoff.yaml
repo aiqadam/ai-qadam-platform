@@ -5,7 +5,7 @@ workflow_type: "issue-resolution"
 workflow_version: "1.0"
 
 created_at: "2026-08-21T09:45:00Z"
-last_updated_at: "2026-08-21T09:45:00Z"
+last_updated_at: "2026-08-21T10:15:00Z"
 
 requirement_ref: "ISS-CMS-BOOTSTRAP-SOURCE-FILE-215"
 requirement_text: "infrastructure/directus/bootstrap.sh silently skips adding content_documents.source_file (and its public-read allowlist entry) on any instance where content_documents already existed before FR-CMS-008 shipped — found live re-running against QA (ai-qadam-infra T-0141)"
@@ -13,11 +13,11 @@ github_issue_url: ""
 
 branch: "fix/ISS-CMS-BOOTSTRAP-SOURCE-FILE-215-source-file-field-not-added"
 base_branch: "main"
-github_pr_url: ""
+github_pr_url: "https://github.com/aiqadam/ai-qadam-platform/pull/280"
 
-current_step: 5
-current_step_name: "code-developer"
-workflow_status: "in-progress"
+current_step: 12
+current_step_name: "completed"
+workflow_status: "completed"
 
 parent_link:
   parent_workflow_id: ""
@@ -36,10 +36,10 @@ paused_at_gate: ""
 
 gate_results:
   fix:
-    status: pending
+    status: passed
     attempt: 1
-    timestamp: ""
-    summary: ""
+    timestamp: "2026-08-21T10:10:00Z"
+    summary: "Added dedicated field-level ensure() call for content_documents.source_file (matching the events.translations pattern) plus a new ensure_perm_fields_include() helper to PATCH the existing content_documents/read permission's fields allowlist. Both gaps only manifest when the collection/permission predates FR-CMS-008 — invisible on a fresh instance, found live re-running bootstrap.sh against QA. New static regression test (bootstrap-source-file-existing-collection.bats, 4/4 pass); sibling bootstrap-public-policy-name-lookup.bats unaffected (5/5 pass)."
     output_file: ".copilot/issues/ISS-CMS-BOOTSTRAP-SOURCE-FILE-215.md"
 
 agent_assignments: {}
