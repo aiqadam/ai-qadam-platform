@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* L1 design tokens — apps/web-next/ greenfield build (ADR-0038).
  * The three design-system layers are imported here exactly as v1 does;
@@ -66,4 +67,35 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* @tailwindcss/typography ↔ design-token bridge.
+ *
+ * The plugin ships its own `--tw-prose-*` OKLCH palette (stone gray),
+ * entirely independent of this project's own tokens. Per the design
+ * system's "never add new color tokens, always use var(--token-name)"
+ * rule, `.prose` (used for CMS-authored markdown body text on /rules,
+ * /about, /history, /partners, /welcome) is rebound here to the same
+ * tokens as the rest of the site, so document body copy follows theme
+ * switching (light/dark) exactly like every other surface instead of
+ * running a second, disconnected color system. Values assigned to
+ * project tokens only — no new hex, no new OKLCH literals introduced.
+ */
+.prose {
+  --tw-prose-body: var(--muted-foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-lead: var(--muted-foreground);
+  --tw-prose-links: var(--primary);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-counters: var(--muted-foreground);
+  --tw-prose-bullets: var(--border);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-code: var(--foreground);
+  --tw-prose-pre-bg: var(--muted);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
 }
