@@ -209,6 +209,16 @@ renders **label-only** — that is AC-8's required behaviour, **not a defect**.
   `source_file` stays null until an operator seeds — a download-link assertion
   would fail for an indeterminate window and then start passing with no code
   change. Flaky-by-construction was judged worse than absent.
+  **Correction (recorded during FR-CMS-009, 2026-08-21):** downstream work
+  repeatedly restated this as *"FR-CMS-008's existing E2E/UAT already covers the
+  rendered `href`."* **The UAT half is accurate; the E2E half is false.**
+  `apps/e2e/tests/smoke-content-pages.spec.ts` does cover `/rules` and
+  `/rules/[slug]` — but only FR-CMS-007 concerns: the 5-document listing,
+  terminology, the superseded label, unknown-slug handling, and traversal.
+  **No spec asserts the download link, `sourceFile`, or the emitted asset
+  origin**, so there is **no Playwright regression guard for this
+  requirement's surface** and none was inherited. Do not cite FR-CMS-008 as E2E
+  precedent for the download link.
 - **Community Rules & Documents remains Russian-only** for this pass, unchanged
   from FR-CMS-007. The new `rules.download_source` key is provided in both ru
   and en.

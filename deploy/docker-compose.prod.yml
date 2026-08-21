@@ -107,6 +107,14 @@ services:
       # network_mode: host and hangs ~10s per request before falling
       # back. Directus is out of scope for this environment by design.
       INTERNAL_DIRECTUS_URL: "http://127.0.0.1:1"
+      # FR-CMS-009 — public, BROWSER-FACING Directus origin for URLs emitted
+      # into HTML. Intentionally UNSET: apps/web-next/src/lib/cms.ts defaults
+      # to https://cms.aiqadam.org, which IS the production value, so prod
+      # behavior is byte-identical and this feature required no prod config
+      # change. Documented here only so the knob is discoverable alongside
+      # INTERNAL_DIRECTUS_URL — the two are distinct (that one is the
+      # server-to-server SSR fetch base and is never emitted into HTML).
+      # PUBLIC_DIRECTUS_URL: "https://cms.aiqadam.org"
 
 volumes:
   aiqadam_prod_pgdata:

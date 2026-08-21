@@ -5,8 +5,18 @@
 // lib/cms.ts exactly — same convention as cms-landing-page.test.ts and
 // cms.test.ts in this directory (avoids mocking process.env / global
 // fetch; the re-implementation is a line-for-line mirror).
+//
+// FR-CMS-009 adds the one deliberate exception: resolvePublicDirectusUrl is
+// imported from the REAL module rather than mirrored. Mirroring it would be
+// worse than useless here — the whole point of that function is which
+// mechanism it reads (process.env, not the build-frozen import.meta.env), and
+// a local copy would assert the mirror's mechanism, not the shipped one. It is
+// pure and takes its env as an injectable parameter, so importing it needs no
+// vi.mock, no global.fetch stub, and no mutation of the real environment. The
+// rest of this file keeps the mirror convention untouched.
 
 import { describe, expect, it } from 'vitest';
+import { resolvePublicDirectusUrl } from './cms';
 
 // ─── Local re-implementation: content_pages ────────────────────────────────
 
@@ -507,6 +517,204 @@ describe('sourceFileDownloadUrl — public base, never the internal host (MAJOR-
 
     // Assert
     expect(url).toMatch(/^https:\/\//);
+  });
+
+  // FR-CMS-009 (AC-5) — the guards above run against the mirror's own
+  // PUBLIC_DIRECTUS_BASE. Now that the shipped base is env-derived, the same
+  // invariant is re-asserted against the REAL resolver across every env shape
+  // an operator can produce, including unset. Extending rather than replacing:
+  // making the origin configurable is exactly the change that could erode
+  // MAJOR-2, so the guard has to cover the configurable path too.
+  const REAL_DOWNLOAD_URL = (env: { PUBLIC_DIRECTUS_URL?: string | undefined } | undefined) =>
+    `${resolvePublicDirectusUrl(env)}/assets/${SOURCE_FILE_UUID}?download`;
+
+  it.each([
+    ['env unset (empty env object)', {}],
+    ['PUBLIC_DIRECTUS_URL undefined', { PUBLIC_DIRECTUS_URL: undefined }],
+    ['PUBLIC_DIRECTUS_URL empty string', { PUBLIC_DIRECTUS_URL: '' }],
+    ['PUBLIC_DIRECTUS_URL whitespace-only', { PUBLIC_DIRECTUS_URL: '   ' }],
+    ['PUBLIC_DIRECTUS_URL overridden', { PUBLIC_DIRECTUS_URL: 'https://cms.qa.aiqadam.org' }],
+  ])(
+    'never emits the internal docker hostname and stays an https absolute URL — %s',
+    (_label, env) => {
+      // Act
+      const url = REAL_DOWNLOAD_URL(env);
+
+      // Assert
+      expect(url).not.toContain('directus:8055');
+      expect(url).not.toContain('//directus');
+      expect(url).toMatch(/^https:\/\//);
+      expect(url).toMatch(/\?download$/);
+    },
+  );
+});
+
+// ─── FR-CMS-009: resolvePublicDirectusUrl (real module, injectable env) ─────
+
+const PRODUCTION_PUBLIC_DIRECTUS_URL = 'https://cms.aiqadam.org';
+
+describe('resolvePublicDirectusUrl — default preserves production (AC-1)', () => {
+  it('returns the production origin when PUBLIC_DIRECTUS_URL is absent from env', () => {
+    // Arrange
+    const env = {};
+
+    // Act
+    const base = resolvePublicDirectusUrl(env);
+
+    // Assert
+    // Byte-identical to the pre-FR-CMS-009 hardcoded constant, so shipping
+    // this feature requires no production deploy config change.
+    expect(base).toBe(PRODUCTION_PUBLIC_DIRECTUS_URL);
+  });
+
+  it('returns the production origin when PUBLIC_DIRECTUS_URL is explicitly undefined', () => {
+    // Arrange
+    const env = { PUBLIC_DIRECTUS_URL: undefined };
+
+    // Act
+    const base = resolvePublicDirectusUrl(env);
+
+    // Assert
+    expect(base).toBe(PRODUCTION_PUBLIC_DIRECTUS_URL);
+  });
+
+  it('returns the production origin when no env argument is supplied at all', () => {
+    // Arrange
+    // CI does not set PUBLIC_DIRECTUS_URL, so the real process.env default
+    // path is exercised here without mutating the environment.
+
+    // Act
+    const base = resolvePublicDirectusUrl();
+
+    // Assert
+    expect(base).toBe(PRODUCTION_PUBLIC_DIRECTUS_URL);
+  });
+});
+
+describe('resolvePublicDirectusUrl — override is honored (AC-2)', () => {
+  it('returns the configured origin verbatim', () => {
+    // Arrange
+    const env = { PUBLIC_DIRECTUS_URL: 'https://cms.qa.aiqadam.org' };
+
+    // Act
+    const base = resolvePublicDirectusUrl(env);
+
+    // Assert
+    expect(base).toBe('https://cms.qa.aiqadam.org');
+  });
+
+  it('trims surrounding whitespace from a configured origin', () => {
+    // Arrange
+    // Compose/.env values pick up stray whitespace easily; an untrimmed base
+    // would produce a URL with a space in it.
+    const env = { PUBLIC_DIRECTUS_URL: '  https://cms.qa.aiqadam.org  ' };
+
+    // Act
+    const base = resolvePublicDirectusUrl(env);
+
+    // Assert
+    expect(base).toBe('https://cms.qa.aiqadam.org');
+  });
+
+  it('does not strip a trailing slash (no existing helper in this app does)', () => {
+    // Arrange
+    const env = { PUBLIC_DIRECTUS_URL: 'https://cms.qa.aiqadam.org/' };
+
+    // Act
+    const base = resolvePublicDirectusUrl(env);
+
+    // Assert
+    expect(base).toBe('https://cms.qa.aiqadam.org/');
+  });
+});
+
+describe('resolvePublicDirectusUrl — empty is treated as unset (AC-4)', () => {
+  it.each([
+    ['empty string', ''],
+    ['single space', ' '],
+    ['tabs and spaces', '\t  '],
+    ['newline', '\n'],
+  ])('falls back to the production default for %s', (_label, value) => {
+    // Arrange
+    const env = { PUBLIC_DIRECTUS_URL: value };
+
+    // Act
+    const base = resolvePublicDirectusUrl(env);
+
+    // Assert
+    // Must never yield '' — that would degrade the download href to a
+    // relative '/assets/<uuid>?download' against the web origin, a 404.
+    expect(base).toBe(PRODUCTION_PUBLIC_DIRECTUS_URL);
+    expect(base).not.toBe('');
+  });
+});
+
+describe('resolvePublicDirectusUrl — download href follows the override (AC-3)', () => {
+  it('derives <override-origin>/assets/<uuid>?download end to end', () => {
+    // Arrange
+    const env = { PUBLIC_DIRECTUS_URL: 'https://cms.qa.aiqadam.org' };
+
+    // Act
+    const url = `${resolvePublicDirectusUrl(env)}/assets/${SOURCE_FILE_UUID}?download`;
+
+    // Assert
+    // The configured origin AND the ?download flag (FR-CMS-008 AC-6) both
+    // survive the change.
+    expect(url).toBe(`https://cms.qa.aiqadam.org/assets/${SOURCE_FILE_UUID}?download`);
+  });
+});
+
+describe('resolvePublicDirectusUrl — both public consumers agree (AC-8)', () => {
+  it('yields one origin for directusBase()s client branch and publicAssetUrl()', () => {
+    // Arrange
+    // Both consumers in lib/cms.ts call this single resolver, so agreement is
+    // structural. Asserted here so a future refactor that reintroduces a
+    // second public base constant fails a test rather than shipping two
+    // divergent origins from one module.
+    const env = { PUBLIC_DIRECTUS_URL: 'https://cms.qa.aiqadam.org' };
+
+    // Act
+    const clientBranchBase = resolvePublicDirectusUrl(env);
+    const publicAssetBase = resolvePublicDirectusUrl(env);
+
+    // Assert
+    expect(clientBranchBase).toBe(publicAssetBase);
+  });
+});
+
+describe('resolvePublicDirectusUrl — runtime mechanism, not build-time (AC-10)', () => {
+  it('reads the env passed at CALL time, not a value frozen at module load', () => {
+    // Arrange
+    // This is the FR's whole point. import.meta.env is inlined by Vite into a
+    // frozen literal at `astro build` time and would return the same value
+    // forever; process.env is read live. Two calls with different env objects
+    // returning different results proves the value is not captured once.
+    const qa = { PUBLIC_DIRECTUS_URL: 'https://cms.qa.aiqadam.org' };
+    const staging = { PUBLIC_DIRECTUS_URL: 'https://cms.staging.aiqadam.org' };
+
+    // Act
+    const first = resolvePublicDirectusUrl(qa);
+    const second = resolvePublicDirectusUrl(staging);
+    const third = resolvePublicDirectusUrl(qa);
+
+    // Assert
+    expect(first).toBe('https://cms.qa.aiqadam.org');
+    expect(second).toBe('https://cms.staging.aiqadam.org');
+    expect(third).toBe('https://cms.qa.aiqadam.org');
+  });
+
+  it('tolerates a missing process/env without throwing (client-bundle safety)', () => {
+    // Arrange
+    // directusBase()'s client branch calls the resolver where `window` is
+    // defined. If cms.ts is ever pulled into a client bundle, `process` may be
+    // undefined; the default must remain reachable without touching it.
+    const env = undefined;
+
+    // Act
+    const base = resolvePublicDirectusUrl(env);
+
+    // Assert
+    expect(base).toBe(PRODUCTION_PUBLIC_DIRECTUS_URL);
   });
 });
 

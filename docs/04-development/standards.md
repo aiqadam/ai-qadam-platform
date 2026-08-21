@@ -347,6 +347,20 @@ ADR-0038 §Locks #1 forbids inline `style=` in blocks/pages and hardcoded colors
 
 When you add or rename a token in `design-system/tokens.css`, also add the matching line in the `@theme inline` block — otherwise the new token exists but no Tailwind utility exposes it (and renamed tokens silently fall back to whatever Tailwind defaults to). This coupling is brittle by design: it keeps the bridge minimal. If tokens.css ever moves to a generated/typed format, the bridge generates from the same source and this rule goes away.
 
+### Runtime configuration in `apps/web-next`: use `process.env`, never `import.meta.env`
+
+**Rule: any value that must be configurable per environment is read from `process.env` at call time. `import.meta.env.PUBLIC_*` is forbidden as a configuration mechanism in this app.** (Recorded via FR-CMS-009 after the trap was hit twice.)
+
+`import.meta.env` is **not** a runtime lookup. Vite replaces it with a **frozen literal object captured at `astro build` time**, and `apps/web-next/Dockerfile` declares no build `ARG`, so no `PUBLIC_*` key is ever present in that literal. The destructure yields `undefined` forever, in every container started from that image, and the code silently falls through to its hardcoded default.
+
+This is observed, not theoretical. `apps/web-next/src/lib/api-client.ts`'s `resolveBase()` **looks** like a working precedent for `import.meta.env.PUBLIC_API_URL`, but the compiled bundle in `dist/server/chunks/Layout_*.mjs` shows it destructuring from an object containing only `ASSETS_PREFIX` / `BASE_URL` / `DEV` / `MODE` / `PROD` / `SITE` / `SSR`. **`PUBLIC_API_URL` has never been set in any environment and cannot be.** Treat that call site as dead code and an anti-pattern, not a model to copy.
+
+- **`process.env` survives verbatim** into the bundle and is read live in the SSR realm. It is how every existing URL knob here is configured (`INTERNAL_API_URL`, `INTERNAL_DIRECTUS_URL`, `HOST`, `PORT`, `TELEGRAM_BOT_USERNAME`): one line in one compose file, changed by a container restart rather than an image rebuild.
+- **Keep the `PUBLIC_` name prefix** when the value is emitted into browser-facing HTML. Astro's prefix rule governs what `import.meta.env` exposes to *client bundles* and places no constraint on `process.env` key names. It is the access mechanism that is wrong, not the naming.
+- **Access `process` defensively** in any module reachable from a client bundle: `typeof process === 'undefined' ? undefined : process.env`, plus optional chaining in the body. A bare `process.env` read throws a `ReferenceError` during hydration.
+- **Prefer a pure, injectable resolver** — `resolve<Thing>(env = process.env)` — so the value is unit-testable with a literal object, without `vi.mock` and without mutating the real environment.
+- **How to verify any `PUBLIC_*` var:** grep the built chunk under `dist/server/` for the variable name. Destructured out of an object literal alongside `ASSETS_PREFIX` ⇒ build-frozen and permanently `undefined`. `process.env` present verbatim ⇒ live. Do this on the artifact; a unit test that mocks `import.meta.env` asserts the mock, not the bundle, and will pass while the deployed app stays misconfigured.
+
 ---
 
 ## Part IX — Logging and observability
