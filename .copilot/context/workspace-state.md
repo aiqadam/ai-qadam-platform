@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-21 — `wf-20260821-fix-215` (merged).
+**Last updated:** 2026-08-21 — `wf-20260821-fix-216` (merged).
+**ISS-NAV-WRAP-216 resolved — the top nav no longer wraps to two lines on the RU locale.**
+[wf-20260821-fix-216](../tasks/completed/wf-20260821-fix-216/handoff.yaml)
+(PR [#282](https://github.com/aiqadam/ai-qadam-platform/pull/282), squash-merged `7a2df92`):
+User-reported directly from a live QA screenshot: "Правила сообщества" (Community Rules) and "События и история" (Events & History) were too long to fit alongside the other 4 nav links + country/locale switchers + register CTA on one row, so the nav wrapped to a second line. Shortened `nav.rules`/`nav.history` to one word each in both locales — RU "Правила сообщества" → "Правила", "События и история" → "История"; EN (parity) "Community Rules" → "Rules", "Events & History" → "History". Page titles/headings on `/rules` and `/history` themselves are unchanged, only the nav link labels. Also added `whitespace-nowrap` to all 6 `<AppNav>` top-nav links so this class of wrap can't recur at other viewport widths. Updated `docs/04-development/architecture/blocks.md`'s `<AppNav>` catalogue entry per ADR-0038 §Locks #4 (block file changed → catalogue must be updated). 1115/1115 `apps/web-next` unit tests pass, unchanged; visually verified via a local dev server at 1024px/RU locale showing the nav on a single line. `pnpm audit (high+critical block)` failed on this PR's CI run, but confirmed pre-existing on `main` before this PR's commit landed (unrelated `supply-chain` job failure, zero dependency files touched by this change) — not investigated further as part of this fix. `business_process: []` — cosmetic nav copy/CSS fix, no user-facing business-process surface; Step 13 skipped.
+
+**Prior last updated:** 2026-08-21 — `wf-20260821-fix-215` (merged).
 **ISS-CMS-BOOTSTRAP-SOURCE-FILE-215 resolved — `bootstrap.sh` no longer silently skips `content_documents.source_file` (FR-CMS-008) on environments where that collection predates the field.**
 [wf-20260821-fix-215](../tasks/completed/wf-20260821-fix-215/handoff.yaml)
 (PR [#280](https://github.com/aiqadam/ai-qadam-platform/pull/280), merged `b495776`):
