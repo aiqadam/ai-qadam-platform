@@ -1,6 +1,12 @@
 # Workspace State
 
-**Last updated:** 2026-08-21 — `wf-20260821-fix-218` (merged).
+**Last updated:** 2026-08-21 — `wf-20260821-fix-219` (merged).
+**ISS-SUPPLY-CHAIN-JSYAML-NANOID-219 resolved — `supply-chain`'s `pnpm audit (high+critical block)` is green again, after being red on every `main` commit since well before this session's work started.**
+[wf-20260821-fix-219](../tasks/completed/wf-20260821-fix-219/handoff.yaml)
+(PR [#288](https://github.com/aiqadam/ai-qadam-platform/pull/288), squash-merged `d0320d0`):
+Two real high-severity transitive advisories, both pulled into `apps/storybook` via `@aiqadam/web-next`'s `astro`/`vite` chain: `js-yaml@4.3.0` (GHSA-5p4m-2wfm-xmqj, quadratic CPU in `!!omap` resolution, fixed `>=4.3.1`) and `nanoid@3.3.16` (GHSA-2v37-7h3g-55p8, custom generators loop indefinitely at size zero, fixed `>=3.3.18`). Fixed with two bounded `pnpm.overrides` entries (`js-yaml ">=4.3.1 <5.0.0"`, `nanoid ">=3.3.18 <4.0.0"`), same pattern as the existing `fast-uri`/`postcss` entries. **Bounded, not open-ended:** an initial `>=4.3.1`/`>=3.3.18` attempt resolved to `js-yaml@5.3.0`/`nanoid@6.0.1` — unwanted major-version jumps pnpm was free to pick since nothing else in the tree constrains the range; corrected to bounded ranges pinning exactly the patched version each advisory requires, confirmed via `pnpm why`. Verified: `pnpm audit --prod --audit-level=high` 0 high/critical (was 2); `apps/web-next` unit suite 1115/1115 pass; both `apps/web-next` and `apps/storybook` build successfully. **Confirmed via direct GitHub API queries (not just watch-command exit codes) on both the PR's own pre-merge commit and the resulting push-triggered `main` commit** that `ci`, `ci-cd`, and `supply-chain` are all green — the verification discipline established after an earlier false "CI is green" claim this session (ISS-CI-CSS-IMPORT-ORDER-218). `business_process: []` — dependency/CI fix, no user-facing surface; Step 13 skipped.
+
+**Prior last updated:** 2026-08-21 — `wf-20260821-fix-218` (merged).
 **ISS-CI-CSS-IMPORT-ORDER-218 resolved — fixed a `ci-cd` build-lint regression that PR #284 introduced and that I initially, incorrectly, reported as CI-clean.**
 [wf-20260821-fix-218](../tasks/completed/wf-20260821-fix-218/handoff.yaml)
 (PR [#286](https://github.com/aiqadam/ai-qadam-platform/pull/286), squash-merged `61e8dd5`):
